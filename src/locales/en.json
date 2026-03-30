@@ -1,0 +1,71 @@
+{
+  "common": {
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "refresh": "Refresh",
+    "unknown_error": "An unexpected error occurred."
+  },
+  "agency": {
+    "dashboard": "Agency Dashboard",
+    "refresh": "Refresh",
+    "daily_reward": "Daily Reward",
+    "claimed_today": "Claimed Today",
+    "earnings_reports": "Earnings Reports",
+    "audit_logging_active": "Audit Logging Active: All cycle and balance changes are permanently recorded.",
+    "cycle_history": {
+      "title": "Withdrawal Cycles History",
+      "description": "Historical view of all past and current withdrawal cycles",
+      "filter_placeholder": "Filter Status",
+      "all": "All",
+      "open": "Open",
+      "closed": "Closed",
+      "month": "Month",
+      "status": "Status",
+      "locked_amount": "Locked Amount",
+      "opened_at": "Opened At",
+      "notes": "Notes",
+      "no_cycles": "No withdrawal cycles found matching your criteria.",
+      "invalid": "Invalid"
+    },
+    "remove": {
+      "button": "Remove",
+      "confirm_title": "Remove Member?",
+      "confirm_body": "Are you sure you want to remove this member from your agency?",
+      "reason_label": "Reason (Optional)",
+      "reason_placeholder": "Why are you removing this member?",
+      "success_message": "Member removed successfully.",
+      "failed_message": "Failed to remove member. Please try again.",
+      "member_label": "Member",
+      "info_message": "They will be removed immediately.",
+      "removing": "Removing...",
+      "warning_alert": "They will be removed immediately. They can join another agency later, but current agency data for this user may be archived."
+    }
+  },
+  "client_earnings": {
+    "title": "Agency Members & Earnings",
+    "description": "Manage your agency members and view their contribution to your earnings.",
+    "search_placeholder": "Search member...",
+    "no_members": "No members in your agency yet.",
+    "no_matches": "No members found matching your search.",
+    "member_count": "Members",
+    "joined_label": "Joined",
+    "last_active_label": "Last active",
+    "earnings_label": "Earnings",
+    "loading_list": "Loading member list..."
+  },
+  "error": {
+    "not_authenticated": "User is not authenticated.",
+    "not_an_agent": "Caller is not an agent.",
+    "agent_inactive": "Agent account is suspended or inactive.",
+    "member_not_found": "Member not found.",
+    "not_in_agency": "This user is not currently in your agency.",
+    "cannot_remove_self": "You cannot remove yourself from the agency.",
+    "already_removed": "Member has already been removed.",
+    "pending_withdrawals": "Cannot remove member: They have pending withdrawal requests.",
+    "active_withdrawal_cycle": "Cannot remove member: They are part of an active withdrawal cycle.",
+    "internal_error": "An internal error occurred."
+  }
+}
