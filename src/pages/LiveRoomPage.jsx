@@ -6,6 +6,7 @@ import { useMiniRoom } from "@/contexts/MiniRoomContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import GiftPanel from "@/components/GiftPanel";
+import PeopleInRoomButton from "@/components/Room/PeopleInRoomButton";
 import { fetchUserWallet } from "@/lib/walletUtils";
 import { connectVoice } from "@/lib/livekit";
 import {
@@ -322,6 +323,7 @@ export default function LiveRoomPage() {
   const [activeParticipants, setActiveParticipants] = useState([]);
   const [participantsMap, setParticipantsMap] = useState({});
   const [showPeople, setShowPeople] = useState(false);
+  const [currentPeopleRanked, setCurrentPeopleRanked] = useState([]);
   const [messages, setMessages] = useState([]);
   const [roomGiftMessages, setRoomGiftMessages] = useState([]);
   const [roomGiftEffects, setRoomGiftEffects] = useState([]);
@@ -343,6 +345,56 @@ export default function LiveRoomPage() {
   const [kickOpen, setKickOpen] = useState(false);
   const [kickTargetId, setKickTargetId] = useState(null);
   const [kickBusy, setKickBusy] = useState(false);
+  async function fetchCurrentPeopleRanked(targetRoomId) {
+  if (!targetRoomId) {
+    setCurrentPeopleRanked([]);
+    return;
+  }
+
+  const onlineUsers = Array.isArray(activeParticipants) ? activeParticipants : [];
+  const onlineIds = [...new Set(onlineUsers.map((p) => p.user_id).filter(Boolean))];
+
+  if (!onlineIds.length) {
+    setCurrentPeopleRanked([]);
+    return;
+  }
+
+  const { data: sendersRows, error } = await supabase
+    .from("v_room_top_senders_alltime")
+    .select("*")
+    .eq("room_id", targetRoomId);
+
+  if (error) {
+    console.error("current people ranking error:", error);
+    setCurrentPeopleRanked([]);
+    return;
+  }
+
+  const sendersMap = new Map(
+    (sendersRows || []).map((row) => [row.sender_id, Number(row.total_coins || 0)])
+  );
+
+  const merged = onlineUsers.map((p) => ({
+    user_id: p.user_id,
+    name: p.display_name || "User",
+    avatar: p.avatar_url || "",
+    is_host: p.user_id === room?.owner_user_id,
+    support_coins: sendersMap.get(p.user_id) || 0,
+  }));
+
+  merged.sort((a, b) => {
+    if ((b.support_coins || 0) !== (a.support_coins || 0)) {
+      return (b.support_coins || 0) - (a.support_coins || 0);
+    }
+    return String(a.name || "").localeCompare(String(b.name || ""));
+  });
+
+  setCurrentPeopleRanked(merged);
+}
+useEffect(() => {
+  if (!roomId) return;
+  fetchCurrentPeopleRanked(roomId);
+}, [roomId, activeParticipants, room?.owner_user_id]);
   const [kickMinutes, setKickMinutes] = useState(10);
   const [banOpen, setBanOpen] = useState(false);
   const [banTargetId, setBanTargetId] = useState(null);
@@ -5205,14 +5257,10 @@ useEffect(() => {
             </div>
           </div>
 
-          <Button
-            variant="outline"
-            className="gap-1 shrink-0 h-8 px-2 rounded-lg text-xs"
-            onClick={() => setShowPeople(true)}
-          >
-            <Users className="w-3.5 h-3.5" />
-            {activeParticipants.length}
-          </Button>
+          <PeopleInRoomButton
+  people={currentPeopleRanked}
+  onClick={() => setShowPeople(true)}
+/>
 
           {canModerate ? (
             <button
