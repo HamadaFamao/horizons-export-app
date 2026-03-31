@@ -6,7 +6,7 @@ import { useMiniRoom } from "@/contexts/MiniRoomContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import GiftPanel from "@/components/GiftPanel";
-import PeopleInRoomButton from "@/components/Room/PeopleInRoomButton";
+import PeopleInRoomButton from "@/components/room/PeopleInRoomButton";
 import { fetchUserWallet } from "@/lib/walletUtils";
 import { connectVoice } from "@/lib/livekit";
 import {
