@@ -6153,43 +6153,63 @@ useEffect(() => {
           >
             <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border overflow-hidden">
               <div className="px-4 py-3 border-b flex items-center justify-between">
-                <div className="font-semibold">People in room ({activeParticipants.length})</div>
+                <div className="font-semibold">People in room ({currentPeopleRanked.length})</div>
                 <button className="text-sm text-slate-600 hover:text-slate-900" onClick={() => setShowPeople(false)}>
                   Close
                 </button>
               </div>
 
               <div className="max-h-[60vh] overflow-auto p-3 space-y-2">
-                {activeParticipants.length === 0 ? (
-                  <div className="text-sm text-slate-500 p-3">No one is currently in the room.</div>
-                ) : (
-                  activeParticipants.map((p) => (
-                    <button
-                      key={p.user_id}
-                      onClick={() => openUserCard(p.user_id)}
-                      className="w-full text-left border rounded-xl p-2 hover:bg-slate-50 transition flex items-center gap-3 cursor-pointer"
-                      title="Open user card"
-                    >
-                      <img
-                        src={p.avatar_url || FALLBACK_AVATAR}
-                        alt={p.display_name || "User"}
-                        onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
-                        className="w-11 h-11 rounded-full object-cover border bg-white cursor-pointer"
-                        onClick={(e) => { e.stopPropagation(); openUserCard(p.user_id); }}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <div
-                          className="font-semibold text-slate-900 truncate flex items-center cursor-pointer"
-                          onClick={(e) => { e.stopPropagation(); openUserCard(p.user_id); }}
-                        >
-                          <span className="truncate">{p.display_name || "User"}</span>
-                          {renderRoleBadge(p.user_id)}
-                        </div>
-                        
-                      </div>
-                    </button>
-                  ))
-                )}
+                {currentPeopleRanked.length === 0 ? (
+  <div className="text-sm text-slate-500 p-3">No one is currently in the room.</div>
+) : (
+  currentPeopleRanked.map((p, index) => (
+    <button
+      key={p.user_id || index}
+      onClick={() => openUserCard(p.user_id)}
+      className="w-full text-left border rounded-xl p-3 hover:bg-slate-50 transition flex items-center justify-between gap-3"
+      title="Open user card"
+    >
+      <div className="flex items-center gap-3 min-w-0">
+        <img
+          src={p.avatar || FALLBACK_AVATAR}
+          alt={p.name || "User"}
+          onError={(e) => {
+            e.currentTarget.src = FALLBACK_AVATAR;
+          }}
+          className="w-12 h-12 rounded-full object-cover border bg-white"
+        />
+
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-semibold text-slate-900 truncate">
+              {p.name || "User"}
+            </span>
+
+            {p.is_host ? (
+              <span className="text-[11px] px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-medium">
+                HOST
+              </span>
+            ) : null}
+          </div>
+
+          <div className="text-xs text-slate-500 mt-1">
+            Rank #{index + 1}
+          </div>
+        </div>
+      </div>
+
+      <div className="text-right shrink-0">
+        <div className="font-bold text-slate-900">
+          {(p.support_coins || 0).toLocaleString()}
+        </div>
+        <div className="text-[11px] text-slate-500">
+          Coins
+        </div>
+      </div>
+    </button>
+  ))
+)}
               </div>
             </div>
           </div>
