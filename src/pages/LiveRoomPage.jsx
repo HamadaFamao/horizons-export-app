@@ -47,7 +47,6 @@ import {
 } from "lucide-react";
 
 import LeaderboardModal from "@/components/LeaderboardModal";
-import { mockLeaderboardData } from "@/components/MockLeaderboardData";
 
 const FALLBACK_AVATAR =
   "data:image/svg+xml;utf8," +
@@ -57,12 +56,6 @@ const FALLBACK_AVATAR =
     <circle cx="64" cy="52" r="22" fill="#cbd5e1"/>
     <path d="M24 112c8-22 28-34 40-34s32 12 40 34" fill="#cbd5e1"/>
   </svg>`);
-
-function shortId(id) {
-  const s = String(id || "");
-  if (s.length <= 14) return s;
-  return `${s.slice(0, 8)}…${s.slice(-4)}`;
-}
 
 function isVipActive(profile) {
   if (!profile?.is_vip) return false;
@@ -369,7 +362,88 @@ export default function LiveRoomPage() {
   const [leaveRoomOpen, setLeaveRoomOpen] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [leaderboardTab, setLeaderboardTab] = useState("weekly");
-  const [leaderboardData, setLeaderboardData] = useState(mockLeaderboardData);
+  const [leaderboardData, setLeaderboardData] = useState([]);
+ async function fetchLeaderboard(targetRoomId, period = "alltime") {
+  if (!targetRoomId) return;
+
+  const source =
+    period === "weekly"
+      ? "v_room_top_senders_24h"
+      : "v_room_top_senders_alltime";
+
+  const coinsColumn =
+    period === "weekly"
+      ? "coins_sent_24h"
+      : "total_coins";
+
+  const userIdColumn =
+    period === "weekly"
+      ? "user_id"
+      : "sender_id";
+
+  const { data, error } = await supabase
+    .from(source)
+    .select("*")
+    .eq("room_id", targetRoomId)
+    .order(coinsColumn, { ascending: false })
+    .limit(20);
+
+  if (error) {
+    console.error("Leaderboard source error:", error);
+    setLeaderboardData([]);
+    return;
+  }
+
+  const rows = data || [];
+  const userIds = rows.map((row) => row[userIdColumn]).filter(Boolean);
+
+  if (!userIds.length) {
+    setLeaderboardData([]);
+    return;
+  }
+
+  const { data: profilesData, error: profilesError } = await supabase
+    .from("profiles")
+    .select("id, name, avatar_url, is_vip, vip_number")
+    .in("id", userIds);
+
+  if (profilesError) {
+    console.error("Leaderboard profiles error:", profilesError);
+    setLeaderboardData([]);
+    return;
+  }
+
+  const profilesMap = new Map(
+    (profilesData || []).map((p) => [p.id, p])
+  );
+
+  const formatted = rows.map((row, index) => {
+    const uid = row[userIdColumn];
+    const profile = profilesMap.get(uid);
+
+    return {
+      rank: index + 1,
+      user_id: uid,
+      name: profile?.name || "User",
+      avatar: profile?.avatar_url || "",
+      coins: Number(row[coinsColumn] || 0),
+      is_vip: !!profile?.is_vip,
+      vip_number: profile?.vip_number || null,
+      gifts_count: Number(row.gifts_count || 0),
+      last_at: row.last_at || null,
+    };
+  });
+
+  setLeaderboardData(formatted);
+}
+useEffect(() => {
+  if (!roomId) return;
+
+  fetchLeaderboard(
+    roomId,
+    leaderboardTab === "weekly" ? "weekly" : "alltime"
+  );
+}, [roomId, leaderboardTab]);
   const [miniRoomMode, setMiniRoomMode] = useState(false);
   const [giftPanelOpen, setGiftPanelOpen] = useState(false);
   const [giftTarget, setGiftTarget] = useState(null);
@@ -5121,7 +5195,6 @@ export default function LiveRoomPage() {
             <div className="font-semibold text-slate-900 truncate text-[13px]">{room?.title}</div>
 
             <div className="text-[10px] text-slate-500 flex items-center gap-1">
-              <span className="font-mono truncate">{shortId(roomId)}</span>
               <button
                 onClick={copyRoomId}
                 className="inline-flex items-center justify-center w-4 h-4 rounded text-slate-600 hover:text-slate-900 hover:bg-slate-100 shrink-0"
@@ -6064,7 +6137,7 @@ export default function LiveRoomPage() {
                           <span className="truncate">{p.display_name || "User"}</span>
                           {renderRoleBadge(p.user_id)}
                         </div>
-                        <div className="text-[11px] text-slate-500 font-mono truncate">{shortId(p.user_id)}</div>
+                        
                       </div>
                     </button>
                   ))
@@ -6118,7 +6191,6 @@ export default function LiveRoomPage() {
                             </span>
                           ) : null}
                         </div>
-                        <div className="text-xs text-slate-500 font-mono truncate">{shortId(selectedUserId)}</div>
 
                         <div className="mt-2 flex flex-wrap gap-2 text-[12px] text-slate-600">
                           <span className="px-2 py-0.5 rounded-full bg-slate-100 border">
@@ -6490,7 +6562,6 @@ export default function LiveRoomPage() {
                             className="w-10 h-10 rounded-full object-cover border bg-white" alt={p.display_name || "User"} />
                           <div className="min-w-0 flex-1">
                             <div className="font-semibold text-slate-900 truncate">{p.display_name || "User"}</div>
-                            <div className="text-[11px] text-slate-500 font-mono truncate">{shortId(p.user_id)}</div>
                           </div>
                         </button>
                       ))}
@@ -6612,7 +6683,6 @@ export default function LiveRoomPage() {
                               >
                                 {b.display_name || "User"}
                               </div>
-                              <div className="text-[11px] text-slate-500 font-mono truncate">{shortId(b.user_id)}</div>
                               <div className="text-[11px] text-slate-500 mt-0.5">
                                 {b.banned_until ? `Until: ${new Date(b.banned_until).toLocaleString()}` : "Permanent"}
                               </div>
@@ -6697,7 +6767,6 @@ export default function LiveRoomPage() {
                               >
                                 {r.requester_name || "User"}
                               </div>
-                              <div className="text-[10px] sm:text-[11px] text-slate-500 font-mono truncate">{shortId(r.user_id)}</div>
                             </div>
 
                             <span className="text-[10px] sm:text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">{r.status}</span>
