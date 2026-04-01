@@ -45,6 +45,7 @@ export default function UserCardModal({
 }) {
   if (!open) return null;
 
+  console.log("UserCardModal:", { open, cardLoading, selectedUserProfile });
   const cardName = selectedUserProfile?.name || "User";
   const cardAvatar = selectedUserProfile?.avatar_url || FALLBACK_AVATAR;
   const cardId = selectedUserProfile?.profile_id ?? null;
