@@ -6606,6 +6606,36 @@ useEffect(() => {
                   openUserCard(userId);
                 }}
               />
+
+              <UserCardModal
+  open={isUserCardOpen}
+  onClose={closeUserCard}
+  cardLoading={cardLoading}
+  selectedUserProfile={selectedUserProfile}
+  selectedUserId={selectedUserId}
+  isSelfCard={isSelfCard}
+  canShowOwnerTools={canShowOwnerTools}
+  isOwner={isOwner}
+  targetMutedActive={targetMutedActive}
+  moderatorsMap={moderatorsMap}
+  effectiveSeats={effectiveSeats}
+  FALLBACK_AVATAR={FALLBACK_AVATAR}
+  mentionUser={mentionUser}
+  openGiftPanelForUser={openGiftPanelForUser}
+  goToProfilePage={goToProfilePage}
+  toast={toast}
+  setInviteTargetUserId={setInviteTargetUserId}
+  setInviteOnlyMode={setInviteOnlyMode}
+  setSeatMenuSeatNo={setSeatMenuSeatNo}
+  setSeatMenuOpen={setSeatMenuOpen}
+  setInviteOpen={setInviteOpen}
+  muteUser={muteUser}
+  unmuteUser={unmuteUser}
+  openKickConfirm={openKickConfirm}
+  openBanConfirm={openBanConfirm}
+  assignModerator={assignModerator}
+  removeModerator={removeModerator}
+/>
             </div>
           </div>
         </div>
