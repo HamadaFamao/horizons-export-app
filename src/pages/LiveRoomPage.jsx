@@ -1614,6 +1614,11 @@ useEffect(() => {
   openUserCard(userId);
 };
 
+ const goToProfilePage = (userId) => {
+  if (!userId) return;
+  window.open(`/user/${userId}`, "_blank", "noopener,noreferrer");
+};
+
   const copyRoomId = async () => {
     try {
       await navigator.clipboard.writeText(String(roomId));
