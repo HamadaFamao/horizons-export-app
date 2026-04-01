@@ -1743,41 +1743,6 @@ useEffect(() => {
   }
 };
 
-    try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .maybeSingle();
-
-      console.log('[USER_CARD_PROFILE_RESULT]', data, error);
-
-      if (!mountedRef.current) return;
-
-      if (data) {
-        setSelectedUserProfile(data);
-      } else {
-        const p = activeParticipantsRef.current?.find((x) => String(x.user_id) === String(userId));
-        setSelectedUserProfile({
-          id: userId,
-          name: p?.display_name || "User",
-          avatar_url: p?.avatar_url || null,
-        });
-      }
-    } catch (err) {
-      console.error(err);
-      if (!mountedRef.current) return;
-      const p = activeParticipantsRef.current?.find((x) => String(x.user_id) === String(userId));
-      setSelectedUserProfile({
-        id: userId,
-        name: p?.display_name || "User",
-        avatar_url: p?.avatar_url || null,
-      });
-    } finally {
-      if (mountedRef.current) setCardLoading(false);
-    }
-  };
-
   const closeUserCard = () => {
     setIsUserCardOpen(false);
     setSelectedUserId(null);
