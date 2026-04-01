@@ -18,23 +18,25 @@ export default function PeopleInRoomButton({
         {topPeople.length > 0 ? (
           topPeople.map((user, index) => (
             <div
-              key={user.user_id || index}
-              className={`relative h-8 w-8 rounded-full ring-2 ring-black overflow-hidden bg-slate-200 ${
-                index === 0 ? "z-30" : index === 1 ? "z-20" : "z-10"
-              }`}
-            >
-              <img
-                src={user.avatar || "/default-avatar.png"}
-                alt={user.name || "User"}
-                className="h-full w-full object-cover"
-              />
+  key={user.user_id || index}
+  className={`relative ${
+    index === 0 ? "z-30" : index === 1 ? "z-20" : "z-10"
+  }`}
+>
+  <div className="h-8 w-8 rounded-full ring-2 ring-black overflow-hidden bg-slate-200">
+    <img
+      src={user.avatar || "/default-avatar.png"}
+      alt={user.name || "User"}
+      className="h-full w-full object-cover"
+    />
+  </div>
 
-              {index === 0 ? (
-                <span className="absolute -top-1 -right-1 text-[10px]">
-                  👑
-                </span>
-              ) : null}
-            </div>
+  {index === 0 ? (
+    <span className="absolute -top-1.5 -right-1.5 z-40 text-[11px] leading-none">
+      👑
+    </span>
+  ) : null}
+</div>
           ))
         ) : (
           <div className="flex items-center justify-center h-8 w-8 rounded-full bg-white/15 text-white text-xs">
