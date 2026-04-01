@@ -6222,61 +6222,56 @@ const goToProfilePage = (userId) => {
                   </div>
 
                   <div className="mt-2 flex flex-wrap gap-2 text-[12px] text-slate-600">
-                    {(selectedUserProfile?.profile_id || selectedUserProfile?.vip_id) ? (
-                      <span className="px-2 py-0.5 rounded-full bg-slate-100 border">
-                        ID:{" "}
-                        <b className="text-slate-800">
-                          {selectedUserProfile?.profile_id || selectedUserProfile?.vip_id}
-                        </b>
-                      </span>
-                    ) : null}
+  {(selectedUserProfile?.profile_id || selectedUserProfile?.vip_id) ? (
+    <span className="px-2 py-0.5 rounded-full bg-slate-100 border">
+      ID:{" "}
+      <b className="text-slate-800">
+        {selectedUserProfile?.profile_id || selectedUserProfile?.vip_id}
+      </b>
+    </span>
+  ) : null}
 
-                    {(selectedUserProfile?.level != null || cardLevel != null) ? (
-                      <span className="px-2 py-0.5 rounded-full bg-slate-100 border">
-                        Level:{" "}
-                        <b className="text-slate-800">
-                          {selectedUserProfile?.level ?? cardLevel}
-                        </b>
-                      </span>
-                    ) : null}
+  {selectedUserProfile?.level != null ? (
+    <span className="px-2 py-0.5 rounded-full bg-slate-100 border">
+      Level: <b className="text-slate-800">{selectedUserProfile.level}</b>
+    </span>
+  ) : null}
 
-                    {(selectedUserProfile?.family_name ||
-                      selectedUserProfile?.family?.name ||
-                      cardFamily) ? (
-                      <span className="px-2 py-0.5 rounded-full bg-slate-100 border">
-                        Family:{" "}
-                        <b className="text-slate-800">
-                          {selectedUserProfile?.family_name ||
-                            selectedUserProfile?.family?.name ||
-                            cardFamily}
-                        </b>
-                      </span>
-                    ) : null}
+  {(selectedUserProfile?.family_name ||
+    selectedUserProfile?.family?.name) ? (
+    <span className="px-2 py-0.5 rounded-full bg-slate-100 border">
+      Family:{" "}
+      <b className="text-slate-800">
+        {selectedUserProfile?.family_name ||
+          selectedUserProfile?.family?.name}
+      </b>
+    </span>
+  ) : null}
 
-                    {cardPlan ? (
-                      <span className="px-2 py-0.5 rounded-full bg-slate-100 border">
-                        Plan: <b className="text-slate-800">{cardPlan}</b>
-                      </span>
-                    ) : null}
+  {cardPlan ? (
+    <span className="px-2 py-0.5 rounded-full bg-slate-100 border">
+      Plan: <b className="text-slate-800">{cardPlan}</b>
+    </span>
+  ) : null}
 
-                    {cardAge != null ? (
-                      <span className="px-2 py-0.5 rounded-full bg-slate-100 border">
-                        Age: <b className="text-slate-800">{cardAge}</b>
-                      </span>
-                    ) : null}
+  {cardAge != null ? (
+    <span className="px-2 py-0.5 rounded-full bg-slate-100 border">
+      Age: <b className="text-slate-800">{cardAge}</b>
+    </span>
+  ) : null}
 
-                    {cardGender ? (
-                      <span className="px-2 py-0.5 rounded-full bg-slate-100 border">
-                        Gender: <b className="text-slate-800">{cardGender}</b>
-                      </span>
-                    ) : null}
+  {cardGender ? (
+    <span className="px-2 py-0.5 rounded-full bg-slate-100 border">
+      Gender: <b className="text-slate-800">{cardGender}</b>
+    </span>
+  ) : null}
 
-                    {cardOcc ? (
-                      <span className="px-2 py-0.5 rounded-full bg-slate-100 border">
-                        Job: <b className="text-slate-800">{cardOcc}</b>
-                      </span>
-                    ) : null}
-                  </div>
+  {cardOcc ? (
+    <span className="px-2 py-0.5 rounded-full bg-slate-100 border">
+      Job: <b className="text-slate-800">{cardOcc}</b>
+    </span>
+  ) : null}
+</div>
                 </div>
               </div>
 
