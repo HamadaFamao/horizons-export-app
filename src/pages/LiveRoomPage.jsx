@@ -12,6 +12,7 @@ import MicRequestsButton from "@/components/room/MicRequestsButton";
 import MicRequestsModal from "@/components/room/MicRequestsModal";
 import PkButton from "@/components/room/PkButton";
 import PkModal from "@/components/room/PkModal";
+import UserCardModal from "@/components/room/UserCardModal";
 import { fetchUserWallet } from "@/lib/walletUtils";
 import { connectVoice } from "@/lib/livekit";
 import {
@@ -342,7 +343,48 @@ export default function LiveRoomPage() {
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [selectedUserProfile, setSelectedUserProfile] = useState(null);
   const [cardLoading, setCardLoading] = useState(false);
+const fetchProfileCardData = async (userId) => {
+  if (!userId) return null;
 
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("id, profile_id, name, avatar_url, is_vip, plan")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (profileError || !profile) return null;
+
+  const { data: wallet } = await supabase
+    .from("wallets")
+    .select("level")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  const { data: membership } = await supabase
+    .from("agency_memberships")
+    .select("agency_id")
+    .eq("user_id", userId)
+    .is("left_at", null)
+    .maybeSingle();
+
+  let agencyName = null;
+
+  if (membership?.agency_id) {
+    const { data: agency } = await supabase
+      .from("agencies")
+      .select("name")
+      .eq("id", membership.agency_id)
+      .maybeSingle();
+
+    agencyName = agency?.name || null;
+  }
+
+  return {
+    ...profile,
+    level: wallet?.level ?? null,
+    agency_name: agencyName,
+  };
+};
   const [mutesMap, setMutesMap] = useState(new Map());
   const [myRoomRole, setMyRoomRole] = useState(null);
   const [roomRole, setRoomRole] = useState('guest');
@@ -1679,12 +1721,27 @@ useEffect(() => {
   };
 
   const openUserCard = async (userId) => {
-    if (!userId) return;
-    console.log('[USER_CARD_OPEN_START]', userId);
-    setIsUserCardOpen(true);
-    setSelectedUserId(userId);
-    setSelectedUserProfile(null);
-    setCardLoading(true);
+  if (!userId) return;
+
+  console.log('[USER_CARD_OPEN_START]', userId);
+
+  setIsUserCardOpen(true);
+  setSelectedUserId(userId);
+  setSelectedUserProfile(null);
+  setCardLoading(true);
+
+  try {
+    const profileData = await fetchProfileCardData(userId);
+
+    if (!mountedRef.current) return;
+
+    setSelectedUserProfile(profileData);
+  } catch (err) {
+    console.error("openUserCard error:", err);
+  } finally {
+    setCardLoading(false);
+  }
+};
 
     try {
       const { data, error } = await supabase
@@ -6151,85 +6208,35 @@ useEffect(() => {
   openUserCard={openUserCard}
 />
 
-      {isUserCardOpen ? (
-  <div className="fixed inset-0 z-[70]">
-    <div
-      className="absolute inset-0 bg-black/40"
-      onClick={closeUserCard}
-      aria-hidden="true"
-    />
-
-    <div
-      className="absolute inset-0 flex items-end sm:items-center justify-center p-3"
-      onClick={closeUserCard}
-    >
-      <div
-        className="w-full max-w-md bg-white rounded-2xl shadow-xl border overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="px-4 py-3 border-b flex items-center justify-between">
-          <div className="font-semibold flex items-center gap-2">
-            <UserIcon className="w-4 h-4 text-slate-600" />
-            User
-          </div>
-
-          <button
-            type="button"
-            className="text-sm text-slate-600 hover:text-slate-900"
-            onClick={closeUserCard}
-          >
-            Close
-          </button>
-        </div>
-
-        <div className="p-4">
-          {cardLoading ? (
-            <div className="flex items-center gap-2 text-slate-600">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Loading…
-            </div>
-          ) : selectedUserProfile ? (
-            <>
-              <div className="flex items-center gap-3">
-                <img
-                  src={cardAvatar}
-                  onError={(e) => {
-                    e.currentTarget.src = FALLBACK_AVATAR;
-                  }}
-                  alt={cardName}
-                  className="w-16 h-16 rounded-full object-cover border bg-white"
-                />
-
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <div className="font-semibold text-slate-900 truncate">
-                      {cardName}
-                    </div>
-
-                    {cardVerified ? (
-                      <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                        <BadgeCheck className="w-3.5 h-3.5" />
-                        Verified
-                      </span>
-                    ) : null}
-
-                    {cardVip ? (
-                      <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
-                        <Crown className="w-3.5 h-3.5" />
-                        VIP
-                      </span>
-                    ) : null}
-                  </div>
-
-                  <div className="mt-2 flex flex-wrap gap-2 text-[12px] text-slate-600">
-  {(selectedUserProfile?.profile_id || selectedUserProfile?.vip_id) ? (
-    <span className="px-2 py-0.5 rounded-full bg-slate-100 border">
-      ID:{" "}
-      <b className="text-slate-800">
-        {selectedUserProfile?.profile_id || selectedUserProfile?.vip_id}
-      </b>
-    </span>
-  ) : null}
+      <UserCardModal
+  open={isUserCardOpen}
+  onClose={closeUserCard}
+  cardLoading={cardLoading}
+  selectedUserProfile={selectedUserProfile}
+  selectedUserId={selectedUserId}
+  isSelfCard={isSelfCard}
+  canShowOwnerTools={canShowOwnerTools}
+  isOwner={isOwner}
+  targetMutedActive={targetMutedActive}
+  moderatorsMap={moderatorsMap}
+  effectiveSeats={effectiveSeats}
+  FALLBACK_AVATAR={FALLBACK_AVATAR}
+  mentionUser={mentionUser}
+  openGiftPanelForUser={openGiftPanelForUser}
+  goToProfilePage={goToProfilePage}
+  toast={toast}
+  setInviteTargetUserId={setInviteTargetUserId}
+  setInviteOnlyMode={setInviteOnlyMode}
+  setSeatMenuSeatNo={setSeatMenuSeatNo}
+  setSeatMenuOpen={setSeatMenuOpen}
+  setInviteOpen={setInviteOpen}
+  muteUser={muteUser}
+  unmuteUser={unmuteUser}
+  openKickConfirm={openKickConfirm}
+  openBanConfirm={openBanConfirm}
+  assignModerator={assignModerator}
+  removeModerator={removeModerator}
+/>
 
   {selectedUserProfile?.level != null ? (
     <span className="px-2 py-0.5 rounded-full bg-slate-100 border">
