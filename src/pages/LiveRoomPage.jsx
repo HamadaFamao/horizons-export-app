@@ -6712,10 +6712,6 @@ useEffect(() => {
   open={requestsOpen}
   onClose={() => setRequestsOpen(false)}
   requests={pendingRequests}
-  <MicRequestsModal
-  open={requestsOpen}
-  onClose={() => setRequestsOpen(false)}
-  requests={pendingRequests}
   canModerate={canModerate}
 />
 
