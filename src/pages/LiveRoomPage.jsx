@@ -1614,6 +1614,11 @@ useEffect(() => {
   openUserCard(userId);
 };
 
+const goToProfilePage = (userId) => {
+  if (!userId) return;
+  navigate(`/user/${userId}`);
+};
+
   const copyRoomId = async () => {
     try {
       await navigator.clipboard.writeText(String(roomId));
@@ -6256,14 +6261,16 @@ useEffect(() => {
                       </Button>
 
                       <Button
-  className="gap-2"
-  onClick={() => {
-    closeUserCard();
-    goToProfilePage(selectedUserId);
-  }}
->
-  View Profile
-</Button>
+                       className="gap-2"
+                       onClick={() => {
+                        closeUserCard();
+                        goToProfilePage(selectedUserId);
+                        }}
+                      >
+                        <User className="w-4 h-4" />
+                        View Profile
+                      </Button>
+                    </div>
 
                     {canShowOwnerTools ? (
                       <div className="mt-4 border-t pt-3">
