@@ -6712,6 +6712,8 @@ useEffect(() => {
   open={requestsOpen}
   onClose={() => setRequestsOpen(false)}
   requests={pendingRequests}
+  onApprove={handleApproveRequest}
+  onReject={handleRejectRequest}
   canModerate={canModerate}
 />
 
@@ -6827,7 +6829,23 @@ useEffect(() => {
   open={showPkModal}
   onClose={() => setShowPkModal(false)}
   pkBusy={pkBusy}
-  onStartPk={handleStartPkSession}
+  pkMode={pkMode}
+  setPkMode={setPkMode}
+  pkSeatsA={pkSeatsA}
+  setPkSeatsA={setPkSeatsA}
+  pkSeatsB={pkSeatsB}
+  setPkSeatsB={setPkSeatsB}
+  pkSeatA={pkSeatA}
+  setPkSeatA={setPkSeatA}
+  pkSeatB={pkSeatB}
+  setPkSeatB={setPkSeatB}
+  pkDuration={pkDuration}
+  setPkDuration={setPkDuration}
+  occupiedPkEligibleSeats={occupiedPkEligibleSeats}
+  togglePkSeat={togglePkSeat}
+  getRequiredPkTeamSize={getRequiredPkTeamSize}
+  fallbackAvatar={FALLBACK_AVATAR}
+  onCreatePk={handleCreatePk}
 />
 
       {giftPanelOpen && (

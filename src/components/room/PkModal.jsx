@@ -3,8 +3,24 @@ import React from "react";
 export default function PkModal({
   open,
   onClose,
-  pkBusy = false,
-  onStartPk,
+  pkBusy,
+  pkMode,
+  setPkMode,
+  pkSeatsA,
+  setPkSeatsA,
+  pkSeatsB,
+  setPkSeatsB,
+  pkSeatA,
+  setPkSeatA,
+  pkSeatB,
+  setPkSeatB,
+  pkDuration,
+  setPkDuration,
+  occupiedPkEligibleSeats,
+  togglePkSeat,
+  getRequiredPkTeamSize,
+  fallbackAvatar,
+  onCreatePk,
 }) {
   if (!open) return null;
 
