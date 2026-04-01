@@ -6256,15 +6256,14 @@ useEffect(() => {
                       </Button>
 
                       <Button
-                        className="gap-2"
-                        onClick={() => {
-                          closeUserCard();
-                          openProfile(selectedUserId);
-                        }}
-                      >
-                        View Profile
-                      </Button>
-                    </div>
+  className="gap-2"
+  onClick={() => {
+    closeUserCard();
+    goToProfilePage(selectedUserId);
+  }}
+>
+  View Profile
+</Button>
 
                     {canShowOwnerTools ? (
                       <div className="mt-4 border-t pt-3">
