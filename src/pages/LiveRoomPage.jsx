@@ -1610,9 +1610,9 @@ useEffect(() => {
   };
 
   const openProfile = (userId) => {
-    if (!userId) return;
-    navigate(`/user/${userId}`);
-  };
+  if (!userId) return;
+  openUserCard(userId);
+};
 
   const copyRoomId = async () => {
     try {
