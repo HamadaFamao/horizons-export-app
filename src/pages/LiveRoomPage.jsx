@@ -6153,7 +6153,7 @@ useEffect(() => {
           >
             <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border overflow-hidden">
               <div className="px-4 py-3 border-b flex items-center justify-between">
-                <div className="font-semibold">People in room ({currentPeopleRanked.length})</div>
+                <div className="font-semibold">People in room NEW ({currentPeopleRanked.length})</div>
                 <button className="text-sm text-slate-600 hover:text-slate-900" onClick={() => setShowPeople(false)}>
                   Close
                 </button>
