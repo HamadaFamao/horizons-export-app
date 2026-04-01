@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React from "react";
 
 export default function MicRequestsModal({
   open,
@@ -8,31 +8,18 @@ export default function MicRequestsModal({
   onReject,
   canModerate = false,
 }) {
-  useEffect(() => {
-    if (open) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "auto";
-    }
-
-    return () => {
-      document.body.style.overflow = "auto";
-    };
-  }, [open]);
-
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-50">
-      <div
-        className="absolute inset-0 bg-black/40"
-        onClick={onClose}
-        aria-hidden="true"
-      />
+      <div className="absolute inset-0 bg-black/40" aria-hidden="true" />
 
-      <div className="absolute inset-0 flex items-end sm:items-center justify-center p-3">
+      <div
+        className="absolute inset-0 flex items-end sm:items-center justify-center p-3"
+        onClick={onClose}
+      >
         <div
-          className="w-full max-w-md bg-white rounded-2xl shadow-xl border overflow-hidden animate-in slide-in-from-bottom-5 fade-in duration-300"
+          className="w-full max-w-md bg-white rounded-2xl shadow-xl border overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="px-4 py-3 border-b flex items-center justify-between">
