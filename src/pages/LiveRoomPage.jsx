@@ -5268,7 +5268,7 @@ useEffect(() => {
           {canModerate ? (
   <MicRequestsButton
     count={pendingRequests.length}
-    onClick={() => setRequestsOpen(true)}
+    onClick={() => setRequestsOpen(prev => !prev)}
   />
 ) : null}
 
