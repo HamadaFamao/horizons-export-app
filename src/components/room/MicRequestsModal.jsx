@@ -12,13 +12,15 @@ function getRequesterName(req) {
 }
 
 function getRequesterSecondary(req) {
-  return (
+  const value =
     req?.profile_id ||
     req?.vip_id ||
     req?.public_id ||
     req?.requester_profile_id ||
-    ""
-  );
+    req?.user_id?.slice?.(0, 8) ||
+    "";
+
+  return value ? `ID: ${value}` : "";
 }
 
 function getRequesterAvatar(req) {
@@ -37,6 +39,7 @@ export default function MicRequestsModal({
   onApprove,
   onReject,
   canModerate = false,
+  openUserCard,
 }) {
   if (!open) return null;
 
@@ -82,27 +85,38 @@ export default function MicRequestsModal({
                   className="w-full border rounded-xl p-3 bg-white flex items-center justify-between gap-3"
                 >
                   <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <img
-                      src={getRequesterAvatar(req)}
-                      alt={getRequesterName(req)}
-                      className="w-12 h-12 rounded-full object-cover bg-slate-100 shrink-0"
-                      onError={(e) => {
-                        e.currentTarget.src = "/default-avatar.png";
-                      }}
-                    />
+  <button
+    type="button"
+    className="shrink-0"
+    onClick={() => openUserCard?.(req.user_id)}
+    title="Open user card"
+  >
+    <img
+      src={getRequesterAvatar(req)}
+      alt={getRequesterName(req)}
+      className="w-12 h-12 rounded-full object-cover bg-slate-100"
+      onError={(e) => {
+        e.currentTarget.src = "/default-avatar.png";
+      }}
+    />
+  </button>
 
-                    <div className="min-w-0">
-                      <div className="font-semibold text-slate-900 truncate">
-                        {getRequesterName(req)}
-                      </div>
+  <div className="min-w-0">
+    <button
+      type="button"
+      onClick={() => openUserCard?.(req.user_id)}
+      className="font-semibold text-slate-900 truncate hover:text-blue-600 transition text-left"
+    >
+      {getRequesterName(req)}
+    </button>
 
-                      {getRequesterSecondary(req) ? (
-                        <div className="text-xs text-slate-500 truncate mt-1">
-                          {getRequesterSecondary(req)}
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
+    {getRequesterSecondary(req) ? (
+      <div className="text-xs text-slate-500 truncate mt-1">
+        {getRequesterSecondary(req)}
+      </div>
+    ) : null}
+  </div>
+</div>
 
                   {canModerate ? (
                     <div className="flex items-center gap-2 shrink-0">

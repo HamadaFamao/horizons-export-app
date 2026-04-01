@@ -6715,6 +6715,7 @@ useEffect(() => {
   onApprove={acceptRequest}
   onReject={rejectRequest}
   canModerate={canModerate}
+  openUserCard={openUserCard}
 />
 
       {leaveRoomOpen ? (
