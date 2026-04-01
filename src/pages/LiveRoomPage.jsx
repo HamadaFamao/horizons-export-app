@@ -6152,217 +6152,297 @@ const goToProfilePage = (userId) => {
 />
 
       {isUserCardOpen ? (
-        <div className="fixed inset-0 z-[70]">
-          <div className="absolute inset-0 bg-black/40" onClick={closeUserCard} aria-hidden="true" />
-          <div className="absolute inset-0 flex items-end sm:items-center justify-center p-3">
-            <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border overflow-hidden">
-              <div className="px-4 py-3 border-b flex items-center justify-between">
-                <div className="font-semibold flex items-center gap-2">
-                  <UserIcon className="w-4 h-4 text-slate-600" />
-                  User
-                </div>
-                <button className="text-sm text-slate-600 hover:text-slate-900" onClick={closeUserCard}>
-                  Close
-                </button>
-              </div>
+  <div className="fixed inset-0 z-[70]">
+    <div
+      className="absolute inset-0 bg-black/40"
+      onClick={closeUserCard}
+      aria-hidden="true"
+    />
 
-              <div className="p-4">
-                {cardLoading ? (
-                  <div className="flex items-center gap-2 text-slate-600">
-                    <Loader2 className="w-4 h-4 animate-spin" /> Loading…
-                  </div>
-                ) : selectedUserProfile ? (
-                  <>
-                    <div className="flex items-center gap-3">
-                      <img
-                        src={cardAvatar}
-                        onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
-                        alt={cardName}
-                        className="w-16 h-16 rounded-full object-cover border bg-white"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <div className="font-semibold text-slate-900 truncate">{cardName}</div>
-                          {cardVerified ? (
-                            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                              <BadgeCheck className="w-3.5 h-3.5" /> Verified
-                            </span>
-                          ) : null}
-                          {cardVip ? (
-                            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
-                              <Crown className="w-3.5 h-3.5" /> VIP
-                            </span>
-                          ) : null}
-                        </div>
+    <div
+      className="absolute inset-0 flex items-end sm:items-center justify-center p-3"
+      onClick={closeUserCard}
+    >
+      <div
+        className="w-full max-w-md bg-white rounded-2xl shadow-xl border overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-4 py-3 border-b flex items-center justify-between">
+          <div className="font-semibold flex items-center gap-2">
+            <UserIcon className="w-4 h-4 text-slate-600" />
+            User
+          </div>
 
-                        <div className="mt-2 flex flex-wrap gap-2 text-[12px] text-slate-600">
-                          <span className="px-2 py-0.5 rounded-full bg-slate-100 border">
-                            Plan: <b className="text-slate-800">{cardPlan}</b>
-                          </span>
-                          {cardAge != null ? (
-                            <span className="px-2 py-0.5 rounded-full bg-slate-100 border">
-                              Age: <b className="text-slate-800">{cardAge}</b>
-                            </span>
-                          ) : null}
-                          {cardGender ? (
-                            <span className="px-2 py-0.5 rounded-full bg-slate-100 border">
-                              Gender: <b className="text-slate-800">{cardGender}</b>
-                            </span>
-                          ) : null}
-                          {cardCountry ? (
-                            <span className="px-2 py-0.5 rounded-full bg-slate-100 border">
-                              Country: <b className="text-slate-800">{cardCountry}</b>
-                            </span>
-                          ) : null}
-                          {cardLiving ? (
-                            <span className="px-2 py-0.5 rounded-full bg-slate-100 border">
-                              Living: <b className="text-slate-800">{cardLiving}</b>
-                            </span>
-                          ) : null}
-                          {cardOcc ? (
-                            <span className="px-2 py-0.5 rounded-full bg-slate-100 border">
-                              Job: <b className="text-slate-800">{cardOcc}</b>
-                            </span>
-                          ) : null}
-                        </div>
-                      </div>
+          <button
+            type="button"
+            className="text-sm text-slate-600 hover:text-slate-900"
+            onClick={closeUserCard}
+          >
+            Close
+          </button>
+        </div>
+
+        <div className="p-4">
+          {cardLoading ? (
+            <div className="flex items-center gap-2 text-slate-600">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Loading…
+            </div>
+          ) : selectedUserProfile ? (
+            <>
+              <div className="flex items-center gap-3">
+                <img
+                  src={cardAvatar}
+                  onError={(e) => {
+                    e.currentTarget.src = FALLBACK_AVATAR;
+                  }}
+                  alt={cardName}
+                  className="w-16 h-16 rounded-full object-cover border bg-white"
+                />
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="font-semibold text-slate-900 truncate">
+                      {cardName}
                     </div>
 
-                    <div className="mt-4 grid grid-cols-2 gap-2">
-                      <Button variant="outline" className="gap-2" disabled={isSelfCard} onClick={() => mentionUser(selectedUserProfile)}>
-                        <AtSign className="w-4 h-4" />
-                        Mention
-                      </Button>
-
-                      <Button
-                        variant="outline"
-                        className="gap-2"
-                        disabled={isSelfCard}
-                        onClick={() => {
-                          toast("❤️ Like (soon)", 1200);
-                          closeUserCard();
-                        }}
-                      >
-                        <Heart className="w-4 h-4" />
-                        Like
-                      </Button>
-
-                      <Button
-                        variant="outline"
-                        className="gap-2"
-                        disabled={isSelfCard}
-                        onClick={() => {
-                          openGiftPanelForUser(selectedUserProfile);
-                          closeUserCard();
-                        }}
-                      >
-                        <Gift className="w-4 h-4" />
-                        Send Gift
-                      </Button>
-
-                      <Button
-                       className="gap-2"
-                       onClick={() => {
-                        closeUserCard();
-                        goToProfilePage(selectedUserId);
-                        }}
-                      >
-                        View Profile
-                      </Button>
-                    
-                    
-                    {canShowOwnerTools ? (
-                      <div className="mt-4 border-t pt-3">
-                        <div className="text-xs text-slate-500 mb-2">Owner / Moderator tools</div>
-
-                        <div className="grid grid-cols-2 gap-2">
-                          <Button variant="outline" className="gap-2" onClick={() => {
-                            if (!selectedUserId) return;
-                            const firstEmptySeatNo =
-                              (effectiveSeats || [])
-                                .filter((s) => !s.user_id && !s.locked)
-                                .sort((a, b) => (a.seat_no || 0) - (b.seat_no || 0))[0]?.seat_no ?? null;
-
-                            if (!firstEmptySeatNo) {
-                              toast("No empty seat", 1200);
-                              return;
-                            }
-
-                            setInviteTargetUserId(selectedUserId);
-                            setInviteOnlyMode(true);
-                            setSeatMenuSeatNo(firstEmptySeatNo);
-                            closeUserCard();
-                            setSeatMenuOpen(true);
-                            setInviteOpen(true);
-                          }}>
-                            <Mic className="w-4 h-4" />
-                            Invite Mic
-                          </Button>
-
-                          <Button
-                            variant="outline"
-                            className="gap-2"
-                            onClick={async () => {
-                              if (!selectedUserId) return;
-                              if (targetMutedActive) await unmuteUser(selectedUserId);
-                              else await muteUser(selectedUserId);
-                              closeUserCard();
-                            }}
-                          >
-                            <XCircle className="w-4 h-4" />
-                            {targetMutedActive ? "Unmute Chat" : "Mute Chat"}
-                          </Button>
-
-                          <Button
-                            variant="outline"
-                            className="gap-2"
-                            onClick={() => {
-                              if (!selectedUserId) return;
-                              openKickConfirm(selectedUserId);
-                              closeUserCard();
-                            }}
-                          >
-                            <X className="w-4 h-4" />
-                            Kick
-                          </Button>
-
-                          <Button
-                            className="gap-2 bg-rose-600 hover:bg-rose-700"
-                            onClick={() => {
-                              if (!selectedUserId) return;
-                              openBanConfirm(selectedUserId);
-                              closeUserCard();
-                            }}
-                          >
-                            <ShieldBan className="w-4 h-4" />
-                            Ban
-                          </Button>
-
-                          {isOwner ? (
-                            <Button
-                              variant="outline"
-                              className="gap-2"
-                              onClick={() => {
-                                if (!selectedUserId) return;
-                                if (moderatorsMap.has(selectedUserId)) removeModerator(selectedUserId);
-                                else assignModerator(selectedUserId);
-                                closeUserCard();
-                              }}
-                            >
-                              <Shield className="w-4 h-4" />
-                              {moderatorsMap.has(selectedUserId) ? "Remove Mod" : "Make Mod"}
-                            </Button>
-                          ) : null}
-                        </div>
-                      </div>
+                    {cardVerified ? (
+                      <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <BadgeCheck className="w-3.5 h-3.5" />
+                        Verified
+                      </span>
                     ) : null}
-                  </>
-                ) : null}
+
+                    {cardVip ? (
+                      <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+                        <Crown className="w-3.5 h-3.5" />
+                        VIP
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <div className="mt-2 flex flex-wrap gap-2 text-[12px] text-slate-600">
+                    {(selectedUserProfile?.profile_id || selectedUserProfile?.vip_id) ? (
+                      <span className="px-2 py-0.5 rounded-full bg-slate-100 border">
+                        ID:{" "}
+                        <b className="text-slate-800">
+                          {selectedUserProfile?.profile_id || selectedUserProfile?.vip_id}
+                        </b>
+                      </span>
+                    ) : null}
+
+                    {(selectedUserProfile?.level != null || cardLevel != null) ? (
+                      <span className="px-2 py-0.5 rounded-full bg-slate-100 border">
+                        Level:{" "}
+                        <b className="text-slate-800">
+                          {selectedUserProfile?.level ?? cardLevel}
+                        </b>
+                      </span>
+                    ) : null}
+
+                    {(selectedUserProfile?.family_name ||
+                      selectedUserProfile?.family?.name ||
+                      cardFamily) ? (
+                      <span className="px-2 py-0.5 rounded-full bg-slate-100 border">
+                        Family:{" "}
+                        <b className="text-slate-800">
+                          {selectedUserProfile?.family_name ||
+                            selectedUserProfile?.family?.name ||
+                            cardFamily}
+                        </b>
+                      </span>
+                    ) : null}
+
+                    {cardPlan ? (
+                      <span className="px-2 py-0.5 rounded-full bg-slate-100 border">
+                        Plan: <b className="text-slate-800">{cardPlan}</b>
+                      </span>
+                    ) : null}
+
+                    {cardAge != null ? (
+                      <span className="px-2 py-0.5 rounded-full bg-slate-100 border">
+                        Age: <b className="text-slate-800">{cardAge}</b>
+                      </span>
+                    ) : null}
+
+                    {cardGender ? (
+                      <span className="px-2 py-0.5 rounded-full bg-slate-100 border">
+                        Gender: <b className="text-slate-800">{cardGender}</b>
+                      </span>
+                    ) : null}
+
+                    {cardOcc ? (
+                      <span className="px-2 py-0.5 rounded-full bg-slate-100 border">
+                        Job: <b className="text-slate-800">{cardOcc}</b>
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="gap-2"
+                  disabled={isSelfCard}
+                  onClick={() => mentionUser(selectedUserProfile)}
+                >
+                  <AtSign className="w-4 h-4" />
+                  Mention
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="gap-2"
+                  disabled={isSelfCard}
+                  onClick={() => {
+                    toast("❤️ Like (soon)", 1200);
+                    closeUserCard();
+                  }}
+                >
+                  <Heart className="w-4 h-4" />
+                  Like
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="gap-2"
+                  disabled={isSelfCard}
+                  onClick={() => {
+                    openGiftPanelForUser(selectedUserProfile);
+                    closeUserCard();
+                  }}
+                >
+                  <Gift className="w-4 h-4" />
+                  Send Gift
+                </Button>
+
+                <Button
+                  type="button"
+                  className="gap-2"
+                  onClick={() => {
+                    closeUserCard();
+                    goToProfilePage(selectedUserId);
+                  }}
+                >
+                  View Profile
+                </Button>
+              </div>
+
+              {canShowOwnerTools ? (
+                <div className="mt-4 border-t pt-3">
+                  <div className="text-xs text-slate-500 mb-2">
+                    Owner / Moderator tools
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="gap-2"
+                      onClick={() => {
+                        if (!selectedUserId) return;
+
+                        const firstEmptySeatNo =
+                          (effectiveSeats || [])
+                            .filter((s) => !s.user_id && !s.locked)
+                            .sort(
+                              (a, b) => (a.seat_no || 0) - (b.seat_no || 0)
+                            )[0]?.seat_no ?? null;
+
+                        if (!firstEmptySeatNo) {
+                          toast("No empty seat", 1200);
+                          return;
+                        }
+
+                        setInviteTargetUserId(selectedUserId);
+                        setInviteOnlyMode(true);
+                        setSeatMenuSeatNo(firstEmptySeatNo);
+                        closeUserCard();
+                        setSeatMenuOpen(true);
+                        setInviteOpen(true);
+                      }}
+                    >
+                      <Mic className="w-4 h-4" />
+                      Invite Mic
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="gap-2"
+                      onClick={async () => {
+                        if (!selectedUserId) return;
+                        if (targetMutedActive) await unmuteUser(selectedUserId);
+                        else await muteUser(selectedUserId);
+                        closeUserCard();
+                      }}
+                    >
+                      <XCircle className="w-4 h-4" />
+                      {targetMutedActive ? "Unmute Chat" : "Mute Chat"}
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="gap-2"
+                      onClick={() => {
+                        if (!selectedUserId) return;
+                        openKickConfirm(selectedUserId);
+                        closeUserCard();
+                      }}
+                    >
+                      <X className="w-4 h-4" />
+                      Kick
+                    </Button>
+
+                    <Button
+                      type="button"
+                      className="gap-2 bg-rose-600 hover:bg-rose-700"
+                      onClick={() => {
+                        if (!selectedUserId) return;
+                        openBanConfirm(selectedUserId);
+                        closeUserCard();
+                      }}
+                    >
+                      <ShieldBan className="w-4 h-4" />
+                      Ban
+                    </Button>
+
+                    {isOwner ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="gap-2"
+                        onClick={() => {
+                          if (!selectedUserId) return;
+                          if (moderatorsMap.has(selectedUserId)) {
+                            removeModerator(selectedUserId);
+                          } else {
+                            assignModerator(selectedUserId);
+                          }
+                          closeUserCard();
+                        }}
+                      >
+                        <Shield className="w-4 h-4" />
+                        {moderatorsMap.has(selectedUserId)
+                          ? "Remove Mod"
+                          : "Make Mod"}
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+            </>
+          ) : null}
         </div>
-      ) : null}
+      </div>
+    </div>
+  </div>
+) : null}
 
       {kickOpen ? (
         <div className="fixed inset-0 z-[80]">
