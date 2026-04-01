@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import GiftPanel from "@/components/GiftPanel";
 import PeopleInRoomButton from "@/components/room/PeopleInRoomButton";
 import PeopleInRoomModal from "@/components/room/PeopleInRoomModal";
+import MicRequestsButton from "@/components/room/MicRequestsButton";
+import MicRequestsModal from "@/components/room/MicRequestsModal";
 import { fetchUserWallet } from "@/lib/walletUtils";
 import { connectVoice } from "@/lib/livekit";
 import {
@@ -5264,19 +5266,11 @@ useEffect(() => {
 />
 
           {canModerate ? (
-            <button
-              onClick={() => setRequestsOpen(true)}
-              className="relative shrink-0 w-8 h-8 rounded-lg border bg-white hover:bg-slate-50 flex items-center justify-center transition-colors"
-              title="Mic Requests"
-            >
-              <Bell className="w-4 h-4 text-slate-700" />
-              {pendingRequests.length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full px-1 py-0.5 min-w-[18px] text-center">
-                  {pendingRequests.length}
-                </span>
-              )}
-            </button>
-          ) : null}
+  <MicRequestsButton
+    count={pendingRequests.length}
+    onClick={() => setRequestsOpen(true)}
+  />
+) : null}
 
           {canModerate && (!pkSession || pkSession.status !== 'live') ? (
             <Button
@@ -6714,104 +6708,14 @@ useEffect(() => {
         </div>
       ) : null}
 
-      {requestsOpen ? (
-        <div className="fixed inset-0 z-[65]">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setRequestsOpen(false)} aria-hidden="true" />
-          <div className="absolute inset-0 flex items-end sm:items-center justify-center p-3">
-            <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border overflow-hidden flex flex-col max-h-[80vh]">
-              <div className="px-4 py-3 border-b flex items-center justify-between shrink-0">
-                <div className="font-semibold flex items-center gap-2">
-                  <Bell className="w-4 h-4 text-slate-600" />
-                  Mic Requests ({pendingRequests.length})
-                </div>
-                <button className="text-sm text-slate-600 hover:text-slate-900" onClick={() => setRequestsOpen(false)}>
-                  Close
-                </button>
-              </div>
-              <div className="p-4 overflow-y-auto overscroll-contain">
-                {pendingRequests.length === 0 ? (
-                  <div className="text-sm text-slate-500 text-center py-4">No pending requests.</div>
-                ) : (
-                  <div className="space-y-2">
-                    {pendingRequests.map((r) => {
-                      const isMyReq = !!(user?.id && String(r.user_id) === String(user.id));
-                      const canSee = canModerate || isMyReq;
-                      if (!canSee) return null;
-
-                      // Prevent duplicate UI for the target user in the requests modal
-                      const isInvite = String(r.note || "").startsWith("invite|");
-                      if (isInvite && isMyReq && !canModerate) return null;
-
-                      return (
-                        <div key={r.id} className="border rounded-lg p-2 bg-white">
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => {
-                                setRequestsOpen(false);
-                                openUserCard(r.user_id);
-                              }}
-                              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden border bg-slate-50 flex items-center justify-center cursor-pointer"
-                              title="Open user card"
-                            >
-                              <img
-                                src={r.requester_avatar || FALLBACK_AVATAR}
-                                alt={r.requester_name || "User"}
-                                onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
-                                className="w-full h-full object-cover"
-                              />
-                            </button>
-
-                            <div className="min-w-0 flex-1">
-                              <div
-                                className="text-xs sm:text-sm font-semibold text-slate-900 truncate cursor-pointer hover:underline"
-                                onClick={() => {
-                                  setRequestsOpen(false);
-                                  openUserCard(r.user_id);
-                                }}
-                              >
-                                {r.requester_name || "User"}
-                              </div>
-                            </div>
-
-                            <span className="text-[10px] sm:text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">{r.status}</span>
-                          </div>
-
-                          {(() => {
-                            if (canModerate) {
-                              if (isInvite) {
-                                return (
-                                  <div className="mt-2 text-[10px] sm:text-[11px] text-slate-500">
-                                    Invite pending (receiver must accept)
-                                  </div>
-                                );
-                              }
-
-                              return (
-                                <div className="mt-2 flex gap-2">
-                                  <Button size="sm" className="flex-1 gap-2 h-7 sm:h-9 text-xs sm:text-sm" onClick={() => acceptRequest(r.id)}>
-                                    <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4" />
-                                    Accept (auto seat)
-                                  </Button>
-                                  <Button size="sm" variant="outline" className="flex-1 gap-2 h-7 sm:h-9 text-xs sm:text-sm text-rose-600 hover:bg-rose-50 hover:text-rose-700" onClick={() => rejectRequest(r.id)}>
-                                    <XCircle className="w-3 h-3 sm:w-4 sm:h-4" />
-                                    Reject
-                                  </Button>
-                                </div>
-                              );
-                            }
-
-                            return <div className="mt-2 text-[10px] sm:text-[11px] text-slate-500"><span className="text-[11px] text-slate-500 font-medium tracking-wide">Waiting for approval</span>…</div>;
-                          })()}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <MicRequestsModal
+  open={requestsOpen}
+  onClose={() => setRequestsOpen(false)}
+  requests={pendingRequests}
+  onApprove={handleApproveRequest}
+  onReject={handleRejectRequest}
+  canModerate={canModerate}
+/>
 
       {leaveRoomOpen ? (
         <div
