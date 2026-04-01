@@ -1614,12 +1614,6 @@ useEffect(() => {
   openUserCard(userId);
 };
 
-
-const goToProfilePage = (userId) => {
-  if (!userId) return;
-  navigate(`/user/${userId}`);
-};
-
   const copyRoomId = async () => {
     try {
       await navigator.clipboard.writeText(String(roomId));
