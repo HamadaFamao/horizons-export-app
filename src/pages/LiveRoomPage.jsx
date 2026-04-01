@@ -1616,6 +1616,11 @@ useEffect(() => {
 
 const goToProfilePage = (userId) => {
   if (!userId) return;
+  window.open(`/user/${userId}`, "_blank", "noopener,noreferrer");
+};
+
+const goToProfilePage = (userId) => {
+  if (!userId) return;
   navigate(`/user/${userId}`);
 };
 
