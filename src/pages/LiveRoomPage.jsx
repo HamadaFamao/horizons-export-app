@@ -1721,9 +1721,8 @@ useEffect(() => {
   };
 
   const openUserCard = async (userId) => {
+  alert(`openUserCard: ${userId}`);
   if (!userId) return;
-
-  console.log('[USER_CARD_OPEN_START]', userId);
 
   setIsUserCardOpen(true);
   setSelectedUserId(userId);
@@ -1732,9 +1731,7 @@ useEffect(() => {
 
   try {
     const profileData = await fetchProfileCardData(userId);
-
     if (!mountedRef.current) return;
-
     setSelectedUserProfile(profileData);
   } catch (err) {
     console.error("openUserCard error:", err);
@@ -6608,7 +6605,7 @@ useEffect(() => {
               />
 
               <UserCardModal
-  open={isUserCardOpen}
+  open={true}
   onClose={closeUserCard}
   cardLoading={cardLoading}
   selectedUserProfile={selectedUserProfile}
