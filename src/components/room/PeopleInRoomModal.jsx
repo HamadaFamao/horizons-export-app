@@ -94,16 +94,20 @@ export default function PeopleInRoomModal({
         }
       `}</style>
 
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300" />
+      <div
+  className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300"
+  onClick={onClose}
+  aria-hidden="true"
+/>
 
       <div
-        className="absolute inset-0 flex items-end sm:items-center justify-center p-3 sm:p-4"
-        onClick={onClose}
-      >
-        <div
-          className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden animate-modal-enter flex flex-col"
-          onClick={(e) => e.stopPropagation()}
-        >
+  className="absolute inset-0 flex items-end sm:items-center justify-center p-3 sm:p-4"
+  onClick={onClose}
+>
+  <div
+    className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden animate-modal-enter flex flex-col"
+    onClick={(e) => e.stopPropagation()}
+  >
           <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
             <div className="font-bold text-slate-900 flex items-center gap-2">
               People in room
