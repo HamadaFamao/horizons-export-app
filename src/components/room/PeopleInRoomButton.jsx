@@ -32,9 +32,9 @@ export default function PeopleInRoomButton({
               </div>
 
               {index === 0 ? (
-                <span className="absolute -top-1.5 -right-1.5 z-40 text-[13px] leading-none -rotate-12 drop-shadow-[0_0_5px_rgba(255,215,0,0.8)] animate-pulse">
-                  👑
-                </span>
+                <span className="absolute -top-1.5 -right-1.5 z-40 text-[14px] animate-bounce scale-110 drop-shadow">
+  👑
+</span>
               ) : null}
             </div>
           ))
