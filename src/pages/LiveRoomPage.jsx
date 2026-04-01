@@ -6270,7 +6270,7 @@ const goToProfilePage = (userId) => {
                         <User className="w-4 h-4" />
                         View Profile
                       </Button>
-                    </div>
+                    
 
                     {canShowOwnerTools ? (
                       <div className="mt-4 border-t pt-3">
