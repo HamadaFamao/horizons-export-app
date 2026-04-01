@@ -367,7 +367,7 @@ export default function LiveRoomPage() {
   const { data: sendersRows, error } = await supabase
     .from("v_room_top_senders_alltime")
     .select("*")
-    .eq("room.public_room_id", targetRoomId);
+    .eq("room_id", targetRoomId);
 
   if (error) {
     console.error("current people ranking error:", error);
@@ -441,7 +441,7 @@ useEffect(() => {
   const { data, error } = await supabase
     .from(source)
     .select("*")
-    .eq("room.public_room_id", targetRoomId)
+    .eq("room_id", targetRoomId)
     .order(coinsColumn, { ascending: false })
     .limit(20);
 
@@ -1034,7 +1034,7 @@ useEffect(() => {
                   type: "broadcast",
                   event: "pk_score_updated",
                   payload: {
-                    room.public_room_id: roomId,
+                   room_id: roomId,
                     pk_session_id: currentPkSession.id,
                     score_a: nextScores.A,
                     score_b: nextScores.B,
@@ -1234,7 +1234,7 @@ useEffect(() => {
                 event: "gift",
                 payload: {
                   event_id: result.event_id,
-                  room.public_room_id: roomId,
+                  room_id: roomId,
                   quantity: displayQuantity,
                   ts: Date.now()
                 }
@@ -1300,7 +1300,7 @@ useEffect(() => {
                 event: "gift",
                 payload: {
                   event_id: result.event_id,
-                  room.public_room_id,
+                  room_id,
                   quantity: displayQuantity,
                   ts: Date.now()
                 }
@@ -1360,7 +1360,7 @@ useEffect(() => {
             event: "gift",
             payload: {
               event_id: result.event_id,
-              room.public_room_id: roomId,
+              room_id: roomId,
               quantity: displayQuantity,
               ts: Date.now()
             }
@@ -1450,7 +1450,7 @@ useEffect(() => {
                 event: "gift",
                 payload: {
                   event_id: result.event_id,
-                  room.public_room_id: lastSentGift.roomId,
+                  room_id: lastSentGift.roomId,
                   quantity: displayQuantity,
                   ts: Date.now()
                 }
@@ -1499,7 +1499,7 @@ useEffect(() => {
                 event: "gift",
                 payload: {
                   event_id: result.event_id,
-                  room.public_room_id: lastSentGift.roomId,
+                  room_id: lastSentGift.roomId,
                   quantity: displayQuantity,
                   ts: Date.now()
                 }
@@ -1541,7 +1541,7 @@ useEffect(() => {
             event: "gift",
             payload: {
               event_id: result.event_id,
-              room.public_room_id: lastSentGift.roomId,
+              room_id: lastSentGift.roomId,
               quantity: displayQuantity,
               ts: Date.now()
             }
@@ -1740,7 +1740,7 @@ useEffect(() => {
         type: "broadcast",
         event: "kick",
         payload: {
-          room.public_room_id,
+          room_id: roomId,
           user_id: targetUserId,
           until: untilIso || null,
           isBan: !!isBan,
@@ -1773,26 +1773,26 @@ useEffect(() => {
 
       const { error: banErr } = await supabase.from("live_room_bans").upsert(
         {
-          room.public_room_id: roomId,
+          room_id: roomId,
           user_id: kickTargetId,
           banned_by: user.id,
           banned_until: bannedUntilIso,
           is_active: true,
           revoked_at: null,
         },
-        { onConflict: "room.public_room_id,user_id" }
+        { onConflict: "room_id,user_id" }
       );
       if (banErr) throw banErr;
 
       const { error: presErr } = await supabase
         .from("live_room_presence")
         .delete()
-        .eq("room.public_room_id", room.public_room_id)
+        .eq("room_id", roomId)
         .eq("user_id", kickTargetId);
       if (presErr) throw presErr;
 
       try {
-        await supabase.rpc("remove_user_from_mic", { p_room_id: room.public_room_id, p_user_id: kickTargetId });
+        await supabase.rpc("remove_user_from_mic", { p_room_id: roomId, p_user_id: kickTargetId });
       } catch { }
 
       await broadcastKick({ targetUserId: kickTargetId, untilIso: bannedUntilIso, isBan: false });
