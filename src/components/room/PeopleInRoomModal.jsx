@@ -42,7 +42,6 @@ export default function PeopleInRoomModal({
 
   return (
     <div className="fixed inset-0 z-50">
-      {/* Custom Animations Styles */}
       <style>{`
         @keyframes modalEnter {
           from { opacity: 0; transform: scale(0.95) translateY(10px); }
@@ -95,12 +94,12 @@ export default function PeopleInRoomModal({
         }
       `}</style>
 
-      <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300" />
 
-      <div className="absolute inset-0 flex items-end sm:items-center justify-center p-3 sm:p-4">
+      <div
+        className="absolute inset-0 flex items-end sm:items-center justify-center p-3 sm:p-4"
+        onClick={onClose}
+      >
         <div
           className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden animate-modal-enter flex flex-col"
           onClick={(e) => e.stopPropagation()}
@@ -189,12 +188,17 @@ export default function PeopleInRoomModal({
                     </div>
 
                     <div className="text-right shrink-0 transition-transform duration-300 group-hover:scale-105">
-                      <div className={`font-black text-lg ${
-                        index === 0 ? 'text-yellow-600' : 
-                        index === 1 ? 'text-slate-600' : 
-                        index === 2 ? 'text-amber-600' : 
-                        'text-slate-800'
-                      }`}>
+                      <div
+                        className={`font-black text-lg ${
+                          index === 0
+                            ? "text-yellow-600"
+                            : index === 1
+                            ? "text-slate-600"
+                            : index === 2
+                            ? "text-amber-600"
+                            : "text-slate-800"
+                        }`}
+                      >
                         {(p.support_coins || 0).toLocaleString()}
                       </div>
                       <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
