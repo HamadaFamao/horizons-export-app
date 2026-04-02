@@ -4972,6 +4972,7 @@ useEffect(() => {
   const cardVerified = !!selectedUserProfile?.verified;
   const cardPlan = selectedUserProfile?.plan || "free";
   const cardIsMod = !!selectedUserIsMod;
+  console.log("selectedUserIsMod:", selectedUserIsMod);
   const cardAge = selectedUserProfile?.age ?? null;
   const cardGender = selectedUserProfile?.gender ?? null;
   const cardCountry = selectedUserProfile?.country ?? null;
