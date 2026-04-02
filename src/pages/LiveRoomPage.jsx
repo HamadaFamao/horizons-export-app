@@ -6605,7 +6605,7 @@ useEffect(() => {
               />
 
               <UserCardModal
-  open={isUserCardOpen}
+  open={true}
   onClose={closeUserCard}
   cardLoading={cardLoading}
   selectedUserProfile={selectedUserProfile}
