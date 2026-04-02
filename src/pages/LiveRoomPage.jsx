@@ -5047,12 +5047,26 @@ useEffect(() => {
                           src={assetUrl}
                           alt={effect?.gift_name || 'gift animation'}
                           className="w-16 h-16 object-contain cursor-pointer pointer-events-auto drop-shadow-lg"
-                          onClick={() => openUserCard(effect.sender_id)}
+                          onClick={() => {
+  const user =
+    activeParticipantsRef.current?.find(
+      (x) => String(x.user_id) === String(effect.sender_id)
+    ) || null;
+
+  openUserCard(effect.sender_id, user);
+}}
                         />
                       ) : (
                         <span
                           className="text-4xl cursor-pointer pointer-events-auto drop-shadow-lg"
-                          onClick={() => openUserCard(effect.sender_id)}
+                          onClick={() => {
+  const user =
+    activeParticipantsRef.current?.find(
+      (x) => String(x.user_id) === String(effect.sender_id)
+    ) || null;
+
+  openUserCard(effect.sender_id, user);
+}}
                         >🌹</span>
                       )}
                     </div>
