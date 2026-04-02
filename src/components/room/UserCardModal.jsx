@@ -47,13 +47,20 @@ export default function UserCardModal({
   if (!open) return null;
 
   const cardName = selectedUserProfile?.name || "User";
-  const cardAvatar = selectedUserProfile?.avatar_url || FALLBACK_AVATAR;
-  const cardId = selectedUserProfile?.profile_id ?? null;
-  const cardLevel = selectedUserProfile?.level ?? null;
-  const cardVip = !!selectedUserProfile?.is_vip;
-  const cardFamily = selectedUserProfile?.agency_name || null;
-  const cardIsMod = !!(selectedUserId && moderatorsMap?.has?.(selectedUserId));
-  const cardIsHost = String(selectedUserId || "") === String(hostUserId || "");
+const cardAvatar = selectedUserProfile?.avatar_url || FALLBACK_AVATAR;
+const cardId =
+  selectedUserProfile?.display_id ??
+  selectedUserProfile?.profile_id ??
+  null;
+const cardLevel = selectedUserProfile?.level ?? null;
+const cardVip = !!selectedUserProfile?.is_vip;
+const cardFamily = selectedUserProfile?.agency_name || null;
+const cardIsMod = !!(
+  selectedUserId &&
+  moderatorsMap &&
+  moderatorsMap.has(String(selectedUserId))
+);
+const cardIsHost = String(selectedUserId || "") === String(hostUserId || "");
 
   return (
     <div className="fixed inset-0 z-[70]">
@@ -120,11 +127,16 @@ export default function UserCardModal({
   ) : null}
 
   {cardVip ? (
-    <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
-      <Crown className="w-3.5 h-3.5" />
-      VIP
-    </span>
-  ) : null}
+  <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+    VIP
+  </span>
+) : null}
+
+{cardLevel !== null ? (
+  <span className="inline-flex items-center text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200">
+    Lv.{cardLevel}
+  </span>
+) : null}
 </div>
                   </div>
                 </div>

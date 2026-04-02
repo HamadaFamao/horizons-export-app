@@ -365,6 +365,8 @@ const fetchProfileCardData = async (userId) => {
     .select("agency_id")
     .eq("user_id", userId)
     .is("left_at", null)
+    .order("joined_at", { ascending: false })
+    .limit(1)
     .maybeSingle();
 
   let agencyName = null;
@@ -381,7 +383,9 @@ const fetchProfileCardData = async (userId) => {
 
   return {
     ...profile,
-    level: wallet?.level ?? null,
+    profile_id: profile?.profile_id ?? null,
+    display_id: profile?.profile_id ?? String(profile?.id || "").slice(0, 8),
+    level: wallet?.level ?? 0,
     agency_name: agencyName,
   };
 };
@@ -389,6 +393,8 @@ const fetchProfileCardData = async (userId) => {
   const [myRoomRole, setMyRoomRole] = useState(null);
   const [roomRole, setRoomRole] = useState('guest');
   const [moderatorsMap, setModeratorsMap] = useState(new Map());
+  const buildModeratorsMap = (rows = []) =>
+  new Map(rows.map((row) => [String(row.user_id), true]));
   const [kickOpen, setKickOpen] = useState(false);
   const [kickTargetId, setKickTargetId] = useState(null);
   const [kickBusy, setKickBusy] = useState(false);
@@ -2018,6 +2024,29 @@ useEffect(() => {
     }
   };
 
+  const loadModerators = async () => {
+  if (!roomId) return;
+
+  try {
+    const { data, error } = await supabase
+      .from("live_room_moderators")
+      .select("user_id")
+      .eq("room_id", roomId);
+
+    if (error) throw error;
+
+    const nextMap = buildModeratorsMap(data || []);
+
+    if (mountedRef.current) {
+      setModeratorsMap(nextMap);
+    }
+
+    console.log("[MODERATORS_FETCHED]", data, nextMap);
+  } catch (err) {
+    console.error("[MODERATORS_LOAD_ERROR]", err);
+  }
+};
+
   const cleanupStaleMicSeats = async () => {
     if (!roomId) return;
     try {
@@ -2316,44 +2345,64 @@ useEffect(() => {
     }
   };
 
+  const isInviteRow = (row) => String(row?.note || "").startsWith("invite|");
+
   const loadMicRequests = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("v_live_room_mic_requests")
-        .select("*")
-        .eq("room_id", roomId)
-        .eq("status", "pending");
-      if (error) throw error;
-      console.log('[MIC_REQUESTS_FETCHED]', data);
-      return data || [];
-    } catch (err) {
-      return [];
-    }
-  };
+  try {
+    const { data, error } = await supabase
+      .from("v_live_room_mic_requests")
+      .select("*")
+      .eq("room_id", roomId)
+      .eq("status", "pending");
+
+    if (error) throw error;
+
+    const requests = (data || []).filter((r) => !isInviteRow(r));
+    console.log("[MIC_REQUESTS_FETCHED]", requests);
+    return requests;
+  } catch (err) {
+    console.error("[MIC_REQUESTS_ERROR]", err);
+    return [];
+  }
+};
 
   const loadMyMicInvites = async () => {
-    if (!roomId || !user?.id) return;
-    console.log('[MY_MIC_INVITES_LOAD]', { roomId, userId: user.id });
-    try {
-      const { data, error } = await supabase
-        .from("v_live_room_mic_requests")
-        .select("*")
-        .eq("room_id", roomId)
-        .eq("user_id", user.id)
-        .eq("status", "pending");
+  if (!roomId || !user?.id) return;
 
-      if (error) throw error;
+  console.log("[MY_MIC_INVITES_LOAD]", { roomId, userId: user.id });
 
-      const invites = (data || []).filter((r) => String(r.note || "").startsWith("invite|"));
-      console.log('[MY_MIC_INVITES_RESULT]', invites);
+  try {
+    const { data, error } = await supabase
+      .from("v_live_room_mic_requests")
+      .select("*")
+      .eq("room_id", roomId)
+      .eq("status", "pending");
 
-      if (mountedRef.current) {
-        setMyMicInvites(invites);
-      }
-    } catch (err) {
-      console.error('[MY_MIC_INVITES_ERROR]', err);
+    if (error) throw error;
+
+    const invites = (data || []).filter((r) => {
+      if (!isInviteRow(r)) return false;
+
+      const currentUserId = String(user.id);
+
+      return (
+        String(r.target_user_id || "") === currentUserId ||
+        String(r.invited_user_id || "") === currentUserId ||
+        String(r.receiver_user_id || "") === currentUserId ||
+        String(r.to_user_id || "") === currentUserId ||
+        String(r.user_id || "") === currentUserId
+      );
+    });
+
+    console.log("[MY_MIC_INVITES_RESULT]", invites);
+
+    if (mountedRef.current) {
+      setMyMicInvites(invites);
     }
-  };
+  } catch (err) {
+    console.error("[MY_MIC_INVITES_ERROR]", err);
+  }
+};
 
   const refreshMicRequestsState = async () => {
     try {
@@ -3653,6 +3702,12 @@ useEffect(() => {
   useEffect(() => {
     participantsMapRef.current = participantsMap || {};
   }, [participantsMap]);
+
+  useEffect(() => {
+  if (!roomId) return;
+
+  loadModerators();
+}, [roomId]);
 
   useEffect(() => {
     pkSessionRef.current = pkSession;
