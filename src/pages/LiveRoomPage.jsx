@@ -1802,39 +1802,47 @@ useEffect(() => {
     ? {
         ...seedProfile,
         is_mod: seedIsMod || !!seedProfile?.is_mod,
+        is_moderator: seedIsMod || !!seedProfile?.is_moderator,
       }
     : seedIsMod
     ? {
         id: userId,
         is_mod: true,
+        is_moderator: true,
       }
     : null;
 
   setIsUserCardOpen(true);
   setSelectedUserId(userId);
+  setSelectedUserIsMod(seedIsMod);
   setSelectedUserProfile(normalizedSeed);
   setCardLoading(true);
 
   try {
     const profileData = await fetchProfileCardData(userId);
 
+    const finalIsMod = !!(
+      moderatorsMap?.has?.(String(userId)) ||
+      normalizedSeed?.is_mod ||
+      normalizedSeed?.is_moderator ||
+      profileData?.is_moderator ||
+      profileData?.isModerator ||
+      profileData?.is_mod ||
+      profileData?.role === "moderator" ||
+      profileData?.role === "mod" ||
+      profileData?.room_role === "moderator" ||
+      profileData?.room_role === "mod" ||
+      profileData?.badge === "mod"
+    );
+
     const merged = {
       ...(normalizedSeed || {}),
       ...(profileData || {}),
-      is_mod: !!(
-        moderatorsMap?.has?.(String(userId)) ||
-        normalizedSeed?.is_mod ||
-        profileData?.is_moderator ||
-        profileData?.isModerator ||
-        profileData?.is_mod ||
-        profileData?.role === "moderator" ||
-        profileData?.role === "mod" ||
-        profileData?.room_role === "moderator" ||
-        profileData?.room_role === "mod" ||
-        profileData?.badge === "mod"
-      ),
+      is_mod: finalIsMod,
+      is_moderator: finalIsMod,
     };
 
+    setSelectedUserIsMod(finalIsMod);
     setSelectedUserProfile(merged);
   } catch (err) {
     console.error("openUserCard error:", err);
@@ -1843,7 +1851,7 @@ useEffect(() => {
   }
 };
 
-  const closeUserCard = () => {
+ const closeUserCard = () => {
   setIsUserCardOpen(false);
   setSelectedUserId(null);
   setSelectedUserProfile(null);
@@ -4963,6 +4971,7 @@ useEffect(() => {
   const cardVip = isVipActive(selectedUserProfile);
   const cardVerified = !!selectedUserProfile?.verified;
   const cardPlan = selectedUserProfile?.plan || "free";
+  const cardIsMod = !!selectedUserIsMod;
   const cardAge = selectedUserProfile?.age ?? null;
   const cardGender = selectedUserProfile?.gender ?? null;
   const cardCountry = selectedUserProfile?.country ?? null;
