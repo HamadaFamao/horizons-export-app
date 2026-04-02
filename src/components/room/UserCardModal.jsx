@@ -45,7 +45,6 @@ export default function UserCardModal({
 }) {
   if (!open) return null;
 
-  console.log("UserCardModal:", { open, cardLoading, selectedUserProfile });
   const cardName = selectedUserProfile?.name || "User";
   const cardAvatar = selectedUserProfile?.avatar_url || FALLBACK_AVATAR;
   const cardId = selectedUserProfile?.profile_id ?? null;
@@ -54,7 +53,7 @@ export default function UserCardModal({
   const cardFamily = selectedUserProfile?.agency_name || null;
 
   return (
-    <div className="fixed inset-0 z-[70]">
+    <div className="fixed inset-0 z-[9999]">
       <div
         className="absolute inset-0 bg-black/40"
         onClick={onClose}
@@ -73,9 +72,9 @@ export default function UserCardModal({
             </div>
 
             <button
+              type="button"
               className="text-sm text-slate-600 hover:text-slate-900"
               onClick={onClose}
-              type="button"
             >
               Close
             </button>
@@ -92,10 +91,10 @@ export default function UserCardModal({
                 <div className="flex items-center gap-3">
                   <img
                     src={cardAvatar}
+                    alt={cardName}
                     onError={(e) => {
                       e.currentTarget.src = FALLBACK_AVATAR;
                     }}
-                    alt={cardName}
                     className="w-16 h-16 rounded-full object-cover border bg-white"
                   />
 
@@ -137,6 +136,7 @@ export default function UserCardModal({
 
                 <div className="mt-4 grid grid-cols-2 gap-2">
                   <Button
+                    type="button"
                     variant="outline"
                     className="gap-2"
                     disabled={isSelfCard}
@@ -147,6 +147,7 @@ export default function UserCardModal({
                   </Button>
 
                   <Button
+                    type="button"
                     variant="outline"
                     className="gap-2"
                     disabled={isSelfCard}
@@ -160,6 +161,7 @@ export default function UserCardModal({
                   </Button>
 
                   <Button
+                    type="button"
                     variant="outline"
                     className="gap-2"
                     disabled={isSelfCard}
@@ -192,6 +194,7 @@ export default function UserCardModal({
 
                     <div className="grid grid-cols-2 gap-2">
                       <Button
+                        type="button"
                         variant="outline"
                         className="gap-2"
                         onClick={() => {
@@ -222,6 +225,7 @@ export default function UserCardModal({
                       </Button>
 
                       <Button
+                        type="button"
                         variant="outline"
                         className="gap-2"
                         onClick={async () => {
@@ -236,6 +240,7 @@ export default function UserCardModal({
                       </Button>
 
                       <Button
+                        type="button"
                         variant="outline"
                         className="gap-2"
                         onClick={() => {
@@ -249,6 +254,7 @@ export default function UserCardModal({
                       </Button>
 
                       <Button
+                        type="button"
                         className="gap-2 bg-rose-600 hover:bg-rose-700"
                         onClick={() => {
                           if (!selectedUserId) return;
@@ -262,15 +268,18 @@ export default function UserCardModal({
 
                       {isOwner ? (
                         <Button
+                          type="button"
                           variant="outline"
                           className="gap-2"
                           onClick={() => {
                             if (!selectedUserId) return;
+
                             if (moderatorsMap.has(selectedUserId)) {
                               removeModerator(selectedUserId);
                             } else {
                               assignModerator(selectedUserId);
                             }
+
                             onClose();
                           }}
                         >
@@ -284,7 +293,9 @@ export default function UserCardModal({
                   </div>
                 ) : null}
               </>
-            ) : null}
+            ) : (
+              <div className="text-sm text-slate-500">No user data</div>
+            )}
           </div>
         </div>
       </div>
