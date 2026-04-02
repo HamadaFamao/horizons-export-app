@@ -355,9 +355,33 @@ const fetchProfileCardData = async (userId) => {
 
   if (profileError || !profile) return null;
 
-  // 2) حاول نجيب اسم العائلة/الوكالة من نفس مصدر البروفايل
-  let merged = { ...profile };
+  // 2) بيانات المستخدم من الموجودين داخل الروم
+  const roomUser =
+    activeParticipantsRef.current?.find(
+      (x) => String(x.user_id) === String(userId)
+    ) || null;
 
+  // 3) نبدأ الدمج من البروفايل + بيانات الروم
+  let merged = {
+    ...profile,
+    ...(roomUser || {}),
+    is_mod:
+      profile?.is_mod ??
+      roomUser?.is_mod ??
+      roomUser?.is_moderator ??
+      (roomUser?.role === "moderator") ??
+      (roomUser?.room_role === "moderator") ??
+      false,
+    is_moderator:
+      profile?.is_moderator ??
+      roomUser?.is_moderator ??
+      roomUser?.is_mod ??
+      (roomUser?.role === "moderator") ??
+      (roomUser?.room_role === "moderator") ??
+      false,
+  };
+
+  // 4) حاول نجيب اسم العائلة/الوكالة من نفس مصدر البروفايل
   try {
     const { data: ua } = await supabase
       .from("v_user_agency")
@@ -369,9 +393,17 @@ const fetchProfileCardData = async (userId) => {
       merged = {
         ...merged,
         agency_id: ua.agency_id ?? merged.agency_id ?? null,
-        agency_name: ua.agency_name ?? merged.agency_name ?? null,
+        agency_name:
+          ua.agency_name ??
+          merged.agency_name ??
+          merged.family_name ??
+          null,
         family_id: ua.agency_id ?? merged.family_id ?? null,
-        family_name: ua.agency_name ?? merged.family_name ?? null,
+        family_name:
+          ua.agency_name ??
+          merged.family_name ??
+          merged.agency_name ??
+          null,
       };
     }
   } catch (e) {
@@ -382,12 +414,35 @@ const fetchProfileCardData = async (userId) => {
     ...merged,
     profile_id: merged?.profile_id ?? null,
     display_id:
-  merged?.profile_id ??
-  (String(merged?.id || "").slice(0, 6) || null),
+      merged?.display_id ??
+      merged?.profile_id ??
+      (String(merged?.id || "").slice(0, 6) || null),
     agency_name:
       merged?.agency_name ??
       merged?.family_name ??
       null,
+    family_name:
+      merged?.family_name ??
+      merged?.agency_name ??
+      null,
+    level:
+      merged?.level ??
+      merged?.currentLevel ??
+      profile?.level ??
+      profile?.currentLevel ??
+      null,
+    vip_number:
+      merged?.vip_number ??
+      profile?.vip_number ??
+      0,
+    is_mod:
+      merged?.is_mod ??
+      merged?.is_moderator ??
+      false,
+    is_moderator:
+      merged?.is_moderator ??
+      merged?.is_mod ??
+      false,
   };
 };
   const [mutesMap, setMutesMap] = useState(new Map());
