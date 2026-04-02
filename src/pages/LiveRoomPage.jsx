@@ -2152,9 +2152,12 @@ useEffect(() => {
 
   try {
     const { data, error } = await supabase
-      .from("live_room_moderators")
-      .select("user_id")
-      .eq("room_id", roomId);
+  .from("live_room_roles")
+  .select("user_id")
+  .eq("room_id", roomId)
+  .eq("role", "mod")
+  .eq("is_active", true)
+  .is("revoked_at", null);
 
     if (error) throw error;
 
