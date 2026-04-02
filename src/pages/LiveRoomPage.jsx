@@ -1786,8 +1786,18 @@ useEffect(() => {
   const openUserCard = async (userId, seedProfile = null) => {
   if (!userId) return;
 
+  console.log("OPEN CARD userId:", userId);
+  console.log("OPEN CARD moderatorsMap:", moderatorsMap);
+  console.log("OPEN CARD has mod?:", 
+    moderatorsMap?.has?.(userId),
+    moderatorsMap?.has?.(String(userId)),
+    moderatorsMap?.has?.(Number(userId))
+  );
+
   const seedIsMod = !!(
+    moderatorsMap?.has?.(userId) ||
     moderatorsMap?.has?.(String(userId)) ||
+    moderatorsMap?.has?.(Number(userId)) ||
     seedProfile?.is_moderator ||
     seedProfile?.isModerator ||
     seedProfile?.is_mod ||
@@ -1797,6 +1807,8 @@ useEffect(() => {
     seedProfile?.room_role === "mod" ||
     seedProfile?.badge === "mod"
   );
+
+  console.log("seedIsMod:", seedIsMod);
 
   const normalizedSeed = seedProfile
     ? {
@@ -1822,7 +1834,9 @@ useEffect(() => {
     const profileData = await fetchProfileCardData(userId);
 
     const finalIsMod = !!(
+      moderatorsMap?.has?.(userId) ||
       moderatorsMap?.has?.(String(userId)) ||
+      moderatorsMap?.has?.(Number(userId)) ||
       normalizedSeed?.is_mod ||
       normalizedSeed?.is_moderator ||
       profileData?.is_moderator ||
@@ -1834,6 +1848,9 @@ useEffect(() => {
       profileData?.room_role === "mod" ||
       profileData?.badge === "mod"
     );
+
+    console.log("profileData:", profileData);
+    console.log("finalIsMod:", finalIsMod);
 
     const merged = {
       ...(normalizedSeed || {}),
@@ -2147,7 +2164,8 @@ useEffect(() => {
       setModeratorsMap(nextMap);
     }
 
-    console.log("[MODERATORS_FETCHED]", data, nextMap);
+    console.log("MODERATORS RAW:", data);
+console.log("MODERATORS MAP:", nextMap);
   } catch (err) {
     console.error("[MODERATORS_LOAD_ERROR]", err);
   }
