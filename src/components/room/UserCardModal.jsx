@@ -132,7 +132,7 @@ const cardIsHost = String(selectedUserId || "") === String(hostUserId || "");
   </span>
 ) : null}
 
-{cardLevel !== null ? (
+{cardLevel !== null && cardLevel > 0 ? (
   <span className="inline-flex items-center text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200">
     Lv.{cardLevel}
   </span>

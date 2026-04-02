@@ -385,7 +385,9 @@ const fetchProfileCardData = async (userId) => {
     ...profile,
     profile_id: profile?.profile_id ?? null,
     display_id: profile?.profile_id ?? String(profile?.id || "").slice(0, 8),
-    level: wallet?.level ?? 0,
+    level: wallet && typeof wallet.level !== "undefined"
+  ? wallet.level
+  : null,
     agency_name: agencyName,
   };
 };
