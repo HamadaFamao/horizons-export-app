@@ -346,12 +346,11 @@ export default function LiveRoomPage() {
 const fetchProfileCardData = async (userId) => {
   if (!userId) return null;
 
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("id, profile_id, name, avatar_url, is_vip, plan, level")
-    .eq("id", userId)
-    .maybeSingle();
-
+ const { data: profile, error: profileError } = await supabase
+  .from("profiles")
+  .select("id, profile_id, name, avatar_url, is_vip, plan")
+  .eq("id", userId)
+  .maybeSingle();
   if (profileError || !profile) return null;
 
   const { data: membership } = await supabase
@@ -379,7 +378,9 @@ const fetchProfileCardData = async (userId) => {
     ...profile,
     profile_id: profile?.profile_id ?? null,
     display_id: profile?.profile_id ?? String(profile?.id || "").slice(0, 6),
-    level: profile?.level ?? null,
+    level: wallet && typeof wallet.level !== "undefined"
+  ? wallet.level
+  : null,
     agency_name: agencyName,
   };
 };
