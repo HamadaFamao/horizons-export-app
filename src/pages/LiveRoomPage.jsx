@@ -6594,10 +6594,15 @@ useEffect(() => {
             <div className="mx-auto mt-2 mb-2 h-1.5 w-12 rounded-full bg-slate-200" />
 
             <div className="h-full flex flex-col overflow-hidden">
+              {giftPanelOpen ? (
+          <>
+            <div className="mx-auto mt-2 mb-2 h-1.5 w-12 rounded-full bg-slate-200" />
+
+            <div className="h-full flex flex-col overflow-hidden">
               <GiftPanel
                 recipientId={
                   giftTargetMode === "single"
-                    ? (giftSelectedRecipient?.id || null)
+                    ? giftSelectedRecipient?.id || null
                     : null
                 }
                 recipientName={
