@@ -33,6 +33,7 @@ export default function UserCardModal({
   goToProfilePage,
   toast,
   setInviteTargetUserId,
+  selectedUserIsMod,
   setInviteOnlyMode,
   setSeatMenuSeatNo,
   setSeatMenuOpen,
@@ -69,7 +70,8 @@ const cardFamily =
 
 const vipNumber = Number(selectedUserProfile?.vip_number || 0);
 
-  const cardIsMod = !!(
+  const cardIsMod =
+  !!selectedUserIsMod || !!(
   (selectedUserId && moderatorsMap?.has?.(String(selectedUserId))) ||
   selectedUserProfile?.is_moderator ||
   selectedUserProfile?.isModerator ||

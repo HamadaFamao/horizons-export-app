@@ -342,6 +342,7 @@ export default function LiveRoomPage() {
   const [isUserCardOpen, setIsUserCardOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [selectedUserProfile, setSelectedUserProfile] = useState(null);
+  const [selectedUserIsMod, setSelectedUserIsMod] = useState(false);
   const [cardLoading, setCardLoading] = useState(false);
 const fetchProfileCardData = async (userId) => {
   if (!userId) return null;
@@ -1788,15 +1789,43 @@ useEffect(() => {
   setIsUserCardOpen(true);
   setSelectedUserId(userId);
   setSelectedUserProfile(seedProfile || null);
+
+  const seedIsMod = !!(
+    seedProfile?.is_mod ||
+    seedProfile?.is_moderator ||
+    seedProfile?.isModerator ||
+    seedProfile?.role === "moderator" ||
+    seedProfile?.role === "mod" ||
+    seedProfile?.room_role === "moderator" ||
+    seedProfile?.room_role === "mod" ||
+    moderatorsMap?.has?.(String(userId))
+  );
+
+  setSelectedUserIsMod(seedIsMod);
   setCardLoading(true);
 
   try {
     const profileData = await fetchProfileCardData(userId);
 
-    setSelectedUserProfile((prev) => ({
-      ...(prev || {}),
+    const merged = {
+      ...(seedProfile || {}),
       ...(profileData || {}),
-    }));
+    };
+
+    setSelectedUserProfile(merged);
+
+    const fetchedIsMod = !!(
+      merged?.is_mod ||
+      merged?.is_moderator ||
+      merged?.isModerator ||
+      merged?.role === "moderator" ||
+      merged?.role === "mod" ||
+      merged?.room_role === "moderator" ||
+      merged?.room_role === "mod" ||
+      moderatorsMap?.has?.(String(userId))
+    );
+
+    setSelectedUserIsMod(fetchedIsMod);
   } catch (err) {
     console.error("openUserCard error:", err);
   } finally {
@@ -1805,10 +1834,11 @@ useEffect(() => {
 };
 
   const closeUserCard = () => {
-    setIsUserCardOpen(false);
-    setSelectedUserId(null);
-    setSelectedUserProfile(null);
-  };
+  setIsUserCardOpen(false);
+  setSelectedUserId(null);
+  setSelectedUserProfile(null);
+  setSelectedUserIsMod(false);
+};
 
   const mentionUser = (profile) => {
     const name = profile?.name || profile?.display_name || profile?.full_name || "User";
@@ -6731,7 +6761,7 @@ useEffect(() => {
                   setGiftSelectedRecipient(user || null);
                   setGiftTarget(nextMode === "single" ? user || null : null);
                 }}
-                onOpenUserCard={(userId) => {
+                onOpenUserCard={(userId, user) => {
                   if (
                     userId === "mic_users_virtual" ||
                     userId === "all_users_virtual"
@@ -6749,40 +6779,12 @@ useEffect(() => {
       )}
 
       <UserCardModal
-        open={isUserCardOpen}
-        onClose={closeUserCard}
-        cardLoading={cardLoading}
-        selectedUserProfile={selectedUserProfile}
-        selectedUserId={selectedUserId}
-        isSelfCard={isSelfCard}
-        canShowOwnerTools={canShowOwnerTools}
-        isOwner={isOwner}
-        targetMutedActive={targetMutedActive}
-        moderatorsMap={moderatorsMap}
-        effectiveSeats={effectiveSeats}
-        FALLBACK_AVATAR={FALLBACK_AVATAR}
-        mentionUser={mentionUser}
-        openGiftPanelForUser={openGiftPanelForUser}
-        goToProfilePage={goToProfilePage}
-        toast={toast}
-        setInviteTargetUserId={setInviteTargetUserId}
-        setInviteOnlyMode={setInviteOnlyMode}
-        setSeatMenuSeatNo={setSeatMenuSeatNo}
-        setSeatMenuOpen={setSeatMenuOpen}
-        setInviteOpen={setInviteOpen}
-        muteUser={muteUser}
-        unmuteUser={unmuteUser}
-        openKickConfirm={openKickConfirm}
-        openBanConfirm={openBanConfirm}
-        assignModerator={assignModerator}
-        removeModerator={removeModerator}
-      />
-        <UserCardModal
   open={isUserCardOpen}
   onClose={closeUserCard}
   cardLoading={cardLoading}
   selectedUserProfile={selectedUserProfile}
   selectedUserId={selectedUserId}
+  selectedUserIsMod={selectedUserIsMod}
   isSelfCard={isSelfCard}
   canShowOwnerTools={canShowOwnerTools}
   isOwner={isOwner}
