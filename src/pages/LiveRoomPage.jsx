@@ -352,7 +352,21 @@ const fetchProfileCardData = async (userId) => {
     .eq("id", userId)
     .maybeSingle();
 
+  const fetchProfileCardData = async (userId) => {
+  if (!userId) return null;
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("id, profile_id, name, avatar_url, is_vip, plan")
+    .eq("id", userId)
+    .maybeSingle();
+
   if (profileError || !profile) return null;
+
+  const roomUser =
+    activeParticipantsRef.current?.find(
+      (x) => String(x.user_id) === String(userId)
+    ) || null;
 
   const { data: wallet } = await supabase
     .from("wallets")
@@ -360,25 +374,32 @@ const fetchProfileCardData = async (userId) => {
     .eq("user_id", userId)
     .maybeSingle();
 
-  const { data: membership } = await supabase
-    .from("agency_memberships")
-    .select("agency_id")
-    .eq("user_id", userId)
-    .is("left_at", null)
-    .order("joined_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  let agencyName =
+    profile?.agency_name ||
+    roomUser?.agency_name ||
+    roomUser?.family_name ||
+    roomUser?.family?.name ||
+    null;
 
-  let agencyName = null;
-
-  if (membership?.agency_id) {
-    const { data: agency } = await supabase
-      .from("agencies")
-      .select("name")
-      .eq("id", membership.agency_id)
+  if (!agencyName) {
+    const { data: membership } = await supabase
+      .from("agency_memberships")
+      .select("agency_id")
+      .eq("user_id", userId)
+      .is("left_at", null)
+      .order("joined_at", { ascending: false })
+      .limit(1)
       .maybeSingle();
 
-    agencyName = agency?.name || null;
+    if (membership?.agency_id) {
+      const { data: agency } = await supabase
+        .from("agencies")
+        .select("name")
+        .eq("id", membership.agency_id)
+        .maybeSingle();
+
+      agencyName = agency?.name || null;
+    }
   }
 
   return {
