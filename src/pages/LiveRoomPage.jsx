@@ -1786,46 +1786,56 @@ useEffect(() => {
   const openUserCard = async (userId, seedProfile = null) => {
   if (!userId) return;
 
-  setIsUserCardOpen(true);
-  setSelectedUserId(userId);
-  setSelectedUserProfile(seedProfile || null);
-
   const seedIsMod = !!(
-    seedProfile?.is_mod ||
+    moderatorsMap?.has?.(String(userId)) ||
     seedProfile?.is_moderator ||
     seedProfile?.isModerator ||
+    seedProfile?.is_mod ||
     seedProfile?.role === "moderator" ||
     seedProfile?.role === "mod" ||
     seedProfile?.room_role === "moderator" ||
     seedProfile?.room_role === "mod" ||
-    moderatorsMap?.has?.(String(userId))
+    seedProfile?.badge === "mod"
   );
 
-  setSelectedUserIsMod(seedIsMod);
+  const normalizedSeed = seedProfile
+    ? {
+        ...seedProfile,
+        is_mod: seedIsMod || !!seedProfile?.is_mod,
+      }
+    : seedIsMod
+    ? {
+        id: userId,
+        is_mod: true,
+      }
+    : null;
+
+  setIsUserCardOpen(true);
+  setSelectedUserId(userId);
+  setSelectedUserProfile(normalizedSeed);
   setCardLoading(true);
 
   try {
     const profileData = await fetchProfileCardData(userId);
 
     const merged = {
-      ...(seedProfile || {}),
+      ...(normalizedSeed || {}),
       ...(profileData || {}),
+      is_mod: !!(
+        moderatorsMap?.has?.(String(userId)) ||
+        normalizedSeed?.is_mod ||
+        profileData?.is_moderator ||
+        profileData?.isModerator ||
+        profileData?.is_mod ||
+        profileData?.role === "moderator" ||
+        profileData?.role === "mod" ||
+        profileData?.room_role === "moderator" ||
+        profileData?.room_role === "mod" ||
+        profileData?.badge === "mod"
+      ),
     };
 
     setSelectedUserProfile(merged);
-
-    const fetchedIsMod = !!(
-      merged?.is_mod ||
-      merged?.is_moderator ||
-      merged?.isModerator ||
-      merged?.role === "moderator" ||
-      merged?.role === "mod" ||
-      merged?.room_role === "moderator" ||
-      merged?.room_role === "mod" ||
-      moderatorsMap?.has?.(String(userId))
-    );
-
-    setSelectedUserIsMod(fetchedIsMod);
   } catch (err) {
     console.error("openUserCard error:", err);
   } finally {
