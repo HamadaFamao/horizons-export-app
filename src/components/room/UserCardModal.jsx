@@ -23,6 +23,7 @@ export default function UserCardModal({
   isSelfCard,
   canShowOwnerTools,
   isOwner,
+  hostUserId,
   targetMutedActive,
   moderatorsMap,
   effectiveSeats = [],
@@ -51,6 +52,8 @@ export default function UserCardModal({
   const cardLevel = selectedUserProfile?.level ?? null;
   const cardVip = !!selectedUserProfile?.is_vip;
   const cardFamily = selectedUserProfile?.agency_name || null;
+  const cardIsMod = !!(selectedUserId && moderatorsMap?.has?.(selectedUserId));
+  const cardIsHost = String(selectedUserId || "") === String(hostUserId || "");
 
   return (
     <div className="fixed inset-0 z-[70]">
@@ -100,37 +103,29 @@ export default function UserCardModal({
 
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <div className="font-semibold text-slate-900 truncate">
-                        {cardName}
-                      </div>
+  <div className="font-semibold text-slate-900 truncate">
+    {cardName}
+  </div>
 
-                      {cardVip ? (
-                        <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
-                          <Crown className="w-3.5 h-3.5" />
-                          VIP
-                        </span>
-                      ) : null}
-                    </div>
+  {cardIsHost ? (
+    <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-200">
+      HOST
+    </span>
+  ) : null}
 
-                    <div className="mt-2 flex flex-wrap gap-2 text-[12px] text-slate-600">
-                      {cardId ? (
-                        <span className="px-2 py-0.5 rounded-full bg-slate-100 border">
-                          ID: <b className="text-slate-800">{cardId}</b>
-                        </span>
-                      ) : null}
+  {cardIsMod ? (
+    <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200">
+      MOD
+    </span>
+  ) : null}
 
-                      {cardLevel != null ? (
-                        <span className="px-2 py-0.5 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700">
-                          Level: <b>{cardLevel}</b>
-                        </span>
-                      ) : null}
-
-                      {cardFamily ? (
-                        <span className="px-2 py-0.5 rounded-full bg-pink-50 border border-pink-200 text-pink-700">
-                          Family: <b>{cardFamily}</b>
-                        </span>
-                      ) : null}
-                    </div>
+  {cardVip ? (
+    <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+      <Crown className="w-3.5 h-3.5" />
+      VIP
+    </span>
+  ) : null}
+</div>
                   </div>
                 </div>
 
