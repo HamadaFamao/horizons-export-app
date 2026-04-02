@@ -6579,30 +6579,10 @@ useEffect(() => {
             <div className="mx-auto mt-2 mb-2 h-1.5 w-12 rounded-full bg-gray-300 shrink-0" />
 
             <div className="h-full flex flex-col overflow-hidden">
-              {giftPanelOpen ? (
-          <div className="mx-auto mt-2 mb-2 h-1.5 w-12 rounded-full bg-slate-200" />
-        ) : null}
-
-        <div className="h-full flex flex-col overflow-hidden">
-          {giftPanelOpen ? (
-  <>
-    <div className="mx-auto mt-2 mb-2 h-1.5 w-12 rounded-full bg-slate-200" />
-
-    <div className="h-full flex flex-col overflow-hidden">
-      {giftPanelOpen ? (
-          <>
-            <div className="mx-auto mt-2 mb-2 h-1.5 w-12 rounded-full bg-slate-200" />
-
-            <div className="h-full flex flex-col overflow-hidden">
-              {giftPanelOpen ? (
-          <>
-            <div className="mx-auto mt-2 mb-2 h-1.5 w-12 rounded-full bg-slate-200" />
-
-            <div className="h-full flex flex-col overflow-hidden">
               <GiftPanel
                 recipientId={
                   giftTargetMode === "single"
-                    ? giftSelectedRecipient?.id || null
+                    ? (giftSelectedRecipient?.id || null)
                     : null
                 }
                 recipientName={
@@ -6637,9 +6617,39 @@ useEffect(() => {
                 }}
               />
             </div>
-          </>
-        ) : null}
+          </div>
+        </div>
+      )}
 
+      <UserCardModal
+        open={isUserCardOpen}
+        onClose={closeUserCard}
+        cardLoading={cardLoading}
+        selectedUserProfile={selectedUserProfile}
+        selectedUserId={selectedUserId}
+        isSelfCard={isSelfCard}
+        canShowOwnerTools={canShowOwnerTools}
+        isOwner={isOwner}
+        targetMutedActive={targetMutedActive}
+        moderatorsMap={moderatorsMap}
+        effectiveSeats={effectiveSeats}
+        FALLBACK_AVATAR={FALLBACK_AVATAR}
+        mentionUser={mentionUser}
+        openGiftPanelForUser={openGiftPanelForUser}
+        goToProfilePage={goToProfilePage}
+        toast={toast}
+        setInviteTargetUserId={setInviteTargetUserId}
+        setInviteOnlyMode={setInviteOnlyMode}
+        setSeatMenuSeatNo={setSeatMenuSeatNo}
+        setSeatMenuOpen={setSeatMenuOpen}
+        setInviteOpen={setInviteOpen}
+        muteUser={muteUser}
+        unmuteUser={unmuteUser}
+        openKickConfirm={openKickConfirm}
+        openBanConfirm={openBanConfirm}
+        assignModerator={assignModerator}
+        removeModerator={removeModerator}
+      />
         <UserCardModal
           open={isUserCardOpen}
           onClose={closeUserCard}
@@ -6670,5 +6680,5 @@ useEffect(() => {
           removeModerator={removeModerator}
         />
       </div>
-    );
-  }
+  );
+}
