@@ -52,6 +52,7 @@ const cardId =
   selectedUserProfile?.display_id ??
   selectedUserProfile?.profile_id ??
   null;
+
 const cardLevel = selectedUserProfile?.level ?? null;
 const cardVip = !!selectedUserProfile?.is_vip;
 const cardFamily = selectedUserProfile?.agency_name || null;
