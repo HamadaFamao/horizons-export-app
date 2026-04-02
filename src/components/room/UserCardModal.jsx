@@ -70,8 +70,16 @@ const cardFamily =
 const vipNumber = Number(selectedUserProfile?.vip_number || 0);
 
   const cardIsMod = !!(
-    selectedUserId && safeModeratorsMap.has(String(selectedUserId))
-  );
+  (selectedUserId && moderatorsMap?.has?.(String(selectedUserId))) ||
+  selectedUserProfile?.is_moderator ||
+  selectedUserProfile?.isModerator ||
+  selectedUserProfile?.is_mod ||
+  selectedUserProfile?.role === "moderator" ||
+  selectedUserProfile?.role === "mod" ||
+  selectedUserProfile?.room_role === "moderator" ||
+  selectedUserProfile?.room_role === "mod" ||
+  selectedUserProfile?.badge === "mod"
+);
 
   const cardIsHost =
     String(selectedUserId || "") === String(hostUserId || "");
@@ -125,16 +133,16 @@ const vipNumber = Number(selectedUserProfile?.vip_number || 0);
   };
 
   const handleModeratorToggle = () => {
-    if (!selectedUserId) return;
+  if (!selectedUserId) return;
 
-    if (safeModeratorsMap.has(String(selectedUserId))) {
-      removeModerator(selectedUserId);
-    } else {
-      assignModerator(selectedUserId);
-    }
+  if (cardIsMod) {
+    removeModerator(selectedUserId);
+  } else {
+    assignModerator(selectedUserId);
+  }
 
-    onClose();
-  };
+  onClose();
+};
 
   return (
     <div
@@ -317,17 +325,15 @@ const vipNumber = Number(selectedUserProfile?.vip_number || 0);
                     </Button>
 
                     {isOwner ? (
-                      <Button
-                        variant="outline"
-                        className="gap-2"
-                        onClick={handleModeratorToggle}
-                      >
-                        <Shield className="w-4 h-4" />
-                        {safeModeratorsMap.has(String(selectedUserId))
-                          ? "Remove Mod"
-                          : "Make Mod"}
-                      </Button>
-                    ) : null}
+  <Button
+    variant="outline"
+    className="gap-2"
+    onClick={handleModeratorToggle}
+  >
+    <Shield className="w-4 h-4" />
+    {cardIsMod ? "Remove Mod" : "Make Mod"}
+  </Button>
+) : null}
                   </div>
                 </div>
               ) : null}
