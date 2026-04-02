@@ -53,13 +53,21 @@ export default function UserCardModal({
   const cardAvatar = selectedUserProfile?.avatar_url || FALLBACK_AVATAR;
 
   const cardId =
-    selectedUserProfile?.display_id ??
-    selectedUserProfile?.profile_id ??
-    null;
+  selectedUserProfile?.display_id ??
+  selectedUserProfile?.profile_id ??
+  null;
 
-  const cardLevel = selectedUserProfile?.level ?? null;
-  const cardVip = !!selectedUserProfile?.is_vip;
-  const cardFamily = selectedUserProfile?.agency_name || null;
+const cardLevel =
+  selectedUserProfile?.level ??
+  selectedUserProfile?.currentLevel ??
+  null;
+
+const cardFamily =
+  selectedUserProfile?.agency_name ??
+  selectedUserProfile?.family_name ??
+  null;
+
+const vipNumber = Number(selectedUserProfile?.vip_number || 0);
 
   const cardIsMod = !!(
     selectedUserId && safeModeratorsMap.has(String(selectedUserId))
@@ -67,6 +75,8 @@ export default function UserCardModal({
 
   const cardIsHost =
     String(selectedUserId || "") === String(hostUserId || "");
+
+  const cardIsAdmin = cardIsMod; 
 
   const handleInviteMic = () => {
     if (!selectedUserId) return;
@@ -186,12 +196,11 @@ export default function UserCardModal({
                       </span>
                     ) : null}
 
-                    {cardVip ? (
-                      <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
-                        <Crown className="w-3.5 h-3.5" />
-                        VIP
-                      </span>
-                    ) : null}
+                    {vipNumber > 0 ? (
+  <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+    VIP {vipNumber}
+  </span>
+) : null}
 
                     {cardLevel !== null && cardLevel > 0 ? (
                       <span className="inline-flex items-center text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200">

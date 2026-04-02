@@ -346,62 +346,48 @@ export default function LiveRoomPage() {
 const fetchProfileCardData = async (userId) => {
   if (!userId) return null;
 
+  // 1) base profile - نفس مصدر صفحة البروفايل
   const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("id, profile_id, name, avatar_url, is_vip, plan")
+    .from("v_user_profile_with_wallet")
+    .select("*")
     .eq("id", userId)
     .maybeSingle();
 
   if (profileError || !profile) return null;
 
-  const roomUser =
-    activeParticipantsRef.current?.find(
-      (x) => String(x.user_id) === String(userId)
-    ) || null;
+  // 2) حاول نجيب اسم العائلة/الوكالة من نفس مصدر البروفايل
+  let merged = { ...profile };
 
-  const { data: wallet } = await supabase
-    .from("wallets")
-    .select("level")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  let agencyName =
-    profile?.agency_name ||
-    roomUser?.agency_name ||
-    roomUser?.family_name ||
-    roomUser?.family?.name ||
-    null;
-
-  if (!agencyName) {
-    const { data: membership } = await supabase
-      .from("agency_memberships")
-      .select("agency_id")
+  try {
+    const { data: ua } = await supabase
+      .from("v_user_agency")
+      .select("*")
       .eq("user_id", userId)
-      .is("left_at", null)
-      .order("joined_at", { ascending: false })
-      .limit(1)
       .maybeSingle();
 
-    if (membership?.agency_id) {
-      const { data: agency } = await supabase
-        .from("agencies")
-        .select("name")
-        .eq("id", membership.agency_id)
-        .maybeSingle();
-
-      agencyName = agency?.name || null;
+    if (ua) {
+      merged = {
+        ...merged,
+        agency_id: ua.agency_id ?? merged.agency_id ?? null,
+        agency_name: ua.agency_name ?? merged.agency_name ?? null,
+        family_id: ua.agency_id ?? merged.family_id ?? null,
+        family_name: ua.agency_name ?? merged.family_name ?? null,
+      };
     }
+  } catch (e) {
+    // سيبها صامتة، الكارت يكمل عادي
   }
 
   return {
-    ...profile,
-    profile_id: profile?.profile_id ?? null,
-    display_id: profile?.profile_id ?? String(profile?.id || "").slice(0, 6),
-    level:
-      wallet && typeof wallet.level !== "undefined"
-        ? wallet.level
-        : null,
-    agency_name: agencyName,
+    ...merged,
+    profile_id: merged?.profile_id ?? null,
+    display_id:
+  merged?.profile_id ??
+  (String(merged?.id || "").slice(0, 6) || null),
+    agency_name:
+      merged?.agency_name ??
+      merged?.family_name ??
+      null,
   };
 };
   const [mutesMap, setMutesMap] = useState(new Map());
@@ -1674,7 +1660,7 @@ useEffect(() => {
 
   const openProfile = (userId) => {
   if (!userId) return;
-  openUserCard(userId);
+  openUserCard(userId, user);
 };
 
  const goToProfilePage = (userId) => {
@@ -1741,19 +1727,21 @@ useEffect(() => {
     return normalized;
   };
 
-  const openUserCard = async (userId) => {
-
+  const openUserCard = async (userId, seedProfile = null) => {
   if (!userId) return;
 
   setIsUserCardOpen(true);
   setSelectedUserId(userId);
-  setSelectedUserProfile(null);
+  setSelectedUserProfile(seedProfile || null);
   setCardLoading(true);
 
   try {
     const profileData = await fetchProfileCardData(userId);
-    if (!mountedRef.current) return;
-    setSelectedUserProfile(profileData);
+
+    setSelectedUserProfile((prev) => ({
+      ...(prev || {}),
+      ...(profileData || {}),
+    }));
   } catch (err) {
     console.error("openUserCard error:", err);
   } finally {
@@ -6683,7 +6671,7 @@ useEffect(() => {
                   }
 
                   setGiftPanelOpen(false);
-                  openUserCard(userId);
+                  openUserCard(userId, user);
                 }}
               />
             </div>
