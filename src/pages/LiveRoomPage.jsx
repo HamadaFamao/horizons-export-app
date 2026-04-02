@@ -1721,7 +1721,7 @@ useEffect(() => {
   };
 
   const openUserCard = async (userId) => {
-  alert(`openUserCard: ${userId}`);
+
   if (!userId) return;
 
   setIsUserCardOpen(true);
@@ -6605,7 +6605,7 @@ useEffect(() => {
               />
 
               <UserCardModal
-  open={true}
+  open={isUserCardOpen}
   onClose={closeUserCard}
   cardLoading={cardLoading}
   selectedUserProfile={selectedUserProfile}
