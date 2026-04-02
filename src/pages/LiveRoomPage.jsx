@@ -348,17 +348,11 @@ const fetchProfileCardData = async (userId) => {
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("id, profile_id, name, avatar_url, is_vip, plan")
+    .select("id, profile_id, name, avatar_url, is_vip, plan, level")
     .eq("id", userId)
     .maybeSingle();
 
   if (profileError || !profile) return null;
-
-  const { data: wallet } = await supabase
-    .from("wallets")
-    .select("level")
-    .eq("user_id", userId)
-    .maybeSingle();
 
   const { data: membership } = await supabase
     .from("agency_memberships")
@@ -384,10 +378,8 @@ const fetchProfileCardData = async (userId) => {
   return {
     ...profile,
     profile_id: profile?.profile_id ?? null,
-    display_id: profile?.profile_id ?? String(profile?.id || "").slice(0, 8),
-    level: wallet && typeof wallet.level !== "undefined"
-  ? wallet.level
-  : null,
+    display_id: profile?.profile_id ?? String(profile?.id || "").slice(0, 6),
+    level: profile?.level ?? null,
     agency_name: agencyName,
   };
 };
