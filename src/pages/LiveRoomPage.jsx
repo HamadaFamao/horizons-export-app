@@ -352,15 +352,6 @@ const fetchProfileCardData = async (userId) => {
     .eq("id", userId)
     .maybeSingle();
 
-  const fetchProfileCardData = async (userId) => {
-  if (!userId) return null;
-
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("id, profile_id, name, avatar_url, is_vip, plan")
-    .eq("id", userId)
-    .maybeSingle();
-
   if (profileError || !profile) return null;
 
   const roomUser =
