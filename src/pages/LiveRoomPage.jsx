@@ -6584,62 +6584,86 @@ useEffect(() => {
         ) : null}
 
         <div className="h-full flex flex-col overflow-hidden">
-          <GiftPanel
-            recipientId={giftTargetMode === "single" ? (giftSelectedRecipient?.id || null) : null}
-            recipientName={giftSelectedRecipient?.name || giftTarget?.name || giftTarget?.username}
-            onClose={() => setGiftPanelOpen(false)}
-            onGiftSent={handleRoomGiftSend}
-            targetMode={giftTargetMode}
-            quantity={giftQuantity}
-            setQuantity={setGiftQuantity}
-            roomUsers={giftPanelUsers}
-            hostUser={hostUser}
-            selectedRecipient={giftSelectedRecipient}
-            onRecipientChange={({ mode, user }) => {
-              const nextMode = resolveGiftTargetMode(mode, user);
-              setGiftTargetMode(nextMode);
-              setGiftSelectedRecipient(user || null);
-              setGiftTarget(nextMode === "single" ? user || null : null);
-            }}
-            onOpenUserCard={(userId) => {
-              if (userId === "mic_users_virtual" || userId === "all_users_virtual") return;
-              setGiftPanelOpen(false);
-              openUserCard(userId);
-            }}
-          />
-        </div>
-      </div>
-    </div>
+          {giftPanelOpen ? (
+  <>
+    <div className="mx-auto mt-2 mb-2 h-1.5 w-12 rounded-full bg-slate-200" />
 
-    <UserCardModal
-      open={isUserCardOpen}
-      onClose={closeUserCard}
-      cardLoading={cardLoading}
-      selectedUserProfile={selectedUserProfile}
-      selectedUserId={selectedUserId}
-      isSelfCard={isSelfCard}
-      canShowOwnerTools={canShowOwnerTools}
-      isOwner={isOwner}
-      targetMutedActive={targetMutedActive}
-      moderatorsMap={moderatorsMap}
-      effectiveSeats={effectiveSeats}
-      FALLBACK_AVATAR={FALLBACK_AVATAR}
-      mentionUser={mentionUser}
-      openGiftPanelForUser={openGiftPanelForUser}
-      goToProfilePage={goToProfilePage}
-      toast={toast}
-      setInviteTargetUserId={setInviteTargetUserId}
-      setInviteOnlyMode={setInviteOnlyMode}
-      setSeatMenuSeatNo={setSeatMenuSeatNo}
-      setSeatMenuOpen={setSeatMenuOpen}
-      setInviteOpen={setInviteOpen}
-      muteUser={muteUser}
-      unmuteUser={unmuteUser}
-      openKickConfirm={openKickConfirm}
-      openBanConfirm={openBanConfirm}
-      assignModerator={assignModerator}
-      removeModerator={removeModerator}
-    />
-  </div>
-);
-}
+    <div className="h-full flex flex-col overflow-hidden">
+      {giftPanelOpen ? (
+          <>
+            <div className="mx-auto mt-2 mb-2 h-1.5 w-12 rounded-full bg-slate-200" />
+
+            <div className="h-full flex flex-col overflow-hidden">
+              <GiftPanel
+                recipientId={
+                  giftTargetMode === "single"
+                    ? (giftSelectedRecipient?.id || null)
+                    : null
+                }
+                recipientName={
+                  giftSelectedRecipient?.name ||
+                  giftTarget?.name ||
+                  giftTarget?.username
+                }
+                onClose={() => setGiftPanelOpen(false)}
+                onGiftSent={handleRoomGiftSend}
+                targetMode={giftTargetMode}
+                quantity={giftQuantity}
+                setQuantity={setGiftQuantity}
+                roomUsers={giftPanelUsers}
+                hostUser={hostUser}
+                selectedRecipient={giftSelectedRecipient}
+                onRecipientChange={({ mode, user }) => {
+                  const nextMode = resolveGiftTargetMode(mode, user);
+                  setGiftTargetMode(nextMode);
+                  setGiftSelectedRecipient(user || null);
+                  setGiftTarget(nextMode === "single" ? user || null : null);
+                }}
+                onOpenUserCard={(userId) => {
+                  if (
+                    userId === "mic_users_virtual" ||
+                    userId === "all_users_virtual"
+                  ) {
+                    return;
+                  }
+
+                  setGiftPanelOpen(false);
+                  openUserCard(userId);
+                }}
+              />
+            </div>
+          </>
+        ) : null}
+
+        <UserCardModal
+          open={isUserCardOpen}
+          onClose={closeUserCard}
+          cardLoading={cardLoading}
+          selectedUserProfile={selectedUserProfile}
+          selectedUserId={selectedUserId}
+          isSelfCard={isSelfCard}
+          canShowOwnerTools={canShowOwnerTools}
+          isOwner={isOwner}
+          targetMutedActive={targetMutedActive}
+          moderatorsMap={moderatorsMap}
+          effectiveSeats={effectiveSeats}
+          FALLBACK_AVATAR={FALLBACK_AVATAR}
+          mentionUser={mentionUser}
+          openGiftPanelForUser={openGiftPanelForUser}
+          goToProfilePage={goToProfilePage}
+          toast={toast}
+          setInviteTargetUserId={setInviteTargetUserId}
+          setInviteOnlyMode={setInviteOnlyMode}
+          setSeatMenuSeatNo={setSeatMenuSeatNo}
+          setSeatMenuOpen={setSeatMenuOpen}
+          setInviteOpen={setInviteOpen}
+          muteUser={muteUser}
+          unmuteUser={unmuteUser}
+          openKickConfirm={openKickConfirm}
+          openBanConfirm={openBanConfirm}
+          assignModerator={assignModerator}
+          removeModerator={removeModerator}
+        />
+      </div>
+    );
+  }
