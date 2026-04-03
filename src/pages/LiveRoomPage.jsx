@@ -284,6 +284,7 @@ export default function LiveRoomPage() {
   // ==========================================
   const countdownAudioRef = useRef(null);
   const lastCountdownSecondRef = useRef(null);
+  const audioUnlockedRef = useRef(false);
   const miniRoomActiveRef = useRef(false);
   const livekitRoomRef = useRef(null);
   const mountedRef = useRef(true);
@@ -3817,10 +3818,34 @@ console.log("MODERATORS MAP:", nextMap);
   // 7. Effects
   // ==========================================
   useEffect(() => {
-  countdownAudioRef.current = new Audio("/sounds/beep.mp3");
-  countdownAudioRef.current.preload = "auto";
+  const audio = new Audio("/sounds/beep.mp3");
+  audio.preload = "auto";
+  countdownAudioRef.current = audio;
+
+  const unlockAudio = async () => {
+    if (!countdownAudioRef.current || audioUnlockedRef.current) return;
+
+    try {
+      countdownAudioRef.current.muted = true;
+      countdownAudioRef.current.currentTime = 0;
+      await countdownAudioRef.current.play();
+      countdownAudioRef.current.pause();
+      countdownAudioRef.current.currentTime = 0;
+      countdownAudioRef.current.muted = false;
+      audioUnlockedRef.current = true;
+      console.log("[COUNTDOWN_AUDIO] unlocked");
+    } catch (err) {
+      console.log("[COUNTDOWN_AUDIO] unlock blocked", err);
+    }
+  };
+
+  window.addEventListener("click", unlockAudio, { passive: true });
+  window.addEventListener("touchstart", unlockAudio, { passive: true });
 
   return () => {
+    window.removeEventListener("click", unlockAudio);
+    window.removeEventListener("touchstart", unlockAudio);
+
     if (countdownAudioRef.current) {
       countdownAudioRef.current.pause();
       countdownAudioRef.current = null;
@@ -3845,10 +3870,12 @@ useEffect(() => {
 
   lastCountdownSecondRef.current = secondsLeft;
 
-  if (countdownAudioRef.current) {
-    countdownAudioRef.current.currentTime = 0;
-    countdownAudioRef.current.play().catch(() => {});
-  }
+  if (countdownAudioRef.current && audioUnlockedRef.current) {
+  countdownAudioRef.current.currentTime = 0;
+  countdownAudioRef.current.play().catch((err) => {
+    console.log("[COUNTDOWN_AUDIO] play failed", err);
+  });
+}
 
   if (navigator.vibrate) {
     navigator.vibrate(80);
