@@ -6771,6 +6771,157 @@ console.log("MODERATORS MAP:", nextMap);
   onCreatePk={handleCreatePk}
 />
 
+{pkResultOpen && pkResultData && (
+  <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-3">
+    <div
+      className="w-full max-w-3xl overflow-hidden rounded-[28px] bg-white shadow-2xl border border-slate-200"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="px-6 py-5 border-b border-slate-200 text-center">
+        <h2 className="text-3xl font-black text-slate-900">PK Result</h2>
+      </div>
+
+      <div className="p-6 bg-slate-50">
+        <div className="flex justify-center mb-6">
+          <div className="inline-flex items-center rounded-full border border-cyan-200 bg-cyan-50 px-6 py-3 text-cyan-700 font-extrabold text-2xl shadow-sm">
+            {pkResultData.winnerSide === "draw"
+              ? "Draw"
+              : `Winner: Side ${pkResultData.winnerSide}`}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-5 mb-6">
+          <div className="rounded-[28px] border border-slate-200 bg-white p-6 text-center shadow-sm">
+            <div className="mx-auto mb-5 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-5 py-2 text-slate-400 font-black tracking-[0.2em] text-xl">
+              🥈 RUNNER-UP
+            </div>
+
+            <div className="text-fuchsia-700 font-black tracking-[0.25em] text-2xl mb-4">
+              SIDE A
+            </div>
+
+            <div className="text-[72px] leading-none font-black text-fuchsia-600">
+              {Number(pkResultData.scoreA || 0)}
+            </div>
+          </div>
+
+          <div className="rounded-[28px] border border-cyan-200 bg-cyan-50/40 p-6 text-center shadow-[0_0_40px_rgba(34,211,238,0.10)]">
+            <div className="mx-auto mb-5 inline-flex items-center gap-2 rounded-full border border-cyan-200 bg-white px-5 py-2 text-cyan-700 font-black tracking-[0.2em] text-xl shadow-sm">
+              🏆 WINNER
+            </div>
+
+            <div className="text-cyan-800 font-black tracking-[0.25em] text-2xl mb-4">
+              SIDE B
+            </div>
+
+            <div className="text-[72px] leading-none font-black text-cyan-600">
+              {Number(pkResultData.scoreB || 0)}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-5 mb-6">
+          <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="text-fuchsia-700 text-2xl font-black mb-3">
+              Side A Players
+            </div>
+            <div className="h-[2px] w-full bg-slate-200 mb-4" />
+
+            <div className="space-y-3">
+              {(pkResultData.sideAPlayers || []).map((player, idx) => (
+                <div
+                  key={`${player.user_id || player.id || idx}-A`}
+                  className="flex items-center gap-4 rounded-[22px] border border-slate-200 bg-slate-50 p-3 shadow-sm"
+                >
+                  <img
+                    src={player.avatar_url || FALLBACK_AVATAR}
+                    alt={player.display_name || "User"}
+                    className="w-16 h-16 rounded-full object-cover border bg-white"
+                    onError={(e) => {
+                      e.currentTarget.src = FALLBACK_AVATAR;
+                    }}
+                  />
+
+                  <div className="min-w-0 flex-1">
+                    <div className="text-slate-900 font-black text-2xl truncate">
+                      {player.display_name || player.name || "User"}
+                    </div>
+                    <div className="text-slate-500 text-xl">
+                      Seat #{player.seat_no}
+                    </div>
+                  </div>
+
+                  <div className="text-3xl">🥈</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-[28px] border border-cyan-200 bg-cyan-50/30 p-5 shadow-sm">
+            <div className="text-cyan-800 text-2xl font-black mb-3">
+              Side B Players
+            </div>
+            <div className="h-[2px] w-full bg-cyan-100 mb-4" />
+
+            <div className="space-y-3">
+              {(pkResultData.sideBPlayers || []).map((player, idx) => (
+                <div
+                  key={`${player.user_id || player.id || idx}-B`}
+                  className="flex items-center gap-4 rounded-[22px] border border-slate-200 bg-white p-3 shadow-sm"
+                >
+                  <img
+                    src={player.avatar_url || FALLBACK_AVATAR}
+                    alt={player.display_name || "User"}
+                    className="w-16 h-16 rounded-full object-cover border bg-white"
+                    onError={(e) => {
+                      e.currentTarget.src = FALLBACK_AVATAR;
+                    }}
+                  />
+
+                  <div className="min-w-0 flex-1">
+                    <div className="text-slate-900 font-black text-2xl truncate">
+                      {player.display_name || player.name || "User"}
+                    </div>
+                    <div className="text-slate-500 text-xl">
+                      Seat #{player.seat_no}
+                    </div>
+                  </div>
+
+                  <div className="text-3xl">🏆</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-5">
+          <button
+            type="button"
+            onClick={() => {
+              setPkResultOpen(false);
+            }}
+            className="h-16 rounded-[22px] border border-slate-300 bg-white text-slate-800 text-2xl font-semibold hover:bg-slate-50"
+          >
+            Close
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setPkResultOpen(false);
+              setPkResultData(null);
+              setShowPkModal(true);
+            }}
+            className="h-16 rounded-[22px] bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white text-2xl font-semibold shadow-lg hover:opacity-95"
+          >
+            Start New Round
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
       {giftPanelOpen && (
         <div className="fixed inset-0 z-[100]">
           <div
