@@ -282,6 +282,8 @@ export default function LiveRoomPage() {
   // ==========================================
   // 2. Refs
   // ==========================================
+  const countdownAudioRef = useRef(null);
+  const lastCountdownSecondRef = useRef(null);
   const miniRoomActiveRef = useRef(false);
   const livekitRoomRef = useRef(null);
   const mountedRef = useRef(true);
@@ -3814,6 +3816,44 @@ console.log("MODERATORS MAP:", nextMap);
   // ==========================================
   // 7. Effects
   // ==========================================
+  useEffect(() => {
+  countdownAudioRef.current = new Audio("/sounds/beep.mp3");
+  countdownAudioRef.current.preload = "auto";
+
+  return () => {
+    if (countdownAudioRef.current) {
+      countdownAudioRef.current.pause();
+      countdownAudioRef.current = null;
+    }
+  };
+}, []);
+useEffect(() => {
+  if (!pkSession?.id) return;
+  if (pkSession?.status !== "live") return;
+  if (pkRemainingMs == null) return;
+
+  const secondsLeft = Math.ceil(pkRemainingMs / 1000);
+
+  // reset لو خرجنا من آخر 10 ثواني
+  if (secondsLeft > 10 || secondsLeft <= 0) {
+    lastCountdownSecondRef.current = null;
+    return;
+  }
+
+  // يشتغل مرة واحدة لكل ثانية
+  if (lastCountdownSecondRef.current === secondsLeft) return;
+
+  lastCountdownSecondRef.current = secondsLeft;
+
+  if (countdownAudioRef.current) {
+    countdownAudioRef.current.currentTime = 0;
+    countdownAudioRef.current.play().catch(() => {});
+  }
+
+  if (navigator.vibrate) {
+    navigator.vibrate(80);
+  }
+}, [pkSession?.id, pkSession?.status, pkRemainingMs]);
   useEffect(() => {
     miniRoomActiveRef.current = !!miniRoomActive;
   }, [miniRoomActive]);
