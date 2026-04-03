@@ -3886,7 +3886,7 @@ useEffect(() => {
     return;
   }
 
-  // 3 → 1 : beep أطول
+  // 3 → 1 : beep أطول + اهتزاز
   if (secondsLeft >= 1) {
     if (countdownAudioRef.current && audioUnlockedRef.current) {
       countdownAudioRef.current.pause();
