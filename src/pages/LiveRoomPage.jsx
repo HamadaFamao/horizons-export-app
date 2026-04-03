@@ -4280,123 +4280,128 @@ console.log("MODERATORS MAP:", nextMap);
     pkFinishTriggeredRef.current = false;
   }, [pkSession?.id]);
 
-  useEffect(() => {
-    if (!pkSession?.id) return;
-    if (pkSession?.status === "pending" || pkSession?.status === "live") {
-      setPkResultOpen(false);
-      setPkResultData(null);
+ useEffect(() => {
+  if (!pkSession?.id) return;
+
+  // اقفل النتيجة فقط عند بداية PK جديدة أو أثناء التحضير
+  if (
+    (pkSession?.status === "pending" || pkSession?.status === "live") &&
+    !pkResultData
+  ) {
+    setPkResultOpen(false);
+  }
+}, [pkSession?.id, pkSession?.status, pkResultData]);
+
+ useEffect(() => {
+  if (!pkSession?.id) return;
+  if (pkSession.status !== "live") return;
+  if (pkRemainingMs > 0) return;
+  if (pkFinishTriggeredRef.current) return;
+
+  pkFinishTriggeredRef.current = true;
+
+  const finishPk = async () => {
+    let winnerSide = "draw";
+    if (pkScores.A > pkScores.B) winnerSide = "A";
+    else if (pkScores.B > pkScores.A) winnerSide = "B";
+
+    let winnerUserId = null;
+    if (winnerSide !== "draw") {
+      const participants =
+        (pkParticipants || []).length > 0
+          ? pkParticipants
+          : (pkDisplaySides?.[winnerSide] || []);
+
+      const winner = participants.find((p) => p.side === winnerSide);
+      if (winner) {
+        winnerUserId = winner.user_id || winner.id;
+      }
     }
-  }, [pkSession?.id, pkSession?.status]);
 
-  useEffect(() => {
-    if (!pkSession?.id) return;
-    if (pkSession.status !== "live") return;
-    if (pkRemainingMs > 0) return;
-    if (pkFinishTriggeredRef.current) return;
+    console.log("[PK_FINISH_RESULT]", {
+      pkSessionId: pkSession.id,
+      winnerSide,
+      scoreA: Number(pkScores?.A || 0),
+      scoreB: Number(pkScores?.B || 0),
+      winnerUserId: winnerUserId || null,
+    });
 
-    pkFinishTriggeredRef.current = true;
-
-    const finishPk = async () => {
-      let winnerSide = "draw";
-      if (pkScores.A > pkScores.B) winnerSide = "A";
-      else if (pkScores.B > pkScores.A) winnerSide = "B";
-
-      let winnerUserId = null;
-      if (winnerSide !== "draw") {
-        const participants = (pkParticipants || []).length > 0 ? pkParticipants : (pkDisplaySides?.[winnerSide] || []);
-        const winner = participants.find(p => p.side === winnerSide);
-        if (winner) {
-          winnerUserId = winner.user_id || winner.id;
-        }
-      }
-
-      console.log("[PK_FINISH_RESULT]", {
-        pkSessionId: pkSession.id,
-        winnerSide,
-        scoreA: Number(pkScores?.A || 0),
-        scoreB: Number(pkScores?.B || 0),
-        winnerUserId: winnerUserId || null,
-      });
-
-      try {
-        const { data, error } = await supabase.rpc("finish_live_room_pk_session", {
-          p_pk_session_id: pkSession.id,
-          p_winner_side: winnerSide,
-          p_winner_user_id: winnerUserId
-        });
-
-        if (error) throw error;
-
-        setPkResultData({
-          winnerSide,
-          scoreA: Number(pkScores?.A || 0),
-          scoreB: Number(pkScores?.B || 0),
-          session: pkSession,
-          sideAPlayers: (pkSideA || []).map((p) => ({
-            user_id: p.user_id || p.id,
-            display_name: p.display_name || p.name || "User",
-            avatar_url: p.avatar_url || FALLBACK_AVATAR,
-            seat_no: p.seat_no,
-            side: "A",
-          })),
-          sideBPlayers: (pkSideB || []).map((p) => ({
-            user_id: p.user_id || p.id,
-            display_name: p.display_name || p.name || "User",
-            avatar_url: p.avatar_url || FALLBACK_AVATAR,
-            seat_no: p.seat_no,
-            side: "B",
-          })),
-        });
-        setPkResultOpen(true);
-        await loadPkState();
-
-        if (channelRef.current) {
-          await channelRef.current.send({
-            type: "broadcast",
-            event: "pk_updated",
-            payload: {
-              room_id: roomId,
-              pk_session_id: pkSession.id,
-              ts: Date.now()
-            }
-          });
-
-          await channelRef.current.send({
-            type: "broadcast",
-            event: "pk_result",
-            payload: {
-              room_id: roomId,
-              pk_session_id: pkSession.id,
-              result: {
-                winnerSide,
-                scoreA: Number(pkScores?.A || 0),
-                scoreB: Number(pkScores?.B || 0),
-                sideAPlayers: (pkSideA || []).map((p) => ({
-                  user_id: p.user_id || p.id,
-                  display_name: p.display_name || p.name || "User",
-                  avatar_url: p.avatar_url || FALLBACK_AVATAR,
-                  seat_no: p.seat_no,
-                  side: "A",
-                })),
-                sideBPlayers: (pkSideB || []).map((p) => ({
-                  user_id: p.user_id || p.id,
-                  display_name: p.display_name || p.name || "User",
-                  avatar_url: p.avatar_url || FALLBACK_AVATAR,
-                  seat_no: p.seat_no,
-                  side: "B",
-                })),
-              },
-              ts: Date.now(),
-            },
-          });
-        }
-      } catch (err) {
-        console.error("[PK_FINISH_ERROR]", err);
-      }
+    const finalResult = {
+      winnerSide,
+      scoreA: Number(pkScores?.A || 0),
+      scoreB: Number(pkScores?.B || 0),
+      session: pkSession,
+      sideAPlayers: (pkSideA || []).map((p) => ({
+        user_id: p.user_id || p.id,
+        display_name: p.display_name || p.name || "User",
+        avatar_url: p.avatar_url || FALLBACK_AVATAR,
+        seat_no: p.seat_no,
+        side: "A",
+      })),
+      sideBPlayers: (pkSideB || []).map((p) => ({
+        user_id: p.user_id || p.id,
+        display_name: p.display_name || p.name || "User",
+        avatar_url: p.avatar_url || FALLBACK_AVATAR,
+        seat_no: p.seat_no,
+        side: "B",
+      })),
     };
 
-    finishPk();
-  }, [pkSession?.id, pkSession?.status, pkRemainingMs, pkScores, pkParticipants, pkDisplaySides, roomId]);
+    try {
+      const { error } = await supabase.rpc("finish_live_room_pk_session", {
+        p_pk_session_id: pkSession.id,
+        p_winner_side: winnerSide,
+        p_winner_user_id: winnerUserId,
+      });
+
+      if (error) throw error;
+
+      setPkResultData(finalResult);
+      setPkResultOpen(true);
+
+      if (channelRef.current) {
+        await channelRef.current.send({
+          type: "broadcast",
+          event: "pk_updated",
+          payload: {
+            room_id: roomId,
+            pk_session_id: pkSession.id,
+            ts: Date.now(),
+          },
+        });
+
+        await channelRef.current.send({
+          type: "broadcast",
+          event: "pk_result",
+          payload: {
+            room_id: roomId,
+            pk_session_id: pkSession.id,
+            result: finalResult,
+            ts: Date.now(),
+          },
+        });
+      }
+
+      setTimeout(() => {
+        loadPkState();
+      }, 300);
+    } catch (err) {
+      console.error("[PK_FINISH_ERROR]", err);
+    }
+  };
+
+  finishPk();
+}, [
+  pkSession?.id,
+  pkSession?.status,
+  pkRemainingMs,
+  pkScores,
+  pkParticipants,
+  pkDisplaySides,
+  pkSideA,
+  pkSideB,
+  roomId,
+]);
 
   useEffect(() => {
     if (!roomId) return;
