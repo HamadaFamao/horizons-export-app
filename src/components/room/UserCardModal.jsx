@@ -243,36 +243,36 @@ const cardIsAdmin = cardIsMod;
                     </div>
 
                     {cardIsHost ? (
-  <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-amber-950 font-extrabold tracking-wide shadow-lg shadow-amber-500/50 border border-yellow-200">
+  <span className="relative overflow-hidden inline-flex items-center gap-1.5 text-xs px-3 py-0.5 rounded-full bg-gradient-to-r from-amber-500 via-yellow-300 to-amber-600 text-amber-950 font-black tracking-widest shadow-[0_0_15px_rgba(251,191,36,0.8)] border border-yellow-200 hover:scale-105 transition-all duration-300 after:absolute after:top-0 after:left-0 after:w-full after:h-1/2 after:bg-gradient-to-b after:from-white/60 after:to-transparent after:animate-pulse">
     HOST
   </span>
 ) : null}
 
 {cardIsMod ? (
-  <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-gradient-to-r from-indigo-500 via-blue-400 to-indigo-600 text-white font-extrabold tracking-wide shadow-lg shadow-indigo-500/50 border border-indigo-300">
+  <span className="relative overflow-hidden inline-flex items-center gap-1.5 text-xs px-3 py-0.5 rounded-full bg-gradient-to-r from-indigo-500 via-blue-400 to-indigo-600 text-white font-black tracking-widest shadow-[0_0_15px_rgba(99,102,241,0.8)] border border-indigo-300 hover:scale-105 transition-all duration-300 after:absolute after:top-0 after:left-0 after:w-full after:h-1/2 after:bg-gradient-to-b after:from-white/50 after:to-transparent after:animate-pulse">
     MOD
   </span>
 ) : null}
 
 {vipBadge ? (
   <span
-    className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-extrabold tracking-wide shadow-lg shadow-yellow-500/50 border border-white/50 ${vipBadge.className}`}
+    className={`relative overflow-hidden inline-flex items-center gap-1.5 text-xs px-3 py-0.5 rounded-full font-black tracking-widest shadow-[0_0_15px_rgba(255,215,0,0.5)] border border-white/60 saturate-150 brightness-110 hover:scale-105 transition-all duration-300 after:absolute after:top-0 after:left-0 after:w-full after:h-1/2 after:bg-gradient-to-b after:from-white/60 after:to-transparent after:animate-pulse ${vipBadge.className}`}
   >
-    <Crown className="w-3.5 h-3.5 drop-shadow-md" />
+    <Crown className="w-4 h-4 drop-shadow-md" />
     {vipBadge.label}
   </span>
 ) : null}
 
 {planBadge ? (
   <span
-    className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-bold tracking-wide shadow-md border border-white/30 ${planBadge.className}`}
+    className={`relative overflow-hidden inline-flex items-center gap-1.5 text-xs px-3 py-0.5 rounded-full font-extrabold tracking-widest shadow-[0_0_15px_rgba(255,255,255,0.4)] border border-white/50 saturate-150 brightness-110 hover:scale-105 transition-all duration-300 after:absolute after:top-0 after:left-0 after:w-full after:h-1/2 after:bg-gradient-to-b after:from-white/50 after:to-transparent after:animate-pulse ${planBadge.className}`}
   >
     {planBadge.label}
   </span>
 ) : null}
 
 {cardLevel !== null && cardLevel > 0 ? (
-  <span className="inline-flex items-center text-xs px-2 py-0.5 rounded-full bg-gradient-to-r from-blue-500 via-cyan-400 to-blue-600 text-white font-extrabold tracking-wide shadow-lg shadow-blue-500/50 border border-cyan-200">
+  <span className="relative overflow-hidden inline-flex items-center text-xs px-3 py-0.5 rounded-full bg-gradient-to-r from-cyan-500 via-blue-400 to-blue-600 text-white font-black tracking-widest shadow-[0_0_15px_rgba(6,182,212,0.8)] border border-cyan-200 hover:scale-105 transition-all duration-300 after:absolute after:top-0 after:left-0 after:w-full after:h-1/2 after:bg-gradient-to-b after:from-white/50 after:to-transparent after:animate-pulse">
     Lv.{cardLevel}
   </span>
 ) : null}
