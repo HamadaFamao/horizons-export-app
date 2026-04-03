@@ -498,6 +498,27 @@ useEffect(() => {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [leaderboardTab, setLeaderboardTab] = useState("weekly");
   const [leaderboardData, setLeaderboardData] = useState([]);
+  const leaderboardRefreshTimerRef = useRef(null);
+  const refreshLeaderboardNow = useCallback(() => {
+  if (!roomId) return;
+
+  fetchLeaderboard(
+    roomId,
+    leaderboardTab === "weekly" ? "weekly" : "alltime"
+  );
+}, [roomId, leaderboardTab]);
+
+const scheduleLeaderboardRefresh = useCallback((delay = 500) => {
+  if (leaderboardRefreshTimerRef.current) {
+    clearTimeout(leaderboardRefreshTimerRef.current);
+  }
+
+  leaderboardRefreshTimerRef.current = setTimeout(() => {
+    if (!mountedRef.current) return;
+    refreshLeaderboardNow();
+  }, delay);
+}, [refreshLeaderboardNow]);
+
  async function fetchLeaderboard(targetRoomId, period = "alltime") {
   if (!targetRoomId) return;
 
@@ -1197,6 +1218,7 @@ useEffect(() => {
         console.log("[ROOM_GIFT_MESSAGES_UPDATED]", nextMessages);
         return nextMessages;
       });
+      scheduleLeaderboardRefresh(400);
 
       processingRoomGiftIdsRef.current.delete(eventId);
     } catch (err) {
@@ -1319,6 +1341,7 @@ useEffect(() => {
               });
             }
           }
+          scheduleLeaderboardRefresh(400);
         }
 
         const fallbackReceiverId = hostUser?.id || targets[0]?.id || resolvedReceiverId;
