@@ -51,42 +51,90 @@ export default function UserCardModal({
     moderatorsMap instanceof Map ? moderatorsMap : new Map();
 
   const cardName = selectedUserProfile?.name || "User";
-  const cardAvatar = selectedUserProfile?.avatar_url || FALLBACK_AVATAR;
+const cardAvatar = selectedUserProfile?.avatar_url || FALLBACK_AVATAR;
 
-  const cardId =
+const cardId =
   selectedUserProfile?.display_id ??
   selectedUserProfile?.profile_id ??
   null;
 
 const cardLevel =
-  selectedUserProfile?.level ??
-  selectedUserProfile?.currentLevel ??
-  null;
+  Number(
+    selectedUserProfile?.currentLevel ??
+    selectedUserProfile?.current_level ??
+    selectedUserProfile?.level ??
+    selectedUserProfile?.wallet_level ??
+    selectedUserProfile?.walletLevel ??
+    selectedUserProfile?.user_level ??
+    0
+  ) || null;
 
 const cardFamily =
-  selectedUserProfile?.agency_name ??
   selectedUserProfile?.family_name ??
+  selectedUserProfile?.agency_name ??
   null;
 
-const vipNumber = Number(selectedUserProfile?.vip_number || 0);
+const vipNumber =
+  Number(
+    selectedUserProfile?.vip_number ??
+    selectedUserProfile?.vipLevel ??
+    selectedUserProfile?.vip_level ??
+    selectedUserProfile?.plan_level ??
+    (selectedUserProfile?.is_vip ? 1 : 0)
+  ) || 0;
 
-  const cardIsMod =
-  !!selectedUserIsMod || !!(
-  (selectedUserId && moderatorsMap?.has?.(String(selectedUserId))) ||
-  selectedUserProfile?.is_moderator ||
-  selectedUserProfile?.isModerator ||
-  selectedUserProfile?.is_mod ||
-  selectedUserProfile?.role === "moderator" ||
-  selectedUserProfile?.role === "mod" ||
-  selectedUserProfile?.room_role === "moderator" ||
-  selectedUserProfile?.room_role === "mod" ||
-  selectedUserProfile?.badge === "mod"
-);
+const vipBadgeMap = {
+  1: {
+    label: "VIP 1",
+    className: "bg-sky-50 text-sky-700 border border-sky-200",
+  },
+  2: {
+    label: "VIP 2",
+    className: "bg-violet-50 text-violet-700 border border-violet-200",
+  },
+  3: {
+    label: "VIP 3",
+    className: "bg-amber-50 text-amber-700 border border-amber-200",
+  },
+  4: {
+    label: "VIP 4",
+    className: "bg-rose-50 text-rose-700 border border-rose-200",
+  },
+};
 
-  const cardIsHost =
-    String(selectedUserId || "") === String(hostUserId || "");
+const vipBadge =
+  vipNumber > 0 ? vipBadgeMap[Math.min(vipNumber, 4)] : null;
 
-  const cardIsAdmin = cardIsMod; 
+const planKey = String(selectedUserProfile?.plan || "").toLowerCase();
+
+const planBadgeMap = {
+  free: null,
+  silver: {
+    label: "Silver",
+    className: "bg-slate-50 text-slate-700 border border-slate-200",
+  },
+  gold: {
+    label: "Gold",
+    className: "bg-yellow-50 text-yellow-700 border border-yellow-200",
+  },
+  platinum: {
+    label: "Platinum",
+    className: "bg-cyan-50 text-cyan-700 border border-cyan-200",
+  },
+  diamond: {
+    label: "Diamond",
+    className: "bg-fuchsia-50 text-fuchsia-700 border border-fuchsia-200",
+  },
+};
+
+const planBadge = planBadgeMap[planKey] || null;
+
+const cardIsMod = !!selectedUserIsMod;
+
+const cardIsHost =
+  String(selectedUserId || "") === String(hostUserId || "");
+
+const cardIsAdmin = cardIsMod; 
 
   const handleInviteMic = () => {
     if (!selectedUserId) return;
@@ -195,28 +243,39 @@ const vipNumber = Number(selectedUserProfile?.vip_number || 0);
                     </div>
 
                     {cardIsHost ? (
-                      <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-200">
-                        HOST
-                      </span>
-                    ) : null}
-
-                    {cardIsMod ? (
-                      <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200">
-                        MOD
-                      </span>
-                    ) : null}
-
-                    {vipNumber > 0 ? (
-  <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
-    VIP {vipNumber}
+  <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-200">
+    HOST
   </span>
 ) : null}
 
-                    {cardLevel !== null && cardLevel > 0 ? (
-                      <span className="inline-flex items-center text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200">
-                        Lv.{cardLevel}
-                      </span>
-                    ) : null}
+{cardIsMod ? (
+  <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200">
+    MOD
+  </span>
+) : null}
+
+{vipBadge ? (
+  <span
+    className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${vipBadge.className}`}
+  >
+    <Crown className="w-3.5 h-3.5" />
+    {vipBadge.label}
+  </span>
+) : null}
+
+{planBadge ? (
+  <span
+    className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${planBadge.className}`}
+  >
+    {planBadge.label}
+  </span>
+) : null}
+
+{cardLevel !== null && cardLevel > 0 ? (
+  <span className="inline-flex items-center text-xs px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+    Lv.{cardLevel}
+  </span>
+) : null}
                   </div>
 
                   <div className="mt-2 flex flex-wrap gap-2 text-[12px] text-slate-600">
