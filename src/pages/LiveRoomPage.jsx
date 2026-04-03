@@ -3833,10 +3833,7 @@ console.log("MODERATORS MAP:", nextMap);
       countdownAudioRef.current.currentTime = 0;
       countdownAudioRef.current.muted = false;
       audioUnlockedRef.current = true;
-      console.log("[COUNTDOWN_AUDIO] unlocked");
-    } catch (err) {
-      console.log("[COUNTDOWN_AUDIO] unlock blocked", err);
-    }
+    } catch (err) {}
   };
 
   window.addEventListener("click", unlockAudio, { passive: true });
@@ -3865,20 +3862,48 @@ useEffect(() => {
     return;
   }
 
-  // يشتغل مرة واحدة لكل ثانية
+  // يمنع التكرار لنفس الثانية
   if (lastCountdownSecondRef.current === secondsLeft) return;
 
   lastCountdownSecondRef.current = secondsLeft;
 
-  if (countdownAudioRef.current && audioUnlockedRef.current) {
-  countdownAudioRef.current.currentTime = 0;
-  countdownAudioRef.current.play().catch((err) => {
-    console.log("[COUNTDOWN_AUDIO] play failed", err);
-  });
-}
+  // 10 → 8 : اهتزاز فقط
+  if (secondsLeft >= 8) {
+    if (navigator.vibrate) {
+      navigator.vibrate(120);
+    }
+    return;
+  }
 
-  if (navigator.vibrate) {
-    navigator.vibrate(80);
+  // 7 → 4 : beep قصير كل ثانية
+  if (secondsLeft >= 4) {
+    if (countdownAudioRef.current && audioUnlockedRef.current) {
+      countdownAudioRef.current.pause();
+      countdownAudioRef.current.currentTime = 0;
+      countdownAudioRef.current.playbackRate = 1.4;
+      countdownAudioRef.current.play().catch(() => {});
+    }
+    return;
+  }
+
+  // 3 → 1 : beep أطول
+  if (secondsLeft >= 1) {
+    if (countdownAudioRef.current && audioUnlockedRef.current) {
+      countdownAudioRef.current.pause();
+      countdownAudioRef.current.currentTime = 0;
+      countdownAudioRef.current.playbackRate = 0.7;
+      countdownAudioRef.current.play().catch(() => {});
+    }
+
+    if (navigator.vibrate) {
+      navigator.vibrate(180);
+    }
+
+    setTimeout(() => {
+      if (countdownAudioRef.current) {
+        countdownAudioRef.current.playbackRate = 1;
+      }
+    }, 500);
   }
 }, [pkSession?.id, pkSession?.status, pkRemainingMs]);
   useEffect(() => {
