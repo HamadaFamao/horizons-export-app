@@ -6771,172 +6771,249 @@ console.log("MODERATORS MAP:", nextMap);
   onCreatePk={handleCreatePk}
 />
 
-{pkResultOpen && pkResultData && (
-  <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-    {/* تأثير الإضاءة الخلفية للكارت */}
-    <div className="absolute w-[80vw] h-[80vw] max-w-[400px] max-h-[400px] bg-gradient-to-tr from-fuchsia-500/30 to-cyan-500/30 blur-[80px] rounded-full animate-pulse pointer-events-none"></div>
+{pkResultOpen && pkResultData && (() => {
+  const winnerSide = pkResultData?.winnerSide || "draw";
+  const isDraw = winnerSide === "draw";
+  const isSideAWinner = winnerSide === "A";
+  const isSideBWinner = winnerSide === "B";
 
-    <div
-      className="w-full max-w-[380px] sm:max-w-md overflow-hidden rounded-[32px] bg-white/95 backdrop-blur-md shadow-[0_0_50px_rgba(0,0,0,0.4)] border border-white/20 relative animate-in zoom-in-95 duration-500"
-      onClick={(e) => e.stopPropagation()}
-    >
-      {/* الهيدر */}
-      <div className="relative px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-fuchsia-50 via-white to-cyan-50 text-center overflow-hidden">
-        <h2 className="relative text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-600 to-cyan-600 drop-shadow-sm">
-          PK Result
-        </h2>
-      </div>
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+      <div className="absolute w-[80vw] h-[80vw] max-w-[400px] max-h-[400px] bg-gradient-to-tr from-fuchsia-500/30 to-cyan-500/30 blur-[80px] rounded-full animate-pulse pointer-events-none"></div>
 
-      <div className="p-4 sm:p-5 bg-slate-50/40 relative">
-        {/* شريط الفائز */}
-        <div className="flex justify-center mb-5 relative z-10">
-          <div className="inline-flex items-center rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 px-6 py-2 text-white font-extrabold text-base sm:text-lg shadow-[0_0_20px_rgba(34,211,238,0.5)] animate-pulse border border-cyan-300/50">
-            <span className="drop-shadow-md">
-              {pkResultData.winnerSide === "draw"
-                ? "🤝 Draw"
-                : `🏆 Winner: Side ${pkResultData.winnerSide}`}
-            </span>
-          </div>
+      <div
+        className="w-full max-w-[380px] sm:max-w-md overflow-hidden rounded-[32px] bg-white/95 backdrop-blur-md shadow-[0_0_50px_rgba(0,0,0,0.4)] border border-white/20 relative animate-in zoom-in-95 duration-500"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="relative px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-fuchsia-50 via-white to-cyan-50 text-center overflow-hidden">
+          <h2 className="relative text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-600 to-cyan-600 drop-shadow-sm">
+            PK Result
+          </h2>
         </div>
 
-        {/* شبكة النتائج */}
-        <div className="grid grid-cols-2 gap-3 mb-5">
-          {/* Side A */}
-          <div className="relative rounded-[24px] border border-fuchsia-200 bg-gradient-to-b from-white to-fuchsia-50/80 p-4 text-center shadow-sm overflow-hidden group">
-            <div className="absolute -right-4 -top-4 w-16 h-16 bg-fuchsia-400/10 rounded-full blur-xl group-hover:bg-fuchsia-400/20 transition-all"></div>
-            <div className="mx-auto mb-3 inline-flex items-center gap-1 rounded-full border border-fuchsia-100 bg-fuchsia-50/80 px-3 py-1 text-fuchsia-600 font-bold tracking-wider text-[10px] sm:text-xs shadow-sm">
-              🥈 RUNNER-UP
-            </div>
-            <div className="text-fuchsia-800 font-black tracking-widest text-sm sm:text-base mb-1">
-              SIDE A
-            </div>
-            <div className="text-4xl sm:text-5xl leading-none font-black text-transparent bg-clip-text bg-gradient-to-b from-fuchsia-500 to-fuchsia-700 drop-shadow-sm">
-              {Number(pkResultData.scoreA || 0)}
-            </div>
-          </div>
-
-          {/* Side B */}
-          <div className="relative rounded-[24px] border border-cyan-300 bg-gradient-to-b from-white to-cyan-100/60 p-4 text-center shadow-[0_0_25px_rgba(34,211,238,0.2)] overflow-hidden group">
-            <div className="absolute -left-4 -top-4 w-20 h-20 bg-cyan-400/20 rounded-full blur-xl group-hover:bg-cyan-400/30 transition-all"></div>
-            <div className="mx-auto mb-3 inline-flex items-center gap-1 rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-cyan-700 font-bold tracking-wider text-[10px] sm:text-xs shadow-sm">
-              <span className="animate-bounce inline-block" style={{ animationDuration: '2s' }}>🏆</span> WINNER
-            </div>
-            <div className="text-cyan-900 font-black tracking-widest text-sm sm:text-base mb-1">
-              SIDE B
-            </div>
-            <div className="text-4xl sm:text-5xl leading-none font-black text-transparent bg-clip-text bg-gradient-to-b from-cyan-400 to-cyan-600 drop-shadow-[0_2px_10px_rgba(34,211,238,0.4)]">
-              {Number(pkResultData.scoreB || 0)}
-            </div>
-          </div>
-        </div>
-
-        {/* شبكة اللاعبين */}
-        <div className="grid grid-cols-2 gap-3 mb-6">
-          {/* Side A Players */}
-          <div className="rounded-[24px] border border-fuchsia-100 bg-white/80 p-3 shadow-sm backdrop-blur-sm">
-            <div className="text-fuchsia-800 text-xs sm:text-sm font-black mb-2 text-center">
-              Side A Players
-            </div>
-            <div className="h-[2px] w-12 mx-auto bg-gradient-to-r from-transparent via-fuchsia-300 to-transparent mb-3" />
-
-            <div className="space-y-2 max-h-[140px] overflow-y-auto pr-1">
-              {(pkResultData.sideAPlayers || []).map((player, idx) => (
-                <div
-                  key={`${player.user_id || player.id || idx}-A`}
-                  className="flex items-center gap-2 rounded-[16px] border border-fuchsia-50 bg-gradient-to-r from-fuchsia-50/30 to-white p-2 shadow-sm hover:shadow-md transition-shadow"
-                >
-                  <div className="relative shrink-0">
-                    <img
-                      src={player.avatar_url || FALLBACK_AVATAR}
-                      alt={player.display_name || "User"}
-                      className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
-                      onError={(e) => {
-                        e.currentTarget.src = FALLBACK_AVATAR;
-                      }}
-                    />
-                    <div className="absolute -bottom-1 -right-1 text-xs drop-shadow-md">🥈</div>
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <div className="text-slate-800 font-bold text-[11px] sm:text-xs truncate">
-                      {player.display_name || player.name || "User"}
-                    </div>
-                    <div className="text-slate-400 text-[9px] sm:text-[10px] font-medium">
-                      Seat #{player.seat_no}
-                    </div>
-                  </div>
-                </div>
-              ))}
+        <div className="p-4 sm:p-5 bg-slate-50/40 relative">
+          <div className="flex justify-center mb-5 relative z-10">
+            <div
+              className={`inline-flex items-center rounded-full px-6 py-2 text-white font-extrabold text-base sm:text-lg border shadow-[0_0_20px_rgba(34,211,238,0.35)] ${
+                isDraw
+                  ? "bg-gradient-to-r from-slate-400 to-slate-500 border-slate-300"
+                  : isSideAWinner
+                  ? "bg-gradient-to-r from-fuchsia-500 to-purple-500 border-fuchsia-300/50"
+                  : "bg-gradient-to-r from-cyan-400 to-blue-500 border-cyan-300/50"
+              }`}
+            >
+              <span className="drop-shadow-md">
+                {isDraw ? "🤝 Draw" : `🏆 Winner: Side ${winnerSide}`}
+              </span>
             </div>
           </div>
 
-          {/* Side B Players */}
-          <div className="rounded-[24px] border border-cyan-100 bg-white/80 p-3 shadow-sm backdrop-blur-sm">
-            <div className="text-cyan-900 text-xs sm:text-sm font-black mb-2 text-center">
-              Side B Players
+          <div className="grid grid-cols-2 gap-3 mb-5">
+            <div
+              className={`relative rounded-[24px] p-4 text-center shadow-sm overflow-hidden group ${
+                isDraw
+                  ? "border border-slate-200 bg-gradient-to-b from-white to-slate-50/80"
+                  : isSideAWinner
+                  ? "border border-fuchsia-300 bg-gradient-to-b from-white to-fuchsia-100/70 shadow-[0_0_25px_rgba(217,70,239,0.18)]"
+                  : "border border-fuchsia-200 bg-gradient-to-b from-white to-fuchsia-50/80"
+              }`}
+            >
+              <div className="absolute -right-4 -top-4 w-16 h-16 bg-fuchsia-400/10 rounded-full blur-xl group-hover:bg-fuchsia-400/20 transition-all"></div>
+
+              <div
+                className={`mx-auto mb-3 inline-flex items-center gap-1 rounded-full px-3 py-1 font-bold tracking-wider text-[10px] sm:text-xs shadow-sm ${
+                  isDraw
+                    ? "border border-slate-200 bg-slate-50 text-slate-500"
+                    : isSideAWinner
+                    ? "border border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700"
+                    : "border border-fuchsia-100 bg-fuchsia-50/80 text-fuchsia-600"
+                }`}
+              >
+                {isDraw ? "🤝 DRAW" : isSideAWinner ? "🏆 WINNER" : "🥈 RUNNER-UP"}
+              </div>
+
+              <div
+                className={`font-black tracking-widest text-sm sm:text-base mb-1 ${
+                  isDraw
+                    ? "text-slate-700"
+                    : isSideAWinner
+                    ? "text-fuchsia-900"
+                    : "text-fuchsia-800"
+                }`}
+              >
+                SIDE A
+              </div>
+
+              <div
+                className={`text-4xl sm:text-5xl leading-none font-black text-transparent bg-clip-text drop-shadow-sm ${
+                  isDraw
+                    ? "bg-gradient-to-b from-slate-500 to-slate-700"
+                    : isSideAWinner
+                    ? "bg-gradient-to-b from-fuchsia-500 to-fuchsia-700"
+                    : "bg-gradient-to-b from-fuchsia-500 to-fuchsia-700"
+                }`}
+              >
+                {Number(pkResultData.scoreA || 0)}
+              </div>
             </div>
-            <div className="h-[2px] w-12 mx-auto bg-gradient-to-r from-transparent via-cyan-300 to-transparent mb-3" />
 
-            <div className="space-y-2 max-h-[140px] overflow-y-auto pr-1">
-              {(pkResultData.sideBPlayers || []).map((player, idx) => (
-                <div
-                  key={`${player.user_id || player.id || idx}-B`}
-                  className="flex items-center gap-2 rounded-[16px] border border-cyan-50 bg-gradient-to-r from-cyan-50/30 to-white p-2 shadow-sm hover:shadow-md transition-shadow"
-                >
-                  <div className="relative shrink-0">
-                    <img
-                      src={player.avatar_url || FALLBACK_AVATAR}
-                      alt={player.display_name || "User"}
-                      className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
-                      onError={(e) => {
-                        e.currentTarget.src = FALLBACK_AVATAR;
-                      }}
-                    />
-                    <div className="absolute -bottom-1 -right-1 text-xs drop-shadow-md animate-bounce" style={{ animationDuration: '2s' }}>🏆</div>
-                  </div>
+            <div
+              className={`relative rounded-[24px] p-4 text-center shadow-sm overflow-hidden group ${
+                isDraw
+                  ? "border border-slate-200 bg-gradient-to-b from-white to-slate-50/80"
+                  : isSideBWinner
+                  ? "border border-cyan-300 bg-gradient-to-b from-white to-cyan-100/60 shadow-[0_0_25px_rgba(34,211,238,0.2)]"
+                  : "border border-cyan-200 bg-gradient-to-b from-white to-cyan-50/70"
+              }`}
+            >
+              <div className="absolute -left-4 -top-4 w-20 h-20 bg-cyan-400/20 rounded-full blur-xl group-hover:bg-cyan-400/30 transition-all"></div>
 
-                  <div className="min-w-0 flex-1">
-                    <div className="text-slate-800 font-bold text-[11px] sm:text-xs truncate">
-                      {player.display_name || player.name || "User"}
-                    </div>
-                    <div className="text-slate-400 text-[9px] sm:text-[10px] font-medium">
-                      Seat #{player.seat_no}
-                    </div>
-                  </div>
-                </div>
-              ))}
+              <div
+                className={`mx-auto mb-3 inline-flex items-center gap-1 rounded-full px-3 py-1 font-bold tracking-wider text-[10px] sm:text-xs shadow-sm ${
+                  isDraw
+                    ? "border border-slate-200 bg-slate-50 text-slate-500"
+                    : isSideBWinner
+                    ? "border border-cyan-200 bg-cyan-50 text-cyan-700"
+                    : "border border-cyan-100 bg-cyan-50/80 text-cyan-600"
+                }`}
+              >
+                {isDraw ? "🤝 DRAW" : isSideBWinner ? "🏆 WINNER" : "🥈 RUNNER-UP"}
+              </div>
+
+              <div
+                className={`font-black tracking-widest text-sm sm:text-base mb-1 ${
+                  isDraw
+                    ? "text-slate-700"
+                    : isSideBWinner
+                    ? "text-cyan-900"
+                    : "text-cyan-800"
+                }`}
+              >
+                SIDE B
+              </div>
+
+              <div
+                className={`text-4xl sm:text-5xl leading-none font-black text-transparent bg-clip-text ${
+                  isDraw
+                    ? "bg-gradient-to-b from-slate-500 to-slate-700"
+                    : isSideBWinner
+                    ? "bg-gradient-to-b from-cyan-400 to-cyan-600 drop-shadow-[0_2px_10px_rgba(34,211,238,0.4)]"
+                    : "bg-gradient-to-b from-cyan-400 to-cyan-600"
+                }`}
+              >
+                {Number(pkResultData.scoreB || 0)}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* الأزرار */}
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            type="button"
-            onClick={() => {
-              setPkResultOpen(false);
-            }}
-            className="h-12 sm:h-14 rounded-[20px] border-2 border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 hover:border-slate-300 transition-all active:scale-95"
-          >
-            Close
-          </button>
+          <div className="grid grid-cols-2 gap-3 mb-6">
+            <div className="rounded-[24px] border border-fuchsia-100 bg-white/80 p-3 shadow-sm backdrop-blur-sm">
+              <div className="text-fuchsia-800 text-xs sm:text-sm font-black mb-2 text-center">
+                Side A Players
+              </div>
+              <div className="h-[2px] w-12 mx-auto bg-gradient-to-r from-transparent via-fuchsia-300 to-transparent mb-3" />
 
-          <button
-            type="button"
-            onClick={() => {
-              setPkResultOpen(false);
-              setPkResultData(null);
-              setShowPkModal(true);
-            }}
-            className="h-12 sm:h-14 rounded-[20px] bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white text-[13px] sm:text-sm font-bold shadow-[0_4px_15px_rgba(168,85,247,0.4)] hover:shadow-[0_6px_20px_rgba(168,85,247,0.6)] hover:-translate-y-0.5 transition-all active:scale-95 leading-tight px-2"
-          >
-            Start New Round
-          </button>
+              <div className="space-y-2 max-h-[140px] overflow-y-auto pr-1">
+                {(pkResultData.sideAPlayers || []).map((player, idx) => (
+                  <div
+                    key={`${player.user_id || player.id || idx}-A`}
+                    className="flex items-center gap-2 rounded-[16px] border border-fuchsia-50 bg-gradient-to-r from-fuchsia-50/30 to-white p-2 shadow-sm hover:shadow-md transition-shadow"
+                  >
+                    <div className="relative shrink-0">
+                      <img
+                        src={player.avatar_url || FALLBACK_AVATAR}
+                        alt={player.display_name || "User"}
+                        className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
+                        onError={(e) => {
+                          e.currentTarget.src = FALLBACK_AVATAR;
+                        }}
+                      />
+                      <div className="absolute -bottom-1 -right-1 text-xs drop-shadow-md">
+                        {isDraw ? "🤝" : isSideAWinner ? "🏆" : "🥈"}
+                      </div>
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="text-slate-800 font-bold text-[11px] sm:text-xs truncate">
+                        {player.display_name || player.name || "User"}
+                      </div>
+                      <div className="text-slate-400 text-[9px] sm:text-[10px] font-medium">
+                        Seat #{player.seat_no}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-[24px] border border-cyan-100 bg-white/80 p-3 shadow-sm backdrop-blur-sm">
+              <div className="text-cyan-900 text-xs sm:text-sm font-black mb-2 text-center">
+                Side B Players
+              </div>
+              <div className="h-[2px] w-12 mx-auto bg-gradient-to-r from-transparent via-cyan-300 to-transparent mb-3" />
+
+              <div className="space-y-2 max-h-[140px] overflow-y-auto pr-1">
+                {(pkResultData.sideBPlayers || []).map((player, idx) => (
+                  <div
+                    key={`${player.user_id || player.id || idx}-B`}
+                    className="flex items-center gap-2 rounded-[16px] border border-cyan-50 bg-gradient-to-r from-cyan-50/30 to-white p-2 shadow-sm hover:shadow-md transition-shadow"
+                  >
+                    <div className="relative shrink-0">
+                      <img
+                        src={player.avatar_url || FALLBACK_AVATAR}
+                        alt={player.display_name || "User"}
+                        className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
+                        onError={(e) => {
+                          e.currentTarget.src = FALLBACK_AVATAR;
+                        }}
+                      />
+                      <div className="absolute -bottom-1 -right-1 text-xs drop-shadow-md">
+                        {isDraw ? "🤝" : isSideBWinner ? "🏆" : "🥈"}
+                      </div>
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="text-slate-800 font-bold text-[11px] sm:text-xs truncate">
+                        {player.display_name || player.name || "User"}
+                      </div>
+                      <div className="text-slate-400 text-[9px] sm:text-[10px] font-medium">
+                        Seat #{player.seat_no}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setPkResultOpen(false);
+              }}
+              className="h-12 sm:h-14 rounded-[20px] border-2 border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 hover:border-slate-300 transition-all active:scale-95"
+            >
+              Close
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setPkResultOpen(false);
+                setPkResultData(null);
+                setShowPkModal(true);
+              }}
+              className="h-12 sm:h-14 rounded-[20px] bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white text-[13px] sm:text-sm font-bold shadow-[0_4px_15px_rgba(168,85,247,0.4)] hover:shadow-[0_6px_20px_rgba(168,85,247,0.6)] hover:-translate-y-0.5 transition-all active:scale-95 leading-tight px-2"
+            >
+              Start New Round
+            </button>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-)}
+  );
+})()}
 
       {giftPanelOpen && (
         <div className="fixed inset-0 z-[100]">
