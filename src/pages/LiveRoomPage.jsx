@@ -521,7 +521,7 @@ useEffect(() => {
     .select("*")
     .eq("room_id", targetRoomId)
     .order(coinsColumn, { ascending: false })
-    .limit(20);
+    .limit(50);
 
   if (error) {
     console.error("Leaderboard source error:", error);
@@ -6707,13 +6707,18 @@ console.log("MODERATORS MAP:", nextMap);
       ) : null}
 
       <LeaderboardModal
-        open={showLeaderboard}
-        onClose={() => setShowLeaderboard(false)}
-        leaderboardTab={leaderboardTab}
-        setLeaderboardTab={setLeaderboardTab}
-        leaderboardData={leaderboardData}
-        fallbackAvatar={FALLBACK_AVATAR}
-      />
+  open={showLeaderboard}
+  onClose={() => setShowLeaderboard(false)}
+  leaderboardTab={leaderboardTab}
+  setLeaderboardTab={setLeaderboardTab}
+  leaderboardData={leaderboardData}
+  fallbackAvatar={FALLBACK_AVATAR}
+  onOpenUserCard={(userId, user) => {
+    if (!userId) return;
+    setShowLeaderboard(false);
+    openUserCard(userId, user);
+  }}
+/>
 
       <PkModal
   open={showPkModal}

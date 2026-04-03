@@ -7,6 +7,7 @@ export default function LeaderboardModal({
   setLeaderboardTab,
   leaderboardData,
   fallbackAvatar,
+  onOpenUserCard,
 }) {
   if (!open) return null;
 
@@ -14,18 +15,23 @@ export default function LeaderboardModal({
     ? leaderboardData
     : leaderboardData?.[leaderboardTab] || [];
 
-  const sortedData = [...leaderboardRows].sort(
-    (a, b) => (b.coins || 0) - (a.coins || 0)
-  );
+  const sortedData = [...leaderboardRows]
+    .sort((a, b) => (b.coins || 0) - (a.coins || 0))
+    .slice(0, 50);
 
   const topThree = sortedData.slice(0, 3);
-  const standings = sortedData.slice(3);
+  const standings = sortedData.slice(3, 50);
 
   const podiumOrder = [
     topThree[1] || null, // rank 2
     topThree[0] || null, // rank 1
     topThree[2] || null, // rank 3
   ];
+
+  const handleUserClick = (user) => {
+    if (!user || !onOpenUserCard) return;
+    onOpenUserCard(user.user_id || user.id, user);
+  };
 
   return (
     <>
@@ -89,17 +95,22 @@ export default function LeaderboardModal({
               ? "leaderboardCardPopMobile 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards"
               : "leaderboardCardPop 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards",
         }}
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="relative flex items-center justify-between border-b border-border/50 p-5 pb-4 bg-gradient-to-r from-secondary/30 to-transparent">
           <div className="flex items-center gap-2">
-            <span className="text-2xl animate-bounce" style={{ animationDuration: '2s' }}>🏆</span>
+            <span className="text-2xl animate-bounce" style={{ animationDuration: "2s" }}>
+              🏆
+            </span>
             <h2 className="text-2xl font-black bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
               Leaderboard
             </h2>
           </div>
+
           <button
             onClick={onClose}
             className="rounded-full p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors text-lg leading-none"
+            type="button"
           >
             ✕
           </button>
@@ -116,11 +127,16 @@ export default function LeaderboardModal({
                     ? "bg-background text-primary shadow-md scale-[1.02] ring-1 ring-border/50"
                     : "text-muted-foreground hover:text-foreground hover:bg-secondary/80"
                 }`}
+                type="button"
               >
                 {tab === "weekly" ? (
-                  <><span className="text-lg">🔥</span> Weekly</>
+                  <>
+                    <span className="text-lg">🔥</span> Weekly
+                  </>
                 ) : (
-                  <><span className="text-lg">🌟</span> All time</>
+                  <>
+                    <span className="text-lg">🌟</span> All time
+                  </>
                 )}
               </button>
             ))}
@@ -133,6 +149,7 @@ export default function LeaderboardModal({
               <div className="absolute -top-10 -left-10 w-32 h-32 bg-primary/10 rounded-full blur-3xl"></div>
               <div className="absolute top-20 -right-10 w-40 h-40 bg-yellow-400/10 rounded-full blur-3xl"></div>
             </div>
+
             <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent z-0" />
 
             {podiumOrder.map((user, index) => {
@@ -142,18 +159,20 @@ export default function LeaderboardModal({
               const isFirst = visualRank === 1;
 
               return (
-                <div
-                  key={user.user_id || index}
-                  className={`relative z-10 flex flex-col items-center transition-transform hover:scale-105 ${
+                <button
+                  key={user.user_id || user.id || index}
+                  type="button"
+                  onClick={() => handleUserClick(user)}
+                  className={`relative z-10 flex flex-col items-center transition-transform hover:scale-105 cursor-pointer ${
                     isFirst ? "w-28 sm:w-32 -translate-y-4 sm:-translate-y-8" : "w-24 sm:w-28"
                   }`}
                   style={{
-                    animation: `float ${isFirst ? '3s' : visualRank === 2 ? '3.5s' : '4s'} ease-in-out infinite`
+                    animation: `float ${isFirst ? "3s" : visualRank === 2 ? "3.5s" : "4s"} ease-in-out infinite`,
                   }}
                 >
                   <div className="relative mb-3">
                     {isFirst ? (
-                      <span 
+                      <span
                         className="absolute -top-8 left-1/2 -translate-x-1/2 text-4xl z-20"
                         style={{ animation: "crownGlow 2s ease-in-out infinite" }}
                       >
@@ -174,7 +193,9 @@ export default function LeaderboardModal({
                         src={user.avatar || user.avatar_url || fallbackAvatar}
                         alt={user.name || "User"}
                         className={`relative z-10 rounded-full object-cover border-[4px] bg-background transition-all duration-300 ${
-                          isFirst ? "h-20 w-20 sm:h-24 sm:w-24 shadow-[0_0_25px_rgba(250,204,21,0.6)] border-yellow-400" : "h-16 w-16 sm:h-20 sm:w-20 shadow-lg"
+                          isFirst
+                            ? "h-20 w-20 sm:h-24 sm:w-24 shadow-[0_0_25px_rgba(250,204,21,0.6)] border-yellow-400"
+                            : "h-16 w-16 sm:h-20 sm:w-20 shadow-lg"
                         } ${
                           visualRank === 2
                             ? "border-slate-300 shadow-[0_0_15px_rgba(203,213,225,0.5)]"
@@ -183,7 +204,7 @@ export default function LeaderboardModal({
                             : ""
                         }`}
                       />
-                      
+
                       <div
                         className={`absolute -bottom-3 left-1/2 -translate-x-1/2 rounded-full px-3 py-0.5 text-xs font-black border-2 border-background shadow-md z-20 ${
                           visualRank === 1
@@ -209,31 +230,37 @@ export default function LeaderboardModal({
                       </p>
                     </div>
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
 
-          <div className="mt-4 max-h-[35vh] overflow-y-auto pr-2 space-y-2.5 custom-scrollbar pb-4">
+          <div className="mt-4 max-h-[45vh] overflow-y-auto pr-2 space-y-2.5 custom-scrollbar pb-4">
             {standings.length > 0 ? (
               standings.map((user, idx) => (
-                <div
-                  key={user.user_id || idx}
-                  className="flex items-center justify-between rounded-xl border border-border/50 bg-secondary/30 p-3 transition-all hover:bg-secondary/80 hover:scale-[1.02] hover:shadow-md"
+                <button
+                  key={user.user_id || user.id || idx}
+                  type="button"
+                  onClick={() => handleUserClick(user)}
+                  className="w-full flex items-center justify-between rounded-xl border border-border/50 bg-secondary/30 p-3 transition-all hover:bg-secondary/80 hover:scale-[1.02] hover:shadow-md cursor-pointer text-left"
                   style={{
                     animation: `slideUpFade 0.4s ease-out forwards`,
                     animationDelay: `${idx * 0.05}s`,
-                    opacity: 0
+                    opacity: 0,
                   }}
                 >
-                  <div className="flex items-center gap-4">
-                    <div className={`flex h-8 w-8 items-center justify-center rounded-full font-bold shadow-inner ${
-                      idx % 2 === 0 ? 'bg-secondary/80 text-secondary-foreground' : 'bg-secondary/50 text-muted-foreground'
-                    }`}>
+                  <div className="flex items-center gap-4 min-w-0">
+                    <div
+                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full font-bold shadow-inner ${
+                        idx % 2 === 0
+                          ? "bg-secondary/80 text-secondary-foreground"
+                          : "bg-secondary/50 text-muted-foreground"
+                      }`}
+                    >
                       {idx + 4}
                     </div>
 
-                    <div className="relative">
+                    <div className="relative shrink-0">
                       <img
                         src={user.avatar || user.avatar_url || fallbackAvatar}
                         alt={user.name || "User"}
@@ -241,14 +268,14 @@ export default function LeaderboardModal({
                       />
                     </div>
 
-                    <div className="flex flex-col">
-                      <span className="font-bold text-foreground">
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-bold text-foreground truncate">
                         {user.name || "User"}
                       </span>
                     </div>
                   </div>
 
-                  <div className="text-right flex flex-col items-end">
+                  <div className="text-right flex flex-col items-end shrink-0">
                     <div className="flex items-center gap-1 bg-primary/10 px-2 py-1 rounded-md">
                       <span className="text-xs text-yellow-500">🪙</span>
                       <span className="font-bold text-primary text-sm">
@@ -256,10 +283,13 @@ export default function LeaderboardModal({
                       </span>
                     </div>
                   </div>
-                </div>
+                </button>
               ))
             ) : (
-              <div className="py-10 text-center text-muted-foreground flex flex-col items-center justify-center" style={{ animation: "slideUpFade 0.4s ease-out forwards" }}>
+              <div
+                className="py-10 text-center text-muted-foreground flex flex-col items-center justify-center"
+                style={{ animation: "slideUpFade 0.4s ease-out forwards" }}
+              >
                 <div className="mb-3 text-5xl opacity-50 grayscale">📭</div>
                 <p className="text-lg font-medium">No rankings yet...</p>
                 <p className="text-sm opacity-70">Be the first to climb the leaderboard!</p>
