@@ -347,7 +347,6 @@ export default function LiveRoomPage() {
 const fetchProfileCardData = async (userId) => {
   if (!userId) return null;
 
-  // 1) base profile - نفس مصدر صفحة البروفايل
   const { data: profile, error: profileError } = await supabase
     .from("v_user_profile_with_wallet")
     .select("*")
@@ -356,33 +355,8 @@ const fetchProfileCardData = async (userId) => {
 
   if (profileError || !profile) return null;
 
-  // 2) بيانات المستخدم من الموجودين داخل الروم
-  const roomUser =
-    activeParticipantsRef.current?.find(
-      (x) => String(x.user_id) === String(userId)
-    ) || null;
+  let merged = { ...profile };
 
-  // 3) نبدأ الدمج من البروفايل + بيانات الروم
-  let merged = {
-    ...profile,
-    ...(roomUser || {}),
-    is_mod:
-      profile?.is_mod ??
-      roomUser?.is_mod ??
-      roomUser?.is_moderator ??
-      (roomUser?.role === "moderator") ??
-      (roomUser?.room_role === "moderator") ??
-      false,
-    is_moderator:
-      profile?.is_moderator ??
-      roomUser?.is_moderator ??
-      roomUser?.is_mod ??
-      (roomUser?.role === "moderator") ??
-      (roomUser?.room_role === "moderator") ??
-      false,
-  };
-
-  // 4) حاول نجيب اسم العائلة/الوكالة من نفس مصدر البروفايل
   try {
     const { data: ua } = await supabase
       .from("v_user_agency")
@@ -408,16 +382,38 @@ const fetchProfileCardData = async (userId) => {
       };
     }
   } catch (e) {
-    // سيبها صامتة، الكارت يكمل عادي
+    // ignore
   }
+
+  const normalizedLevel =
+    Number(
+      merged?.current_level ??
+      merged?.currentLevel ??
+      merged?.wallet_level ??
+      merged?.walletLevel ??
+      merged?.user_level ??
+      merged?.level ??
+      0
+    ) || null;
+
+  const normalizedVipNumber =
+    Number(
+      merged?.vip_number ??
+      merged?.vipLevel ??
+      merged?.vip_level ??
+      merged?.plan_level ??
+      (merged?.is_vip ? 1 : 0)
+    ) || 0;
 
   return {
     ...merged,
     profile_id: merged?.profile_id ?? null,
     display_id:
-      merged?.display_id ??
       merged?.profile_id ??
       (String(merged?.id || "").slice(0, 6) || null),
+    level: normalizedLevel,
+    currentLevel: normalizedLevel,
+    vip_number: normalizedVipNumber,
     agency_name:
       merged?.agency_name ??
       merged?.family_name ??
@@ -426,24 +422,6 @@ const fetchProfileCardData = async (userId) => {
       merged?.family_name ??
       merged?.agency_name ??
       null,
-    level:
-      merged?.level ??
-      merged?.currentLevel ??
-      profile?.level ??
-      profile?.currentLevel ??
-      null,
-    vip_number:
-      merged?.vip_number ??
-      profile?.vip_number ??
-      0,
-    is_mod:
-      merged?.is_mod ??
-      merged?.is_moderator ??
-      false,
-    is_moderator:
-      merged?.is_moderator ??
-      merged?.is_mod ??
-      false,
   };
 };
   const [mutesMap, setMutesMap] = useState(new Map());
