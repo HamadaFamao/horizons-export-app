@@ -243,36 +243,36 @@ const cardIsAdmin = cardIsMod;
                     </div>
 
                     {cardIsHost ? (
-  <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-200">
+  <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-amber-950 font-extrabold tracking-wide shadow-lg shadow-amber-500/50 border border-yellow-200">
     HOST
   </span>
 ) : null}
 
 {cardIsMod ? (
-  <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200">
+  <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-gradient-to-r from-indigo-500 via-blue-400 to-indigo-600 text-white font-extrabold tracking-wide shadow-lg shadow-indigo-500/50 border border-indigo-300">
     MOD
   </span>
 ) : null}
 
 {vipBadge ? (
   <span
-    className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${vipBadge.className}`}
+    className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-extrabold tracking-wide shadow-lg shadow-yellow-500/50 border border-white/50 ${vipBadge.className}`}
   >
-    <Crown className="w-3.5 h-3.5" />
+    <Crown className="w-3.5 h-3.5 drop-shadow-md" />
     {vipBadge.label}
   </span>
 ) : null}
 
 {planBadge ? (
   <span
-    className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${planBadge.className}`}
+    className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-bold tracking-wide shadow-md border border-white/30 ${planBadge.className}`}
   >
     {planBadge.label}
   </span>
 ) : null}
 
 {cardLevel !== null && cardLevel > 0 ? (
-  <span className="inline-flex items-center text-xs px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+  <span className="inline-flex items-center text-xs px-2 py-0.5 rounded-full bg-gradient-to-r from-blue-500 via-cyan-400 to-blue-600 text-white font-extrabold tracking-wide shadow-lg shadow-blue-500/50 border border-cyan-200">
     Lv.{cardLevel}
   </span>
 ) : null}
