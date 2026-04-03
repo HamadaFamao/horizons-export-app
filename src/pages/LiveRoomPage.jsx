@@ -6,6 +6,7 @@ import { useMiniRoom } from "@/contexts/MiniRoomContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import GiftPanel from "@/components/GiftPanel";
+import { getLevelFromXp } from "@/lib/xpLevelUtils";
 import PeopleInRoomButton from "@/components/room/PeopleInRoomButton";
 import PeopleInRoomModal from "@/components/room/PeopleInRoomModal";
 import MicRequestsButton from "@/components/room/MicRequestsButton";
@@ -386,43 +387,37 @@ const fetchProfileCardData = async (userId) => {
   }
 
   const normalizedLevel =
-    Number(
-      merged?.current_level ??
-      merged?.currentLevel ??
-      merged?.wallet_level ??
-      merged?.walletLevel ??
-      merged?.user_level ??
-      merged?.level ??
-      0
-    ) || null;
+  merged?.xp !== undefined && merged?.xp !== null
+    ? getLevelFromXp(merged.xp)?.currentLevel ?? null
+    : null;
 
-  const normalizedVipNumber =
-    Number(
-      merged?.vip_number ??
-      merged?.vipLevel ??
-      merged?.vip_level ??
-      merged?.plan_level ??
-      (merged?.is_vip ? 1 : 0)
-    ) || 0;
+const normalizedVipNumber =
+  Number(
+    merged?.vip_number ??
+    merged?.vipLevel ??
+    merged?.vip_level ??
+    merged?.plan_level ??
+    (merged?.is_vip ? 1 : 0)
+  ) || 0;
 
-  return {
-    ...merged,
-    profile_id: merged?.profile_id ?? null,
-    display_id:
-      merged?.profile_id ??
-      (String(merged?.id || "").slice(0, 6) || null),
-    level: normalizedLevel,
-    currentLevel: normalizedLevel,
-    vip_number: normalizedVipNumber,
-    agency_name:
-      merged?.agency_name ??
-      merged?.family_name ??
-      null,
-    family_name:
-      merged?.family_name ??
-      merged?.agency_name ??
-      null,
-  };
+return {
+  ...merged,
+  profile_id: merged?.profile_id ?? null,
+  display_id:
+    merged?.profile_id ??
+    (String(merged?.id || "").slice(0, 6) || null),
+  level: normalizedLevel,
+  currentLevel: normalizedLevel,
+  vip_number: normalizedVipNumber,
+  agency_name:
+    merged?.agency_name ??
+    merged?.family_name ??
+    null,
+  family_name:
+    merged?.family_name ??
+    merged?.agency_name ??
+    null,
+};
 };
   const [mutesMap, setMutesMap] = useState(new Map());
   const [myRoomRole, setMyRoomRole] = useState(null);
