@@ -6,14 +6,6 @@ import { useMiniRoom } from "@/contexts/MiniRoomContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import GiftPanel from "@/components/GiftPanel";
-import { getLevelFromXp } from "@/lib/xpLevelUtils";
-import PeopleInRoomButton from "@/components/room/PeopleInRoomButton";
-import PeopleInRoomModal from "@/components/room/PeopleInRoomModal";
-import MicRequestsButton from "@/components/room/MicRequestsButton";
-import MicRequestsModal from "@/components/room/MicRequestsModal";
-import PkButton from "@/components/room/PkButton";
-import PkModal from "@/components/room/PkModal";
-import UserCardModal from "@/components/room/UserCardModal";
 import { fetchUserWallet } from "@/lib/walletUtils";
 import { connectVoice } from "@/lib/livekit";
 import {
@@ -49,12 +41,8 @@ import {
   RefreshCw,
   Shield,
   Bell,
-  LogOut,
-  Share2,
-  Power
+  LogOut
 } from "lucide-react";
-
-import LeaderboardModal from "@/components/LeaderboardModal";
 
 const FALLBACK_AVATAR =
   "data:image/svg+xml;utf8," +
@@ -64,6 +52,12 @@ const FALLBACK_AVATAR =
     <circle cx="64" cy="52" r="22" fill="#cbd5e1"/>
     <path d="M24 112c8-22 28-34 40-34s32 12 40 34" fill="#cbd5e1"/>
   </svg>`);
+
+function shortId(id) {
+  const s = String(id || "");
+  if (s.length <= 14) return s;
+  return `${s.slice(0, 8)}…${s.slice(-4)}`;
+}
 
 function isVipActive(profile) {
   if (!profile?.is_vip) return false;
@@ -229,44 +223,21 @@ const buildPkDisplaySidesFromSeats = (seatA, seatB, seats) => {
   const aSeat = findSeat(seatA);
   const bSeat = findSeat(seatB);
 
-  const mapSeatToPkUser = (seat, side) => {
-    if (!seat) return [];
-
-    const occ = seat.occupant || null;
-
-    const userId =
-      occ?.user_id ||
-      seat.user_id ||
-      null;
-
-    const displayName =
-      occ?.display_name ||
-      occ?.name ||
-      seat.display_name ||
-      seat.name ||
-      "User";
-
-    const avatarUrl =
-      occ?.avatar_url ||
-      seat.avatar_url ||
-      FALLBACK_AVATAR;
-
-    if (!userId && !displayName) return [];
-
-    return [
-      {
-        user_id: userId,
-        display_name: displayName,
-        avatar_url: avatarUrl,
-        seat_no: seat.seat_no,
-        side,
-      },
-    ];
-  };
-
   return {
-    A: mapSeatToPkUser(aSeat, "A"),
-    B: mapSeatToPkUser(bSeat, "B"),
+    A: aSeat?.occupant ? [{
+      user_id: aSeat.occupant.user_id || aSeat.user_id,
+      display_name: aSeat.occupant.display_name || aSeat.occupant.name || "User",
+      avatar_url: aSeat.occupant.avatar_url || FALLBACK_AVATAR,
+      seat_no: aSeat.seat_no,
+      side: "A",
+    }] : [],
+    B: bSeat?.occupant ? [{
+      user_id: bSeat.occupant.user_id || bSeat.user_id,
+      display_name: bSeat.occupant.display_name || bSeat.occupant.name || "User",
+      avatar_url: bSeat.occupant.avatar_url || FALLBACK_AVATAR,
+      seat_no: bSeat.seat_no,
+      side: "B",
+    }] : [],
   };
 };
 
@@ -282,9 +253,6 @@ export default function LiveRoomPage() {
   // ==========================================
   // 2. Refs
   // ==========================================
-  const countdownAudioRef = useRef(null);
-  const lastCountdownSecondRef = useRef(null);
-  const audioUnlockedRef = useRef(false);
   const miniRoomActiveRef = useRef(false);
   const livekitRoomRef = useRef(null);
   const mountedRef = useRef(true);
@@ -307,8 +275,6 @@ export default function LiveRoomPage() {
   const processingRoomGiftIdsRef = useRef(new Set());
   const repeatHideTimerRef = useRef(null);
   const micSeatRefs = useRef({});
-  const chatScrollRef = useRef(null);
-  const chatBottomRef = useRef(null);
   const micGiftTotalsHydratedRef = useRef(false);
   const pkSessionRef = useRef(null);
   const pkParticipantsRef = useRef([]);
@@ -333,7 +299,6 @@ export default function LiveRoomPage() {
   const [activeParticipants, setActiveParticipants] = useState([]);
   const [participantsMap, setParticipantsMap] = useState({});
   const [showPeople, setShowPeople] = useState(false);
-  const [currentPeopleRanked, setCurrentPeopleRanked] = useState([]);
   const [messages, setMessages] = useState([]);
   const [roomGiftMessages, setRoomGiftMessages] = useState([]);
   const [roomGiftEffects, setRoomGiftEffects] = useState([]);
@@ -346,141 +311,15 @@ export default function LiveRoomPage() {
   const [isUserCardOpen, setIsUserCardOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [selectedUserProfile, setSelectedUserProfile] = useState(null);
-  const [selectedUserIsMod, setSelectedUserIsMod] = useState(false);
   const [cardLoading, setCardLoading] = useState(false);
-const fetchProfileCardData = async (userId) => {
-  if (!userId) return null;
 
-  const { data: profile, error: profileError } = await supabase
-    .from("v_user_profile_with_wallet")
-    .select("*")
-    .eq("id", userId)
-    .maybeSingle();
-
-  if (profileError || !profile) return null;
-
-  let merged = { ...profile };
-
-  try {
-    const { data: ua } = await supabase
-      .from("v_user_agency")
-      .select("*")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (ua) {
-      merged = {
-        ...merged,
-        agency_id: ua.agency_id ?? merged.agency_id ?? null,
-        agency_name:
-          ua.agency_name ??
-          merged.agency_name ??
-          merged.family_name ??
-          null,
-        family_id: ua.agency_id ?? merged.family_id ?? null,
-        family_name:
-          ua.agency_name ??
-          merged.family_name ??
-          merged.agency_name ??
-          null,
-      };
-    }
-  } catch (e) {
-    // ignore
-  }
-
-  const normalizedLevel =
-  merged?.xp !== undefined && merged?.xp !== null
-    ? getLevelFromXp(merged.xp)?.currentLevel ?? null
-    : null;
-
-const normalizedVipNumber =
-  Number(
-    merged?.vip_number ??
-    merged?.vipLevel ??
-    merged?.vip_level ??
-    merged?.plan_level ??
-    (merged?.is_vip ? 1 : 0)
-  ) || 0;
-
-return {
-  ...merged,
-  profile_id: merged?.profile_id ?? null,
-  display_id:
-    merged?.profile_id ??
-    (String(merged?.id || "").slice(0, 6) || null),
-  level: normalizedLevel,
-  currentLevel: normalizedLevel,
-  vip_number: normalizedVipNumber,
-  agency_name:
-    merged?.agency_name ??
-    merged?.family_name ??
-    null,
-  family_name:
-    merged?.family_name ??
-    merged?.agency_name ??
-    null,
-};
-};
   const [mutesMap, setMutesMap] = useState(new Map());
   const [myRoomRole, setMyRoomRole] = useState(null);
   const [roomRole, setRoomRole] = useState('guest');
   const [moderatorsMap, setModeratorsMap] = useState(new Map());
-  const buildModeratorsMap = (rows = []) =>
-  new Map(rows.map((row) => [String(row.user_id), true]));
   const [kickOpen, setKickOpen] = useState(false);
   const [kickTargetId, setKickTargetId] = useState(null);
   const [kickBusy, setKickBusy] = useState(false);
-  async function fetchCurrentPeopleRanked(targetRoomId) {
-  if (!targetRoomId) {
-    setCurrentPeopleRanked([]);
-    return;
-  }
-
-  const onlineUsers = Array.isArray(activeParticipants) ? activeParticipants : [];
-  const onlineIds = [...new Set(onlineUsers.map((p) => p.user_id).filter(Boolean))];
-
-  if (!onlineIds.length) {
-    setCurrentPeopleRanked([]);
-    return;
-  }
-
-  const { data: sendersRows, error } = await supabase
-    .from("v_room_top_senders_alltime")
-    .select("*")
-    .eq("room_id", targetRoomId);
-
-  if (error) {
-    console.error("current people ranking error:", error);
-    setCurrentPeopleRanked([]);
-    return;
-  }
-
-  const sendersMap = new Map(
-    (sendersRows || []).map((row) => [row.sender_id, Number(row.total_coins || 0)])
-  );
-
-  const merged = onlineUsers.map((p) => ({
-    user_id: p.user_id,
-    name: p.display_name || "User",
-    avatar: p.avatar_url || "",
-    is_host: p.user_id === room?.owner_user_id,
-    support_coins: sendersMap.get(p.user_id) || 0,
-  }));
-
-  merged.sort((a, b) => {
-    if ((b.support_coins || 0) !== (a.support_coins || 0)) {
-      return (b.support_coins || 0) - (a.support_coins || 0);
-    }
-    return String(a.name || "").localeCompare(String(b.name || ""));
-  });
-
-  setCurrentPeopleRanked(merged);
-}
-useEffect(() => {
-  if (!roomId) return;
-  fetchCurrentPeopleRanked(roomId);
-}, [roomId, activeParticipants, room?.owner_user_id]);
   const [kickMinutes, setKickMinutes] = useState(10);
   const [banOpen, setBanOpen] = useState(false);
   const [banTargetId, setBanTargetId] = useState(null);
@@ -498,111 +337,6 @@ useEffect(() => {
   const [inviteOnlyMode, setInviteOnlyMode] = useState(false);
   const [requestsOpen, setRequestsOpen] = useState(false);
   const [leaveRoomOpen, setLeaveRoomOpen] = useState(false);
-  const [showLeaderboard, setShowLeaderboard] = useState(false);
-  const [leaderboardTab, setLeaderboardTab] = useState("weekly");
-  const [leaderboardData, setLeaderboardData] = useState([]);
-  const leaderboardRefreshTimerRef = useRef(null);
-  const refreshLeaderboardNow = useCallback(() => {
-  if (!roomId) return;
-
-  fetchLeaderboard(
-    roomId,
-    leaderboardTab === "weekly" ? "weekly" : "alltime"
-  );
-}, [roomId, leaderboardTab]);
-
-const scheduleLeaderboardRefresh = useCallback((delay = 500) => {
-  if (leaderboardRefreshTimerRef.current) {
-    clearTimeout(leaderboardRefreshTimerRef.current);
-  }
-
-  leaderboardRefreshTimerRef.current = setTimeout(() => {
-    if (!mountedRef.current) return;
-    refreshLeaderboardNow();
-  }, delay);
-}, [refreshLeaderboardNow]);
-
- async function fetchLeaderboard(targetRoomId, period = "alltime") {
-  if (!targetRoomId) return;
-
-  const source =
-    period === "weekly"
-      ? "v_room_top_senders_24h"
-      : "v_room_top_senders_alltime";
-
-  const coinsColumn =
-    period === "weekly"
-      ? "coins_sent_24h"
-      : "total_coins";
-
-  const userIdColumn =
-    period === "weekly"
-      ? "user_id"
-      : "sender_id";
-
-  const { data, error } = await supabase
-    .from(source)
-    .select("*")
-    .eq("room_id", targetRoomId)
-    .order(coinsColumn, { ascending: false })
-    .limit(50);
-
-  if (error) {
-    console.error("Leaderboard source error:", error);
-    setLeaderboardData([]);
-    return;
-  }
-
-  const rows = data || [];
-  const userIds = rows.map((row) => row[userIdColumn]).filter(Boolean);
-
-  if (!userIds.length) {
-    setLeaderboardData([]);
-    return;
-  }
-
-  const { data: profilesData, error: profilesError } = await supabase
-    .from("profiles")
-    .select("id, name, avatar_url, is_vip, vip_number")
-    .in("id", userIds);
-
-  if (profilesError) {
-    console.error("Leaderboard profiles error:", profilesError);
-    setLeaderboardData([]);
-    return;
-  }
-
-  const profilesMap = new Map(
-    (profilesData || []).map((p) => [p.id, p])
-  );
-
-  const formatted = rows.map((row, index) => {
-    const uid = row[userIdColumn];
-    const profile = profilesMap.get(uid);
-
-    return {
-      rank: index + 1,
-      user_id: uid,
-      name: profile?.name || "User",
-      avatar: profile?.avatar_url || "",
-      coins: Number(row[coinsColumn] || 0),
-      is_vip: !!profile?.is_vip,
-      vip_number: profile?.vip_number || null,
-      gifts_count: Number(row.gifts_count || 0),
-      last_at: row.last_at || null,
-    };
-  });
-
-  setLeaderboardData(formatted);
-}
-useEffect(() => {
-  if (!roomId) return;
-
-  fetchLeaderboard(
-    roomId,
-    leaderboardTab === "weekly" ? "weekly" : "alltime"
-  );
-}, [roomId, leaderboardTab]);
   const [miniRoomMode, setMiniRoomMode] = useState(false);
   const [giftPanelOpen, setGiftPanelOpen] = useState(false);
   const [giftTarget, setGiftTarget] = useState(null);
@@ -774,42 +508,17 @@ useEffect(() => {
   }, [activeParticipants]);
 
   const pkSideA = useMemo(() => {
-    const fromParticipants = (pkParticipants || []).filter((p) => p.side === "A");
-    const fromDisplaySides = pkDisplaySides.A || [];
-
-    const hasRealParticipantData =
-      fromParticipants.length > 0 &&
-      fromParticipants.some(
-        (p) =>
-          (p?.display_name && p.display_name !== "User") ||
-          (p?.avatar_url && p.avatar_url !== FALLBACK_AVATAR)
-      );
-
-    // مهم: لو participants أكثر عدداً من displaySides، استخدمهم
-    if (fromParticipants.length > fromDisplaySides.length) {
-      return fromParticipants;
+    if ((pkParticipants || []).length > 0) {
+      return pkParticipants.filter((p) => p.side === "A");
     }
-
-    return hasRealParticipantData ? fromParticipants : fromDisplaySides;
+    return pkDisplaySides.A || [];
   }, [pkParticipants, pkDisplaySides]);
 
   const pkSideB = useMemo(() => {
-    const fromParticipants = (pkParticipants || []).filter((p) => p.side === "B");
-    const fromDisplaySides = pkDisplaySides.B || [];
-
-    const hasRealParticipantData =
-      fromParticipants.length > 0 &&
-      fromParticipants.some(
-        (p) =>
-          (p?.display_name && p.display_name !== "User") ||
-          (p?.avatar_url && p.avatar_url !== FALLBACK_AVATAR)
-      );
-
-    if (fromParticipants.length > fromDisplaySides.length) {
-      return fromParticipants;
+    if ((pkParticipants || []).length > 0) {
+      return pkParticipants.filter((p) => p.side === "B");
     }
-
-    return hasRealParticipantData ? fromParticipants : fromDisplaySides;
+    return pkDisplaySides.B || [];
   }, [pkParticipants, pkDisplaySides]);
 
   console.log("[PK_DISPLAY_SIDES]", {
@@ -1136,7 +845,7 @@ useEffect(() => {
                   type: "broadcast",
                   event: "pk_score_updated",
                   payload: {
-                   room_id: roomId,
+                    room_id: roomId,
                     pk_session_id: currentPkSession.id,
                     score_a: nextScores.A,
                     score_b: nextScores.B,
@@ -1221,7 +930,6 @@ useEffect(() => {
         console.log("[ROOM_GIFT_MESSAGES_UPDATED]", nextMessages);
         return nextMessages;
       });
-      scheduleLeaderboardRefresh(400);
 
       processingRoomGiftIdsRef.current.delete(eventId);
     } catch (err) {
@@ -1344,7 +1052,6 @@ useEffect(() => {
               });
             }
           }
-          scheduleLeaderboardRefresh(400);
         }
 
         const fallbackReceiverId = hostUser?.id || targets[0]?.id || resolvedReceiverId;
@@ -1404,7 +1111,7 @@ useEffect(() => {
                 event: "gift",
                 payload: {
                   event_id: result.event_id,
-                  room_id,
+                  room_id: roomId,
                   quantity: displayQuantity,
                   ts: Date.now()
                 }
@@ -1714,14 +1421,9 @@ useEffect(() => {
   };
 
   const openProfile = (userId) => {
-  if (!userId) return;
-  openUserCard(userId, user);
-};
-
- const goToProfilePage = (userId) => {
-  if (!userId) return;
-  window.open(`/user/${userId}`, "_blank", "noopener,noreferrer");
-};
+    if (!userId) return;
+    navigate(`/user/${userId}`);
+  };
 
   const copyRoomId = async () => {
     try {
@@ -1782,97 +1484,54 @@ useEffect(() => {
     return normalized;
   };
 
-  const openUserCard = async (userId, seedProfile = null) => {
-  if (!userId) return;
+  const openUserCard = async (userId) => {
+    if (!userId) return;
+    console.log('[USER_CARD_OPEN_START]', userId);
+    setIsUserCardOpen(true);
+    setSelectedUserId(userId);
+    setSelectedUserProfile(null);
+    setCardLoading(true);
 
-  console.log("OPEN CARD userId:", userId);
-  console.log("OPEN CARD moderatorsMap:", moderatorsMap);
-  console.log("OPEN CARD has mod?:", 
-    moderatorsMap?.has?.(userId),
-    moderatorsMap?.has?.(String(userId)),
-    moderatorsMap?.has?.(Number(userId))
-  );
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .maybeSingle();
 
-  const seedIsMod = !!(
-    moderatorsMap?.has?.(userId) ||
-    moderatorsMap?.has?.(String(userId)) ||
-    moderatorsMap?.has?.(Number(userId)) ||
-    seedProfile?.is_moderator ||
-    seedProfile?.isModerator ||
-    seedProfile?.is_mod ||
-    seedProfile?.role === "moderator" ||
-    seedProfile?.role === "mod" ||
-    seedProfile?.room_role === "moderator" ||
-    seedProfile?.room_role === "mod" ||
-    seedProfile?.badge === "mod"
-  );
+      console.log('[USER_CARD_PROFILE_RESULT]', data, error);
 
-  console.log("seedIsMod:", seedIsMod);
+      if (!mountedRef.current) return;
 
-  const normalizedSeed = seedProfile
-    ? {
-        ...seedProfile,
-        is_mod: seedIsMod || !!seedProfile?.is_mod,
-        is_moderator: seedIsMod || !!seedProfile?.is_moderator,
+      if (data) {
+        setSelectedUserProfile(data);
+      } else {
+        const p = activeParticipantsRef.current?.find((x) => String(x.user_id) === String(userId));
+        setSelectedUserProfile({
+          id: userId,
+          name: p?.display_name || "User",
+          avatar_url: p?.avatar_url || null,
+        });
       }
-    : seedIsMod
-    ? {
+    } catch (err) {
+      console.error(err);
+      if (!mountedRef.current) return;
+      const p = activeParticipantsRef.current?.find((x) => String(x.user_id) === String(userId));
+      setSelectedUserProfile({
         id: userId,
-        is_mod: true,
-        is_moderator: true,
-      }
-    : null;
+        name: p?.display_name || "User",
+        avatar_url: p?.avatar_url || null,
+      });
+    } finally {
+      if (mountedRef.current) setCardLoading(false);
+    }
+  };
 
-  setIsUserCardOpen(true);
-  setSelectedUserId(userId);
-  setSelectedUserIsMod(seedIsMod);
-  setSelectedUserProfile(normalizedSeed);
-  setCardLoading(true);
-
-  try {
-    const profileData = await fetchProfileCardData(userId);
-
-    const finalIsMod = !!(
-      moderatorsMap?.has?.(userId) ||
-      moderatorsMap?.has?.(String(userId)) ||
-      moderatorsMap?.has?.(Number(userId)) ||
-      normalizedSeed?.is_mod ||
-      normalizedSeed?.is_moderator ||
-      profileData?.is_moderator ||
-      profileData?.isModerator ||
-      profileData?.is_mod ||
-      profileData?.role === "moderator" ||
-      profileData?.role === "mod" ||
-      profileData?.room_role === "moderator" ||
-      profileData?.room_role === "mod" ||
-      profileData?.badge === "mod"
-    );
-
-    console.log("profileData:", profileData);
-    console.log("finalIsMod:", finalIsMod);
-
-    const merged = {
-      ...(normalizedSeed || {}),
-      ...(profileData || {}),
-      is_mod: finalIsMod,
-      is_moderator: finalIsMod,
-    };
-
-    setSelectedUserIsMod(finalIsMod);
-    setSelectedUserProfile(merged);
-  } catch (err) {
-    console.error("openUserCard error:", err);
-  } finally {
-    setCardLoading(false);
-  }
-};
-
- const closeUserCard = () => {
-  setIsUserCardOpen(false);
-  setSelectedUserId(null);
-  setSelectedUserProfile(null);
-  setSelectedUserIsMod(false);
-};
+  const closeUserCard = () => {
+    setIsUserCardOpen(false);
+    setSelectedUserId(null);
+    setSelectedUserProfile(null);
+  };
 
   const mentionUser = (profile) => {
     const name = profile?.name || profile?.display_name || profile?.full_name || "User";
@@ -2145,33 +1804,6 @@ useEffect(() => {
       if (mountedRef.current) setRoomRole('guest');
     }
   };
-
-  const loadModerators = async () => {
-  if (!roomId) return;
-
-  try {
-    const { data, error } = await supabase
-  .from("live_room_roles")
-  .select("user_id")
-  .eq("room_id", roomId)
-  .eq("role", "mod")
-  .eq("is_active", true)
-  .is("revoked_at", null);
-
-    if (error) throw error;
-
-    const nextMap = buildModeratorsMap(data || []);
-
-    if (mountedRef.current) {
-      setModeratorsMap(nextMap);
-    }
-
-    console.log("MODERATORS RAW:", data);
-console.log("MODERATORS MAP:", nextMap);
-  } catch (err) {
-    console.error("[MODERATORS_LOAD_ERROR]", err);
-  }
-};
 
   const cleanupStaleMicSeats = async () => {
     if (!roomId) return;
@@ -2471,64 +2103,44 @@ console.log("MODERATORS MAP:", nextMap);
     }
   };
 
-  const isInviteRow = (row) => String(row?.note || "").startsWith("invite|");
-
   const loadMicRequests = async () => {
-  try {
-    const { data, error } = await supabase
-      .from("v_live_room_mic_requests")
-      .select("*")
-      .eq("room_id", roomId)
-      .eq("status", "pending");
-
-    if (error) throw error;
-
-    const requests = (data || []).filter((r) => !isInviteRow(r));
-    console.log("[MIC_REQUESTS_FETCHED]", requests);
-    return requests;
-  } catch (err) {
-    console.error("[MIC_REQUESTS_ERROR]", err);
-    return [];
-  }
-};
+    try {
+      const { data, error } = await supabase
+        .from("v_live_room_mic_requests")
+        .select("*")
+        .eq("room_id", roomId)
+        .eq("status", "pending");
+      if (error) throw error;
+      console.log('[MIC_REQUESTS_FETCHED]', data);
+      return data || [];
+    } catch (err) {
+      return [];
+    }
+  };
 
   const loadMyMicInvites = async () => {
-  if (!roomId || !user?.id) return;
+    if (!roomId || !user?.id) return;
+    console.log('[MY_MIC_INVITES_LOAD]', { roomId, userId: user.id });
+    try {
+      const { data, error } = await supabase
+        .from("v_live_room_mic_requests")
+        .select("*")
+        .eq("room_id", roomId)
+        .eq("user_id", user.id)
+        .eq("status", "pending");
 
-  console.log("[MY_MIC_INVITES_LOAD]", { roomId, userId: user.id });
+      if (error) throw error;
 
-  try {
-    const { data, error } = await supabase
-      .from("v_live_room_mic_requests")
-      .select("*")
-      .eq("room_id", roomId)
-      .eq("status", "pending");
+      const invites = (data || []).filter((r) => String(r.note || "").startsWith("invite|"));
+      console.log('[MY_MIC_INVITES_RESULT]', invites);
 
-    if (error) throw error;
-
-    const invites = (data || []).filter((r) => {
-      if (!isInviteRow(r)) return false;
-
-      const currentUserId = String(user.id);
-
-      return (
-        String(r.target_user_id || "") === currentUserId ||
-        String(r.invited_user_id || "") === currentUserId ||
-        String(r.receiver_user_id || "") === currentUserId ||
-        String(r.to_user_id || "") === currentUserId ||
-        String(r.user_id || "") === currentUserId
-      );
-    });
-
-    console.log("[MY_MIC_INVITES_RESULT]", invites);
-
-    if (mountedRef.current) {
-      setMyMicInvites(invites);
+      if (mountedRef.current) {
+        setMyMicInvites(invites);
+      }
+    } catch (err) {
+      console.error('[MY_MIC_INVITES_ERROR]', err);
     }
-  } catch (err) {
-    console.error("[MY_MIC_INVITES_ERROR]", err);
-  }
-};
+  };
 
   const refreshMicRequestsState = async () => {
     try {
@@ -2661,15 +2273,8 @@ console.log("MODERATORS MAP:", nextMap);
 
       const rows = data || [];
 
-      let profilesMap = new Map();
       const ids = rows.map((r) => r.user_id).filter(Boolean);
-
-      try {
-        profilesMap = await fetchProfilesMap(ids);
-      } catch (err) {
-        console.warn("[PK_FETCH_PROFILES_MAP_FAILED]", err);
-        profilesMap = new Map();
-      }
+      const profilesMap = await fetchProfilesMap(ids);
 
       const merged = rows.map((r) => {
         const p = profilesMap.get(r.user_id);
@@ -2677,7 +2282,6 @@ console.log("MODERATORS MAP:", nextMap);
         const matchingSeat = (effectiveSeats || []).find(
           (s) =>
             String(s.user_id) === String(r.user_id) ||
-            String(s.occupant?.user_id) === String(r.user_id) ||
             String(s.seat_no) === String(r.seat_no)
         );
 
@@ -2691,13 +2295,10 @@ console.log("MODERATORS MAP:", nextMap);
             p?.username ||
             seatOccupant?.display_name ||
             seatOccupant?.name ||
-            matchingSeat?.display_name ||
-            matchingSeat?.name ||
             "User",
           avatar_url:
             p?.avatar_url ||
             seatOccupant?.avatar_url ||
-            matchingSeat?.avatar_url ||
             FALLBACK_AVATAR,
         };
       });
@@ -2705,18 +2306,10 @@ console.log("MODERATORS MAP:", nextMap);
       if (mountedRef.current) {
         setPkParticipants(merged);
 
-        const hasRealMergedData = merged.some(
-          (p) =>
-            (p?.display_name && p.display_name !== "User") ||
-            (p?.avatar_url && p.avatar_url !== FALLBACK_AVATAR)
-        );
-
-        if (hasRealMergedData) {
-          setPkDisplaySides({
-            A: merged.filter((p) => p.side === "A"),
-            B: merged.filter((p) => p.side === "B"),
-          });
-        }
+        setPkDisplaySides({
+          A: merged.filter((p) => p.side === "A"),
+          B: merged.filter((p) => p.side === "B"),
+        });
       }
 
       console.log("[PK_PARTICIPANTS_LOADED]", {
@@ -2726,8 +2319,8 @@ console.log("MODERATORS MAP:", nextMap);
           user_id: p.user_id,
           side: p.side,
           seat_no: p.seat_no,
-          display_name: p.display_name,
-        })),
+          display_name: p.display_name
+        }))
       });
 
       return merged;
@@ -3714,15 +3307,13 @@ console.log("MODERATORS MAP:", nextMap);
           title: `${pkMode} PK Battle`,
           started_at: new Date().toISOString(),
           ends_at: endsAt,
-
-          seat_a: Number(selectedSeatsA?.[0] || pkSeatA || null),
-          seat_b: Number(selectedSeatsB?.[0] || pkSeatB || null),
         })
         .select()
         .single();
 
       if (sessionError) throw sessionError;
       if (!session) throw new Error("Failed to create session");
+
       const participantsToInsert = [
         ...selectedA.map((s) => ({
           pk_session_id: session.id,
@@ -3818,95 +3409,6 @@ console.log("MODERATORS MAP:", nextMap);
   // 7. Effects
   // ==========================================
   useEffect(() => {
-  const audio = new Audio("/sounds/beep.mp3");
-  audio.preload = "auto";
-  countdownAudioRef.current = audio;
-
-  const unlockAudio = async () => {
-    if (!countdownAudioRef.current || audioUnlockedRef.current) return;
-
-    try {
-      countdownAudioRef.current.muted = true;
-      countdownAudioRef.current.currentTime = 0;
-      await countdownAudioRef.current.play();
-      countdownAudioRef.current.pause();
-      countdownAudioRef.current.currentTime = 0;
-      countdownAudioRef.current.muted = false;
-      audioUnlockedRef.current = true;
-    } catch (err) {}
-  };
-
-  window.addEventListener("click", unlockAudio, { passive: true });
-  window.addEventListener("touchstart", unlockAudio, { passive: true });
-
-  return () => {
-    window.removeEventListener("click", unlockAudio);
-    window.removeEventListener("touchstart", unlockAudio);
-
-    if (countdownAudioRef.current) {
-      countdownAudioRef.current.pause();
-      countdownAudioRef.current = null;
-    }
-  };
-}, []);
-useEffect(() => {
-  if (!pkSession?.id) return;
-  if (pkSession?.status !== "live") return;
-  if (pkRemainingMs == null) return;
-
-  const secondsLeft = Math.ceil(pkRemainingMs / 1000);
-
-  // reset لو خرجنا من آخر 10 ثواني
-  if (secondsLeft > 10 || secondsLeft <= 0) {
-    lastCountdownSecondRef.current = null;
-    return;
-  }
-
-  // يمنع التكرار لنفس الثانية
-  if (lastCountdownSecondRef.current === secondsLeft) return;
-
-  lastCountdownSecondRef.current = secondsLeft;
-
-  // 10 → 8 : اهتزاز فقط
-  if (secondsLeft >= 8) {
-    if (navigator.vibrate) {
-      navigator.vibrate(120);
-    }
-    return;
-  }
-
-  // 7 → 4 : beep قصير كل ثانية
-  if (secondsLeft >= 4) {
-    if (countdownAudioRef.current && audioUnlockedRef.current) {
-      countdownAudioRef.current.pause();
-      countdownAudioRef.current.currentTime = 0;
-      countdownAudioRef.current.playbackRate = 1.4;
-      countdownAudioRef.current.play().catch(() => {});
-    }
-    return;
-  }
-
-  // 3 → 1 : beep أطول + اهتزاز
-  if (secondsLeft >= 1) {
-    if (countdownAudioRef.current && audioUnlockedRef.current) {
-      countdownAudioRef.current.pause();
-      countdownAudioRef.current.currentTime = 0;
-      countdownAudioRef.current.playbackRate = 0.7;
-      countdownAudioRef.current.play().catch(() => {});
-    }
-
-    if (navigator.vibrate) {
-      navigator.vibrate(180);
-    }
-
-    setTimeout(() => {
-      if (countdownAudioRef.current) {
-        countdownAudioRef.current.playbackRate = 1;
-      }
-    }, 500);
-  }
-}, [pkSession?.id, pkSession?.status, pkRemainingMs]);
-  useEffect(() => {
     miniRoomActiveRef.current = !!miniRoomActive;
   }, [miniRoomActive]);
 
@@ -3919,12 +3421,6 @@ useEffect(() => {
   }, [participantsMap]);
 
   useEffect(() => {
-  if (!roomId) return;
-
-  loadModerators();
-}, [roomId]);
-
-  useEffect(() => {
     pkSessionRef.current = pkSession;
   }, [pkSession]);
 
@@ -3933,124 +3429,20 @@ useEffect(() => {
   }, [pkParticipants]);
 
   useEffect(() => {
-    const bottom = chatBottomRef.current;
-    if (!bottom) return;
-
-    requestAnimationFrame(() => {
-      bottom.scrollIntoView({
-        behavior: "auto",
-        block: "end",
-      });
-    });
-  }, [messages, roomGiftMessages, lastSentGift, joinTime]);
+    pkDisplaySidesRef.current = pkDisplaySides || { A: [], B: [] };
+  }, [pkDisplaySides]);
 
   useEffect(() => {
     if (!pkSession?.id) return;
-    if (!(pkParticipants || []).length) return;
-    if (!(effectiveSeats || []).length) return;
+    if ((pkParticipants || []).length === 0) return;
 
-    const rebuiltParticipants = (pkParticipants || []).map((p) => {
-      const matchingSeat = (effectiveSeats || []).find(
-        (s) =>
-          String(s.user_id) === String(p.user_id) ||
-          String(s.occupant?.user_id) === String(p.user_id) ||
-          String(s.seat_no) === String(p.seat_no)
-      );
-
-      const occ = matchingSeat?.occupant || null;
-
-      return {
-        ...p,
-        display_name:
-          p?.display_name && p.display_name !== "User"
-            ? p.display_name
-            : occ?.display_name || occ?.name || matchingSeat?.display_name || matchingSeat?.name || "User",
-        avatar_url:
-          p?.avatar_url && p.avatar_url !== FALLBACK_AVATAR
-            ? p.avatar_url
-            : occ?.avatar_url || matchingSeat?.avatar_url || FALLBACK_AVATAR,
-      };
-    });
-
-    const hasBetterData = rebuiltParticipants.some(
-      (p) =>
-        (p?.display_name && p.display_name !== "User") ||
-        (p?.avatar_url && p.avatar_url !== FALLBACK_AVATAR)
-    );
-
-    if (!hasBetterData) return;
-
-    const changed = rebuiltParticipants.some((p, i) => {
-      const oldP = (pkParticipants || [])[i];
-      return (
-        oldP?.display_name !== p.display_name ||
-        oldP?.avatar_url !== p.avatar_url
-      );
-    });
-
-    if (!changed) return;
-
-    setPkParticipants(rebuiltParticipants);
-    setPkDisplaySides({
-      A: rebuiltParticipants.filter((p) => p.side === "A"),
-      B: rebuiltParticipants.filter((p) => p.side === "B"),
-    });
-  }, [pkSession?.id, pkParticipants, effectiveSeats]);
-
-  useEffect(() => {
     const nextSides = {
       A: (pkParticipants || []).filter((p) => p.side === "A"),
       B: (pkParticipants || []).filter((p) => p.side === "B"),
     };
 
-    const nextTotal = (nextSides.A?.length || 0) + (nextSides.B?.length || 0);
-    const currentTotal =
-      (pkDisplaySides?.A?.length || 0) + (pkDisplaySides?.B?.length || 0);
-
-    // لا تصفر، ولا تستبدل إلا لو المشاركين أكثر أو مساويين
-    if (nextTotal === 0) return;
-    if (nextTotal < currentTotal) return;
-
     setPkDisplaySides(nextSides);
-  }, [pkParticipants]);
-
-  useEffect(() => {
-    pkDisplaySidesRef.current = pkDisplaySides || { A: [], B: [] };
-  }, [pkDisplaySides]);
-
-  useEffect(() => {
-    pkSessionRef.current = pkSession;
-  }, [pkSession]);
-
-  useEffect(() => {
-    pkParticipantsRef.current = pkParticipants;
-  }, [pkParticipants]);
-
-  useEffect(() => {
-    pkDisplaySidesRef.current = pkDisplaySides || { A: [], B: [] };
-  }, [pkDisplaySides]);
-
-  useEffect(() => {
-    if (!pkSession?.seat_a && !pkSession?.seat_b) return;
-    if (!effectiveSeats.length) return;
-
-    const sides = buildPkDisplaySidesFromSeats(
-      pkSession.seat_a,
-      pkSession.seat_b,
-      effectiveSeats
-    );
-
-    const hasAnySide =
-      (sides?.A?.length || 0) > 0 ||
-      (sides?.B?.length || 0) > 0;
-
-    if (!hasAnySide) return;
-
-    setPkDisplaySides(sides);
-    pkDisplaySidesRef.current = sides;
-
-    console.log("[PK_REBUILT_FROM_EFFECTIVE_SEATS]", sides);
-  }, [effectiveSeats, pkSession?.id, pkSession?.seat_a, pkSession?.seat_b]);
+  }, [pkSession?.id, pkParticipants]);
 
   useEffect(() => {
     roomGiftMessagesRef.current = roomGiftMessages || [];
@@ -4372,128 +3764,123 @@ useEffect(() => {
     pkFinishTriggeredRef.current = false;
   }, [pkSession?.id]);
 
- useEffect(() => {
-  if (!pkSession?.id) return;
-
-  // اقفل النتيجة فقط عند بداية PK جديدة أو أثناء التحضير
-  if (
-    (pkSession?.status === "pending" || pkSession?.status === "live") &&
-    !pkResultData
-  ) {
-    setPkResultOpen(false);
-  }
-}, [pkSession?.id, pkSession?.status, pkResultData]);
-
- useEffect(() => {
-  if (!pkSession?.id) return;
-  if (pkSession.status !== "live") return;
-  if (pkRemainingMs > 0) return;
-  if (pkFinishTriggeredRef.current) return;
-
-  pkFinishTriggeredRef.current = true;
-
-  const finishPk = async () => {
-    let winnerSide = "draw";
-    if (pkScores.A > pkScores.B) winnerSide = "A";
-    else if (pkScores.B > pkScores.A) winnerSide = "B";
-
-    let winnerUserId = null;
-    if (winnerSide !== "draw") {
-      const participants =
-        (pkParticipants || []).length > 0
-          ? pkParticipants
-          : (pkDisplaySides?.[winnerSide] || []);
-
-      const winner = participants.find((p) => p.side === winnerSide);
-      if (winner) {
-        winnerUserId = winner.user_id || winner.id;
-      }
+  useEffect(() => {
+    if (!pkSession?.id) return;
+    if (pkSession?.status === "pending" || pkSession?.status === "live") {
+      setPkResultOpen(false);
+      setPkResultData(null);
     }
+  }, [pkSession?.id, pkSession?.status]);
 
-    console.log("[PK_FINISH_RESULT]", {
-      pkSessionId: pkSession.id,
-      winnerSide,
-      scoreA: Number(pkScores?.A || 0),
-      scoreB: Number(pkScores?.B || 0),
-      winnerUserId: winnerUserId || null,
-    });
+  useEffect(() => {
+    if (!pkSession?.id) return;
+    if (pkSession.status !== "live") return;
+    if (pkRemainingMs > 0) return;
+    if (pkFinishTriggeredRef.current) return;
 
-    const finalResult = {
-      winnerSide,
-      scoreA: Number(pkScores?.A || 0),
-      scoreB: Number(pkScores?.B || 0),
-      session: pkSession,
-      sideAPlayers: (pkSideA || []).map((p) => ({
-        user_id: p.user_id || p.id,
-        display_name: p.display_name || p.name || "User",
-        avatar_url: p.avatar_url || FALLBACK_AVATAR,
-        seat_no: p.seat_no,
-        side: "A",
-      })),
-      sideBPlayers: (pkSideB || []).map((p) => ({
-        user_id: p.user_id || p.id,
-        display_name: p.display_name || p.name || "User",
-        avatar_url: p.avatar_url || FALLBACK_AVATAR,
-        seat_no: p.seat_no,
-        side: "B",
-      })),
-    };
+    pkFinishTriggeredRef.current = true;
 
-    try {
-      const { error } = await supabase.rpc("finish_live_room_pk_session", {
-        p_pk_session_id: pkSession.id,
-        p_winner_side: winnerSide,
-        p_winner_user_id: winnerUserId,
+    const finishPk = async () => {
+      let winnerSide = "draw";
+      if (pkScores.A > pkScores.B) winnerSide = "A";
+      else if (pkScores.B > pkScores.A) winnerSide = "B";
+
+      let winnerUserId = null;
+      if (winnerSide !== "draw") {
+        const participants = (pkParticipants || []).length > 0 ? pkParticipants : (pkDisplaySides?.[winnerSide] || []);
+        const winner = participants.find(p => p.side === winnerSide);
+        if (winner) {
+          winnerUserId = winner.user_id || winner.id;
+        }
+      }
+
+      console.log("[PK_FINISH_RESULT]", {
+        pkSessionId: pkSession.id,
+        winnerSide,
+        scoreA: Number(pkScores?.A || 0),
+        scoreB: Number(pkScores?.B || 0),
+        winnerUserId: winnerUserId || null,
       });
 
-      if (error) throw error;
-
-      setPkResultData(finalResult);
-      setPkResultOpen(true);
-
-      if (channelRef.current) {
-        await channelRef.current.send({
-          type: "broadcast",
-          event: "pk_updated",
-          payload: {
-            room_id: roomId,
-            pk_session_id: pkSession.id,
-            ts: Date.now(),
-          },
+      try {
+        const { data, error } = await supabase.rpc("finish_live_room_pk_session", {
+          p_pk_session_id: pkSession.id,
+          p_winner_side: winnerSide,
+          p_winner_user_id: winnerUserId
         });
 
-        await channelRef.current.send({
-          type: "broadcast",
-          event: "pk_result",
-          payload: {
-            room_id: roomId,
-            pk_session_id: pkSession.id,
-            result: finalResult,
-            ts: Date.now(),
-          },
+        if (error) throw error;
+
+        setPkResultData({
+          winnerSide,
+          scoreA: Number(pkScores?.A || 0),
+          scoreB: Number(pkScores?.B || 0),
+          session: pkSession,
+          sideAPlayers: (pkSideA || []).map((p) => ({
+            user_id: p.user_id || p.id,
+            display_name: p.display_name || p.name || "User",
+            avatar_url: p.avatar_url || FALLBACK_AVATAR,
+            seat_no: p.seat_no,
+            side: "A",
+          })),
+          sideBPlayers: (pkSideB || []).map((p) => ({
+            user_id: p.user_id || p.id,
+            display_name: p.display_name || p.name || "User",
+            avatar_url: p.avatar_url || FALLBACK_AVATAR,
+            seat_no: p.seat_no,
+            side: "B",
+          })),
         });
+        setPkResultOpen(true);
+        await loadPkState();
+
+        if (channelRef.current) {
+          await channelRef.current.send({
+            type: "broadcast",
+            event: "pk_updated",
+            payload: {
+              room_id: roomId,
+              pk_session_id: pkSession.id,
+              ts: Date.now()
+            }
+          });
+
+          await channelRef.current.send({
+            type: "broadcast",
+            event: "pk_result",
+            payload: {
+              room_id: roomId,
+              pk_session_id: pkSession.id,
+              result: {
+                winnerSide,
+                scoreA: Number(pkScores?.A || 0),
+                scoreB: Number(pkScores?.B || 0),
+                sideAPlayers: (pkSideA || []).map((p) => ({
+                  user_id: p.user_id || p.id,
+                  display_name: p.display_name || p.name || "User",
+                  avatar_url: p.avatar_url || FALLBACK_AVATAR,
+                  seat_no: p.seat_no,
+                  side: "A",
+                })),
+                sideBPlayers: (pkSideB || []).map((p) => ({
+                  user_id: p.user_id || p.id,
+                  display_name: p.display_name || p.name || "User",
+                  avatar_url: p.avatar_url || FALLBACK_AVATAR,
+                  seat_no: p.seat_no,
+                  side: "B",
+                })),
+              },
+              ts: Date.now(),
+            },
+          });
+        }
+      } catch (err) {
+        console.error("[PK_FINISH_ERROR]", err);
       }
+    };
 
-      setTimeout(() => {
-        loadPkState();
-      }, 300);
-    } catch (err) {
-      console.error("[PK_FINISH_ERROR]", err);
-    }
-  };
-
-  finishPk();
-}, [
-  pkSession?.id,
-  pkSession?.status,
-  pkRemainingMs,
-  pkScores,
-  pkParticipants,
-  pkDisplaySides,
-  pkSideA,
-  pkSideB,
-  roomId,
-]);
+    finishPk();
+  }, [pkSession?.id, pkSession?.status, pkRemainingMs, pkScores, pkParticipants, pkDisplaySides, roomId]);
 
   useEffect(() => {
     if (!roomId) return;
@@ -5027,29 +4414,6 @@ useEffect(() => {
       clearInterval(id);
     };
   }, [roomId, user?.id, canModerate]);
-  useEffect(() => {
-    const handleBack = (e) => {
-      e.preventDefault();
-
-      if (leaveRoomOpen) {
-        setLeaveRoomOpen(false);
-        window.history.pushState(null, "", window.location.href);
-        return;
-      }
-
-      setLeaveRoomOpen(true);
-      window.history.pushState(null, "", window.location.href);
-    };
-
-    // أول ما الصفحة تفتح
-    window.history.pushState(null, "", window.location.href);
-
-    window.addEventListener("popstate", handleBack);
-
-    return () => {
-      window.removeEventListener("popstate", handleBack);
-    };
-  }, []);
 
   // ==========================================
   // 8. Early Returns
@@ -5085,8 +4449,6 @@ useEffect(() => {
   const cardVip = isVipActive(selectedUserProfile);
   const cardVerified = !!selectedUserProfile?.verified;
   const cardPlan = selectedUserProfile?.plan || "free";
-  const cardIsMod = !!selectedUserIsMod;
-  console.log("selectedUserIsMod:", selectedUserIsMod);
   const cardAge = selectedUserProfile?.age ?? null;
   const cardGender = selectedUserProfile?.gender ?? null;
   const cardCountry = selectedUserProfile?.country ?? null;
@@ -5126,16 +4488,7 @@ useEffect(() => {
               <Mic className="w-5 h-5 animate-pulse" />
             </div>
             <div className="min-w-0">
-              <div className="flex items-center justify-between">
-                <div className="font-semibold text-slate-900">Leave room?</div>
-
-                <button
-                  onClick={() => setLeaveRoomOpen(false)}
-                  className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-gray-100"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
+              <div className="font-semibold text-slate-900 truncate">{room?.title || "Live Room"}</div>
               <div className="text-xs text-slate-500 truncate">Live room is running</div>
             </div>
           </div>
@@ -5211,26 +4564,12 @@ useEffect(() => {
                           src={assetUrl}
                           alt={effect?.gift_name || 'gift animation'}
                           className="w-16 h-16 object-contain cursor-pointer pointer-events-auto drop-shadow-lg"
-                          onClick={() => {
-  const user =
-    activeParticipantsRef.current?.find(
-      (x) => String(x.user_id) === String(effect.sender_id)
-    ) || null;
-
-  openUserCard(effect.sender_id, user);
-}}
+                          onClick={() => openUserCard(effect.sender_id)}
                         />
                       ) : (
                         <span
                           className="text-4xl cursor-pointer pointer-events-auto drop-shadow-lg"
-                          onClick={() => {
-  const user =
-    activeParticipantsRef.current?.find(
-      (x) => String(x.user_id) === String(effect.sender_id)
-    ) || null;
-
-  openUserCard(effect.sender_id, user);
-}}
+                          onClick={() => openUserCard(effect.sender_id)}
                         >🌹</span>
                       )}
                     </div>
@@ -5451,7 +4790,7 @@ useEffect(() => {
 
             return (
               <div key={effect.id} className={`animate-in slide-in-from-bottom-12 fade-in duration-1000 shrink-0 pointer-events-none ${levelClass}`}>
-                <div className="bg-white/80 backdrop-blur-md shadow-lg border border-white/60 rounded-2xl px-4 py-2 flex items-center gap-3 opacity-95 hover:scale-[1.02] transition">
+                <div className="bg-white/90 backdrop-blur-sm shadow-sm border border-slate-200/50 rounded-2xl px-4 py-2 flex items-center gap-3 opacity-95 hover:opacity-100 transition-opacity">
                   <div className="animate-[bounce_2s_ease-in-out_infinite]">
                     {hasAsset ? (
                       <img
@@ -5550,82 +4889,79 @@ useEffect(() => {
       </div>
 
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-white sm:border sm:rounded-xl sm:mx-4 sm:mb-4">
-        <div className="shrink-0 p-2 sm:p-2.5 border-b flex items-center gap-1 overflow-x-auto whitespace-nowrap hide-scrollbar">
+        <div className="shrink-0 p-3 sm:p-4 border-b flex items-center gap-3">
           <button
             onClick={() => openUserCard(room.owner_user_id)}
-            className="shrink-0 w-8 h-8 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center cursor-pointer border"
+            className="w-10 h-10 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center cursor-pointer"
             title="Open owner card"
           >
             {room?.avatar_url ? (
               <img src={room.avatar_url} alt={room.title} className="w-full h-full object-cover" />
             ) : (
-              <Mic className="w-4 h-4 text-slate-700" />
+              <Mic className="w-5 h-5 text-slate-700" />
             )}
           </button>
 
-          <div className="min-w-0 flex-1 max-w-[96px]">
-            <div className="font-semibold text-slate-900 truncate text-[13px]">{room?.title}</div>
+          <div className="min-w-0 flex-1">
+            <div className="font-semibold text-slate-900 truncate">{room?.title}</div>
 
-            <div className="text-[10px] text-slate-500 flex items-center gap-1">
+            <div className="text-xs text-slate-500 flex items-center gap-2">
+              <span className="font-mono truncate">{shortId(roomId)}</span>
               <button
                 onClick={copyRoomId}
-                className="inline-flex items-center justify-center w-4 h-4 rounded text-slate-600 hover:text-slate-900 hover:bg-slate-100 shrink-0"
+                className="inline-flex items-center gap-1 text-slate-600 hover:text-slate-900"
                 title="Copy room id"
               >
-                <Copy className="w-3 h-3" />
+                <Copy className="w-3.5 h-3.5" />
+                Copy
               </button>
             </div>
           </div>
 
-          <PeopleInRoomButton
-  people={currentPeopleRanked}
-  onClick={() => setShowPeople(true)}
-/>
-
-          {canModerate ? (
-  <MicRequestsButton
-    count={pendingRequests.length}
-    onClick={() => setRequestsOpen(prev => !prev)}
-  />
-) : null}
-
-          {canModerate && (!pkSession || pkSession.status !== "live") ? (
-  <PkButton
-    onClick={() => setShowPkModal(true)}
-    disabled={pkBusy}
-  />
-) : null}
-
-          <Button
-            variant="outline"
-            className="shrink-0 h-8 w-8 rounded-lg bg-yellow-50 border-yellow-200 text-yellow-700 hover:bg-yellow-100 p-0"
-            onClick={() => setShowLeaderboard(true)}
-          >
-            <span className="text-sm">🏆</span>
+          <Button variant="outline" className="gap-2" onClick={() => setShowPeople(true)}>
+            <Users className="w-4 h-4" />
+            {activeParticipants.length}
           </Button>
 
           {canModerate ? (
-            <Button
-              variant="outline"
-              className="shrink-0 h-8 w-8 rounded-lg text-rose-600 hover:bg-rose-50 hover:text-rose-700 border-rose-200 p-0"
-              onClick={handleResetMicGiftCounters}
+            <button
+              onClick={() => setRequestsOpen(true)}
+              className="relative p-2 rounded-lg hover:bg-slate-100 transition-colors"
+              title="Mic Requests"
             >
-              <RefreshCw className="w-4 h-4" />
+              <Bell className="w-5 h-5 text-slate-700" />
+              {pendingRequests.length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center">
+                  {pendingRequests.length}
+                </span>
+              )}
+            </button>
+          ) : null}
+
+          {canModerate && (!pkSession || pkSession.status !== 'live') ? (
+            <Button className="gap-2 bg-purple-500 hover:bg-purple-600 text-white" onClick={() => setShowPkModal(true)}>
+              <span className="hidden sm:inline">Start PK</span>
+              <span className="sm:hidden">PK</span>
             </Button>
           ) : null}
 
           {canModerate ? (
-            <Button
-              variant="outline"
-              className="shrink-0 h-8 w-8 rounded-lg p-0"
-              onClick={openSettings}
-            >
-              <Settings className="w-4 h-4" />
+            <Button variant="outline" className="gap-2 text-rose-600 hover:bg-rose-50 hover:text-rose-700 border-rose-200" onClick={handleResetMicGiftCounters}>
+              <RefreshCw className="w-4 h-4" />
+              <span className="hidden sm:inline">Reset Support</span>
             </Button>
           ) : null}
 
+          {canModerate ? (
+            <Button variant="outline" className="gap-2" onClick={openSettings}>
+              <Settings className="w-4 h-4" />
+              <span className="hidden sm:inline">Settings</span>
+            </Button>
+          ) : null}
+
+          {/* Single source of truth for incoming mic invites */}
           {myIncomingInvites.length > 0 ? (
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-2">
               {myIncomingInvites.map((inv) => (
                 <div key={inv.id} className="flex items-center gap-2 bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-lg">
                   <span className="text-xs font-semibold text-indigo-800 flex items-center gap-1 hidden sm:flex">
@@ -5658,255 +4994,66 @@ useEffect(() => {
         {err ? <div className="shrink-0 px-4 py-2 text-sm border-b bg-rose-50 text-rose-700">{err}</div> : null}
 
         {pkSession ? (
-          <div className="fixed top-2 left-1/2 -translate-x-1/2 w-[96%] max-w-md z-50 rounded-[32px] p-1.5 sm:p-2.5 bg-white/40 backdrop-blur-2xl border border-white/60 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.15)] transition-all duration-300">
-            <style>{`
-              @keyframes scorePop {
-                0% { transform: scale(1); }
-                50% { transform: scale(1.15); }
-                100% { transform: scale(1); }
-              }
-              .animate-score-pop {
-                animation: scorePop 0.3s ease-out;
-              }
-              @keyframes giftGlow {
-                0%, 100% { filter: drop-shadow(0 0 2px rgba(251, 191, 36, 0.3)); transform: scale(1); }
-                50% { filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.8)); transform: scale(1.08); }
-              }
-              .animate-gift-glow {
-                animation: giftGlow 2.5s ease-in-out infinite;
-              }
-              @keyframes ribbonShine {
-                0% { transform: translateX(-150%) skewX(-20deg); }
-                50%, 100% { transform: translateX(250%) skewX(-20deg); }
-              }
-              .animate-ribbon-shine {
-                animation: ribbonShine 2.5s ease-in-out infinite;
-              }
-            `}</style>
-
-            <div className="relative grid grid-cols-[1fr_auto_1fr] items-start gap-1.5 sm:gap-3 rounded-[24px] bg-white/85 shadow-inner px-2 py-4 sm:px-4 sm:py-6 overflow-hidden border border-white/80">
-              <div className="absolute top-0 left-0 w-[50%] h-full bg-gradient-to-r from-fuchsia-400/10 via-fuchsia-300/5 to-transparent pointer-events-none" />
-              <div className="absolute top-0 right-0 w-[50%] h-full bg-gradient-to-l from-cyan-400/10 via-cyan-300/5 to-transparent pointer-events-none" />
-
-              <div className="relative z-10 min-w-0 flex flex-col items-start text-left">
-                <div className="inline-flex items-center rounded-full bg-fuchsia-100/80 border border-fuchsia-200/50 px-2.5 sm:px-3 py-0.5 sm:py-1 text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-fuchsia-600 shadow-sm">
-                  Side A
-                </div>
-
-                <div
-                  key={pkScores?.A}
-                  className="mt-1.5 sm:mt-2 text-3xl sm:text-5xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-fuchsia-500 to-pink-600 drop-shadow-[0_2px_8px_rgba(217,70,239,0.3)] animate-score-pop origin-left"
-                >
+          <div className="fixed top-2 left-1/2 -translate-x-1/2 w-[95%] max-w-md z-50 rounded-2xl backdrop-blur-xl bg-white/70 border border-white/40 shadow-2xl p-3">
+            <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-2 sm:gap-4">
+              <div className="min-w-0">
+                <div className="text-xs font-bold text-fuchsia-600 uppercase">Side A</div>
+                <div className="text-3xl sm:text-4xl font-extrabold text-purple-500 drop-shadow-sm">
                   {Number(pkScores?.A || 0).toLocaleString()}
                 </div>
-
                 {pkSideA.length === 0 ? (
-                  <div className="mt-3 flex items-center justify-center h-9 sm:h-10 rounded-xl border border-dashed border-fuchsia-200 bg-fuchsia-50/50 px-3 w-full max-w-[120px]">
-                    <span className="text-[10px] sm:text-[11px] font-semibold text-fuchsia-400">
-                      No player
-                    </span>
-                  </div>
+                  <span className="mt-3 text-[11px] text-slate-400">No player</span>
                 ) : (
-                  <div className="mt-3 flex flex-col gap-2 items-start min-w-0 w-full">
-                    {pkSideA.map((p) => (
-                      <div
-                        key={p.id}
-                        onClick={() => openUserCard(p.user_id)}
-                        title="Open user card"
-                        className="group relative flex items-center gap-2 sm:gap-2.5 rounded-xl sm:rounded-2xl border border-fuchsia-100/80 bg-gradient-to-r from-fuchsia-50/60 to-white/90 p-1.5 sm:p-2 shadow-sm hover:shadow-md hover:-translate-y-[1px] transition cursor-pointer w-full text-left"
-                      >
+                  <div className="mt-3 flex flex-col gap-2 items-start min-w-0">
+                    {pkSideA.map(p => (
+                      <div key={p.id} onClick={() => openUserCard(p.user_id)} title="Open user card" className="flex items-center gap-2.5 rounded-[18px] bg-white/85 border border-white/80 shadow-lg px-2.5 py-2 min-w-0 max-w-full backdrop-blur-md cursor-pointer">
                         <img
                           src={p.avatar_url || FALLBACK_AVATAR}
                           alt={p.display_name || "User"}
-                          className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover shrink-0 ring-2 ring-fuchsia-100 shadow-sm"
+                          className="w-9 h-9 rounded-full object-cover shrink-0 ring-2 ring-white shadow"
                         />
-
-                        <div className="flex-1 min-w-0 flex flex-col justify-center">
-                          <div className="truncate text-[11px] sm:text-[13px] font-extrabold text-slate-800">
-                            {p.display_name || "User"}
-                          </div>
-                          <div className="text-[9px] sm:text-[10px] font-bold text-fuchsia-600/70">
-                            #{p.seat_no}
-                          </div>
+                        <div className="min-w-0 max-w-[110px] sm:max-w-[150px]">
+                          <div className="truncate text-[13px] font-bold text-slate-800">{p.display_name || "User"}</div>
+                          <div className="text-[11px] text-slate-500 font-medium">#{p.seat_no}</div>
                         </div>
-
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openGiftPanelForUser({
-                              id: p.user_id,
-                              name: p.display_name || "User",
-                              username: p.display_name || "User",
-                              avatar_url: p.avatar_url || FALLBACK_AVATAR,
-                            });
-                          }}
-                          title="Send gift"
-                          className={`shrink-0 relative overflow-hidden inline-flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-b from-pink-400 to-rose-600 text-white border border-pink-300/60 hover:scale-110 active:scale-95 transition-all duration-300 ${pkSession.status === "live"
-                            ? "shadow-[0_4px_10px_rgba(225,29,72,0.4),inset_0_2px_4px_rgba(255,255,255,0.5),inset_0_-2px_4px_rgba(0,0,0,0.2)] hover:shadow-[0_6px_14px_rgba(225,29,72,0.5),inset_0_2px_4px_rgba(255,255,255,0.7),inset_0_-2px_4px_rgba(0,0,0,0.2)]"
-                            : "shadow-sm opacity-80 hover:opacity-100 saturate-[0.85]"
-                            }`}
-                        >
-                          <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-white/60 to-transparent pointer-events-none" />
-
-                          <div className={`relative z-10 w-4 h-4 sm:w-5 sm:h-5 transition-all duration-300 ${pkSession.status === "live"
-                            ? "drop-shadow-md animate-gift-glow brightness-110"
-                            : "drop-shadow-sm brightness-90 opacity-85"
-                            }`}>
-                            <div className="absolute bottom-0 left-[5%] w-[90%] h-[60%] bg-gradient-to-b from-purple-400 to-purple-600 rounded-[3px] shadow-[inset_0_1px_3px_rgba(255,255,255,0.6)] overflow-hidden">
-                              <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-white/40 to-transparent" />
-                              <div className="absolute left-1/2 -translate-x-1/2 w-[24%] h-full bg-gradient-to-b from-yellow-300 via-amber-400 to-amber-600 shadow-[0_0_2px_rgba(0,0,0,0.4),inset_0_0_4px_rgba(255,255,255,0.6)] border-x border-amber-200/50 overflow-hidden">
-                                <div className="absolute top-0 left-0 w-[200%] h-full bg-gradient-to-r from-transparent via-white/70 to-transparent animate-ribbon-shine" />
-                              </div>
-                            </div>
-
-                            <div className="absolute top-[20%] left-0 w-full h-[24%] bg-gradient-to-b from-purple-300 to-purple-500 rounded-[3px] shadow-[0_2px_4px_rgba(0,0,0,0.2),inset_0_1px_3px_rgba(255,255,255,0.7)] overflow-hidden z-10">
-                              <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-white/50 to-transparent" />
-                              <div className="absolute left-1/2 -translate-x-1/2 w-[24%] h-full bg-gradient-to-b from-yellow-200 via-yellow-400 to-amber-500 shadow-[inset_0_1px_2px_rgba(255,255,255,0.8)] border-x border-amber-200/60 overflow-hidden">
-                                <div className="absolute top-0 left-0 w-[200%] h-full bg-gradient-to-r from-transparent via-white/80 to-transparent animate-ribbon-shine" />
-                              </div>
-                            </div>
-
-                            <div className="absolute top-[2%] left-1/2 -translate-x-1/2 w-[75%] h-[28%] flex justify-center z-20">
-                              <div className="relative overflow-hidden w-[45%] h-full border-[1px] border-amber-400/90 rounded-tl-full rounded-bl-full rounded-tr-[2px] rounded-br-[2px] bg-gradient-to-br from-yellow-200 via-amber-400 to-amber-600 shadow-[0_1px_2px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.8)] -rotate-12 translate-x-[15%] translate-y-[10%]">
-                                <div className="absolute top-0 left-0 w-[200%] h-full bg-gradient-to-r from-transparent via-white/80 to-transparent animate-ribbon-shine" />
-                              </div>
-                              <div className="relative overflow-hidden w-[45%] h-full border-[1px] border-amber-400/90 rounded-tr-full rounded-br-full rounded-tl-[2px] rounded-bl-[2px] bg-gradient-to-bl from-yellow-200 via-amber-400 to-amber-600 shadow-[0_1px_2px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.8)] rotate-12 -translate-x-[15%] translate-y-[10%]">
-                                <div className="absolute top-0 left-0 w-[200%] h-full bg-gradient-to-r from-transparent via-white/80 to-transparent animate-ribbon-shine" />
-                              </div>
-                              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[25%] h-[80%] bg-gradient-to-b from-yellow-200 via-amber-400 to-amber-600 rounded-[2px] shadow-[0_1px_3px_rgba(0,0,0,0.4),inset_0_1px_1px_rgba(255,255,255,0.9)] border border-amber-300/80 z-30 overflow-hidden">
-                                <div className="absolute top-0 left-0 w-[200%] h-full bg-gradient-to-r from-transparent via-white/90 to-transparent animate-ribbon-shine" />
-                              </div>
-                            </div>
-                          </div>
-                        </button>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
 
-              <div className="relative z-10 flex flex-col items-center justify-start pt-1 sm:pt-2 px-1">
-                <div className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 sm:mb-2">
+              <div className="min-w-[92px] sm:min-w-[120px] text-center px-1.5">
+                <div className="text-xs font-bold uppercase tracking-wide text-slate-500">
                   {pkSession.status}
                 </div>
-
-                <div className="relative flex items-center justify-center w-full">
-                  <div className="absolute right-[50%] w-[100px] sm:w-[140px] h-[2px] bg-gradient-to-l from-fuchsia-500/50 to-transparent pointer-events-none" />
-                  <div className="absolute left-[50%] w-[100px] sm:w-[140px] h-[2px] bg-gradient-to-r from-cyan-500/50 to-transparent pointer-events-none" />
-
-                  <div className={`relative flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-slate-900 via-black to-slate-800 shadow-[0_0_25px_rgba(245,158,11,0.4),inset_0_2px_10px_rgba(255,255,255,0.1)] border-[2px] sm:border-[3px] border-amber-500/80 z-10 ${pkSession.status === "live" ? "animate-pulse" : ""}`}>
-                    <span className="text-xl sm:text-2xl font-black italic text-transparent bg-clip-text bg-gradient-to-br from-yellow-200 via-amber-400 to-orange-600 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
-                      VS
-                    </span>
-                  </div>
+                <div className="mt-1 text-2xl font-black text-slate-800">
+                  {pkSession.status === "live" ? pkRemainingLabel : "PK"}
                 </div>
-
-                <div className="mt-2 sm:mt-3 px-3 sm:px-4 py-1 sm:py-1.5 rounded-full bg-white/90 shadow-sm border border-slate-200/60 backdrop-blur-md">
-                  <span className="text-[11px] sm:text-sm font-black text-slate-700 tabular-nums tracking-tight">
-                    {pkSession.status === "live" ? pkRemainingLabel : "PK"}
-                  </span>
-                </div>
-
                 {pkSession.title ? (
-                  <div className="mt-1.5 truncate max-w-[70px] sm:max-w-[100px] text-[9px] sm:text-[11px] font-bold text-slate-500 text-center">
-                    {pkSession.title}
-                  </div>
+                  <div className="mt-1 text-[12px] text-slate-600 font-semibold tracking-wide">{pkSession.title}</div>
                 ) : null}
               </div>
 
-              <div className="relative z-10 min-w-0 flex flex-col items-end text-right">
-                <div className="inline-flex items-center rounded-full bg-cyan-100/80 border border-cyan-200/50 px-2.5 sm:px-3 py-0.5 sm:py-1 text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-cyan-600 shadow-sm">
-                  Side B
-                </div>
-
-                <div
-                  key={pkScores?.B}
-                  className="mt-1.5 sm:mt-2 text-3xl sm:text-5xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-cyan-400 to-blue-600 drop-shadow-[0_2px_8px_rgba(6,182,212,0.3)] animate-score-pop origin-right"
-                >
+              <div className="min-w-0 text-right">
+                <div className="text-xs font-bold text-cyan-600 uppercase">Side B</div>
+                <div className="text-3xl sm:text-4xl font-extrabold text-cyan-500 drop-shadow-sm">
                   {Number(pkScores?.B || 0).toLocaleString()}
                 </div>
-
                 {pkSideB.length === 0 ? (
-                  <div className="mt-3 flex items-center justify-center h-9 sm:h-10 rounded-xl border border-dashed border-cyan-200 bg-cyan-50/50 px-3 w-full max-w-[120px]">
-                    <span className="text-[10px] sm:text-[11px] font-semibold text-cyan-400">
-                      No player
-                    </span>
-                  </div>
+                  <span className="mt-3 text-[11px] text-slate-400">No player</span>
                 ) : (
-                  <div className="mt-3 flex flex-col gap-2 items-end min-w-0 w-full">
-                    {pkSideB.map((p) => (
-                      <div
-                        key={p.id}
-                        onClick={() => openUserCard(p.user_id)}
-                        title="Open user card"
-                        className="group relative flex items-center gap-2 sm:gap-2.5 rounded-xl sm:rounded-2xl border border-cyan-100/80 bg-gradient-to-l from-cyan-50/60 to-white/90 p-1.5 sm:p-2 shadow-sm hover:shadow-md hover:-translate-y-[1px] transition cursor-pointer w-full flex-row-reverse text-right"
-                      >
+                  <div className="mt-3 flex flex-col gap-2 items-end min-w-0">
+                    {pkSideB.map(p => (
+                      <div key={p.id} onClick={() => openUserCard(p.user_id)} title="Open user card" className="flex items-center gap-2.5 rounded-[18px] bg-white/85 border border-white/80 shadow-lg px-2.5 py-2 min-w-0 max-w-full backdrop-blur-md cursor-pointer">
                         <img
                           src={p.avatar_url || FALLBACK_AVATAR}
                           alt={p.display_name || "User"}
-                          className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover shrink-0 ring-2 ring-cyan-100 shadow-sm"
+                          className="w-9 h-9 rounded-full object-cover shrink-0 ring-2 ring-white shadow"
                         />
-
-                        <div className="flex-1 min-w-0 flex flex-col justify-center">
-                          <div className="truncate text-[11px] sm:text-[13px] font-extrabold text-slate-800">
-                            {p.display_name || "User"}
-                          </div>
-                          <div className="text-[9px] sm:text-[10px] font-bold text-cyan-600/70">
-                            #{p.seat_no}
-                          </div>
+                        <div className="min-w-0 max-w-[110px] sm:max-w-[150px]">
+                          <div className="truncate text-[13px] font-bold text-slate-800">{p.display_name || "User"}</div>
+                          <div className="text-[11px] text-slate-500 font-medium">#{p.seat_no}</div>
                         </div>
-
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openGiftPanelForUser({
-                              id: p.user_id,
-                              name: p.display_name || "User",
-                              username: p.display_name || "User",
-                              avatar_url: p.avatar_url || FALLBACK_AVATAR,
-                            });
-                          }}
-                          title="Send gift"
-                          className={`shrink-0 relative overflow-hidden inline-flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-b from-pink-400 to-rose-600 text-white border border-pink-300/60 hover:scale-110 active:scale-95 transition-all duration-300 ${pkSession.status === "live"
-                            ? "shadow-[0_4px_10px_rgba(225,29,72,0.4),inset_0_2px_4px_rgba(255,255,255,0.5),inset_0_-2px_4px_rgba(0,0,0,0.2)] hover:shadow-[0_6px_14px_rgba(225,29,72,0.5),inset_0_2px_4px_rgba(255,255,255,0.7),inset_0_-2px_4px_rgba(0,0,0,0.2)]"
-                            : "shadow-sm opacity-80 hover:opacity-100 saturate-[0.85]"
-                            }`}
-                        >
-                          <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-white/60 to-transparent pointer-events-none" />
-
-                          <div className={`relative z-10 w-4 h-4 sm:w-5 sm:h-5 transition-all duration-300 ${pkSession.status === "live"
-                            ? "drop-shadow-md animate-gift-glow brightness-110"
-                            : "drop-shadow-sm brightness-90 opacity-85"
-                            }`}>
-                            <div className="absolute bottom-0 left-[5%] w-[90%] h-[60%] bg-gradient-to-b from-purple-400 to-purple-600 rounded-[3px] shadow-[inset_0_1px_3px_rgba(255,255,255,0.6)] overflow-hidden">
-                              <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-white/40 to-transparent" />
-                              <div className="absolute left-1/2 -translate-x-1/2 w-[24%] h-full bg-gradient-to-b from-yellow-300 via-amber-400 to-amber-600 shadow-[0_0_2px_rgba(0,0,0,0.4),inset_0_0_4px_rgba(255,255,255,0.6)] border-x border-amber-200/50 overflow-hidden">
-                                <div className="absolute top-0 left-0 w-[200%] h-full bg-gradient-to-r from-transparent via-white/70 to-transparent animate-ribbon-shine" />
-                              </div>
-                            </div>
-
-                            <div className="absolute top-[20%] left-0 w-full h-[24%] bg-gradient-to-b from-purple-300 to-purple-500 rounded-[3px] shadow-[0_2px_4px_rgba(0,0,0,0.2),inset_0_1px_3px_rgba(255,255,255,0.7)] overflow-hidden z-10">
-                              <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-white/50 to-transparent" />
-                              <div className="absolute left-1/2 -translate-x-1/2 w-[24%] h-full bg-gradient-to-b from-yellow-200 via-yellow-400 to-amber-500 shadow-[inset_0_1px_2px_rgba(255,255,255,0.8)] border-x border-amber-200/60 overflow-hidden">
-                                <div className="absolute top-0 left-0 w-[200%] h-full bg-gradient-to-r from-transparent via-white/80 to-transparent animate-ribbon-shine" />
-                              </div>
-                            </div>
-
-                            <div className="absolute top-[2%] left-1/2 -translate-x-1/2 w-[75%] h-[28%] flex justify-center z-20">
-                              <div className="relative overflow-hidden w-[45%] h-full border-[1px] border-amber-400/90 rounded-tl-full rounded-bl-full rounded-tr-[2px] rounded-br-[2px] bg-gradient-to-br from-yellow-200 via-amber-400 to-amber-600 shadow-[0_1px_2px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.8)] -rotate-12 translate-x-[15%] translate-y-[10%]">
-                                <div className="absolute top-0 left-0 w-[200%] h-full bg-gradient-to-r from-transparent via-white/80 to-transparent animate-ribbon-shine" />
-                              </div>
-                              <div className="relative overflow-hidden w-[45%] h-full border-[1px] border-amber-400/90 rounded-tr-full rounded-br-full rounded-tl-[2px] rounded-bl-[2px] bg-gradient-to-bl from-yellow-200 via-amber-400 to-amber-600 shadow-[0_1px_2px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.8)] rotate-12 -translate-x-[15%] translate-y-[10%]">
-                                <div className="absolute top-0 left-0 w-[200%] h-full bg-gradient-to-r from-transparent via-white/80 to-transparent animate-ribbon-shine" />
-                              </div>
-                              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[25%] h-[80%] bg-gradient-to-b from-yellow-200 via-amber-400 to-amber-600 rounded-[2px] shadow-[0_1px_3px_rgba(0,0,0,0.4),inset_0_1px_1px_rgba(255,255,255,0.9)] border border-amber-300/80 z-30 overflow-hidden">
-                                <div className="absolute top-0 left-0 w-[200%] h-full bg-gradient-to-r from-transparent via-white/90 to-transparent animate-ribbon-shine" />
-                              </div>
-                            </div>
-                          </div>
-                        </button>
                       </div>
                     ))}
                   </div>
@@ -5915,26 +5062,15 @@ useEffect(() => {
             </div>
 
             {canModerate ? (
-              <div className="mt-3 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+              <div className="mt-4 flex items-center justify-center gap-2">
                 {pkSession.status === "pending" ? (
-                  <Button
-                    size="sm"
-                    onClick={handleStartPkSession}
-                    disabled={pkBusy}
-                    className="rounded-full px-5 sm:px-6 font-bold bg-gradient-to-r from-slate-800 to-slate-900 text-white shadow-md hover:shadow-lg transition-all"
-                  >
+                  <Button size="sm" onClick={handleStartPkSession} disabled={pkBusy}>
                     Start PK
                   </Button>
                 ) : null}
 
-                {pkSession.status === "pending" || pkSession.status === "live" ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleCancelPkSession}
-                    disabled={pkBusy}
-                    className="rounded-full px-5 sm:px-6 font-bold border-slate-200 bg-white/80 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition-all shadow-sm"
-                  >
+                {(pkSession.status === "pending" || pkSession.status === "live") ? (
+                  <Button size="sm" variant="outline" onClick={handleCancelPkSession} disabled={pkBusy}>
                     Cancel PK
                   </Button>
                 ) : null}
@@ -5943,523 +5079,784 @@ useEffect(() => {
           </div>
         ) : null}
 
-        <div className="flex-1 min-h-0 overflow-hidden flex flex-col lg:flex-row">
-          <div className="shrink-0 bg-white border-b lg:border-b-0 lg:border-r flex flex-col lg:w-[312px] xl:w-[336px]">
+        <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
+          <div className="shrink-0 max-h-[34svh] overflow-hidden lg:w-1/3 p-3 sm:p-4 border-b lg:border-b-0 lg:border-r flex flex-col">
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pr-1">
+              <div className="flex items-center justify-between mb-2 sm:mb-3 shrink-0">
+                <div className="font-semibold text-slate-900 text-sm sm:text-base">Mic Seats</div>
+                <div className="text-xs text-slate-500">{effectiveSeats.length || room.max_mics || 6} seats</div>
+              </div>
 
-            <div className="min-h-0 overflow-y-auto overscroll-contain p-2.5 sm:p-3">
-              <div className="grid grid-cols-3 gap-2">
-                {loading
-                  ? null
-                  : (effectiveSeats || []).map((s) => {
-                    const person = s.occupant || null;
-                    let name = "Empty";
-                    let avatar = FALLBACK_AVATAR;
+              <div className="grid grid-cols-3 gap-2 sm:gap-3 shrink-0">
+                {loading ? null : (effectiveSeats || []).map((s) => {
+                  const person = s.occupant || null;
+                  let name = "Empty";
+                  let avatar = FALLBACK_AVATAR;
 
-                    if (person) {
-                      name =
-                        person.display_name ||
-                        person.full_name ||
-                        person.raw_profile?.name ||
-                        "User";
-                      avatar = person.avatar_url || FALLBACK_AVATAR;
-                    } else {
-                      name = "Empty";
-                      avatar = FALLBACK_AVATAR;
-                    }
+                  if (person) {
+                    name = person.display_name || person.full_name || person.raw_profile?.name || 'User';
+                    avatar = person.avatar_url || FALLBACK_AVATAR;
+                  } else {
+                    name = "Empty";
+                    avatar = FALLBACK_AVATAR;
+                  }
 
-                    const isMySeat = !!(
-                      user?.id &&
-                      s.user_id &&
-                      String(s.user_id) === String(user.id)
-                    );
-                    const isSeatMuted = !!mutedUsers?.[String(s.user_id)];
-                    const isLocked = !!s.locked;
-                    const speakerLevel = Number(activeSpeakers?.[s.user_id] || 0);
-                    const isSpeakingNow = speakerLevel > 0.04;
-                    const waveScale = 1 + Math.min(speakerLevel, 0.5) * 0.35;
-                    const pkSide = s.user_id ? pkUserSideMap.get(String(s.user_id)) : null;
+                  const isMySeat = !!(user?.id && s.user_id && String(s.user_id) === String(user.id));
+                  const isSeatMuted = !!mutedUsers?.[String(s.user_id)];
+                  const isLocked = !!s.locked;
+                  const speakerLevel = Number(activeSpeakers?.[s.user_id] || 0);
+                  const isSpeakingNow = speakerLevel > 0.04;
+                  const waveScale = 1 + Math.min(speakerLevel, 0.5) * 0.35;
+                  const pkSide = s.user_id ? pkUserSideMap.get(String(s.user_id)) : null;
 
-                    return (
-                      <div
-                        key={`${s.room_id}_${s.seat_no}`}
-                        className={`relative rounded-xl border p-2 transition-all duration-300 ${pkSide === "A"
-                          ? "bg-fuchsia-50 border-fuchsia-300 shadow-[0_0_12px_rgba(232,121,249,0.25)]"
-                          : pkSide === "B"
-                            ? "bg-cyan-50 border-cyan-300 shadow-[0_0_12px_rgba(34,211,238,0.25)]"
-                            : "bg-slate-50"
-                          }`}
-                        ref={(el) => {
-                          if (s?.user_id) {
-                            if (el) {
-                              micSeatRefs.current[String(s.user_id)] = el;
-                            } else {
-                              delete micSeatRefs.current[String(s.user_id)];
+                  return (
+                    <div
+                      key={`${s.room_id}_${s.seat_no}`}
+                      className={`border rounded-xl p-2 sm:p-3 relative transition-all duration-300 ${pkSide === 'A' ? 'bg-fuchsia-50 border-fuchsia-400 shadow-[0_0_15px_rgba(232,121,249,0.4)]' :
+                        pkSide === 'B' ? 'bg-cyan-50 border-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.4)]' :
+                          'bg-slate-50'
+                        }`}
+                      ref={(el) => {
+                        if (s?.user_id) {
+                          if (el) {
+                            micSeatRefs.current[String(s.user_id)] = el;
+                          } else {
+                            delete micSeatRefs.current[String(s.user_id)];
+                          }
+                        }
+                      }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="text-[10px] sm:text-[11px] text-slate-500">Seat #{s.seat_no}</div>
+                        <div className="flex items-center gap-1">
+                          {pkSide === 'A' && <span className="text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded bg-fuchsia-100 text-fuchsia-700 border border-fuchsia-200">PK A</span>}
+                          {pkSide === 'B' && <span className="text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded bg-cyan-100 text-cyan-700 border border-cyan-200">PK B</span>}
+                          {isLocked ? <div className="text-[10px] sm:text-[11px] text-rose-600">Locked</div> : null}
+                        </div>
+                      </div>
+
+                      <button
+                        className="mt-1 sm:mt-2 flex items-center gap-2 w-full text-left"
+                        onClick={() => {
+                          if (isMySeat) {
+                            openSeatMenu(s.seat_no);
+                            return;
+                          }
+
+                          if (s.user_id) { openUserCard(s.user_id); return; }
+
+                          if (!s.user_id && canModerate) { openSeatMenu(s.seat_no); return; }
+
+                          if (!s.user_id && !canModerate) {
+                            if (isLocked) {
+                              toast("Seat is locked", 1200);
+                              return;
                             }
+
+                            if (micMode === "open") {
+                              takeSeat(s.seat_no);
+                              return;
+                            }
+
+                            toast("Request Mic first", 1200);
                           }
                         }}
+                        disabled={false}
+                        title={isMySeat ? "Open seat menu" : s.user_id ? "Open user card" : ""}
                       >
-                        <div className="mb-1 flex items-start justify-between gap-1">
-                          <div className="text-[10px] text-slate-500">Seat #{s.seat_no}</div>
-
-                          <div className="flex items-center gap-1">
-                            {pkSide === "A" && (
-                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-fuchsia-100 text-fuchsia-700 border border-fuchsia-200">
-                                A
-                              </span>
-                            )}
-                            {pkSide === "B" && (
-                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-cyan-100 text-cyan-700 border border-cyan-200">
-                                B
-                              </span>
-                            )}
-                            {isLocked ? (
-                              <span className="text-[9px] font-semibold px-1 py-0.5 rounded bg-rose-50 text-rose-600 border border-rose-200">
-                                🔒
-                              </span>
-                            ) : null}
-
-                            {canModerate &&
-                              s.user_id &&
-                              !isMySeat &&
-                              (isOwner || String(s.user_id) !== String(room?.owner_user_id)) ? (
-                              <button
-                                type="button"
-                                onClick={() => removeFromMic(s.user_id)}
-                                className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition"
-                                title="Remove from mic"
-                              >
-                                <XCircle className="w-3.5 h-3.5" />
-                              </button>
-                            ) : null}
-
-                            {isMySeat ? (
-                              <button
-                                type="button"
-                                onClick={() => leaveMySeat(s.seat_no)}
-                                className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition"
-                                title="Leave seat"
-                              >
-                                <XCircle className="w-3.5 h-3.5" />
-                              </button>
-                            ) : null}
-                          </div>
-                        </div>
-
-                        <button
-                          className="w-full text-left"
-                          onClick={() => {
-                            if (isMySeat) {
-                              openSeatMenu(s.seat_no);
-                              return;
-                            }
-
-                            if (s.user_id) {
-                              openUserCard(s.user_id);
-                              return;
-                            }
-
-                            if (!s.user_id && canModerate) {
-                              openSeatMenu(s.seat_no);
-                              return;
-                            }
-
-                            if (!s.user_id && !canModerate) {
-                              if (isLocked) {
-                                toast("Seat is locked", 1200);
-                                return;
-                              }
-
-                              if (micMode === "open") {
-                                takeSeat(s.seat_no);
-                                return;
-                              }
-
-                              toast("Request Mic first", 1200);
-                            }
-                          }}
-                          disabled={false}
-                          title={isMySeat ? "Open seat menu" : s.user_id ? "Open user card" : ""}
-                        >
-                          <div className="flex flex-col items-center text-center">
-                            <div className="relative flex items-center justify-center shrink-0">
-                              {isSpeakingNow ? (
-                                <>
-                                  <span
-                                    className="absolute inset-0 rounded-full border-2 border-emerald-400/70 animate-ping"
-                                    style={{
-                                      transform: `scale(${waveScale})`,
-                                      animationDuration: "900ms",
-                                    }}
-                                  />
-                                  <span
-                                    className="absolute inset-0 rounded-full border border-emerald-300/60"
-                                    style={{
-                                      transform: `scale(${1.08 + Math.min(speakerLevel, 0.4) * 0.22})`,
-                                      boxShadow: `0 0 ${16 + speakerLevel * 26}px rgba(52,211,153,${0.25 + speakerLevel * 0.35
-                                        })`,
-                                    }}
-                                  />
-                                </>
-                              ) : null}
-
-                              <img
-                                src={avatar}
-                                alt={name}
-                                onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
-                                className={`w-9 h-9 sm:w-10 sm:h-10 object-cover bg-white relative z-10 rounded-full border transition-all duration-150 ${s.user_id ? "cursor-pointer" : ""
-                                  } ${isSpeakingNow
-                                    ? "ring-4 ring-emerald-400 scale-[1.06] shadow-[0_0_24px_rgba(52,211,153,0.65)]"
-                                    : ""
-                                  }`}
-                                style={
-                                  isSpeakingNow
-                                    ? {
-                                      boxShadow: `0 0 ${18 + speakerLevel * 28}px rgba(52,211,153,${0.35 + speakerLevel * 0.45
-                                        })`,
-                                      transform: `scale(${1 + Math.min(speakerLevel, 0.35) * 0.18})`,
-                                    }
-                                    : undefined
-                                }
-                                onClick={(e) => {
-                                  if (!isMySeat && s.user_id) {
-                                    e.stopPropagation();
-                                    openUserCard(s.user_id);
-                                  }
+                        <div className="relative flex items-center justify-center shrink-0">
+                          {isSpeakingNow ? (
+                            <>
+                              <span
+                                className="absolute inset-0 rounded-full border-2 border-emerald-400/70 animate-ping"
+                                style={{
+                                  transform: `scale(${waveScale})`,
+                                  animationDuration: "900ms",
                                 }}
                               />
+                              <span
+                                className="absolute inset-0 rounded-full border border-emerald-300/60"
+                                style={{
+                                  transform: `scale(${1.08 + Math.min(speakerLevel, 0.4) * 0.22})`,
+                                  boxShadow: `0 0 ${16 + speakerLevel * 26}px rgba(52,211,153,${0.25 + speakerLevel * 0.35})`,
+                                }}
+                              />
+                            </>
+                          ) : null}
 
-                              {isSpeakingNow ? (
-                                <div className="absolute -top-2 left-1/2 -translate-x-1/2 flex items-end gap-[2px] px-1.5 py-1 rounded-full bg-black/45 backdrop-blur-sm z-20">
-                                  {[0, 1, 2, 3].map((i) => {
-                                    const heights = [
-                                      6 + speakerLevel * 14,
-                                      10 + speakerLevel * 18,
-                                      7 + speakerLevel * 12,
-                                      12 + speakerLevel * 20,
-                                    ];
-                                    return (
-                                      <span
-                                        key={i}
-                                        className="w-[3px] rounded-full bg-emerald-400 transition-all duration-150"
-                                        style={{ height: `${heights[i]}px` }}
-                                      />
-                                    );
-                                  })}
-                                </div>
-                              ) : null}
-
-                              {isSeatMuted ? (
-                                <div className="absolute -bottom-1 -right-1 z-20 w-5 h-5 rounded-full bg-rose-600 text-white flex items-center justify-center border-2 border-white shadow-md">
-                                  <MicOff className="w-3 h-3" />
-                                </div>
-                              ) : null}
-                            </div>
-
-                            <div
-                              className={`mt-1 w-full text-xs sm:text-[13px] font-semibold text-slate-900 truncate flex items-center justify-center ${s.user_id ? "cursor-pointer" : ""
-                                }`}
-                              onClick={(e) => {
-                                if (!isMySeat && s.user_id) {
-                                  e.stopPropagation();
-                                  openUserCard(s.user_id);
+                          <img
+                            src={avatar}
+                            alt={name}
+                            onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
+                            className={`w-8 h-8 sm:w-10 sm:h-10 object-cover bg-white relative z-10 rounded-full border transition-all duration-150 ${s.user_id ? "cursor-pointer" : ""} ${isSpeakingNow
+                              ? "ring-4 ring-emerald-400 scale-[1.06] shadow-[0_0_24px_rgba(52,211,153,0.65)]"
+                              : ""
+                              }`}
+                            style={
+                              isSpeakingNow
+                                ? {
+                                  boxShadow: `0 0 ${18 + speakerLevel * 28}px rgba(52,211,153,${0.35 + speakerLevel * 0.45})`,
+                                  transform: `scale(${1 + Math.min(speakerLevel, 0.35) * 0.18})`,
                                 }
-                              }}
-                            >
-                              <span className="truncate max-w-full">{s.user_id ? name : "Empty"}</span>
-                              {s.user_id ? renderRoleBadge(s.user_id) : null}
-                            </div>
+                                : undefined
+                            }
+                            onClick={(e) => {
+                              if (!isMySeat && s.user_id) {
+                                e.stopPropagation();
+                                openUserCard(s.user_id);
+                              }
+                            }}
+                          />
 
-                            {s.user_id && micGiftTotalsReady ? (
-                              <div className="mt-1 text-[11px] font-bold text-yellow-500 drop-shadow flex items-center justify-center gap-1">
-                                <span>💰</span>
-                                <span>{(micGiftTotals[s.user_id] || 0).toLocaleString()}</span>
-                              </div>
-                            ) : (
-                              <div className="mt-1 h-[16px]" />
-                            )}
-                          </div>
-                        </button>
-                      </div>
-                    );
-                  })}
+                          {isSpeakingNow ? (
+                            <div className="absolute -top-2 left-1/2 -translate-x-1/2 flex items-end gap-[2px] px-1.5 py-1 rounded-full bg-black/45 backdrop-blur-sm z-20">
+                              {[0, 1, 2, 3].map((i) => {
+                                const heights = [
+                                  6 + speakerLevel * 14,
+                                  10 + speakerLevel * 18,
+                                  7 + speakerLevel * 12,
+                                  12 + speakerLevel * 20,
+                                ];
+                                return (
+                                  <span
+                                    key={i}
+                                    className="w-[3px] rounded-full bg-emerald-400 transition-all duration-150"
+                                    style={{ height: `${heights[i]}px` }}
+                                  />
+                                );
+                              })}
+                            </div>
+                          ) : null}
+
+                          {isSeatMuted ? (
+                            <div className="absolute -bottom-1 -right-1 z-20 w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-rose-600 text-white flex items-center justify-center border-2 border-white shadow-md">
+                              <MicOff className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                            </div>
+                          ) : null}
+                        </div>
+
+                        <div className="min-w-0 flex-1 text-left">
+                          <div
+                            className={`text-xs sm:text-sm font-semibold text-slate-900 truncate flex items-center ${s.user_id ? "cursor-pointer" : ""}`}
+                            onClick={(e) => {
+                              if (!isMySeat && s.user_id) {
+                                e.stopPropagation();
+                                openUserCard(s.user_id);
+                              }
+                            }}
+                          >
+                            <span className="truncate">{s.user_id ? name : "Empty"}</span>
+                            {s.user_id ? renderRoleBadge(s.user_id) : null}                          </div>
+                          <div className="text-[10px] sm:text-[11px] text-slate-500 font-mono truncate">{s.user_id ? shortId(s.user_id) : "—"}</div>
+                          {s.user_id && micGiftTotalsReady && (
+                            <div className="mt-1 text-[11px] font-bold text-yellow-400 drop-shadow flex items-center justify-center gap-1">
+                              <span>💰</span>
+                              <span>{(micGiftTotals[s.user_id] || 0).toLocaleString()}</span>
+                            </div>
+                          )}
+                        </div>
+                      </button>
+
+                      {canModerate && s.user_id && !isMySeat && (isOwner || String(s.user_id) !== String(room?.owner_user_id)) ? (
+                        <div className="mt-1 sm:mt-2">
+                          <Button variant="outline" size="sm" className="w-full gap-1 sm:gap-2 h-7 sm:h-9 text-xs sm:text-sm" onClick={() => removeFromMic(s.user_id)}>
+                            <XCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+                            Remove
+                          </Button>
+                        </div>
+                      ) : null}
+
+                      {isMySeat ? (
+                        <div className="mt-1 sm:mt-2">
+                          <Button variant="outline" size="sm" className="w-full gap-1 sm:gap-2 h-7 sm:h-9 text-xs sm:text-sm" onClick={() => leaveMySeat(s.seat_no)}>
+                            <XCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+                            Leave
+                          </Button>
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
 
-          <div className="flex-1 min-h-0 flex flex-col overflow-hidden lg:w-2/3 bg-white">
-            <div className="shrink-0 px-3 sm:px-4 pt-3 sm:pt-4 pb-2">
+          <div className="flex-1 min-h-0 flex flex-col overflow-hidden lg:w-2/3 p-3 sm:p-4 relative">
+            <div className="font-semibold text-slate-900 mb-2 shrink-0 text-sm sm:text-base">Room Chat</div>
 
-            </div>
+            <div className="flex-1 min-h-0 relative flex flex-col">
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain border rounded-xl p-3 bg-slate-50">
+                <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 mb-3 text-center">
+                  <div className="text-sm font-semibold text-blue-900">Welcome to the room 🎤</div>
+                  <div className="text-xs text-blue-800 mt-1">Respect everyone and enjoy the conversation.</div>
+                </div>
 
-            <div className="flex-1 min-h-0 flex flex-col overflow-hidden px-3 sm:px-4 pb-3 sm:pb-4">
-              <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-                <div
-                  ref={chatScrollRef}
-                  className="flex-1 min-h-0 overflow-y-auto overscroll-contain border rounded-xl p-3 bg-slate-50"
-                >
-                  <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 mb-3 text-center">
-                    <div className="text-sm font-semibold text-blue-900">Welcome to the room 🎤</div>
-                    <div className="text-xs text-blue-800 mt-1">
-                      Respect everyone and enjoy the conversation.
-                    </div>
-                  </div>
-
-                  {visibleMessages.length === 0 ? (
-                    <div className="text-sm text-slate-500 text-center mt-4">No messages yet…</div>
-                  ) : (
-                    <div className="space-y-2">
-                      {visibleMessages.map((m) => {
-                        if (m.type === "gift" || m.content_type === "gift") {
-                          return (
-                            <div key={m.id} className="bg-rose-50 border border-rose-100 rounded-xl p-2 mb-2">
-                              <div className="flex items-start gap-2">
-                                <button
-                                  onClick={() => openUserCard(m.sender_id)}
-                                  className="w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden border bg-white flex items-center justify-center cursor-pointer shrink-0"
-                                >
-                                  <img
-                                    src={m.sender_avatar || FALLBACK_AVATAR}
-                                    alt={m.sender_name}
-                                    onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
-                                    className="w-full h-full object-cover"
-                                  />
-                                </button>
-
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex items-center justify-between gap-2">
-                                    <div className="flex items-center min-w-0">
-                                      <button
-                                        onClick={() => openUserCard(m.sender_id)}
-                                        className="text-xs sm:text-sm font-bold text-rose-700 truncate hover:underline cursor-pointer text-left"
-                                      >
-                                        {m.sender_name}
-                                      </button>
-                                    </div>
-
-                                    <div className="text-[10px] sm:text-[11px] text-rose-400 font-mono whitespace-nowrap">
-                                      {new Date(m.created_at).toLocaleString()}
-                                    </div>
-                                  </div>
-
-                                  <div className="text-xs sm:text-sm text-rose-900 mt-0.5 flex items-center flex-wrap gap-1">
-                                    <span>sent</span>
-                                    <span className="font-bold">
-                                      {m.gift_name} ×{m.quantity || 1}
-                                    </span>
-                                    <span>to</span>
-                                    <button
-                                      onClick={() => openUserCard(m.receiver_id)}
-                                      className="font-bold hover:underline cursor-pointer"
-                                    >
-                                      {m.receiver_name}
-                                    </button>
-                                    {m.gift_icon && (
-                                      <img
-                                        src={m.gift_icon}
-                                        alt="gift"
-                                        className="w-5 h-5 inline-block ml-1 object-contain"
-                                      />
-                                    )}
-                                  </div>
-
-                                  {ENABLE_GIFT_MESSAGE_TEXT && m.message?.trim() ? (
-                                    <div className="mt-1 text-xs text-rose-700/80 italic break-words">
-                                      "{m.message.trim()}"
-                                    </div>
-                                  ) : null}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        }
-
-                        const senderProfile =
-                          participantsMap?.[m.sender_user_id] ||
-                          participantsMap?.[m.user_id] ||
-                          null;
-
-                        const name =
-                          senderProfile?.display_name ||
-                          senderProfile?.full_name ||
-                          m.sender_name ||
-                          "User";
-
-                        const avatar =
-                          senderProfile?.avatar_url ||
-                          m.sender_avatar ||
-                          m.sender_avatar_url ||
-                          FALLBACK_AVATAR;
-
+                {visibleMessages.length === 0 ? (
+                  <div className="text-sm text-slate-500 text-center mt-4">No messages yet…</div>
+                ) : (
+                  <div className="space-y-2">
+                    {visibleMessages.map((m) => {
+                      if (m.type === "gift" || m.content_type === "gift") {
                         return (
-                          <div key={m.id} className="bg-white border rounded-xl p-2">
+                          <div key={m.id} className="bg-rose-50 border border-rose-100 rounded-xl p-2 mb-2">
                             <div className="flex items-start gap-2">
                               <button
-                                onClick={() => openUserCard(m.sender_user_id)}
-                                className="w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden border bg-slate-50 flex items-center justify-center cursor-pointer"
-                                title="Open user card"
+                                onClick={() => openUserCard(m.sender_id)}
+                                className="w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden border bg-white flex items-center justify-center cursor-pointer shrink-0"
                               >
                                 <img
-                                  src={avatar}
-                                  alt={name}
+                                  src={m.sender_avatar || FALLBACK_AVATAR}
+                                  alt={m.sender_name}
                                   onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
                                   className="w-full h-full object-cover"
                                 />
                               </button>
-
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center justify-between gap-2">
                                   <div className="flex items-center min-w-0">
                                     <button
-                                      onClick={() => openUserCard(m.sender_user_id)}
-                                      className="text-xs sm:text-sm font-semibold text-slate-900 truncate hover:underline cursor-pointer text-left"
-                                      title="Open user card"
+                                      onClick={() => openUserCard(m.sender_id)}
+                                      className="text-xs sm:text-sm font-bold text-rose-700 truncate hover:underline cursor-pointer text-left"
                                     >
-                                      {name}
+                                      {m.sender_name}
                                     </button>
-                                    {renderRoleBadge(m.sender_user_id)}
                                   </div>
-
-                                  <div className="text-[10px] sm:text-[11px] text-slate-500 font-mono whitespace-nowrap">
+                                  <div className="text-[10px] sm:text-[11px] text-rose-400 font-mono whitespace-nowrap">
                                     {new Date(m.created_at).toLocaleString()}
                                   </div>
                                 </div>
-
-                                <div className="text-xs sm:text-sm text-slate-900 mt-1 whitespace-pre-wrap">
-                                  {m.content}
+                                <div className="text-xs sm:text-sm text-rose-900 mt-0.5 flex items-center flex-wrap gap-1">
+                                  <span>sent</span>
+                                  <span className="font-bold">{m.gift_name} ×{m.quantity || 1}</span>
+                                  <span>to</span>
+                                  <button
+                                    onClick={() => openUserCard(m.receiver_id)}
+                                    className="font-bold hover:underline cursor-pointer"
+                                  >
+                                    {m.receiver_name}
+                                  </button>
+                                  {m.gift_icon && (
+                                    <img src={m.gift_icon} alt="gift" className="w-5 h-5 inline-block ml-1 object-contain" />
+                                  )}
                                 </div>
+                                {ENABLE_GIFT_MESSAGE_TEXT && m.message?.trim() ? (
+                                  <div className="mt-1 text-xs text-rose-700/80 italic break-words">
+                                    "{m.message.trim()}"
+                                  </div>
+                                ) : null}
                               </div>
                             </div>
                           </div>
                         );
-                      })}
-                      <div ref={chatBottomRef} />
-                    </div>
-                  )}
-                </div>
+                      }
 
-                {lastSentGift && showRepeatButton && (
-                  <div className="absolute bottom-4 right-4 z-40 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                    <button
-                      onClick={handleRepeatLastGift}
-                      disabled={!isJoinedToRoom || repeatSending}
-                      className="relative rounded-full h-12 sm:h-14 px-2 sm:px-3 pr-3 sm:pr-4 flex items-center gap-2 border border-pink-200/80 bg-white/90 backdrop-blur-md shadow-lg text-pink-600 transition-all duration-200 hover:scale-[1.03] active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed animate-[pulse_1.6s_ease-in-out_2]"
-                      title="Repeat Last Gift"
-                    >
-                      {Number(lastSentGift.quantity || 1) > 1 && (
-                        <span className="absolute -top-1 -right-1 min-w-[24px] h-6 px-2 rounded-full bg-pink-500 text-white text-xs font-bold flex items-center justify-center shadow-md">
-                          ×{lastSentGift.quantity}
-                        </span>
-                      )}
+                      const senderProfile =
+                        participantsMap?.[m.sender_user_id] ||
+                        participantsMap?.[m.user_id] ||
+                        null;
 
-                      {lastSentGift.giftIconUrl ? (
-                        <img
-                          src={lastSentGift.giftIconUrl}
-                          alt="gift"
-                          className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover bg-white shadow-sm shrink-0 border border-pink-100"
-                        />
-                      ) : (
-                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-pink-50 flex items-center justify-center text-lg shadow-sm shrink-0 border border-pink-100">
-                          <span>{lastSentGift.giftEmoji || "🔁"}</span>
+                      const name =
+                        senderProfile?.display_name ||
+                        senderProfile?.full_name ||
+                        m.sender_name ||
+                        'User';
+
+                      const avatar =
+                        senderProfile?.avatar_url ||
+                        m.sender_avatar ||
+                        m.sender_avatar_url ||
+                        FALLBACK_AVATAR;
+
+                      return (
+                        <div key={m.id} className="bg-white border rounded-xl p-2">
+                          <div className="flex items-start gap-2">
+                            <button
+                              onClick={() => openUserCard(m.sender_user_id)}
+                              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden border bg-slate-50 flex items-center justify-center cursor-pointer"
+                              title="Open user card"
+                            >
+                              <img
+                                src={avatar}
+                                alt={name}
+                                onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
+                                className="w-full h-full object-cover"
+                              />
+                            </button>
+
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center min-w-0">
+                                  <button
+                                    onClick={() => openUserCard(m.sender_user_id)}
+                                    className="text-xs sm:text-sm font-semibold text-slate-900 truncate hover:underline cursor-pointer text-left"
+                                    title="Open user card"
+                                  >
+                                    {name}
+                                  </button>
+                                  {renderRoleBadge(m.sender_user_id)}
+                                </div>
+                                <div className="text-[10px] sm:text-[11px] text-slate-500 font-mono whitespace-nowrap">
+                                  {new Date(m.created_at).toLocaleString()}
+                                </div>
+                              </div>
+                              <div className="text-xs sm:text-sm text-slate-900 mt-1 whitespace-pre-wrap">{m.content}</div>
+                            </div>
+                          </div>
                         </div>
-                      )}
-
-                      <span className="text-xs sm:text-sm font-bold whitespace-nowrap">
-                        {repeatSending ? "Sending..." : "Repeat"}
-                      </span>
-                    </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
 
-              {myMutedActive ? (
-                <div className="mt-2 text-sm bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-2 shrink-0">
-                  🔇 You are muted by room moderation.
-                </div>
-              ) : null}
-
-              <div className="mt-2 sm:mt-3 shrink-0 border-t bg-white/95 backdrop-blur-sm px-3 sm:px-4 py-2.5">
-                <div className="flex items-center gap-2">
-                  {((effectiveSeats || []).some((s) => s.user_id && String(s.user_id) === String(user?.id))) ? (
-                    <button
-                      type="button"
-                      onClick={toggleMicMute}
-                      className={`shrink-0 h-10 w-10 rounded-xl border flex items-center justify-center transition-colors ${isMicMuted
-                        ? "bg-amber-50 border-amber-200 text-amber-600 hover:bg-amber-100"
-                        : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
-                        }`}
-                      title={isMicMuted ? "Unmute" : "Mute"}
-                    >
-                      {isMicMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-                    </button>
-                  ) : !canModerate ? (
-                    <button
-                      type="button"
-                      onClick={requestMic}
-                      disabled={!user?.id || !!myPendingRequest}
-                      className={`shrink-0 h-10 w-10 rounded-xl border flex items-center justify-center transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${myPendingRequest
-                        ? "bg-yellow-100 border-yellow-200 text-yellow-600"
-                        : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
-                        }`}
-                      title={myPendingRequest ? "Request Sent" : "Request Mic"}
-                    >
-                      <Mic className="w-5 h-5" />
-                    </button>
-                  ) : null}
-
-                  <Input
-                    className="flex-1"
-                    value={text}
-                    onChange={(e) => setText(e.target.value)}
-                    placeholder={
-                      !isJoinedToRoom
-                        ? "Joining room..."
-                        : myMutedActive
-                          ? "You are muted in this room…"
-                          : "Write a message…"
-                    }
-                    disabled={!isJoinedToRoom || myMutedActive}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") sendText();
-                    }}
-                  />
-
+              {lastSentGift && showRepeatButton && (
+                <div className="absolute bottom-4 right-4 z-40 animate-in fade-in slide-in-from-bottom-2 duration-300">
                   <button
-                    onClick={openGiftPanelForAll}
-                    disabled={!isJoinedToRoom}
-                    className="shrink-0 h-10 w-10 rounded-xl border bg-white hover:bg-rose-50 flex items-center justify-center text-rose-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Send Gift"
+                    onClick={handleRepeatLastGift}
+                    disabled={!isJoinedToRoom || repeatSending}
+                    className="relative rounded-full h-12 sm:h-14 px-2 sm:px-3 pr-3 sm:pr-4 flex items-center gap-2 border border-pink-200/80 bg-white/90 backdrop-blur-md shadow-lg text-pink-600 transition-all duration-200 hover:scale-[1.03] active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed animate-[pulse_1.6s_ease-in-out_2]"
+                    title="Repeat Last Gift"
                   >
-                    <Gift className="w-5 h-5" />
-                  </button>
-
-                  <Button
-                    onClick={sendText}
-                    disabled={!isJoinedToRoom || sending || !text.trim() || myMutedActive}
-                    className="gap-2 shrink-0 px-3"
-                  >
-                    {sending ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Send className="w-4 h-4" />
+                    {Number(lastSentGift.quantity || 1) > 1 && (
+                      <span className="absolute -top-1 -right-1 min-w-[24px] h-6 px-2 rounded-full bg-pink-500 text-white text-xs font-bold flex items-center justify-center shadow-md">
+                        ×{lastSentGift.quantity}
+                      </span>
                     )}
-                    <span className="hidden sm:inline">Send</span>
-                  </Button>
+                    {lastSentGift.giftIconUrl ? (
+                      <img
+                        src={lastSentGift.giftIconUrl}
+                        alt="gift"
+                        className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover bg-white shadow-sm shrink-0 border border-pink-100"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-pink-50 flex items-center justify-center text-lg shadow-sm shrink-0 border border-pink-100">
+                        <span>{lastSentGift.giftEmoji || '🔁'}</span>
+                      </div>
+                    )}
+                    <span className="text-xs sm:text-sm font-bold whitespace-nowrap">
+                      {repeatSending ? "Sending..." : "Repeat"}
+                    </span>
+                  </button>
                 </div>
-              </div>
+              )}
+            </div>
 
+            {myMutedActive ? (
+              <div className="mt-2 text-sm bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-2 shrink-0">
+                🔇 You are muted by room moderation.
+              </div>
+            ) : null}
+
+            <div className="mt-2 sm:mt-3 flex items-center gap-2 shrink-0">
+              <Input
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder={!isJoinedToRoom ? "Joining room..." : myMutedActive ? "You are muted in this room…" : "Write a message…"}
+                disabled={!isJoinedToRoom || myMutedActive}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") sendText();
+                }}
+              />
+              <button
+                onClick={openGiftPanelForAll}
+                disabled={!isJoinedToRoom}
+                className="shrink-0 h-10 w-10 rounded-xl border bg-white hover:bg-rose-50 flex items-center justify-center text-rose-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Send Gift"
+              >
+                <Gift className="w-5 h-5" />
+              </button>
+              <Button onClick={sendText} disabled={!isJoinedToRoom || sending || !text.trim() || myMutedActive} className="gap-2">
+                {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                <span className="hidden sm:inline">Send</span>
+              </Button>
             </div>
           </div>
         </div>
 
+        <div className="shrink-0 py-2 px-4 border-t bg-slate-50 flex items-center justify-center gap-3">
+          {((effectiveSeats || []).some((s) => s.user_id && String(s.user_id) === String(user?.id))) && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={toggleMicMute}
+              className="gap-2"
+            >
+              {isMicMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+              {isMicMuted ? "Unmute" : "Mute"}
+            </Button>
+          )}
 
+          {!canModerate && !((effectiveSeats || []).some((s) => s.user_id && String(s.user_id) === String(user?.id))) && (
+            <button
+              onClick={requestMic}
+              disabled={!user?.id || !!myPendingRequest}
+              className={`p-3 rounded-full transition-colors ${myPendingRequest
+                ? "bg-yellow-100 text-yellow-600"
+                : "bg-gray-100 hover:bg-gray-200 text-slate-700"
+                }`}
+              title={myPendingRequest ? "Request Sent" : "Request Mic"}
+            >
+              <Mic className="w-5 h-5" />
+            </button>
+          )}
+        </div>
       </div>
 
-      <PeopleInRoomModal
-  isOpen={showPeople}
-  onClose={() => setShowPeople(false)}
-  people={currentPeopleRanked}
-  openUserCard={openUserCard}
-/>
+      {showPeople ? (
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowPeople(false)} aria-hidden="true" />
+          <div className="absolute inset-0 flex items-end sm:items-center justify-center p-3">
+            <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border overflow-hidden">
+              <div className="px-4 py-3 border-b flex items-center justify-between">
+                <div className="font-semibold">People in room ({activeParticipants.length})</div>
+                <button className="text-sm text-slate-600 hover:text-slate-900" onClick={() => setShowPeople(false)}>
+                  Close
+                </button>
+              </div>
+
+              <div className="max-h-[60vh] overflow-auto p-3 space-y-2">
+                {activeParticipants.length === 0 ? (
+                  <div className="text-sm text-slate-500 p-3">No one is currently in the room.</div>
+                ) : (
+                  activeParticipants.map((p) => (
+                    <button
+                      key={p.user_id}
+                      onClick={() => openUserCard(p.user_id)}
+                      className="w-full text-left border rounded-xl p-2 hover:bg-slate-50 transition flex items-center gap-3 cursor-pointer"
+                      title="Open user card"
+                    >
+                      <img
+                        src={p.avatar_url || FALLBACK_AVATAR}
+                        alt={p.display_name || "User"}
+                        onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
+                        className="w-11 h-11 rounded-full object-cover border bg-white cursor-pointer"
+                        onClick={(e) => { e.stopPropagation(); openUserCard(p.user_id); }}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div
+                          className="font-semibold text-slate-900 truncate flex items-center cursor-pointer"
+                          onClick={(e) => { e.stopPropagation(); openUserCard(p.user_id); }}
+                        >
+                          <span className="truncate">{p.display_name || "User"}</span>
+                          {renderRoleBadge(p.user_id)}
+                        </div>
+                        <div className="text-[11px] text-slate-500 font-mono truncate">{shortId(p.user_id)}</div>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isUserCardOpen ? (
+        <div className="fixed inset-0 z-[70]">
+          <div className="absolute inset-0 bg-black/40" onClick={closeUserCard} aria-hidden="true" />
+          <div className="absolute inset-0 flex items-end sm:items-center justify-center p-3">
+            <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border overflow-hidden">
+              <div className="px-4 py-3 border-b flex items-center justify-between">
+                <div className="font-semibold flex items-center gap-2">
+                  <UserIcon className="w-4 h-4 text-slate-600" />
+                  User
+                </div>
+                <button className="text-sm text-slate-600 hover:text-slate-900" onClick={closeUserCard}>
+                  Close
+                </button>
+              </div>
+
+              <div className="p-4">
+                {cardLoading ? (
+                  <div className="flex items-center gap-2 text-slate-600">
+                    <Loader2 className="w-4 h-4 animate-spin" /> Loading…
+                  </div>
+                ) : selectedUserProfile ? (
+                  <>
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={cardAvatar}
+                        onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
+                        alt={cardName}
+                        className="w-16 h-16 rounded-full object-cover border bg-white"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <div className="font-semibold text-slate-900 truncate">{cardName}</div>
+                          {cardVerified ? (
+                            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              <BadgeCheck className="w-3.5 h-3.5" /> Verified
+                            </span>
+                          ) : null}
+                          {cardVip ? (
+                            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+                              <Crown className="w-3.5 h-3.5" /> VIP
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="text-xs text-slate-500 font-mono truncate">{shortId(selectedUserId)}</div>
+
+                        <div className="mt-2 flex flex-wrap gap-2 text-[12px] text-slate-600">
+                          <span className="px-2 py-0.5 rounded-full bg-slate-100 border">
+                            Plan: <b className="text-slate-800">{cardPlan}</b>
+                          </span>
+                          {cardAge != null ? (
+                            <span className="px-2 py-0.5 rounded-full bg-slate-100 border">
+                              Age: <b className="text-slate-800">{cardAge}</b>
+                            </span>
+                          ) : null}
+                          {cardGender ? (
+                            <span className="px-2 py-0.5 rounded-full bg-slate-100 border">
+                              Gender: <b className="text-slate-800">{cardGender}</b>
+                            </span>
+                          ) : null}
+                          {cardCountry ? (
+                            <span className="px-2 py-0.5 rounded-full bg-slate-100 border">
+                              Country: <b className="text-slate-800">{cardCountry}</b>
+                            </span>
+                          ) : null}
+                          {cardLiving ? (
+                            <span className="px-2 py-0.5 rounded-full bg-slate-100 border">
+                              Living: <b className="text-slate-800">{cardLiving}</b>
+                            </span>
+                          ) : null}
+                          {cardOcc ? (
+                            <span className="px-2 py-0.5 rounded-full bg-slate-100 border">
+                              Job: <b className="text-slate-800">{cardOcc}</b>
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      <Button variant="outline" className="gap-2" disabled={isSelfCard} onClick={() => mentionUser(selectedUserProfile)}>
+                        <AtSign className="w-4 h-4" />
+                        Mention
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        className="gap-2"
+                        disabled={isSelfCard}
+                        onClick={() => {
+                          toast("❤️ Like (soon)", 1200);
+                          closeUserCard();
+                        }}
+                      >
+                        <Heart className="w-4 h-4" />
+                        Like
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        className="gap-2"
+                        disabled={isSelfCard}
+                        onClick={() => {
+                          openGiftPanelForUser(selectedUserProfile);
+                          closeUserCard();
+                        }}
+                      >
+                        <Gift className="w-4 h-4" />
+                        Send Gift
+                      </Button>
+
+                      <Button
+                        className="gap-2"
+                        onClick={() => {
+                          closeUserCard();
+                          openProfile(selectedUserId);
+                        }}
+                      >
+                        View Profile
+                      </Button>
+                    </div>
+
+                    {canShowOwnerTools ? (
+                      <div className="mt-4 border-t pt-3">
+                        <div className="text-xs text-slate-500 mb-2">Owner / Moderator tools</div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button variant="outline" className="gap-2" onClick={() => {
+                            if (!selectedUserId) return;
+                            const firstEmptySeatNo =
+                              (effectiveSeats || [])
+                                .filter((s) => !s.user_id && !s.locked)
+                                .sort((a, b) => (a.seat_no || 0) - (b.seat_no || 0))[0]?.seat_no ?? null;
+
+                            if (!firstEmptySeatNo) {
+                              toast("No empty seat", 1200);
+                              return;
+                            }
+
+                            setInviteTargetUserId(selectedUserId);
+                            setInviteOnlyMode(true);
+                            setSeatMenuSeatNo(firstEmptySeatNo);
+                            closeUserCard();
+                            setSeatMenuOpen(true);
+                            setInviteOpen(true);
+                          }}>
+                            <Mic className="w-4 h-4" />
+                            Invite Mic
+                          </Button>
+
+                          <Button
+                            variant="outline"
+                            className="gap-2"
+                            onClick={async () => {
+                              if (!selectedUserId) return;
+                              if (targetMutedActive) await unmuteUser(selectedUserId);
+                              else await muteUser(selectedUserId);
+                              closeUserCard();
+                            }}
+                          >
+                            <XCircle className="w-4 h-4" />
+                            {targetMutedActive ? "Unmute Chat" : "Mute Chat"}
+                          </Button>
+
+                          <Button
+                            variant="outline"
+                            className="gap-2"
+                            onClick={() => {
+                              if (!selectedUserId) return;
+                              openKickConfirm(selectedUserId);
+                              closeUserCard();
+                            }}
+                          >
+                            <X className="w-4 h-4" />
+                            Kick
+                          </Button>
+
+                          <Button
+                            className="gap-2 bg-rose-600 hover:bg-rose-700"
+                            onClick={() => {
+                              if (!selectedUserId) return;
+                              openBanConfirm(selectedUserId);
+                              closeUserCard();
+                            }}
+                          >
+                            <ShieldBan className="w-4 h-4" />
+                            Ban
+                          </Button>
+
+                          {isOwner ? (
+                            <Button
+                              variant="outline"
+                              className="gap-2"
+                              onClick={() => {
+                                if (!selectedUserId) return;
+                                if (moderatorsMap.has(selectedUserId)) removeModerator(selectedUserId);
+                                else assignModerator(selectedUserId);
+                                closeUserCard();
+                              }}
+                            >
+                              <Shield className="w-4 h-4" />
+                              {moderatorsMap.has(selectedUserId) ? "Remove Mod" : "Make Mod"}
+                            </Button>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : null}
+                  </>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {kickOpen ? (
+        <div className="fixed inset-0 z-[80]">
+          <div className="absolute inset-0 bg-black/50" onClick={closeKickConfirm} aria-hidden="true" />
+          <div className="absolute inset-0 flex items-end sm:items-center justify-center p-3">
+            <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border overflow-hidden">
+              <div className="px-4 py-3 border-b flex items-center justify-between">
+                <div className="font-semibold">Confirm Kick</div>
+                <button className="text-sm text-slate-600 hover:text-slate-900" onClick={closeKickConfirm}>
+                  Close
+                </button>
+              </div>
+
+              <div className="p-4">
+                <div className="text-slate-900 font-semibold">Are you sure?</div>
+                <div className="text-sm text-slate-600 mt-1">
+                  This will remove the user from the room and block re-join temporarily.
+                </div>
+
+                <div className="mt-4">
+                  <div className="text-xs text-slate-500 mb-2">Kick duration</div>
+                  <select
+                    className="w-full border rounded-lg px-3 py-2 text-sm"
+                    value={kickMinutes}
+                    onChange={(e) => setKickMinutes(Number(e.target.value))}
+                    disabled={kickBusy}
+                  >
+                    {KICK_OPTIONS.map((o) => (
+                      <option key={o.minutes} value={o.minutes}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="mt-4 flex gap-2">
+                  <Button variant="outline" className="flex-1" onClick={closeKickConfirm} disabled={kickBusy}>
+                    Cancel
+                  </Button>
+
+                  <Button className="flex-1 bg-rose-600 hover:bg-rose-700 gap-2" onClick={kickUserNow} disabled={kickBusy}>
+                    {kickBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
+                    Kick
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {banOpen ? (
+        <div className="fixed inset-0 z-[85]">
+          <div className="absolute inset-0 bg-black/50" onClick={closeBanConfirm} aria-hidden="true" />
+          <div className="absolute inset-0 flex items-end sm:items-center justify-center p-3">
+            <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border overflow-hidden">
+              <div className="px-4 py-3 border-b flex items-center justify-between">
+                <div className="font-semibold">Confirm Ban</div>
+                <button className="text-sm text-slate-600 hover:text-slate-900" onClick={closeBanConfirm}>
+                  Close
+                </button>
+              </div>
+
+              <div className="p-4">
+                <div className="text-slate-900 font-semibold">Are you sure?</div>
+                <div className="text-sm text-slate-600 mt-1">This will ban the user permanently until you Unban.</div>
+
+                <div className="mt-4">
+                  <div className="text-xs text-slate-500 mb-2">Ban reason (optional)</div>
+                  <textarea
+                    className="w-full border rounded-lg px-3 py-2 text-sm min-h-[90px]"
+                    value={banReason}
+                    onChange={(e) => setBanReason(e.target.value)}
+                    placeholder="Write the ban reason…"
+                    disabled={banBusy}
+                  />
+                </div>
+
+                <div className="mt-4 flex gap-2">
+                  <Button variant="outline" className="flex-1" onClick={closeBanConfirm} disabled={banBusy}>
+                    Cancel
+                  </Button>
+
+                  <Button className="flex-1 bg-rose-600 hover:bg-rose-700 gap-2" onClick={banUserNow} disabled={banBusy}>
+                    {banBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldBan className="w-4 h-4" />}
+                    Ban
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {seatMenuOpen ? (
         <div className="fixed inset-0 z-[85]">
@@ -6569,6 +5966,7 @@ useEffect(() => {
                             className="w-10 h-10 rounded-full object-cover border bg-white" alt={p.display_name || "User"} />
                           <div className="min-w-0 flex-1">
                             <div className="font-semibold text-slate-900 truncate">{p.display_name || "User"}</div>
+                            <div className="text-[11px] text-slate-500 font-mono truncate">{shortId(p.user_id)}</div>
                           </div>
                         </button>
                       ))}
@@ -6690,6 +6088,7 @@ useEffect(() => {
                               >
                                 {b.display_name || "User"}
                               </div>
+                              <div className="text-[11px] text-slate-500 font-mono truncate">{shortId(b.user_id)}</div>
                               <div className="text-[11px] text-slate-500 mt-0.5">
                                 {b.banned_until ? `Until: ${new Date(b.banned_until).toLocaleString()}` : "Permanent"}
                               </div>
@@ -6717,395 +6116,448 @@ useEffect(() => {
         </div>
       ) : null}
 
-      <MicRequestsModal
-  open={requestsOpen}
-  onClose={() => setRequestsOpen(false)}
-  requests={pendingRequests}
-  onApprove={acceptRequest}
-  onReject={rejectRequest}
-  canModerate={canModerate}
-  openUserCard={openUserCard}
-/>
-
-      {leaveRoomOpen ? (
-        <div
-          className="fixed inset-0 z-[90]"
-          onClick={() => setLeaveRoomOpen(false)}
-        >
-          {/* Background */}
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-
-          {/* Bottom Sheet */}
-          <div className="absolute inset-0 flex items-end justify-center p-3">
-            <div
-              className="w-full max-w-md rounded-3xl bg-white p-5 shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Title */}
-              <div className="relative mb-4 text-center">
-                <button
-                  type="button"
-                  onClick={() => setLeaveRoomOpen(false)}
-                  className="absolute right-0 top-0 inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
-                  title="Close"
-                >
-                  <X className="h-4 w-4" />
+      {requestsOpen ? (
+        <div className="fixed inset-0 z-[65]">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setRequestsOpen(false)} aria-hidden="true" />
+          <div className="absolute inset-0 flex items-end sm:items-center justify-center p-3">
+            <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border overflow-hidden flex flex-col max-h-[80vh]">
+              <div className="px-4 py-3 border-b flex items-center justify-between shrink-0">
+                <div className="font-semibold flex items-center gap-2">
+                  <Bell className="w-4 h-4 text-slate-600" />
+                  Mic Requests ({pendingRequests.length})
+                </div>
+                <button className="text-sm text-slate-600 hover:text-slate-900" onClick={() => setRequestsOpen(false)}>
+                  Close
                 </button>
-
-                <div className="text-lg font-bold text-slate-900">
-                  Leave room?
-                </div>
-                <div className="mt-1 text-sm text-slate-500">
-                  Keep it running or exit completely
-                </div>
               </div>
+              <div className="p-4 overflow-y-auto overscroll-contain">
+                {pendingRequests.length === 0 ? (
+                  <div className="text-sm text-slate-500 text-center py-4">No pending requests.</div>
+                ) : (
+                  <div className="space-y-2">
+                    {pendingRequests.map((r) => {
+                      const isMyReq = !!(user?.id && String(r.user_id) === String(user.id));
+                      const canSee = canModerate || isMyReq;
+                      if (!canSee) return null;
 
-              {/* Buttons */}
-              <div className="flex items-center justify-between gap-4">
-                {/* Share */}
-                <button
-                  type="button"
-                  className="flex flex-1 flex-col items-center gap-1"
-                  onClick={async () => {
-                    try {
-                      if (navigator.share) {
-                        await navigator.share({
-                          title: room?.title || room?.name || "Live Room",
-                          text: "Join my live room",
-                          url: window.location.href,
-                        });
-                      } else {
-                        await navigator.clipboard.writeText(window.location.href);
-                      }
-                    } catch (_) { }
-                  }}
-                >
-                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gray-100">
-                    <Share2 className="h-6 w-6 text-slate-700" />
+                      // Prevent duplicate UI for the target user in the requests modal
+                      const isInvite = String(r.note || "").startsWith("invite|");
+                      if (isInvite && isMyReq && !canModerate) return null;
+
+                      return (
+                        <div key={r.id} className="border rounded-lg p-2 bg-white">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => {
+                                setRequestsOpen(false);
+                                openUserCard(r.user_id);
+                              }}
+                              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden border bg-slate-50 flex items-center justify-center cursor-pointer"
+                              title="Open user card"
+                            >
+                              <img
+                                src={r.requester_avatar || FALLBACK_AVATAR}
+                                alt={r.requester_name || "User"}
+                                onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
+                                className="w-full h-full object-cover"
+                              />
+                            </button>
+
+                            <div className="min-w-0 flex-1">
+                              <div
+                                className="text-xs sm:text-sm font-semibold text-slate-900 truncate cursor-pointer hover:underline"
+                                onClick={() => {
+                                  setRequestsOpen(false);
+                                  openUserCard(r.user_id);
+                                }}
+                              >
+                                {r.requester_name || "User"}
+                              </div>
+                              <div className="text-[10px] sm:text-[11px] text-slate-500 font-mono truncate">{shortId(r.user_id)}</div>
+                            </div>
+
+                            <span className="text-[10px] sm:text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">{r.status}</span>
+                          </div>
+
+                          {(() => {
+                            if (canModerate) {
+                              if (isInvite) {
+                                return (
+                                  <div className="mt-2 text-[10px] sm:text-[11px] text-slate-500">
+                                    Invite pending (receiver must accept)
+                                  </div>
+                                );
+                              }
+
+                              return (
+                                <div className="mt-2 flex gap-2">
+                                  <Button size="sm" className="flex-1 gap-2 h-7 sm:h-9 text-xs sm:text-sm" onClick={() => acceptRequest(r.id)}>
+                                    <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                                    Accept (auto seat)
+                                  </Button>
+                                  <Button size="sm" variant="outline" className="flex-1 gap-2 h-7 sm:h-9 text-xs sm:text-sm text-rose-600 hover:bg-rose-50 hover:text-rose-700" onClick={() => rejectRequest(r.id)}>
+                                    <XCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+                                    Reject
+                                  </Button>
+                                </div>
+                              );
+                            }
+
+                            return <div className="mt-2 text-[10px] sm:text-[11px] text-slate-500"><span className="text-[11px] text-slate-500 font-medium tracking-wide">Waiting for approval</span>…</div>;
+                          })()}
+                        </div>
+                      );
+                    })}
                   </div>
-                  <span className="text-xs text-slate-600">Share</span>
-                </button>
-
-                {/* Keep */}
-                <button
-                  type="button"
-                  className="flex flex-1 flex-col items-center gap-1"
-                  onClick={() => {
-                    setLeaveRoomOpen(false);
-
-                    setRoomData({
-                      roomId: roomId,
-                      name: room?.title || room?.name || "Live Room",
-                    });
-
-                    miniRoomActiveRef.current = true;
-                    setMiniRoomActive(true);
-                    navigate("/");
-                  }}
-                >
-                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gray-100">
-                    <Minimize2 className="h-6 w-6 text-slate-700" />
-                  </div>
-                  <span className="text-xs text-slate-600">Keep</span>
-                </button>
-
-                {/* Exit */}
-                <button
-                  type="button"
-                  className="flex flex-1 flex-col items-center gap-1"
-                  onClick={handleExitRoom}
-                >
-                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-100">
-                    <Power className="h-6 w-6 text-red-600" />
-                  </div>
-                  <span className="text-xs font-semibold text-red-600">Exit</span>
-                </button>
+                )}
               </div>
             </div>
           </div>
         </div>
       ) : null}
 
-      <LeaderboardModal
-  open={showLeaderboard}
-  onClose={() => setShowLeaderboard(false)}
-  leaderboardTab={leaderboardTab}
-  setLeaderboardTab={setLeaderboardTab}
-  leaderboardData={leaderboardData}
-  fallbackAvatar={FALLBACK_AVATAR}
-  onOpenUserCard={(userId, user) => {
-    if (!userId) return;
-    setShowLeaderboard(false);
-    openUserCard(userId, user);
-  }}
-/>
-
-      <PkModal
-  open={showPkModal}
-  onClose={() => setShowPkModal(false)}
-  pkBusy={pkBusy}
-  pkMode={pkMode}
-  setPkMode={setPkMode}
-  pkSeatsA={pkSeatsA}
-  setPkSeatsA={setPkSeatsA}
-  pkSeatsB={pkSeatsB}
-  setPkSeatsB={setPkSeatsB}
-  pkSeatA={pkSeatA}
-  setPkSeatA={setPkSeatA}
-  pkSeatB={pkSeatB}
-  setPkSeatB={setPkSeatB}
-  pkDuration={pkDuration}
-  setPkDuration={setPkDuration}
-  occupiedPkEligibleSeats={occupiedPkEligibleSeats}
-  togglePkSeat={togglePkSeat}
-  getRequiredPkTeamSize={getRequiredPkTeamSize}
-  fallbackAvatar={FALLBACK_AVATAR}
-  onCreatePk={handleCreatePk}
-/>
-
-{pkResultOpen && pkResultData && (() => {
-  const winnerSide = pkResultData?.winnerSide || "draw";
-  const isDraw = winnerSide === "draw";
-  const isSideAWinner = winnerSide === "A";
-  const isSideBWinner = winnerSide === "B";
-
-  return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-      <div className="absolute w-[80vw] h-[80vw] max-w-[400px] max-h-[400px] bg-gradient-to-tr from-fuchsia-500/30 to-cyan-500/30 blur-[80px] rounded-full animate-pulse pointer-events-none"></div>
-
-      <div
-        className="w-full max-w-[380px] sm:max-w-md overflow-hidden rounded-[32px] bg-white/95 backdrop-blur-md shadow-[0_0_50px_rgba(0,0,0,0.4)] border border-white/20 relative animate-in zoom-in-95 duration-500"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="relative px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-fuchsia-50 via-white to-cyan-50 text-center overflow-hidden">
-          <h2 className="relative text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-600 to-cyan-600 drop-shadow-sm">
-            PK Result
-          </h2>
-        </div>
-
-        <div className="p-4 sm:p-5 bg-slate-50/40 relative">
-          <div className="flex justify-center mb-5 relative z-10">
-            <div
-              className={`inline-flex items-center rounded-full px-6 py-2 text-white font-extrabold text-base sm:text-lg border shadow-[0_0_20px_rgba(34,211,238,0.35)] ${
-                isDraw
-                  ? "bg-gradient-to-r from-slate-400 to-slate-500 border-slate-300"
-                  : isSideAWinner
-                  ? "bg-gradient-to-r from-fuchsia-500 to-purple-500 border-fuchsia-300/50"
-                  : "bg-gradient-to-r from-cyan-400 to-blue-500 border-cyan-300/50"
-              }`}
-            >
-              <span className="drop-shadow-md">
-                {isDraw ? "🤝 Draw" : `🏆 Winner: Side ${winnerSide}`}
-              </span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 mb-5">
-            <div
-              className={`relative rounded-[24px] p-4 text-center shadow-sm overflow-hidden group ${
-                isDraw
-                  ? "border border-slate-200 bg-gradient-to-b from-white to-slate-50/80"
-                  : isSideAWinner
-                  ? "border border-fuchsia-300 bg-gradient-to-b from-white to-fuchsia-100/70 shadow-[0_0_25px_rgba(217,70,239,0.18)]"
-                  : "border border-fuchsia-200 bg-gradient-to-b from-white to-fuchsia-50/80"
-              }`}
-            >
-              <div className="absolute -right-4 -top-4 w-16 h-16 bg-fuchsia-400/10 rounded-full blur-xl group-hover:bg-fuchsia-400/20 transition-all"></div>
-
-              <div
-                className={`mx-auto mb-3 inline-flex items-center gap-1 rounded-full px-3 py-1 font-bold tracking-wider text-[10px] sm:text-xs shadow-sm ${
-                  isDraw
-                    ? "border border-slate-200 bg-slate-50 text-slate-500"
-                    : isSideAWinner
-                    ? "border border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700"
-                    : "border border-fuchsia-100 bg-fuchsia-50/80 text-fuchsia-600"
-                }`}
-              >
-                {isDraw ? "🤝 DRAW" : isSideAWinner ? "🏆 WINNER" : "🥈 RUNNER-UP"}
+      {leaveRoomOpen ? (
+        <div className="fixed inset-0 z-[90]">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setLeaveRoomOpen(false)} aria-hidden="true" />
+          <div className="absolute inset-0 flex items-end sm:items-center justify-center p-3">
+            <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl border overflow-hidden">
+              <div className="px-4 py-3 border-b flex items-center justify-between">
+                <div className="font-semibold text-slate-900">Leave room?</div>
+                <button className="text-sm text-slate-600 hover:text-slate-900" onClick={() => setLeaveRoomOpen(false)}>
+                  Close
+                </button>
               </div>
+              <div className="p-4">
+                <p className="text-sm text-slate-600 mb-6">
+                  You can leave the room completely, or keep it minimized and continue browsing the app.
+                </p>
+                <div className="flex flex-col gap-3">
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => {
+                      setLeaveRoomOpen(false);
 
-              <div
-                className={`font-black tracking-widest text-sm sm:text-base mb-1 ${
-                  isDraw
-                    ? "text-slate-700"
-                    : isSideAWinner
-                    ? "text-fuchsia-900"
-                    : "text-fuchsia-800"
-                }`}
-              >
-                SIDE A
-              </div>
+                      setRoomData({
+                        roomId: roomId,
+                        name: room?.title || room?.name || "Live Room"
+                      });
 
-              <div
-                className={`text-4xl sm:text-5xl leading-none font-black text-transparent bg-clip-text drop-shadow-sm ${
-                  isDraw
-                    ? "bg-gradient-to-b from-slate-500 to-slate-700"
-                    : isSideAWinner
-                    ? "bg-gradient-to-b from-fuchsia-500 to-fuchsia-700"
-                    : "bg-gradient-to-b from-fuchsia-500 to-fuchsia-700"
-                }`}
-              >
-                {Number(pkResultData.scoreA || 0)}
-              </div>
-            </div>
-
-            <div
-              className={`relative rounded-[24px] p-4 text-center shadow-sm overflow-hidden group ${
-                isDraw
-                  ? "border border-slate-200 bg-gradient-to-b from-white to-slate-50/80"
-                  : isSideBWinner
-                  ? "border border-cyan-300 bg-gradient-to-b from-white to-cyan-100/60 shadow-[0_0_25px_rgba(34,211,238,0.2)]"
-                  : "border border-cyan-200 bg-gradient-to-b from-white to-cyan-50/70"
-              }`}
-            >
-              <div className="absolute -left-4 -top-4 w-20 h-20 bg-cyan-400/20 rounded-full blur-xl group-hover:bg-cyan-400/30 transition-all"></div>
-
-              <div
-                className={`mx-auto mb-3 inline-flex items-center gap-1 rounded-full px-3 py-1 font-bold tracking-wider text-[10px] sm:text-xs shadow-sm ${
-                  isDraw
-                    ? "border border-slate-200 bg-slate-50 text-slate-500"
-                    : isSideBWinner
-                    ? "border border-cyan-200 bg-cyan-50 text-cyan-700"
-                    : "border border-cyan-100 bg-cyan-50/80 text-cyan-600"
-                }`}
-              >
-                {isDraw ? "🤝 DRAW" : isSideBWinner ? "🏆 WINNER" : "🥈 RUNNER-UP"}
-              </div>
-
-              <div
-                className={`font-black tracking-widest text-sm sm:text-base mb-1 ${
-                  isDraw
-                    ? "text-slate-700"
-                    : isSideBWinner
-                    ? "text-cyan-900"
-                    : "text-cyan-800"
-                }`}
-              >
-                SIDE B
-              </div>
-
-              <div
-                className={`text-4xl sm:text-5xl leading-none font-black text-transparent bg-clip-text ${
-                  isDraw
-                    ? "bg-gradient-to-b from-slate-500 to-slate-700"
-                    : isSideBWinner
-                    ? "bg-gradient-to-b from-cyan-400 to-cyan-600 drop-shadow-[0_2px_10px_rgba(34,211,238,0.4)]"
-                    : "bg-gradient-to-b from-cyan-400 to-cyan-600"
-                }`}
-              >
-                {Number(pkResultData.scoreB || 0)}
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 mb-6">
-            <div className="rounded-[24px] border border-fuchsia-100 bg-white/80 p-3 shadow-sm backdrop-blur-sm">
-              <div className="text-fuchsia-800 text-xs sm:text-sm font-black mb-2 text-center">
-                Side A Players
-              </div>
-              <div className="h-[2px] w-12 mx-auto bg-gradient-to-r from-transparent via-fuchsia-300 to-transparent mb-3" />
-
-              <div className="space-y-2 max-h-[140px] overflow-y-auto pr-1">
-                {(pkResultData.sideAPlayers || []).map((player, idx) => (
-                  <div
-                    key={`${player.user_id || player.id || idx}-A`}
-                    className="flex items-center gap-2 rounded-[16px] border border-fuchsia-50 bg-gradient-to-r from-fuchsia-50/30 to-white p-2 shadow-sm hover:shadow-md transition-shadow"
+                      miniRoomActiveRef.current = true;
+                      setMiniRoomActive(true);
+                      navigate("/");
+                    }}
                   >
-                    <div className="relative shrink-0">
-                      <img
-                        src={player.avatar_url || FALLBACK_AVATAR}
-                        alt={player.display_name || "User"}
-                        className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
-                        onError={(e) => {
-                          e.currentTarget.src = FALLBACK_AVATAR;
-                        }}
-                      />
-                      <div className="absolute -bottom-1 -right-1 text-xs drop-shadow-md">
-                        {isDraw ? "🤝" : isSideAWinner ? "🏆" : "🥈"}
-                      </div>
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <div className="text-slate-800 font-bold text-[11px] sm:text-xs truncate">
-                        {player.display_name || player.name || "User"}
-                      </div>
-                      <div className="text-slate-400 text-[9px] sm:text-[10px] font-medium">
-                        Seat #{player.seat_no}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-[24px] border border-cyan-100 bg-white/80 p-3 shadow-sm backdrop-blur-sm">
-              <div className="text-cyan-900 text-xs sm:text-sm font-black mb-2 text-center">
-                Side B Players
-              </div>
-              <div className="h-[2px] w-12 mx-auto bg-gradient-to-r from-transparent via-cyan-300 to-transparent mb-3" />
-
-              <div className="space-y-2 max-h-[140px] overflow-y-auto pr-1">
-                {(pkResultData.sideBPlayers || []).map((player, idx) => (
-                  <div
-                    key={`${player.user_id || player.id || idx}-B`}
-                    className="flex items-center gap-2 rounded-[16px] border border-cyan-50 bg-gradient-to-r from-cyan-50/30 to-white p-2 shadow-sm hover:shadow-md transition-shadow"
+                    Keep in mini room
+                  </Button>
+                  <Button
+                    className="w-full bg-rose-600 hover:bg-rose-700 text-white"
+                    onClick={handleExitRoom}
                   >
-                    <div className="relative shrink-0">
-                      <img
-                        src={player.avatar_url || FALLBACK_AVATAR}
-                        alt={player.display_name || "User"}
-                        className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
-                        onError={(e) => {
-                          e.currentTarget.src = FALLBACK_AVATAR;
-                        }}
-                      />
-                      <div className="absolute -bottom-1 -right-1 text-xs drop-shadow-md">
-                        {isDraw ? "🤝" : isSideBWinner ? "🏆" : "🥈"}
-                      </div>
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <div className="text-slate-800 font-bold text-[11px] sm:text-xs truncate">
-                        {player.display_name || player.name || "User"}
-                      </div>
-                      <div className="text-slate-400 text-[9px] sm:text-[10px] font-medium">
-                        Seat #{player.seat_no}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                    Exit room
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                setPkResultOpen(false);
-              }}
-              className="h-12 sm:h-14 rounded-[20px] border-2 border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 hover:border-slate-300 transition-all active:scale-95"
-            >
-              Close
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setPkResultOpen(false);
-                setPkResultData(null);
-                setShowPkModal(true);
-              }}
-              className="h-12 sm:h-14 rounded-[20px] bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white text-[13px] sm:text-sm font-bold shadow-[0_4px_15px_rgba(168,85,247,0.4)] hover:shadow-[0_6px_20px_rgba(168,85,247,0.6)] hover:-translate-y-0.5 transition-all active:scale-95 leading-tight px-2"
-            >
-              Start New Round
-            </button>
           </div>
         </div>
-      </div>
-    </div>
-  );
-})()}
+      ) : null}
+
+      {showPkModal ? (
+        <div className="fixed inset-0 z-[85]">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowPkModal(false)} aria-hidden="true" />
+          <div className="absolute inset-0 flex items-end sm:items-center justify-center p-3">
+            <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border overflow-hidden">
+              <div className="px-4 py-3 border-b flex items-center justify-between">
+                <div className="font-semibold text-lg">Start PK</div>
+                <button className="text-sm text-slate-600 hover:text-slate-900" onClick={() => setShowPkModal(false)}>
+                  Close
+                </button>
+              </div>
+
+              <div className="p-4 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    PK Mode:
+                  </label>
+                  <select
+                    className="w-full border rounded-lg px-3 py-2 text-sm"
+                    value={pkMode}
+                    onChange={(e) => {
+                      setPkMode(e.target.value);
+                      setPkSeatsA([]);
+                      setPkSeatsB([]);
+                      setPkSeatA("");
+                      setPkSeatB("");
+                    }}
+                  >
+                    <option value="1v1">1 vs 1</option>
+                    <option value="2v2">2 vs 2</option>
+                    <option value="3v3">3 vs 3</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Side A Seats:</label>
+
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                    {occupiedPkEligibleSeats.map((s) => {
+                      const seatId = String(s.seat_no);
+                      const selected = pkSeatsA.includes(seatId);
+                      const blocked = pkSeatsB.includes(seatId);
+
+                      return (
+                        <button
+                          key={s.seat_no}
+                          type="button"
+                          disabled={blocked}
+                          onClick={() => togglePkSeat("A", seatId)}
+                          className={`w-full flex items-center gap-3 rounded-xl border px-3 py-2 text-left ${selected
+                            ? "border-fuchsia-400 bg-fuchsia-50"
+                            : blocked
+                              ? "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed"
+                              : "border-slate-200 bg-white hover:bg-slate-50"
+                            }`}
+                        >
+                          <img
+                            src={s.occupant?.avatar_url || FALLBACK_AVATAR}
+                            alt={s.occupant?.display_name || s.occupant?.name || "User"}
+                            className="w-10 h-10 rounded-full object-cover"
+                          />
+
+                          <div className="min-w-0">
+                            <div className="font-medium truncate">
+                              {s.occupant?.display_name || s.occupant?.name || "User"}
+                            </div>
+                            <div className="text-xs text-slate-500">
+                              Seat {s.seat_no}
+                            </div>
+                          </div>
+
+                          {selected ? (
+                            <div className="ml-auto text-[11px] font-bold text-fuchsia-600">
+                              Selected
+                            </div>
+                          ) : null}
+                        </button>
+                      );
+                    })}
+
+                    {occupiedPkEligibleSeats.length === 0 && (
+                      <div className="text-sm text-slate-500 italic">No available seats</div>
+                    )}
+                  </div>
+
+                  <div className="mt-2 text-xs text-fuchsia-600">
+                    Selected: {pkSeatsA.length} / {getRequiredPkTeamSize(pkMode)}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Side B Seats:</label>
+
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                    {occupiedPkEligibleSeats.map((s) => {
+                      const seatId = String(s.seat_no);
+                      const selected = pkSeatsB.includes(seatId);
+                      const blocked = pkSeatsA.includes(seatId);
+
+                      return (
+                        <button
+                          key={s.seat_no}
+                          type="button"
+                          disabled={blocked}
+                          onClick={() => togglePkSeat("B", seatId)}
+                          className={`w-full flex items-center gap-3 rounded-xl border px-3 py-2 text-left ${selected
+                            ? "border-sky-400 bg-sky-50"
+                            : blocked
+                              ? "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed"
+                              : "border-slate-200 bg-white hover:bg-slate-50"
+                            }`}
+                        >
+                          <img
+                            src={s.occupant?.avatar_url || FALLBACK_AVATAR}
+                            className="w-10 h-10 rounded-full object-cover"
+                          />
+
+                          <div className="min-w-0">
+                            <div className="font-medium truncate">
+                              {s.occupant?.display_name || s.occupant?.name || "User"}
+                            </div>
+                            <div className="text-xs text-slate-500">
+                              Seat {s.seat_no}
+                            </div>
+                          </div>
+
+                          {selected && (
+                            <div className="ml-auto text-[11px] font-bold text-sky-600">
+                              Selected
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+
+                    {occupiedPkEligibleSeats.length === 0 && (
+                      <div className="text-sm text-slate-500 italic">No available seats</div>
+                    )}
+                  </div>
+
+                  <div className="mt-2 text-xs text-sky-600">
+                    Selected: {pkSeatsB.length} / {getRequiredPkTeamSize(pkMode)}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Duration (minutes):</label>
+                  <Input
+                    type="number"
+                    value={pkDuration}
+                    onChange={(e) => setPkDuration(Number(e.target.value))}
+                    min={1}
+                    max={60}
+                  />
+                </div>
+
+                <div className="flex gap-2 mt-6">
+                  <Button variant="outline" className="flex-1" onClick={() => setShowPkModal(false)}>
+                    Cancel
+                  </Button>
+                  <Button className="flex-1 bg-purple-500 hover:bg-purple-600 text-white" onClick={handleCreatePk} disabled={pkBusy}>
+                    {pkBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                    Start
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {pkResultOpen && pkResultData ? (
+        <div className="fixed inset-0 z-[90]">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setPkResultOpen(false)}
+            aria-hidden="true"
+          />
+          <div className="absolute inset-0 flex items-center justify-center p-3">
+            <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl border overflow-hidden">
+              <div className="px-4 py-3 border-b">
+                <div className="font-semibold text-lg text-center">PK Result</div>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div className="text-center text-2xl font-black text-slate-800">
+                  {pkResultData.winnerSide === "draw"
+                    ? "Draw"
+                    : `Winner: Side ${pkResultData.winnerSide}`}
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-center">
+                    <div className="text-xl font-black text-fuchsia-600">
+                      Side A: {pkResultData.scoreA}
+                    </div>
+                  </div>
+
+                  <div className="text-center">
+                    <div className="text-xl font-black text-cyan-600">
+                      Side B: {pkResultData.scoreB}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mt-4 text-left">
+                  <div className="space-y-2">
+                    <div className="text-sm font-bold text-fuchsia-600 border-b pb-1">
+                      Side A Players
+                    </div>
+
+                    {(pkResultData.sideAPlayers || []).length > 0 ? (
+                      (pkResultData.sideAPlayers || []).map((p, idx) => (
+                        <div
+                          key={`result-a-${p.user_id || idx}`}
+                          className="flex items-center gap-2"
+                        >
+                          <img
+                            src={p.avatar_url || FALLBACK_AVATAR}
+                            alt={p.display_name || "User"}
+                            className="w-8 h-8 rounded-full object-cover"
+                          />
+                          <div className="min-w-0">
+                            <div className="text-sm font-semibold truncate">
+                              {p.display_name || "User"}
+                            </div>
+                            <div className="text-xs text-slate-500">
+                              Seat #{p.seat_no}
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-xs text-slate-400 italic">No player</div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="text-sm font-bold text-cyan-600 border-b pb-1">
+                      Side B Players
+                    </div>
+
+                    {(pkResultData.sideBPlayers || []).length > 0 ? (
+                      (pkResultData.sideBPlayers || []).map((p, idx) => (
+                        <div
+                          key={`result-b-${p.user_id || idx}`}
+                          className="flex items-center gap-2"
+                        >
+                          <img
+                            src={p.avatar_url || FALLBACK_AVATAR}
+                            alt={p.display_name || "User"}
+                            className="w-8 h-8 rounded-full object-cover"
+                          />
+                          <div className="min-w-0">
+                            <div className="text-sm font-semibold truncate">
+                              {p.display_name || "User"}
+                            </div>
+                            <div className="text-xs text-slate-500">
+                              Seat #{p.seat_no}
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-xs text-slate-400 italic">No player</div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => setPkResultOpen(false)}
+                  >
+                    Close
+                  </Button>
+
+                  {canModerate ? (
+                    <Button
+                      className="flex-1 bg-purple-500 hover:bg-purple-600 text-white"
+                      onClick={() => {
+                        setPkResultOpen(false);
+                        setShowPkModal(true);
+                      }}
+                    >
+                      Start New Round
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {giftPanelOpen && (
         <div className="fixed inset-0 z-[100]">
@@ -7120,16 +6572,8 @@ useEffect(() => {
 
             <div className="h-full flex flex-col overflow-hidden">
               <GiftPanel
-                recipientId={
-                  giftTargetMode === "single"
-                    ? (giftSelectedRecipient?.id || null)
-                    : null
-                }
-                recipientName={
-                  giftSelectedRecipient?.name ||
-                  giftTarget?.name ||
-                  giftTarget?.username
-                }
+                recipientId={giftTargetMode === "single" ? (giftSelectedRecipient?.id || null) : null}
+                recipientName={giftSelectedRecipient?.name || giftTarget?.name || giftTarget?.username || "User"}
                 onClose={() => setGiftPanelOpen(false)}
                 onGiftSent={handleRoomGiftSend}
                 targetMode={giftTargetMode}
@@ -7140,58 +6584,21 @@ useEffect(() => {
                 selectedRecipient={giftSelectedRecipient}
                 onRecipientChange={({ mode, user }) => {
                   const nextMode = resolveGiftTargetMode(mode, user);
+
                   setGiftTargetMode(nextMode);
                   setGiftSelectedRecipient(user || null);
                   setGiftTarget(nextMode === "single" ? user || null : null);
                 }}
-                onOpenUserCard={(userId, user) => {
-                  if (
-                    userId === "mic_users_virtual" ||
-                    userId === "all_users_virtual"
-                  ) {
-                    return;
-                  }
-
+                onOpenUserCard={(userId) => {
+                  if (userId === 'mic_users_virtual' || userId === 'all_users_virtual') return;
                   setGiftPanelOpen(false);
-                  openUserCard(userId, user);
+                  openUserCard(userId);
                 }}
               />
             </div>
           </div>
         </div>
       )}
-
-      <UserCardModal
-  open={isUserCardOpen}
-  onClose={closeUserCard}
-  cardLoading={cardLoading}
-  selectedUserProfile={selectedUserProfile}
-  selectedUserId={selectedUserId}
-  selectedUserIsMod={selectedUserIsMod}
-  isSelfCard={isSelfCard}
-  canShowOwnerTools={canShowOwnerTools}
-  isOwner={isOwner}
-  hostUserId={hostUser?.id || room?.owner_user_id || null}
-  targetMutedActive={targetMutedActive}
-  moderatorsMap={moderatorsMap}
-  effectiveSeats={effectiveSeats}
-  FALLBACK_AVATAR={FALLBACK_AVATAR}
-  mentionUser={mentionUser}
-  openGiftPanelForUser={openGiftPanelForUser}
-  goToProfilePage={goToProfilePage}
-  toast={toast}
-  setInviteTargetUserId={setInviteTargetUserId}
-  setInviteOnlyMode={setInviteOnlyMode}
-  setSeatMenuSeatNo={setSeatMenuSeatNo}
-  setSeatMenuOpen={setSeatMenuOpen}
-  setInviteOpen={setInviteOpen}
-  muteUser={muteUser}
-  unmuteUser={unmuteUser}
-  openKickConfirm={openKickConfirm}
-  openBanConfirm={openBanConfirm}
-  assignModerator={assignModerator}
-  removeModerator={removeModerator}
-/>
-      </div>
+    </div>
   );
 }
