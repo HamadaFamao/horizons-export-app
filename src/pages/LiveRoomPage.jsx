@@ -270,6 +270,12 @@ const buildPkDisplaySidesFromSeats = (seatA, seatB, seats) => {
   };
 };
 
+const PK_AUDIO_TRACKS = [
+  '/sounds/pk-audio/countdown.mp3',
+  '/sounds/pk-audio/last-seconds.mp3',
+  '/sounds/pk-audio/crowd.mp3',
+];
+
 export default function LiveRoomPage() {
   // ==========================================
   // 1. Contexts & Router
@@ -283,8 +289,11 @@ export default function LiveRoomPage() {
   // 2. Refs
   // ==========================================
   const countdownAudioRef = useRef(null);
-  const lastCountdownSecondRef = useRef(null);
+  const countdownStartedRef = useRef(false);
+  const selectedPkAudioRef = useRef(null);
+  const selectedPkSessionIdRef = useRef(null);
   const audioUnlockedRef = useRef(false);
+
   const miniRoomActiveRef = useRef(false);
   const livekitRoomRef = useRef(null);
   const mountedRef = useRef(true);
@@ -313,8 +322,9 @@ export default function LiveRoomPage() {
   const pkSessionRef = useRef(null);
   const pkParticipantsRef = useRef([]);
   const pkDisplaySidesRef = useRef({ A: [], B: [] });
-  const roomGiftMessagesRef = useRef([]);
   const pkFinishTriggeredRef = useRef(false);
+  const roomGiftMessagesRef = useRef([]);
+
 
   // ==========================================
   // 3. States
@@ -3817,98 +3827,108 @@ console.log("MODERATORS MAP:", nextMap);
   // ==========================================
   // 7. Effects
   // ==========================================
-  useEffect(() => {
-  const audio = new Audio("/sounds/beep.mp3");
-  audio.preload = "auto";
+ useEffect(() => {
+ 
+
+  const audio = new Audio();
+  audio.preload = 'auto';
   countdownAudioRef.current = audio;
 
   const unlockAudio = async () => {
     if (!countdownAudioRef.current || audioUnlockedRef.current) return;
 
     try {
+      // نستخدم أي ملف فقط لفتح صلاحية الصوت في المتصفح
+      countdownAudioRef.current.src = PK_AUDIO_TRACKS[0];
       countdownAudioRef.current.muted = true;
       countdownAudioRef.current.currentTime = 0;
+
       await countdownAudioRef.current.play();
+
       countdownAudioRef.current.pause();
       countdownAudioRef.current.currentTime = 0;
       countdownAudioRef.current.muted = false;
+
       audioUnlockedRef.current = true;
     } catch (err) {}
   };
 
-  window.addEventListener("click", unlockAudio, { passive: true });
-  window.addEventListener("touchstart", unlockAudio, { passive: true });
+  window.addEventListener('click', unlockAudio, { passive: true });
+  window.addEventListener('touchstart', unlockAudio, { passive: true });
 
   return () => {
-    window.removeEventListener("click", unlockAudio);
-    window.removeEventListener("touchstart", unlockAudio);
+    window.removeEventListener('click', unlockAudio);
+    window.removeEventListener('touchstart', unlockAudio);
 
     if (countdownAudioRef.current) {
       countdownAudioRef.current.pause();
-      countdownAudioRef.current = null;
+      countdownAudioRef.current.currentTime = 0;
+      countdownAudioRef.current.src = '';
     }
   };
 }, []);
+
 useEffect(() => {
   if (!pkSession?.id) return;
-  if (pkSession?.status !== "live") return;
+  if (pkSession?.status !== 'live') return;
   if (pkRemainingMs == null) return;
 
   const secondsLeft = Math.ceil(pkRemainingMs / 1000);
 
-  // reset لو خرجنا من آخر 10 ثواني
-  if (secondsLeft > 10 || secondsLeft <= 0) {
-    lastCountdownSecondRef.current = null;
-    return;
-  }
+  // أول ما تبدأ جولة جديدة نختار ملف عشوائي واحد للجولة كلها
+  if (selectedPkSessionIdRef.current !== pkSession.id) {
+    selectedPkSessionIdRef.current = pkSession.id;
+    selectedPkAudioRef.current =
+      PK_AUDIO_TRACKS[Math.floor(Math.random() * PK_AUDIO_TRACKS.length)];
 
-  // يمنع التكرار لنفس الثانية
-  if (lastCountdownSecondRef.current === secondsLeft) return;
+    countdownStartedRef.current = false;
 
-  lastCountdownSecondRef.current = secondsLeft;
-
-  // 10 → 8 : اهتزاز فقط
-  if (secondsLeft >= 8) {
-    if (navigator.vibrate) {
-      navigator.vibrate(120);
-    }
-    return;
-  }
-
-  // 7 → 4 : beep قصير كل ثانية
-  if (secondsLeft >= 4) {
-    if (countdownAudioRef.current && audioUnlockedRef.current) {
+    if (countdownAudioRef.current) {
       countdownAudioRef.current.pause();
       countdownAudioRef.current.currentTime = 0;
-      countdownAudioRef.current.playbackRate = 1.4;
-      countdownAudioRef.current.play().catch(() => {});
+      countdownAudioRef.current.src = selectedPkAudioRef.current;
     }
+  }
+
+  // لو رجعنا قبل آخر 10 ثواني نعمل reset فقط
+  if (secondsLeft > 10) {
+    countdownStartedRef.current = false;
+
+    if (countdownAudioRef.current) {
+      countdownAudioRef.current.pause();
+      countdownAudioRef.current.currentTime = 0;
+    }
+
     return;
   }
 
-  // 3 → 1 : beep أطول + اهتزاز
-  if (secondsLeft >= 1) {
-    if (countdownAudioRef.current && audioUnlockedRef.current) {
-      countdownAudioRef.current.pause();
+  // عند دخول آخر 10 ثواني: شغل المقطع من بدايته
+  // وطوله 15 ثانية، فيكمل تلقائيًا 5 ثواني مع كارت النتيجة
+  if (secondsLeft <= 10 && secondsLeft > 0 && !countdownStartedRef.current) {
+    countdownStartedRef.current = true;
+
+    if (
+      countdownAudioRef.current &&
+      audioUnlockedRef.current &&
+      selectedPkAudioRef.current
+    ) {
+      countdownAudioRef.current.src = selectedPkAudioRef.current;
       countdownAudioRef.current.currentTime = 0;
-      countdownAudioRef.current.playbackRate = 0.7;
       countdownAudioRef.current.play().catch(() => {});
     }
-
-    if (navigator.vibrate) {
-      navigator.vibrate(180);
-    }
-
-    setTimeout(() => {
-      if (countdownAudioRef.current) {
-        countdownAudioRef.current.playbackRate = 1;
-      }
-    }, 500);
   }
 }, [pkSession?.id, pkSession?.status, pkRemainingMs]);
-  useEffect(() => {
-    miniRoomActiveRef.current = !!miniRoomActive;
-  }, [miniRoomActive]);
+useEffect(() => {
+  if (!pkResultOpen || !pkResultData) return;
+  if (crowdStartedRef.current) return;
+
+  crowdStartedRef.current = true;
+
+  if (crowdAudioRef.current && audioUnlockedRef.current) {
+    crowdAudioRef.current.currentTime = 0;
+    crowdAudioRef.current.play().catch(() => {});
+  }
+}, [pkResultOpen, pkResultData]);
 
   useEffect(() => {
     activeParticipantsRef.current = activeParticipants || [];
