@@ -3918,17 +3918,6 @@ useEffect(() => {
     }
   }
 }, [pkSession?.id, pkSession?.status, pkRemainingMs]);
-useEffect(() => {
-  if (!pkResultOpen || !pkResultData) return;
-  if (crowdStartedRef.current) return;
-
-  crowdStartedRef.current = true;
-
-  if (crowdAudioRef.current && audioUnlockedRef.current) {
-    crowdAudioRef.current.currentTime = 0;
-    crowdAudioRef.current.play().catch(() => {});
-  }
-}, [pkResultOpen, pkResultData]);
 
   useEffect(() => {
     activeParticipantsRef.current = activeParticipants || [];
