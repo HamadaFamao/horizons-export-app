@@ -324,6 +324,8 @@ export default function LiveRoomPage() {
   const pkDisplaySidesRef = useRef({ A: [], B: [] });
   const pkFinishTriggeredRef = useRef(false);
   const roomGiftMessagesRef = useRef([]);
+  const serverOffsetMsRef = useRef(0);
+  const pkTimerIntervalRef = useRef(null);
 
 
   // ==========================================
@@ -3753,6 +3755,14 @@ console.log("MODERATORS MAP:", nextMap);
         .insert(participantsToInsert);
 
       if (participantsError) throw participantsError;
+      const syncServerClock = async () => {
+  try {
+    const { data } = await supabase.rpc('get_server_time_ms');
+    serverOffsetMsRef.current = Number(data) - Date.now();
+  } catch {
+    serverOffsetMsRef.current = 0;
+  }
+};
 
       const nextDisplaySides = {
         A: selectedA.map((s) => ({
@@ -3815,6 +3825,34 @@ console.log("MODERATORS MAP:", nextMap);
     return null;
   };
 
+useEffect(() => {
+  syncServerClock();
+}, []);
+
+useEffect(() => {
+  if (!pkSession?.id) return;
+  if (pkSession?.status !== 'live') return;
+  if (!pkSession?.end_at) return;
+
+  const updateRemaining = () => {
+    const now = Date.now() + serverOffsetMsRef.current;
+    const end = new Date(pkSession.end_at).getTime();
+    setPkRemainingMs(Math.max(0, end - now));
+  };
+
+  updateRemaining();
+
+  if (pkTimerIntervalRef.current) {
+    clearInterval(pkTimerIntervalRef.current);
+  }
+
+  pkTimerIntervalRef.current = setInterval(updateRemaining, 100);
+
+  return () => {
+    clearInterval(pkTimerIntervalRef.current);
+  };
+}, [pkSession?.id, pkSession?.status, pkSession?.end_at]);
+
   useEffect(() => {
     console.log("[PK_MULTI_STATE]", {
       pkMode,
@@ -3828,8 +3866,6 @@ console.log("MODERATORS MAP:", nextMap);
   // 7. Effects
   // ==========================================
  useEffect(() => {
- 
-
   const audio = new Audio();
   audio.preload = 'auto';
   countdownAudioRef.current = audio;
@@ -4325,14 +4361,6 @@ useEffect(() => {
 
     bootstrapMicGiftTotals();
   }, [roomId, isJoinedToRoom, room?.id, room?.gift_counters_reset_at]);
-
-  useEffect(() => {
-    const t = setInterval(() => {
-      if (mountedRef.current) setPkNow(Date.now());
-    }, 1000);
-
-    return () => clearInterval(t);
-  }, []);
 
   useEffect(() => {
     const effectivePkParticipants =
