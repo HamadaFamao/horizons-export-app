@@ -3515,6 +3515,12 @@ console.log("MODERATORS MAP:", nextMap);
       return;
     }
 
+    console.log('[ROOM_AVATAR_UPLOAD] User is owner, proceeding with upload', {
+      userId: user?.id,
+      roomOwnerId: room?.owner_user_id,
+      roomId
+    });
+
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -3544,6 +3550,16 @@ console.log("MODERATORS MAP:", nextMap);
     setRoomAvatarUploading(true);
 
     try {
+      // Check if bucket exists
+      console.log('[ROOM_AVATAR_UPLOAD] Checking if room_avatars bucket exists...');
+      const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
+      const bucketExists = buckets?.some(b => b.name === 'room_avatars');
+      console.log('[ROOM_AVATAR_UPLOAD] Bucket exists:', bucketExists, bucketsError);
+
+      if (!bucketExists) {
+        throw new Error('Storage bucket "room_avatars" does not exist. Please create it in Supabase dashboard.');
+      }
+
       const ext = getExt(file);
       const path = `${roomId}/avatar.${ext}`;
 
@@ -3604,11 +3620,26 @@ console.log("MODERATORS MAP:", nextMap);
       console.log('[ROOM_AVATAR_UPLOAD] Public URL:', avatarUrl);
 
       // Update room avatar_url
+      console.log('[ROOM_AVATAR_UPLOAD] Attempting database update', {
+        roomId,
+        avatarUrl,
+        userId: user?.id,
+        roomOwnerId: room?.owner_user_id
+      });
+
+      // Get current auth user to ensure it's the same
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError || !authData.user) {
+        throw new Error('Authentication error: ' + authError?.message);
+      }
+      const authUserId = authData.user.id;
+      console.log('[ROOM_AVATAR_UPLOAD] Auth user ID:', authUserId, 'matches user.id:', user?.id === authUserId);
+
       const { error: updateError } = await supabase
         .from('live_rooms')
         .update({ avatar_url: avatarUrl })
         .eq('id', roomId)
-        .eq('owner_user_id', user.id);
+        .eq('owner_user_id', authUserId);
 
       if (updateError) {
         console.error('[ROOM_AVATAR_UPLOAD] Update error:', updateError);
