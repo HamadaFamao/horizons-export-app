@@ -325,6 +325,7 @@ export default function LiveRoomPage() {
   const pkFinishTriggeredRef = useRef(false);
   const roomGiftMessagesRef = useRef([]);
   const serverOffsetMsRef = useRef(0);
+  const endsAt = new Date(Date.now() + serverOffsetMsRef.current + pkDuration * 60000).toISOString();
   const pkTimerIntervalRef = useRef(null);
 
 
@@ -4427,9 +4428,13 @@ useEffect(() => {
   }, [pkSession?.id]);
 
   useEffect(() => {
+  if (!pkSession?.id) return;
+  const t = setTimeout(() => {
     pkFinishTriggeredRef.current = false;
-  }, [pkSession?.id]);
-
+  }, 500); // 500ms كافية إن الـ timer يبدأ
+  return () => clearTimeout(t);
+  
+}, [pkSession?.id]);
  useEffect(() => {
   if (!pkSession?.id) return;
 
@@ -4445,8 +4450,18 @@ useEffect(() => {
  useEffect(() => {
   if (!pkSession?.id) return;
   if (pkSession.status !== "live") return;
-  if (pkRemainingMs > 0) return;
   if (pkFinishTriggeredRef.current) return;
+
+  // ✅ تأكد إن الوقت خلص فعلاً من خلال ends_at مباشرةً
+  // مش بس pkRemainingMs لأنه بيبدأ بـ 0 قبل ما الـ timer يشتغل
+  if (pkSession?.ends_at) {
+    const endsMs = new Date(pkSession.ends_at).getTime();
+    const now = Date.now() + (serverOffsetMsRef.current || 0);
+    if (endsMs > now) return; // الجولة لسه شغالة
+  } else {
+    // مفيش ends_at خالص — مستنياش
+    if (pkRemainingMs > 0) return;
+  }
 
   pkFinishTriggeredRef.current = true;
 
