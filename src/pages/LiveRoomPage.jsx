@@ -3555,19 +3555,7 @@ console.log("MODERATORS MAP:", nextMap);
       console.log('[ROOM_AVATAR_UPLOAD] Bucket exists:', bucketExists, 'Buckets:', buckets?.map(b => b.name));
 
       if (!bucketExists) {
-        console.log('[ROOM_AVATAR_UPLOAD] Creating bucket "room_avatars"...');
-        const { error: createError } = await supabase.storage.createBucket('room_avatars', {
-          public: true,
-          allowedMimeTypes: ['image/png', 'image/gif'],
-          fileSizeLimit: 5242880, // 5MB
-        });
-
-        if (createError) {
-          console.error('[ROOM_AVATAR_UPLOAD] Create bucket error:', createError);
-          throw new Error(`Failed to create storage bucket: ${createError.message}`);
-        }
-
-        console.log('[ROOM_AVATAR_UPLOAD] Bucket created successfully');
+        throw new Error('Storage bucket "room_avatars" does not exist');
       }
 
       // Upload to storage

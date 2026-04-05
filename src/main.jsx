@@ -17,6 +17,12 @@ import { supabaseWarmup } from '@/lib/supabaseWarmup';
 // Initialize global error handlers immediately
 setupGlobalErrorHandlers();
 
+// Check for required storage buckets
+console.log('🔍 Checking Supabase storage buckets...');
+console.log('📦 Required buckets: room_avatars, profile-photos');
+console.log('📋 If upload fails, create buckets manually: see SUPABASE_BUCKETS.md');
+console.log('🛠️  Or use CLI: ./create-buckets.sh');
+
 const LoadingFallback = () => (
   <div className="min-h-screen w-full flex items-center justify-center bg-rose-50">
     <div className="flex flex-col items-center gap-4">
