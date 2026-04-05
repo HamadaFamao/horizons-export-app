@@ -3607,7 +3607,8 @@ console.log("MODERATORS MAP:", nextMap);
       const { error: updateError } = await supabase
         .from('live_rooms')
         .update({ avatar_url: avatarUrl })
-        .eq('id', roomId);
+        .eq('id', roomId)
+        .eq('owner_user_id', user.id);
 
       if (updateError) {
         console.error('[ROOM_AVATAR_UPLOAD] Update error:', updateError);
