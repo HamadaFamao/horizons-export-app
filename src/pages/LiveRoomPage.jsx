@@ -3533,13 +3533,6 @@ console.log("MODERATORS MAP:", nextMap);
       isOwner
     });
 
-    // Validate file type
-    const allowedTypes = ['image/png', 'image/gif'];
-    if (!allowedTypes.includes(file.type)) {
-      toast("Please select a PNG or GIF image file.");
-      return;
-    }
-
     // Validate file size (e.g., max 5MB)
     const maxSize = 5 * 1024 * 1024; // 5MB
     if (file.size > maxSize) {
@@ -6901,7 +6894,7 @@ useEffect(() => {
                         <span className={`text-sm font-medium transition ${
                           !isOwner ? 'text-slate-400' : 'text-slate-600 group-hover:text-blue-600'
                         }`}>
-                          {roomAvatarUploading ? 'Uploading...' : !isOwner ? 'Only owners can upload' : 'Upload PNG or GIF'}
+                          {roomAvatarUploading ? 'Uploading...' : !isOwner ? 'Only owners can upload' : 'Upload image'}
                         </span>
                       </label>
                       <div className="text-xs text-slate-500 mt-2">
