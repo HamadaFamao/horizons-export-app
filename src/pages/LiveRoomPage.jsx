@@ -3518,6 +3518,15 @@ console.log("MODERATORS MAP:", nextMap);
     const file = e.target.files?.[0];
     if (!file) return;
 
+    console.log('[ROOM_AVATAR_UPLOAD] Starting upload:', {
+      fileName: file.name,
+      fileType: file.type,
+      fileSize: file.size,
+      roomId,
+      userId: user?.id,
+      isOwner
+    });
+
     // Validate file type
     const allowedTypes = ['image/png', 'image/gif'];
     if (!allowedTypes.includes(file.type)) {
@@ -3538,6 +3547,17 @@ console.log("MODERATORS MAP:", nextMap);
       const ext = getExt(file);
       const path = `${roomId}/avatar.${ext}`;
 
+      console.log('[ROOM_AVATAR_UPLOAD] Uploading to path:', path);
+
+      // Check if bucket exists
+      const { data: buckets } = await supabase.storage.listBuckets();
+      const bucketExists = buckets?.some(b => b.name === 'room_avatars');
+      console.log('[ROOM_AVATAR_UPLOAD] Bucket exists:', bucketExists, 'Buckets:', buckets?.map(b => b.name));
+
+      if (!bucketExists) {
+        throw new Error('Storage bucket "room_avatars" does not exist');
+      }
+
       // Upload to storage
       const { error: uploadError } = await supabase.storage
         .from('room_avatars')
@@ -3547,7 +3567,12 @@ console.log("MODERATORS MAP:", nextMap);
           contentType: file.type,
         });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('[ROOM_AVATAR_UPLOAD] Upload error:', uploadError);
+        throw uploadError;
+      }
+
+      console.log('[ROOM_AVATAR_UPLOAD] Upload successful');
 
       // Get public URL
       const { data: publicUrlData } = supabase.storage
@@ -3555,6 +3580,7 @@ console.log("MODERATORS MAP:", nextMap);
         .getPublicUrl(path);
 
       const avatarUrl = publicUrlData.publicUrl;
+      console.log('[ROOM_AVATAR_UPLOAD] Public URL:', avatarUrl);
 
       // Update room avatar_url
       const { error: updateError } = await supabase
@@ -3562,15 +3588,20 @@ console.log("MODERATORS MAP:", nextMap);
         .update({ avatar_url: avatarUrl })
         .eq('id', roomId);
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error('[ROOM_AVATAR_UPLOAD] Update error:', updateError);
+        throw updateError;
+      }
+
+      console.log('[ROOM_AVATAR_UPLOAD] Database update successful');
 
       // Update local room state
       setRoom(prev => prev ? { ...prev, avatar_url: avatarUrl } : prev);
 
       toast("Room avatar updated successfully!");
     } catch (error) {
-      console.error('Error uploading room avatar:', error);
-      toast("Failed to upload room avatar.");
+      console.error('[ROOM_AVATAR_UPLOAD] Error:', error);
+      toast(`Failed to upload room avatar: ${error.message}`);
     } finally {
       setRoomAvatarUploading(false);
       // Reset input
@@ -5706,7 +5737,15 @@ useEffect(() => {
             title="Open owner card"
           >
             {room?.avatar_url ? (
-              <img src={room.avatar_url} alt={room.title} className="w-full h-full object-cover" />
+              <img 
+                src={room.avatar_url} 
+                alt={room.title} 
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  e.currentTarget.parentElement.innerHTML = '<svg class="w-4 h-4 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>';
+                }}
+              />
             ) : (
               <Mic className="w-4 h-4 text-slate-700" />
             )}
