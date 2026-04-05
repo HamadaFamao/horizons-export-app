@@ -4433,7 +4433,7 @@ useEffect(() => {
     pkFinishTriggeredRef.current = false;
   }, 500); // 500ms كافية إن الـ timer يبدأ
   return () => clearTimeout(t);
-  
+
 }, [pkSession?.id]);
  useEffect(() => {
   if (!pkSession?.id) return;
@@ -4452,18 +4452,14 @@ useEffect(() => {
   if (pkSession.status !== "live") return;
   if (pkFinishTriggeredRef.current) return;
 
-  // ✅ تأكد إن الوقت خلص فعلاً من خلال ends_at مباشرةً
-  // مش بس pkRemainingMs لأنه بيبدأ بـ 0 قبل ما الـ timer يشتغل
+  // تأكد إن الوقت خلص فعلاً من خلال ends_at مباشرةً
   if (pkSession?.ends_at) {
     const endsMs = new Date(pkSession.ends_at).getTime();
     const now = Date.now() + (serverOffsetMsRef.current || 0);
     if (endsMs > now) return; // الجولة لسه شغالة
   } else {
-    // مفيش ends_at خالص — مستنياش
     if (pkRemainingMs > 0) return;
   }
-
-  pkFinishTriggeredRef.current = true;
 
   const finishPk = async () => {
     let winnerSide = "draw";
@@ -4521,7 +4517,6 @@ useEffect(() => {
 
       if (error) throw error;
 
-
       if (channelRef.current) {
         await channelRef.current.send({
           type: "broadcast",
@@ -4552,6 +4547,23 @@ useEffect(() => {
       console.error("[PK_FINISH_ERROR]", err);
     }
   };
+
+  // ✅ بعد تعريف finishPk
+  pkFinishTriggeredRef.current = true;
+  finishPk();
+
+}, [
+  pkSession?.id,
+  pkSession?.status,
+  pkSession?.ends_at,
+  pkRemainingMs,
+  pkScores,
+  pkParticipants,
+  pkDisplaySides,
+  pkSideA,
+  pkSideB,
+  roomId,
+]);
 
   finishPk();
 }, [
