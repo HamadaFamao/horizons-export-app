@@ -636,7 +636,7 @@ useEffect(() => {
   const [pkDisplaySides, setPkDisplaySides] = useState({ A: [], B: [] });
   const [pkLoading, setPkLoading] = useState(false);
   const [pkBusy, setPkBusy] = useState(false);
-  const [pkNow, setPkNow] = useState(Date.now());
+  const [pkRemainingMs, setPkRemainingMs] = useState(0);
   const [showPkModal, setShowPkModal] = useState(false);
   const [pkSeatA, setPkSeatA] = useState("");
   const [pkSeatB, setPkSeatB] = useState("");
@@ -843,17 +843,12 @@ useEffect(() => {
     scoreB: pkScores?.B || 0
   });
 
-  const pkRemainingMs = useMemo(() => {
-    if (!pkSession?.ends_at || pkSession?.status !== "live") return 0;
-    return Math.max(0, new Date(pkSession.ends_at).getTime() - pkNow);
-  }, [pkSession?.ends_at, pkSession?.status, pkNow]);
-
   const pkRemainingLabel = useMemo(() => {
-    const totalSec = Math.floor(pkRemainingMs / 1000);
-    const mm = String(Math.floor(totalSec / 60)).padStart(2, "0");
-    const ss = String(totalSec % 60).padStart(2, "0");
-    return `${mm}:${ss}`;
-  }, [pkRemainingMs]);
+  const totalSec = Math.floor(pkRemainingMs / 1000);
+  const mm = String(Math.floor(totalSec / 60)).padStart(2, "0");
+  const ss = String(totalSec % 60).padStart(2, "0");
+  return `${mm}:${ss}`;
+}, [pkRemainingMs]);
 
   const pkUserSideMap = useMemo(() => {
     const map = new Map();
@@ -3833,11 +3828,36 @@ useEffect(() => {
 useEffect(() => {
   if (!pkSession?.id) return;
   if (pkSession?.status !== 'live') return;
+  if (!pkSession?.ends_at) return;
+
+  const updateRemaining = () => {
+    const now = Date.now() + serverOffsetMsRef.current;
+    const end = new Date(pkSession.ends_at).getTime();
+    setPkRemainingMs(Math.max(0, end - now));
+  };
+
+  updateRemaining();
+
+  if (pkTimerIntervalRef.current) {
+    clearInterval(pkTimerIntervalRef.current);
+  }
+
+  pkTimerIntervalRef.current = setInterval(updateRemaining, 100);
+
+  return () => {
+    clearInterval(pkTimerIntervalRef.current);
+    pkTimerIntervalRef.current = null;
+  };
+}, [pkSession?.id, pkSession?.status, pkSession?.ends_at]);
+
+useEffect(() => {
+  if (!pkSession?.id) return;
+  if (pkSession?.status !== 'live') return;
   if (!pkSession?.end_at) return;
 
   const updateRemaining = () => {
     const now = Date.now() + serverOffsetMsRef.current;
-    const end = new Date(pkSession.end_at).getTime();
+    const end = new Date(pkSession.ends_at).getTime();
     setPkRemainingMs(Math.max(0, end - now));
   };
 
