@@ -3549,16 +3549,31 @@ console.log("MODERATORS MAP:", nextMap);
 
       console.log('[ROOM_AVATAR_UPLOAD] Uploading to path:', path);
 
-      // Check if bucket exists
-      const { data: buckets } = await supabase.storage.listBuckets();
-      const bucketExists = buckets?.some(b => b.name === 'room_avatars');
-      console.log('[ROOM_AVATAR_UPLOAD] Bucket exists:', bucketExists, 'Buckets:', buckets?.map(b => b.name));
+      // Check if bucket exists by trying to list its contents
+      console.log('[ROOM_AVATAR_UPLOAD] Checking bucket by listing contents...');
+      const { data: files, error: listContentsError } = await supabase.storage
+        .from('room_avatars')
+        .list('', { limit: 1 });
 
-      if (!bucketExists) {
-        throw new Error('Storage bucket "room_avatars" does not exist');
+      if (listContentsError) {
+        console.error('[ROOM_AVATAR_UPLOAD] List contents error:', listContentsError);
+        // If we can't list contents, bucket might not exist or no permissions
+        console.log('[ROOM_AVATAR_UPLOAD] Bucket may not exist or no list permissions, trying upload anyway...');
+      } else {
+        console.log('[ROOM_AVATAR_UPLOAD] Bucket exists (can list contents), files found:', files?.length || 0);
       }
 
-      // Upload to storage
+      // Also try the old method
+      const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+      if (listError) {
+        console.error('[ROOM_AVATAR_UPLOAD] List buckets error:', listError);
+      } else {
+        const bucketExists = buckets?.some(b => b.name === 'room_avatars');
+        console.log('[ROOM_AVATAR_UPLOAD] Bucket in list:', bucketExists, 'All buckets:', buckets?.map(b => b.name));
+      }
+
+      // Try to upload to storage
+      console.log('[ROOM_AVATAR_UPLOAD] Attempting upload...');
       const { error: uploadError } = await supabase.storage
         .from('room_avatars')
         .upload(path, file, {
@@ -3569,7 +3584,13 @@ console.log("MODERATORS MAP:", nextMap);
 
       if (uploadError) {
         console.error('[ROOM_AVATAR_UPLOAD] Upload error:', uploadError);
-        throw uploadError;
+
+        // If bucket doesn't exist, provide helpful error message
+        if (uploadError.message?.includes('not found') || uploadError.message?.includes('does not exist')) {
+          throw new Error('Storage bucket "room_avatars" does not exist. Please create it in your Supabase dashboard: Storage > Create bucket > Name: "room_avatars" > Make it public > Allow PNG/GIF files. See SUPABASE_BUCKETS.md for detailed instructions.');
+        }
+
+        throw new Error(`Upload failed: ${uploadError.message}`);
       }
 
       console.log('[ROOM_AVATAR_UPLOAD] Upload successful');

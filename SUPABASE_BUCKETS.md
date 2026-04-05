@@ -47,10 +47,48 @@ The buckets will inherit default policies. For production, you may want to add c
 ## Troubleshooting
 
 If you still get upload errors after creating the buckets:
-- Make sure the buckets are set to "Public"
-- Check that the MIME types are configured correctly
-- Verify your Supabase service key has storage permissions
-- Check browser console for detailed error messages
+
+### Error: "Storage bucket 'room_avatars' does not exist"
+- **Cause**: Bucket not created or wrong name
+- **Solution**: Double-check bucket name is exactly `room_avatars` (case-sensitive)
+
+### Error: "new row violates row-level security policy"
+- **Cause**: Attempting to create bucket programmatically (not allowed)
+- **Solution**: Must create buckets manually in dashboard
+
+### Error: "Permission denied" or "Access denied"
+- **Cause**: Bucket not set to public or missing policies
+- **Solution**: Ensure bucket is public and has proper CORS settings
+
+### Error: "File type not allowed"
+- **Cause**: Wrong MIME types configured
+- **Solution**: Check allowed MIME types match uploaded file types
+
+### Verification Steps
+
+1. **Check bucket exists**:
+   - Go to Supabase Dashboard → Storage
+   - Look for `room_avatars` and `profile-photos` in the list
+
+2. **Check bucket settings**:
+   - Click on bucket name
+   - Go to "Configuration" tab
+   - Verify "Public bucket" is checked
+   - Verify MIME types are correct
+
+3. **Test upload**:
+   - Try uploading a small PNG file
+   - Check browser console for detailed error messages
+
+### Browser Console Logs
+
+When uploading, check console for logs like:
+```
+[ROOM_AVATAR_UPLOAD] Bucket in list: true/false
+[ROOM_AVATAR_UPLOAD] Upload successful
+```
+
+If bucket shows as "false" in list but upload works, the list permissions might be restricted but upload permissions are fine.
 
 ## Error Messages
 
