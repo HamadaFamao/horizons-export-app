@@ -325,7 +325,6 @@ export default function LiveRoomPage() {
   const pkFinishTriggeredRef = useRef(false);
   const roomGiftMessagesRef = useRef([]);
   const serverOffsetMsRef = useRef(0);
-  const endsAt = new Date(Date.now() + serverOffsetMsRef.current + pkDuration * 60000).toISOString();
   const pkTimerIntervalRef = useRef(null);
 
 
@@ -3709,7 +3708,7 @@ console.log("MODERATORS MAP:", nextMap);
     setPkBusy(true);
 
     try {
-      const endsAt = new Date(Date.now() + pkDuration * 60000).toISOString();
+     const endsAt = new Date(Date.now() + serverOffsetMsRef.current + pkDuration * 60000).toISOString();
       const dbMode = pkMode === "1v1" ? "1v1" : "team";
 
       const { data: session, error: sessionError } = await supabase
