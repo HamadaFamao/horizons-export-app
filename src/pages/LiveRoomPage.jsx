@@ -3825,6 +3825,15 @@ console.log("MODERATORS MAP:", nextMap);
     return null;
   };
 
+const syncServerClock = async () => {
+  try {
+    const { data } = await supabase.rpc('get_server_time_ms');
+    serverOffsetMsRef.current = Number(data) - Date.now();
+  } catch (err) {
+    console.error('syncServerClock error:', err);
+    serverOffsetMsRef.current = 0;
+  }
+};
 useEffect(() => {
   syncServerClock();
 }, []);
