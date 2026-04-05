@@ -4506,8 +4506,6 @@ useEffect(() => {
 
       if (error) throw error;
 
-      setPkResultData(finalResult);
-      setPkResultOpen(true);
 
       if (channelRef.current) {
         await channelRef.current.send({
