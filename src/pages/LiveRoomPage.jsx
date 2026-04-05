@@ -220,6 +220,12 @@ const SPARKLE_CSS = `
 }
 `;
 
+function getExt(file) {
+  const name = file?.name || "";
+  const parts = name.split(".");
+  return parts.length > 1 ? parts.pop().toLowerCase() : "jpg";
+}
+
 const ENABLE_GIFT_MESSAGE_TEXT = true;
 
 const buildPkDisplaySidesFromSeats = (seatA, seatB, seats) => {
@@ -293,6 +299,7 @@ export default function LiveRoomPage() {
   const selectedPkAudioRef = useRef(null);
   const selectedPkSessionIdRef = useRef(null);
   const audioUnlockedRef = useRef(false);
+  const roomAvatarInputRef = useRef(null);
 
   const miniRoomActiveRef = useRef(false);
   const livekitRoomRef = useRef(null);
@@ -501,6 +508,7 @@ useEffect(() => {
   const [showSettings, setShowSettings] = useState(false);
   const [settingsTab, setSettingsTab] = useState("general");
   const [settingsBusy, setSettingsBusy] = useState(false);
+  const [roomAvatarUploading, setRoomAvatarUploading] = useState(false);
   const [bannedList, setBannedList] = useState([]);
   const [loadingBans, setLoadingBans] = useState(false);
   const [seatMenuOpen, setSeatMenuOpen] = useState(false);
@@ -3498,6 +3506,78 @@ console.log("MODERATORS MAP:", nextMap);
   const closeSettings = () => {
     setShowSettings(false);
     setSettingsBusy(false);
+    setRoomAvatarUploading(false);
+  };
+
+  const handleRoomAvatarUpload = async (e) => {
+    if (!isOwner) {
+      toast("Only room owners can change the room avatar.");
+      return;
+    }
+
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['image/png', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      toast("Please select a PNG or GIF image file.");
+      return;
+    }
+
+    // Validate file size (e.g., max 5MB)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      toast("File size must be less than 5MB.");
+      return;
+    }
+
+    setRoomAvatarUploading(true);
+
+    try {
+      const ext = getExt(file);
+      const path = `${roomId}/avatar.${ext}`;
+
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from('room_avatars')
+        .upload(path, file, {
+          cacheControl: '3600',
+          upsert: true,
+          contentType: file.type,
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: publicUrlData } = supabase.storage
+        .from('room_avatars')
+        .getPublicUrl(path);
+
+      const avatarUrl = publicUrlData.publicUrl;
+
+      // Update room avatar_url
+      const { error: updateError } = await supabase
+        .from('live_rooms')
+        .update({ avatar_url: avatarUrl })
+        .eq('id', roomId);
+
+      if (updateError) throw updateError;
+
+      // Update local room state
+      setRoom(prev => prev ? { ...prev, avatar_url: avatarUrl } : prev);
+
+      toast("Room avatar updated successfully!");
+    } catch (error) {
+      console.error('Error uploading room avatar:', error);
+      toast("Failed to upload room avatar.");
+    } finally {
+      setRoomAvatarUploading(false);
+      // Reset input
+      if (roomAvatarInputRef.current) {
+        roomAvatarInputRef.current.value = '';
+      }
+    }
   };
 
   const openBansTab = async () => {
@@ -6689,26 +6769,70 @@ useEffect(() => {
               <div className="p-4">
                 {settingsTab === "general" ? (
                   <>
-                    <div className="text-sm font-semibold text-slate-900">Images upload</div>
-                    <div className="text-xs text-slate-500 mt-1">زي ما طلبت: مفيش URL هنا. هنربطها برفع مباشر قريبًا.</div>
+                    <div className="text-sm font-semibold text-slate-900">Room Avatar</div>
+                    <div className="text-xs text-slate-500 mt-1">Upload a PNG or GIF image for your room's main picture.</div>
 
-                    <div className="mt-4 grid grid-cols-2 gap-2">
-                      <Button variant="outline" className="gap-2" disabled>
-                        <ImageIcon className="w-4 h-4" />
-                        Upload Avatar (soon)
-                      </Button>
-                      <Button variant="outline" className="gap-2" disabled>
-                        <ImageIcon className="w-4 h-4" />
-                        Upload Background (soon)
-                      </Button>
+                    {/* Current Avatar Display */}
+                    <div className="mt-3 flex items-center gap-3">
+                      <div className="w-16 h-16 rounded-xl border-2 border-slate-200 overflow-hidden bg-slate-50">
+                        {room?.avatar_url ? (
+                          <img
+                            src={room.avatar_url}
+                            alt="Room avatar"
+                            className="w-full h-full object-cover"
+                            onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-slate-400">
+                            <ImageIcon className="w-6 h-6" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-sm text-slate-700">Current room avatar</div>
+                        <div className="text-xs text-slate-500 mt-1">
+                          {room?.avatar_url ? "Click upload to change" : "No avatar set"}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Upload Button */}
+                    <div className="mt-4">
+                      <label className={`flex items-center justify-center w-full p-3 border-2 border-dashed rounded-xl transition cursor-pointer group ${
+                        !isOwner ? 'border-slate-200 bg-slate-50 cursor-not-allowed' : 'border-slate-300 hover:border-blue-500 hover:bg-blue-50'
+                      }`}>
+                        <input
+                          ref={roomAvatarInputRef}
+                          type="file"
+                          accept="image/png,image/gif"
+                          onChange={handleRoomAvatarUpload}
+                          disabled={roomAvatarUploading || !isOwner}
+                          className="hidden"
+                        />
+                        {roomAvatarUploading ? (
+                          <Loader2 className="w-5 h-5 text-blue-500 animate-spin mr-2" />
+                        ) : (
+                          <ImageIcon className={`w-5 h-5 mr-2 transition ${
+                            !isOwner ? 'text-slate-300' : 'text-slate-400 group-hover:text-blue-500'
+                          }`} />
+                        )}
+                        <span className={`text-sm font-medium transition ${
+                          !isOwner ? 'text-slate-400' : 'text-slate-600 group-hover:text-blue-600'
+                        }`}>
+                          {roomAvatarUploading ? 'Uploading...' : !isOwner ? 'Only owners can upload' : 'Upload PNG or GIF'}
+                        </span>
+                      </label>
+                      <div className="text-xs text-slate-500 mt-2">
+                        Max file size: 5MB. Supported formats: PNG, GIF.
+                      </div>
                     </div>
 
                     <div className="mt-4 border-t pt-3">
                       <div className="text-sm font-semibold text-slate-900">Coming next</div>
                       <ul className="mt-2 text-sm text-slate-600 list-disc pl-5 space-y-1">
-                        <li>رفع مباشر للصور (Storage + policies)</li>
-                        <li>إعدادات إضافية للغرفة</li>
-                        <li>إدارة المشرفين</li>
+                        <li>Room background image</li>
+                        <li>Additional room settings</li>
+                        <li>Moderator management</li>
                       </ul>
                     </div>
                   </>
