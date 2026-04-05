@@ -80,6 +80,26 @@ export default function CreateRoomModal({ open, onClose, onCreated }) {
     const ext = getExt(file);
     const path = `${roomId}/avatar.${ext}`;
 
+    // Check if bucket exists and create if not
+    const { data: buckets } = await supabase.storage.listBuckets();
+    const bucketExists = buckets?.some(b => b.name === ROOM_AVATAR_BUCKET);
+
+    if (!bucketExists) {
+      console.log(`[CreateRoomModal] Creating bucket "${ROOM_AVATAR_BUCKET}"...`);
+      const { error: createError } = await supabase.storage.createBucket(ROOM_AVATAR_BUCKET, {
+        public: true,
+        allowedMimeTypes: ['image/png', 'image/gif', 'image/jpeg', 'image/webp'],
+        fileSizeLimit: 5242880, // 5MB
+      });
+
+      if (createError) {
+        console.error('[CreateRoomModal] Create bucket error:', createError);
+        throw new Error(`Failed to create storage bucket: ${createError.message}`);
+      }
+
+      console.log(`[CreateRoomModal] Bucket "${ROOM_AVATAR_BUCKET}" created successfully`);
+    }
+
     const { error: upErr } = await supabase.storage
       .from(ROOM_AVATAR_BUCKET)
       .upload(path, file, { upsert: true, contentType: file.type });

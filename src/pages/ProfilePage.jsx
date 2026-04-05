@@ -259,6 +259,26 @@ export default function ProfilePage() {
 
       const uploadedPhotosData = [];
 
+      // Check if bucket exists and create if not
+      const { data: buckets } = await supabase.storage.listBuckets();
+      const bucketExists = buckets?.some(b => b.name === 'profile-photos');
+
+      if (!bucketExists) {
+        console.log('[ProfilePage] Creating bucket "profile-photos"...');
+        const { error: createError } = await supabase.storage.createBucket('profile-photos', {
+          public: true,
+          allowedMimeTypes: ['image/png', 'image/gif', 'image/jpeg', 'image/webp'],
+          fileSizeLimit: 5242880, // 5MB
+        });
+
+        if (createError) {
+          console.error('[ProfilePage] Create bucket error:', createError);
+          throw new Error(`Failed to create storage bucket: ${createError.message}`);
+        }
+
+        console.log('[ProfilePage] Bucket "profile-photos" created successfully');
+      }
+
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         const fileExt = file.name.split('.').pop();

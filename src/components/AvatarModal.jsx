@@ -23,6 +23,26 @@ export default function AvatarModal({ userId, currentAvatar, galleryPhotos = [],
       const cleanFileName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
       const filename = `${userId}/avatar-${timestamp}-${cleanFileName}`;
 
+      // Check if bucket exists and create if not
+      const { data: buckets } = await supabase.storage.listBuckets();
+      const bucketExists = buckets?.some(b => b.name === 'profile-photos');
+
+      if (!bucketExists) {
+        console.log('[AvatarModal] Creating bucket "profile-photos"...');
+        const { error: createError } = await supabase.storage.createBucket('profile-photos', {
+          public: true,
+          allowedMimeTypes: ['image/png', 'image/gif', 'image/jpeg', 'image/webp'],
+          fileSizeLimit: 5242880, // 5MB
+        });
+
+        if (createError) {
+          console.error('[AvatarModal] Create bucket error:', createError);
+          throw new Error(`Failed to create storage bucket: ${createError.message}`);
+        }
+
+        console.log('[AvatarModal] Bucket "profile-photos" created successfully');
+      }
+
       // Upload to storage
       const { error: uploadError } = await supabase.storage
         .from('profile-photos')
