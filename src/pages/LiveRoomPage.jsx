@@ -4517,7 +4517,6 @@ useEffect(() => {
 
       if (error) throw error;
 
-
       if (channelRef.current) {
         await channelRef.current.send({
           type: "broadcast",
@@ -4549,10 +4548,14 @@ useEffect(() => {
     }
   };
 
+  // ✅ بعد تعريف finishPk
+  pkFinishTriggeredRef.current = true;
   finishPk();
+
 }, [
   pkSession?.id,
   pkSession?.status,
+  pkSession?.ends_at,
   pkRemainingMs,
   pkScores,
   pkParticipants,
