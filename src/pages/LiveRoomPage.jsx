@@ -3755,14 +3755,6 @@ console.log("MODERATORS MAP:", nextMap);
         .insert(participantsToInsert);
 
       if (participantsError) throw participantsError;
-      const syncServerClock = async () => {
-  try {
-    const { data } = await supabase.rpc('get_server_time_ms');
-    serverOffsetMsRef.current = Number(data) - Date.now();
-  } catch {
-    serverOffsetMsRef.current = 0;
-  }
-};
 
       const nextDisplaySides = {
         A: selectedA.map((s) => ({
