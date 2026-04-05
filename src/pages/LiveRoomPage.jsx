@@ -4517,6 +4517,7 @@ useEffect(() => {
 
       if (error) throw error;
 
+
       if (channelRef.current) {
         await channelRef.current.send({
           type: "broadcast",
@@ -4547,23 +4548,6 @@ useEffect(() => {
       console.error("[PK_FINISH_ERROR]", err);
     }
   };
-
-  // ✅ بعد تعريف finishPk
-  pkFinishTriggeredRef.current = true;
-  finishPk();
-
-}, [
-  pkSession?.id,
-  pkSession?.status,
-  pkSession?.ends_at,
-  pkRemainingMs,
-  pkScores,
-  pkParticipants,
-  pkDisplaySides,
-  pkSideA,
-  pkSideB,
-  roomId,
-]);
 
   finishPk();
 }, [
