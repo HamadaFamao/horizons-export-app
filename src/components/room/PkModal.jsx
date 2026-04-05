@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Loader2, Swords } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 function getDisplayName(userLike) {
   return userLike?.display_name || userLike?.name || userLike?.username || "User";
 }
-
 function getSecondaryLabel(userLike, seatNo) {
   return userLike?.profile_id || userLike?.vip_id || userLike?.public_id || `Seat ${seatNo}`;
 }
@@ -23,38 +22,42 @@ export default function PkModal({
   togglePkSeat, getRequiredPkTeamSize,
   fallbackAvatar, onCreatePk,
 }) {
-  // ✅ state لحساب الارتفاع المتاح فعلياً
-  const [availableHeight, setAvailableHeight] = useState(window.innerHeight);
-  const inputRef = useRef(null);
+  // ✅ نتتبع الـ visualViewport بدقة
+  const [vpHeight, setVpHeight] = useState(() =>
+    window.visualViewport ? window.visualViewport.height : window.innerHeight
+  );
+  const [vpTop, setVpTop] = useState(() =>
+    window.visualViewport ? window.visualViewport.offsetTop : 0
+  );
 
   useEffect(() => {
     if (!open) return;
 
-    const updateHeight = () => {
-      // visualViewport هو الحل الصح على Chrome Android
-      if (window.visualViewport) {
-        setAvailableHeight(window.visualViewport.height);
+    const update = () => {
+      const vv = window.visualViewport;
+      if (vv) {
+        setVpHeight(vv.height);
+        setVpTop(vv.offsetTop);
       } else {
-        setAvailableHeight(window.innerHeight);
+        setVpHeight(window.innerHeight);
+        setVpTop(0);
       }
     };
 
-    updateHeight();
-
+    update();
     const vv = window.visualViewport;
     if (vv) {
-      vv.addEventListener("resize", updateHeight);
-      vv.addEventListener("scroll", updateHeight);
+      vv.addEventListener("resize", update);
+      vv.addEventListener("scroll", update);
     } else {
-      window.addEventListener("resize", updateHeight);
+      window.addEventListener("resize", update);
     }
-
     return () => {
       if (vv) {
-        vv.removeEventListener("resize", updateHeight);
-        vv.removeEventListener("scroll", updateHeight);
+        vv.removeEventListener("resize", update);
+        vv.removeEventListener("scroll", update);
       } else {
-        window.removeEventListener("resize", updateHeight);
+        window.removeEventListener("resize", update);
       }
     };
   }, [open]);
@@ -65,8 +68,7 @@ export default function PkModal({
     typeof getRequiredPkTeamSize === "function" ? getRequiredPkTeamSize(pkMode) : 1;
 
   const handleModeChange = (e) => {
-    const value = e.target.value;
-    setPkMode?.(value);
+    setPkMode?.(e.target.value);
     setPkSeatsA?.([]);
     setPkSeatsB?.([]);
     setPkSeatA?.("");
@@ -74,8 +76,8 @@ export default function PkModal({
   };
 
   const handleDurationChange = (e) => {
-    const value = Number(e.target.value);
-    setPkDuration?.(Number.isFinite(value) ? value : 1);
+    const v = Number(e.target.value);
+    setPkDuration?.(Number.isFinite(v) ? v : 1);
   };
 
   const renderSeatButton = (side, seat) => {
@@ -84,9 +86,6 @@ export default function PkModal({
     const selected = isA ? pkSeatsA.includes(seatId) : pkSeatsB.includes(seatId);
     const blocked = isA ? pkSeatsB.includes(seatId) : pkSeatsA.includes(seatId);
     const occupant = seat.occupant || {};
-    const name = getDisplayName(occupant);
-    const subtitle = getSecondaryLabel(occupant, seat.seat_no);
-
     return (
       <button
         key={`${side}-${seat.seat_no}`}
@@ -103,70 +102,98 @@ export default function PkModal({
       >
         <img
           src={occupant?.avatar_url || occupant?.avatar || fallbackAvatar}
-          alt={name}
+          alt={getDisplayName(occupant)}
           className="w-9 h-9 rounded-full object-cover bg-slate-100 shrink-0"
           onError={(e) => { e.currentTarget.src = fallbackAvatar; }}
         />
         <div className="min-w-0 flex-1">
-          <div className="font-medium truncate text-slate-900 text-sm">{name}</div>
-          <div className="text-xs text-slate-500 truncate">{subtitle}</div>
+          <div className="font-medium truncate text-slate-900 text-sm">{getDisplayName(occupant)}</div>
+          <div className="text-xs text-slate-500 truncate">{getSecondaryLabel(occupant, seat.seat_no)}</div>
         </div>
         {selected && (
-          <div className={`ml-auto text-[11px] font-bold shrink-0 ${isA ? "text-fuchsia-600" : "text-sky-600"}`}>
+          <span className={`ml-auto text-[11px] font-bold shrink-0 ${isA ? "text-fuchsia-600" : "text-sky-600"}`}>
             Selected
-          </div>
+          </span>
         )}
       </button>
     );
   };
 
-  // ✅ الكارت ارتفاعه = availableHeight × 90% كحد أقصى
-  const modalMaxHeight = Math.floor(availableHeight * 0.90);
+  // ✅ الـ modal يتموضع بالضبط فوق الكيبورد
+  // vpTop = المسافة من أعلى الصفحة للـ visualViewport (بيتغير لما الكيبورد يظهر)
+  const modalMaxHeight = vpHeight * 0.88;
 
   return (
-    <div className="fixed inset-0 z-[85]">
+    // ✅ fixed على الـ screen مش الـ page، وبيتحرك مع الـ visualViewport
+    <div
+      style={{
+        position: "fixed",
+        top: vpTop,
+        left: 0,
+        right: 0,
+        height: vpHeight,
+        zIndex: 85,
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "flex-end",
+        alignItems: "center",
+      }}
+    >
+      {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-[1px]"
+        style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)" }}
         onClick={onClose}
-        aria-hidden="true"
       />
 
-      {/* ✅ Container يستخدم visualViewport height مش vh */}
+      {/* الكارت */}
       <div
-        className="absolute inset-x-0 bottom-0 flex justify-center"
-        style={{ bottom: 0 }}
+        style={{
+          position: "relative",
+          width: "100%",
+          maxWidth: 448,
+          maxHeight: modalMaxHeight,
+          display: "flex",
+          flexDirection: "column",
+          background: "white",
+          borderRadius: "16px 16px 0 0",
+          boxShadow: "0 -4px 24px rgba(0,0,0,0.15)",
+          overflow: "hidden",
+        }}
+        onClick={(e) => e.stopPropagation()}
       >
-        <div
-          className="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-xl border flex flex-col"
-          style={{ maxHeight: `${modalMaxHeight}px` }}
-          onClick={(e) => e.stopPropagation()}
-        >
-
-          {/* Header ثابت */}
-          <div className="px-4 py-3 border-b flex items-center justify-between shrink-0">
-            <div className="font-semibold text-base text-slate-900 flex items-center gap-2">
-              <Swords className="w-5 h-5 text-purple-600" />
-              Start PK
-            </div>
-            <button
-              type="button"
-              className="text-sm text-slate-500 hover:text-slate-900 px-2 py-1"
-              onClick={onClose}
-            >
-              Close
-            </button>
+        {/* ── Header ثابت ── */}
+        <div style={{
+          flexShrink: 0,
+          padding: "12px 16px",
+          borderBottom: "1px solid #e2e8f0",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 600, fontSize: 16 }}>
+            <Swords style={{ width: 20, height: 20, color: "#7c3aed" }} />
+            Start PK
           </div>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{ fontSize: 14, color: "#64748b", padding: "4px 8px" }}
+          >
+            Close
+          </button>
+        </div>
 
-          {/* Content قابل للـ scroll */}
-          <div className="p-4 space-y-3 overflow-y-auto flex-1 min-h-0">
+        {/* ── Content قابل للـ scroll ── */}
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "12px 16px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 
             {/* PK Mode */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: "#374151", marginBottom: 4 }}>
                 PK Mode
               </label>
               <select
-                className="w-full border rounded-lg px-3 py-2 text-sm bg-white"
+                style={{ width: "100%", border: "1px solid #d1d5db", borderRadius: 8, padding: "8px 12px", fontSize: 14, background: "white" }}
                 value={pkMode}
                 onChange={handleModeChange}
               >
@@ -178,84 +205,84 @@ export default function PkModal({
 
             {/* Side A */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+              <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: "#374151", marginBottom: 6 }}>
                 Side A Seats
               </label>
-              <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 120, overflowY: "auto" }}>
                 {occupiedPkEligibleSeats.length > 0
-                  ? occupiedPkEligibleSeats.map((seat) => renderSeatButton("A", seat))
-                  : <div className="text-sm text-slate-500 italic">No available seats</div>
+                  ? occupiedPkEligibleSeats.map((s) => renderSeatButton("A", s))
+                  : <div style={{ fontSize: 13, color: "#94a3b8", fontStyle: "italic" }}>No available seats</div>
                 }
               </div>
-              <div className="mt-1.5 text-xs text-fuchsia-600 font-medium">
+              <div style={{ marginTop: 6, fontSize: 12, color: "#c026d3", fontWeight: 500 }}>
                 Selected: {pkSeatsA.length} / {requiredCount}
               </div>
             </div>
 
             {/* Side B */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+              <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: "#374151", marginBottom: 6 }}>
                 Side B Seats
               </label>
-              <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 120, overflowY: "auto" }}>
                 {occupiedPkEligibleSeats.length > 0
-                  ? occupiedPkEligibleSeats.map((seat) => renderSeatButton("B", seat))
-                  : <div className="text-sm text-slate-500 italic">No available seats</div>
+                  ? occupiedPkEligibleSeats.map((s) => renderSeatButton("B", s))
+                  : <div style={{ fontSize: 13, color: "#94a3b8", fontStyle: "italic" }}>No available seats</div>
                 }
               </div>
-              <div className="mt-1.5 text-xs text-sky-600 font-medium">
+              <div style={{ marginTop: 6, fontSize: 12, color: "#0284c7", fontWeight: 500 }}>
                 Selected: {pkSeatsB.length} / {requiredCount}
               </div>
             </div>
 
             {/* Duration */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: "#374151", marginBottom: 4 }}>
                 Duration (minutes)
               </label>
               <Input
-                ref={inputRef}
                 type="number"
                 min={1}
                 max={60}
                 value={pkDuration}
                 onChange={handleDurationChange}
-                // ✅ لما اليوزر يضغط على الـ input، نتأكد إن الـ modal اتضبط
-                onFocus={() => {
-                  setTimeout(() => {
-                    if (window.visualViewport) {
-                      setAvailableHeight(window.visualViewport.height);
-                    }
-                  }, 300);
-                }}
+                // ✅ منع scroll الصفحة لما اليوزر يكتب
+                onFocus={(e) => e.target.select()}
               />
             </div>
 
           </div>
-
-          {/* Footer ثابت — دايماً ظاهر */}
-          <div className="px-4 py-3 border-t flex gap-2 shrink-0 bg-white">
-            <Button
-              type="button"
-              variant="outline"
-              className="flex-1"
-              onClick={onClose}
-              disabled={pkBusy}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              className="flex-1 bg-purple-500 hover:bg-purple-600 text-white"
-              onClick={onCreatePk}
-              disabled={pkBusy}
-            >
-              {pkBusy ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
-              Start
-            </Button>
-          </div>
-
         </div>
+
+        {/* ── Footer ثابت دايماً ── */}
+        <div style={{
+          flexShrink: 0,
+          padding: "12px 16px",
+          borderTop: "1px solid #e2e8f0",
+          display: "flex",
+          gap: 8,
+          background: "white",
+        }}>
+          <Button
+            type="button"
+            variant="outline"
+            style={{ flex: 1 }}
+            onClick={onClose}
+            disabled={pkBusy}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            style={{ flex: 1, background: "#7c3aed", color: "white" }}
+            onClick={onCreatePk}
+            disabled={pkBusy}
+          >
+            {pkBusy ? <Loader2 style={{ width: 16, height: 16, marginRight: 4 }} className="animate-spin" /> : null}
+            Start
+          </Button>
+        </div>
+
       </div>
     </div>
   );
