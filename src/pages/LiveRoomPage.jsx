@@ -5510,8 +5510,15 @@ useEffect(() => {
   });
 
   return (
-    <div className="h-[100svh] max-h-[100svh] overflow-hidden overscroll-none bg-gray-50 flex flex-col w-full max-w-6xl mx-auto">
+    <div className="h-[100svh] max-h-[100svh] overflow-hidden overscroll-none bg-gray-50 flex flex-col w-full max-w-6xl mx-auto"
+         style={{
+           backgroundImage: room?.background_url ? `url(${room.background_url})` : undefined,
+           backgroundSize: 'cover',
+           backgroundPosition: 'center',
+           backgroundRepeat: 'no-repeat'
+         }}>
       <style>{SPARKLE_CSS}</style>
+      {room?.background_url ? <div className="fixed inset-0 bg-black/40 pointer-events-none z-0" /> : null}
       {roomGiftEffects.length > 0 ? (
         <div className="fixed inset-0 z-[65] pointer-events-none flex flex-col items-center justify-start pt-24 gap-4">
           {roomGiftEffects.map((effect) => {
@@ -5830,6 +5837,7 @@ useEffect(() => {
         </div>
       ) : null}
 
+      <div className="relative z-10">
       {joinNotifs.length > 0 ? (
         <div className="fixed top-3 left-0 right-0 z-[60] flex justify-center pointer-events-none">
           <div className="w-full max-w-md px-3 space-y-2">
@@ -5890,15 +5898,8 @@ useEffect(() => {
       </div>
 
       <div
-        className="relative flex-1 min-h-0 flex flex-col overflow-hidden bg-white sm:border sm:rounded-xl sm:mx-4 sm:mb-4"
-        style={{
-          backgroundImage: room?.background_url ? `url(${room.background_url})` : undefined,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat'
-        }}
+        className="relative flex-1 min-h-0 flex flex-col overflow-hidden bg-transparent sm:border sm:rounded-xl sm:mx-4 sm:mb-4"
       >
-        {room?.background_url ? <div className="absolute inset-0 bg-black/40 pointer-events-none" /> : null}
         <div className="relative shrink-0 p-2 sm:p-2.5 border-b flex items-center gap-1 overflow-x-auto whitespace-nowrap hide-scrollbar">
           <button
             onClick={() => openUserCard(room.owner_user_id)}
@@ -6050,7 +6051,7 @@ useEffect(() => {
               }
             `}</style>
 
-            <div className="relative grid grid-cols-[1fr_auto_1fr] items-start gap-1.5 sm:gap-3 rounded-[24px] bg-white/85 shadow-inner px-2 py-4 sm:px-4 sm:py-6 overflow-hidden border border-white/80">
+            <div className="relative grid grid-cols-[1fr_auto_1fr] items-start gap-1.5 sm:gap-3 rounded-[24px] bg-white/20 shadow-inner px-2 py-4 sm:px-4 sm:py-6 overflow-hidden border border-white/80 backdrop-blur-sm">
               <div className="absolute top-0 left-0 w-[50%] h-full bg-gradient-to-r from-fuchsia-400/10 via-fuchsia-300/5 to-transparent pointer-events-none" />
               <div className="absolute top-0 right-0 w-[50%] h-full bg-gradient-to-l from-cyan-400/10 via-cyan-300/5 to-transparent pointer-events-none" />
 
@@ -6472,7 +6473,7 @@ useEffect(() => {
                                 src={avatar}
                                 alt={name}
                                 onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
-                                className={`w-9 h-9 sm:w-10 sm:h-10 object-cover bg-white relative z-10 rounded-full border transition-all duration-150 ${s.user_id ? "cursor-pointer" : ""
+                                className={`w-9 h-9 sm:w-10 sm:h-10 object-cover bg-white/30 relative z-10 rounded-full border transition-all duration-150 backdrop-blur-sm ${s.user_id ? "cursor-pointer" : ""
                                   } ${isSpeakingNow
                                     ? "ring-4 ring-emerald-400 scale-[1.06] shadow-[0_0_24px_rgba(52,211,153,0.65)]"
                                     : ""
@@ -6552,7 +6553,7 @@ useEffect(() => {
             </div>
           </div>
 
-          <div className="flex-1 min-h-0 flex flex-col overflow-hidden lg:w-2/3 bg-white">
+          <div className="flex-1 min-h-0 flex flex-col overflow-hidden lg:w-2/3 bg-black/30 backdrop-blur-sm">
             <div className="shrink-0 px-3 sm:px-4 pt-3 sm:pt-4 pb-2">
 
             </div>
@@ -6561,7 +6562,7 @@ useEffect(() => {
               <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
                 <div
                   ref={chatScrollRef}
-                  className="flex-1 min-h-0 overflow-y-auto overscroll-contain border rounded-xl p-3 bg-slate-50"
+                  className="flex-1 min-h-0 overflow-y-auto overscroll-contain border rounded-xl p-3 bg-white/10"
                 >
                   <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 mb-3 text-center">
                     <div className="text-sm font-semibold text-blue-900">Welcome to the room 🎤</div>
@@ -6743,15 +6744,15 @@ useEffect(() => {
                 </div>
               ) : null}
 
-              <div className="mt-2 sm:mt-3 shrink-0 border-t bg-white/95 backdrop-blur-sm px-3 sm:px-4 py-2.5">
+              <div className="mt-2 sm:mt-3 shrink-0 border-t bg-black/40 backdrop-blur-sm px-3 sm:px-4 py-2.5">
                 <div className="flex items-center gap-2">
                   {((effectiveSeats || []).some((s) => s.user_id && String(s.user_id) === String(user?.id))) ? (
                     <button
                       type="button"
                       onClick={toggleMicMute}
                       className={`shrink-0 h-10 w-10 rounded-xl border flex items-center justify-center transition-colors ${isMicMuted
-                        ? "bg-amber-50 border-amber-200 text-amber-600 hover:bg-amber-100"
-                        : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                        ? "bg-amber-50/50 border-amber-200/50 text-amber-600 hover:bg-amber-100/50 backdrop-blur-sm"
+                        : "bg-white/20 border-slate-200/50 text-slate-700 hover:bg-slate-50/50 backdrop-blur-sm"
                         }`}
                       title={isMicMuted ? "Unmute" : "Mute"}
                     >
@@ -6762,9 +6763,9 @@ useEffect(() => {
                       type="button"
                       onClick={requestMic}
                       disabled={!user?.id || !!myPendingRequest}
-                      className={`shrink-0 h-10 w-10 rounded-xl border flex items-center justify-center transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${myPendingRequest
-                        ? "bg-yellow-100 border-yellow-200 text-yellow-600"
-                        : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                      className={`shrink-0 h-10 w-10 rounded-xl border flex items-center justify-center transition-colors disabled:opacity-60 disabled:cursor-not-allowed backdrop-blur-sm ${myPendingRequest
+                        ? "bg-yellow-100/50 border-yellow-200/50 text-yellow-600"
+                        : "bg-white/20 border-slate-200/50 text-slate-700 hover:bg-slate-50/50"
                         }`}
                       title={myPendingRequest ? "Request Sent" : "Request Mic"}
                     >
@@ -6792,7 +6793,7 @@ useEffect(() => {
                   <button
                     onClick={openGiftPanelForAll}
                     disabled={!isJoinedToRoom}
-                    className="shrink-0 h-10 w-10 rounded-xl border bg-white hover:bg-rose-50 flex items-center justify-center text-rose-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="shrink-0 h-10 w-10 rounded-xl border bg-white/20 hover:bg-rose-50/50 backdrop-blur-sm flex items-center justify-center text-rose-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Send Gift"
                   >
                     <Gift className="w-5 h-5" />
@@ -7659,5 +7660,6 @@ useEffect(() => {
   removeModerator={removeModerator}
 />
       </div>
+    </div>
   );
 }
