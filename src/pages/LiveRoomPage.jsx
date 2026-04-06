@@ -5397,7 +5397,7 @@ useEffect(() => {
   if (loading) {
     return (
       <div className="h-[100svh] max-h-[100svh] overflow-hidden overscroll-none bg-gray-50 flex flex-col items-center justify-center p-6">
-        <div className="bg-white border rounded-xl p-10 flex items-center justify-center gap-3">
+        <div className="bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl p-10 flex items-center justify-center gap-3">
           <Loader2 className="w-5 h-5 animate-spin" />
           <span className="text-slate-600">Loading room…</span>
         </div>
@@ -5460,7 +5460,7 @@ useEffect(() => {
   if (miniRoomMode) {
     return (
       <div className="h-[100svh] max-h-[100svh] overflow-hidden overscroll-none bg-gray-50 flex flex-col w-full max-w-6xl mx-auto p-4">
-        <div className="bg-white border rounded-xl p-4 flex items-center justify-between shadow-sm">
+        <div className="bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl p-4 flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
               <Mic className="w-5 h-5 animate-pulse" />
@@ -6653,7 +6653,7 @@ useEffect(() => {
                           FALLBACK_AVATAR;
 
                         return (
-                          <div key={m.id} className="bg-white border rounded-xl p-2">
+                          <div key={m.id} className="bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl p-2">
                             <div className="flex items-start gap-2">
                               <button
                                 onClick={() => openUserCard(m.sender_user_id)}
