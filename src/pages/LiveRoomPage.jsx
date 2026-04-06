@@ -5512,7 +5512,7 @@ useEffect(() => {
   return (
     <div className="h-[100svh] max-h-[100svh] overflow-hidden overscroll-none bg-gray-50 flex flex-col w-full max-w-6xl mx-auto"
          style={{
-           backgroundImage: room?.background_url ? `url(${room.background_url})` : undefined,
+           backgroundImage: room?.background_url ? 'url(' + room.background_url + ')' : undefined,
            backgroundSize: 'cover',
            backgroundPosition: 'center',
            backgroundRepeat: 'no-repeat'
@@ -5837,7 +5837,7 @@ useEffect(() => {
         </div>
       ) : null}
 
-      <div className="relative z-10">
+      <div className="relative z-10 flex-1 flex flex-col overflow-hidden">
       {joinNotifs.length > 0 ? (
         <div className="fixed top-3 left-0 right-0 z-[60] flex justify-center pointer-events-none">
           <div className="w-full max-w-md px-3 space-y-2">
@@ -5898,7 +5898,7 @@ useEffect(() => {
       </div>
 
       <div
-        className="relative flex-1 min-h-0 flex flex-col overflow-hidden bg-transparent sm:border sm:rounded-xl sm:mx-4 sm:mb-4"
+        className="relative flex-1 min-h-0 flex flex-col overflow-hidden bg-transparent sm:border sm:rounded-xl sm:mx-4"
       >
         <div className="relative shrink-0 p-2 sm:p-2.5 border-b flex items-center gap-1 overflow-x-auto whitespace-nowrap hide-scrollbar">
           <button
@@ -6311,7 +6311,7 @@ useEffect(() => {
         ) : null}
 
         <div className="flex-1 min-h-0 overflow-hidden flex flex-col lg:flex-row">
-          <div className="shrink-0 bg-white border-b lg:border-b-0 lg:border-r flex flex-col lg:w-[312px] xl:w-[336px]">
+          <div className="shrink-0 bg-white border-b lg:border-b-0 lg:border-r flex flex-col lg:w-[312px] xl:w-[336px] bg-white/20 backdrop-blur-sm">
 
             <div className="min-h-0 overflow-y-auto overscroll-contain p-2.5 sm:p-3">
               <div className="grid grid-cols-3 gap-2">
@@ -6349,11 +6349,11 @@ useEffect(() => {
                     return (
                       <div
                         key={`${s.room_id}_${s.seat_no}`}
-                        className={`relative rounded-xl border p-2 transition-all duration-300 ${pkSide === "A"
-                          ? "bg-fuchsia-50 border-fuchsia-300 shadow-[0_0_12px_rgba(232,121,249,0.25)]"
+                        className={`relative rounded-xl border p-2 transition-all duration-300 bg-white/20 backdrop-blur-sm ${pkSide === "A"
+                          ? "shadow-[0_0_12px_rgba(232,121,249,0.25)]"
                           : pkSide === "B"
-                            ? "bg-cyan-50 border-cyan-300 shadow-[0_0_12px_rgba(34,211,238,0.25)]"
-                            : "bg-slate-50"
+                            ? "shadow-[0_0_12px_rgba(34,211,238,0.25)]"
+                            : ""
                           }`}
                         ref={(el) => {
                           if (s?.user_id) {
@@ -6553,17 +6553,12 @@ useEffect(() => {
             </div>
           </div>
 
-          <div className="flex-1 min-h-0 flex flex-col overflow-hidden lg:w-2/3 bg-black/30 backdrop-blur-sm">
-            <div className="shrink-0 px-3 sm:px-4 pt-3 sm:pt-4 pb-2">
-
-            </div>
-
-            <div className="flex-1 min-h-0 flex flex-col overflow-hidden px-3 sm:px-4 pb-3 sm:pb-4">
-              <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-                <div
-                  ref={chatScrollRef}
-                  className="flex-1 min-h-0 overflow-y-auto overscroll-contain border rounded-xl p-3 bg-white/10"
-                >
+          <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-black/30 backdrop-blur-sm">
+            <div className="flex-1 min-h-0 overflow-hidden px-3 sm:px-4 pt-3 sm:pt-4 pb-2">
+              <div
+                ref={chatScrollRef}
+                className="h-full overflow-y-auto overscroll-contain border rounded-xl p-3 bg-white/10"
+              >
                   <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 mb-3 text-center">
                     <div className="text-sm font-semibold text-blue-900">Welcome to the room 🎤</div>
                     <div className="text-xs text-blue-800 mt-1">
@@ -6705,7 +6700,7 @@ useEffect(() => {
                 </div>
 
                 {lastSentGift && showRepeatButton && (
-                  <div className="absolute bottom-4 right-4 z-40 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <div className="absolute bottom-20 right-4 z-40 animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <button
                       onClick={handleRepeatLastGift}
                       disabled={!isJoinedToRoom || repeatSending}
@@ -6736,84 +6731,83 @@ useEffect(() => {
                     </button>
                   </div>
                 )}
-              </div>
 
-              {myMutedActive ? (
-                <div className="mt-2 text-sm bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-2 shrink-0">
-                  🔇 You are muted by room moderation.
-                </div>
+                {myMutedActive ? (
+                  <div className="absolute bottom-16 left-3 right-3 z-30 text-sm bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-2">
+                    🔇 You are muted by room moderation.
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+
+          <div className="fixed bottom-0 left-0 right-0 z-20 bg-black/40 backdrop-blur-sm px-3 sm:px-4 py-2.5 border-t">
+            <div className="flex items-center gap-2 max-w-6xl mx-auto">
+              {((effectiveSeats || []).some((s) => s.user_id && String(s.user_id) === String(user?.id))) ? (
+                <button
+                  type="button"
+                  onClick={toggleMicMute}
+                  className={`shrink-0 h-10 w-10 rounded-xl border flex items-center justify-center transition-colors ${isMicMuted
+                    ? "bg-amber-50/50 border-amber-200/50 text-amber-600 hover:bg-amber-100/50 backdrop-blur-sm"
+                    : "bg-white/20 border-slate-200/50 text-slate-700 hover:bg-slate-50/50 backdrop-blur-sm"
+                    }`}
+                  title={isMicMuted ? "Unmute" : "Mute"}
+                >
+                  {isMicMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                </button>
+              ) : !canModerate ? (
+                <button
+                  type="button"
+                  onClick={requestMic}
+                  disabled={!user?.id || !!myPendingRequest}
+                  className={`shrink-0 h-10 w-10 rounded-xl border flex items-center justify-center transition-colors disabled:opacity-60 disabled:cursor-not-allowed backdrop-blur-sm ${myPendingRequest
+                    ? "bg-yellow-100/50 border-yellow-200/50 text-yellow-600"
+                    : "bg-white/20 border-slate-200/50 text-slate-700 hover:bg-slate-50/50"
+                    }`}
+                  title={myPendingRequest ? "Request Sent" : "Request Mic"}
+                >
+                  <Mic className="w-5 h-5" />
+                </button>
               ) : null}
 
-              <div className="mt-2 sm:mt-3 shrink-0 border-t bg-black/40 backdrop-blur-sm px-3 sm:px-4 py-2.5">
-                <div className="flex items-center gap-2">
-                  {((effectiveSeats || []).some((s) => s.user_id && String(s.user_id) === String(user?.id))) ? (
-                    <button
-                      type="button"
-                      onClick={toggleMicMute}
-                      className={`shrink-0 h-10 w-10 rounded-xl border flex items-center justify-center transition-colors ${isMicMuted
-                        ? "bg-amber-50/50 border-amber-200/50 text-amber-600 hover:bg-amber-100/50 backdrop-blur-sm"
-                        : "bg-white/20 border-slate-200/50 text-slate-700 hover:bg-slate-50/50 backdrop-blur-sm"
-                        }`}
-                      title={isMicMuted ? "Unmute" : "Mute"}
-                    >
-                      {isMicMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-                    </button>
-                  ) : !canModerate ? (
-                    <button
-                      type="button"
-                      onClick={requestMic}
-                      disabled={!user?.id || !!myPendingRequest}
-                      className={`shrink-0 h-10 w-10 rounded-xl border flex items-center justify-center transition-colors disabled:opacity-60 disabled:cursor-not-allowed backdrop-blur-sm ${myPendingRequest
-                        ? "bg-yellow-100/50 border-yellow-200/50 text-yellow-600"
-                        : "bg-white/20 border-slate-200/50 text-slate-700 hover:bg-slate-50/50"
-                        }`}
-                      title={myPendingRequest ? "Request Sent" : "Request Mic"}
-                    >
-                      <Mic className="w-5 h-5" />
-                    </button>
-                  ) : null}
+              <Input
+                className="flex-1"
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder={
+                  !isJoinedToRoom
+                    ? "Joining room..."
+                    : myMutedActive
+                      ? "You are muted in this room…"
+                      : "Write a message…"
+                }
+                disabled={!isJoinedToRoom || myMutedActive}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") sendText();
+                }}
+              />
 
-                  <Input
-                    className="flex-1"
-                    value={text}
-                    onChange={(e) => setText(e.target.value)}
-                    placeholder={
-                      !isJoinedToRoom
-                        ? "Joining room..."
-                        : myMutedActive
-                          ? "You are muted in this room…"
-                          : "Write a message…"
-                    }
-                    disabled={!isJoinedToRoom || myMutedActive}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") sendText();
-                    }}
-                  />
+              <button
+                onClick={openGiftPanelForAll}
+                disabled={!isJoinedToRoom}
+                className="shrink-0 h-10 w-10 rounded-xl border bg-white/20 hover:bg-rose-50/50 backdrop-blur-sm flex items-center justify-center text-rose-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Send Gift"
+              >
+                <Gift className="w-5 h-5" />
+              </button>
 
-                  <button
-                    onClick={openGiftPanelForAll}
-                    disabled={!isJoinedToRoom}
-                    className="shrink-0 h-10 w-10 rounded-xl border bg-white/20 hover:bg-rose-50/50 backdrop-blur-sm flex items-center justify-center text-rose-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Send Gift"
-                  >
-                    <Gift className="w-5 h-5" />
-                  </button>
-
-                  <Button
-                    onClick={sendText}
-                    disabled={!isJoinedToRoom || sending || !text.trim() || myMutedActive}
-                    className="gap-2 shrink-0 px-3"
-                  >
-                    {sending ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Send className="w-4 h-4" />
-                    )}
-                    <span className="hidden sm:inline">Send</span>
-                  </Button>
-                </div>
-              </div>
-
+              <Button
+                onClick={sendText}
+                disabled={!isJoinedToRoom || sending || !text.trim() || myMutedActive}
+                className="gap-2 shrink-0 px-3"
+              >
+                {sending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
+                <span className="hidden sm:inline">Send</span>
+              </Button>
             </div>
           </div>
         </div>
@@ -7330,336 +7324,338 @@ useEffect(() => {
   onCreatePk={handleCreatePk}
 />
 
-{pkResultOpen && pkResultData && (() => {
-  const winnerSide = pkResultData?.winnerSide || "draw";
-  const isDraw = winnerSide === "draw";
-  const isSideAWinner = winnerSide === "A";
-  const isSideBWinner = winnerSide === "B";
+      {pkResultOpen && pkResultData && (() => {
+        const winnerSide = pkResultData?.winnerSide || "draw";
+        const isDraw = winnerSide === "draw";
+        const isSideAWinner = winnerSide === "A";
+        const isSideBWinner = winnerSide === "B";
 
-  return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-      <div className="absolute w-[80vw] h-[80vw] max-w-[400px] max-h-[400px] bg-gradient-to-tr from-fuchsia-500/30 to-cyan-500/30 blur-[80px] rounded-full animate-pulse pointer-events-none"></div>
-
-      <div
-        className="w-full max-w-[380px] sm:max-w-md overflow-hidden rounded-[32px] bg-white/95 backdrop-blur-md shadow-[0_0_50px_rgba(0,0,0,0.4)] border border-white/20 relative animate-in zoom-in-95 duration-500"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="relative px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-fuchsia-50 via-white to-cyan-50 text-center overflow-hidden">
-          <h2 className="relative text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-600 to-cyan-600 drop-shadow-sm">
-            PK Result
-          </h2>
-        </div>
-
-        <div className="p-4 sm:p-5 bg-slate-50/40 relative">
-          <div className="flex justify-center mb-5 relative z-10">
-            <div
-              className={`inline-flex items-center rounded-full px-6 py-2 text-white font-extrabold text-base sm:text-lg border shadow-[0_0_20px_rgba(34,211,238,0.35)] ${
-                isDraw
-                  ? "bg-gradient-to-r from-slate-400 to-slate-500 border-slate-300"
-                  : isSideAWinner
-                  ? "bg-gradient-to-r from-fuchsia-500 to-purple-500 border-fuchsia-300/50"
-                  : "bg-gradient-to-r from-cyan-400 to-blue-500 border-cyan-300/50"
-              }`}
-            >
-              <span className="drop-shadow-md">
-                {isDraw ? "🤝 Draw" : `🏆 Winner: Side ${winnerSide}`}
-              </span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 mb-5">
-            <div
-              className={`relative rounded-[24px] p-4 text-center shadow-sm overflow-hidden group ${
-                isDraw
-                  ? "border border-slate-200 bg-gradient-to-b from-white to-slate-50/80"
-                  : isSideAWinner
-                  ? "border border-fuchsia-300 bg-gradient-to-b from-white to-fuchsia-100/70 shadow-[0_0_25px_rgba(217,70,239,0.18)]"
-                  : "border border-fuchsia-200 bg-gradient-to-b from-white to-fuchsia-50/80"
-              }`}
-            >
-              <div className="absolute -right-4 -top-4 w-16 h-16 bg-fuchsia-400/10 rounded-full blur-xl group-hover:bg-fuchsia-400/20 transition-all"></div>
-
-              <div
-                className={`mx-auto mb-3 inline-flex items-center gap-1 rounded-full px-3 py-1 font-bold tracking-wider text-[10px] sm:text-xs shadow-sm ${
-                  isDraw
-                    ? "border border-slate-200 bg-slate-50 text-slate-500"
-                    : isSideAWinner
-                    ? "border border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700"
-                    : "border border-fuchsia-100 bg-fuchsia-50/80 text-fuchsia-600"
-                }`}
-              >
-                {isDraw ? "🤝 DRAW" : isSideAWinner ? "🏆 WINNER" : "🥈 RUNNER-UP"}
-              </div>
-
-              <div
-                className={`font-black tracking-widest text-sm sm:text-base mb-1 ${
-                  isDraw
-                    ? "text-slate-700"
-                    : isSideAWinner
-                    ? "text-fuchsia-900"
-                    : "text-fuchsia-800"
-                }`}
-              >
-                SIDE A
-              </div>
-
-              <div
-                className={`text-4xl sm:text-5xl leading-none font-black text-transparent bg-clip-text drop-shadow-sm ${
-                  isDraw
-                    ? "bg-gradient-to-b from-slate-500 to-slate-700"
-                    : isSideAWinner
-                    ? "bg-gradient-to-b from-fuchsia-500 to-fuchsia-700"
-                    : "bg-gradient-to-b from-fuchsia-500 to-fuchsia-700"
-                }`}
-              >
-                {Number(pkResultData.scoreA || 0)}
-              </div>
-            </div>
+        return (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+            <div className="absolute w-[80vw] h-[80vw] max-w-[400px] max-h-[400px] bg-gradient-to-tr from-fuchsia-500/30 to-cyan-500/30 blur-[80px] rounded-full animate-pulse pointer-events-none"></div>
 
             <div
-              className={`relative rounded-[24px] p-4 text-center shadow-sm overflow-hidden group ${
-                isDraw
-                  ? "border border-slate-200 bg-gradient-to-b from-white to-slate-50/80"
-                  : isSideBWinner
-                  ? "border border-cyan-300 bg-gradient-to-b from-white to-cyan-100/60 shadow-[0_0_25px_rgba(34,211,238,0.2)]"
-                  : "border border-cyan-200 bg-gradient-to-b from-white to-cyan-50/70"
-              }`}
+              className="w-full max-w-[380px] sm:max-w-md overflow-hidden rounded-[32px] bg-white/95 backdrop-blur-md shadow-[0_0_50px_rgba(0,0,0,0.4)] border border-white/20 relative animate-in zoom-in-95 duration-500"
+              onClick={(e) => e.stopPropagation()}
             >
-              <div className="absolute -left-4 -top-4 w-20 h-20 bg-cyan-400/20 rounded-full blur-xl group-hover:bg-cyan-400/30 transition-all"></div>
-
-              <div
-                className={`mx-auto mb-3 inline-flex items-center gap-1 rounded-full px-3 py-1 font-bold tracking-wider text-[10px] sm:text-xs shadow-sm ${
-                  isDraw
-                    ? "border border-slate-200 bg-slate-50 text-slate-500"
-                    : isSideBWinner
-                    ? "border border-cyan-200 bg-cyan-50 text-cyan-700"
-                    : "border border-cyan-100 bg-cyan-50/80 text-cyan-600"
-                }`}
-              >
-                {isDraw ? "🤝 DRAW" : isSideBWinner ? "🏆 WINNER" : "🥈 RUNNER-UP"}
+              <div className="relative px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-fuchsia-50 via-white to-cyan-50 text-center overflow-hidden">
+                <h2 className="relative text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-600 to-cyan-600 drop-shadow-sm">
+                  PK Result
+                </h2>
               </div>
 
-              <div
-                className={`font-black tracking-widest text-sm sm:text-base mb-1 ${
-                  isDraw
-                    ? "text-slate-700"
-                    : isSideBWinner
-                    ? "text-cyan-900"
-                    : "text-cyan-800"
-                }`}
-              >
-                SIDE B
-              </div>
-
-              <div
-                className={`text-4xl sm:text-5xl leading-none font-black text-transparent bg-clip-text ${
-                  isDraw
-                    ? "bg-gradient-to-b from-slate-500 to-slate-700"
-                    : isSideBWinner
-                    ? "bg-gradient-to-b from-cyan-400 to-cyan-600 drop-shadow-[0_2px_10px_rgba(34,211,238,0.4)]"
-                    : "bg-gradient-to-b from-cyan-400 to-cyan-600"
-                }`}
-              >
-                {Number(pkResultData.scoreB || 0)}
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 mb-6">
-            <div className="rounded-[24px] border border-fuchsia-100 bg-white/80 p-3 shadow-sm backdrop-blur-sm">
-              <div className="text-fuchsia-800 text-xs sm:text-sm font-black mb-2 text-center">
-                Side A Players
-              </div>
-              <div className="h-[2px] w-12 mx-auto bg-gradient-to-r from-transparent via-fuchsia-300 to-transparent mb-3" />
-
-              <div className="space-y-2 max-h-[140px] overflow-y-auto pr-1">
-                {(pkResultData.sideAPlayers || []).map((player, idx) => (
+              <div className="p-4 sm:p-5 bg-slate-50/40 relative">
+                <div className="flex justify-center mb-5 relative z-10">
                   <div
-                    key={`${player.user_id || player.id || idx}-A`}
-                    className="flex items-center gap-2 rounded-[16px] border border-fuchsia-50 bg-gradient-to-r from-fuchsia-50/30 to-white p-2 shadow-sm hover:shadow-md transition-shadow"
+                    className={`inline-flex items-center rounded-full px-6 py-2 text-white font-extrabold text-base sm:text-lg border shadow-[0_0_20px_rgba(34,211,238,0.35)] ${
+                      isDraw
+                        ? "bg-gradient-to-r from-slate-400 to-slate-500 border-slate-300"
+                        : isSideAWinner
+                        ? "bg-gradient-to-r from-fuchsia-500 to-purple-500 border-fuchsia-300/50"
+                        : "bg-gradient-to-r from-cyan-400 to-blue-500 border-cyan-300/50"
+                    }`}
                   >
-                    <div className="relative shrink-0">
-                      <img
-                        src={player.avatar_url || FALLBACK_AVATAR}
-                        alt={player.display_name || "User"}
-                        className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
-                        onError={(e) => {
-                          e.currentTarget.src = FALLBACK_AVATAR;
-                        }}
-                      />
-                      <div className="absolute -bottom-1 -right-1 text-xs drop-shadow-md">
-                        {isDraw ? "🤝" : isSideAWinner ? "🏆" : "🥈"}
-                      </div>
+                    <span className="drop-shadow-md">
+                      {isDraw ? "🤝 Draw" : `🏆 Winner: Side ${winnerSide}`}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 mb-5">
+                  <div
+                    className={`relative rounded-[24px] p-4 text-center shadow-sm overflow-hidden group ${
+                      isDraw
+                        ? "border border-slate-200 bg-gradient-to-b from-white to-slate-50/80"
+                        : isSideAWinner
+                        ? "border border-fuchsia-300 bg-gradient-to-b from-white to-fuchsia-100/70 shadow-[0_0_25px_rgba(217,70,239,0.18)]"
+                        : "border border-fuchsia-200 bg-gradient-to-b from-white to-fuchsia-50/80"
+                    }`}
+                  >
+                    <div className="absolute -right-4 -top-4 w-16 h-16 bg-fuchsia-400/10 rounded-full blur-xl group-hover:bg-fuchsia-400/20 transition-all"></div>
+
+                    <div
+                      className={`mx-auto mb-3 inline-flex items-center gap-1 rounded-full px-3 py-1 font-bold tracking-wider text-[10px] sm:text-xs shadow-sm ${
+                        isDraw
+                          ? "border border-slate-200 bg-slate-50 text-slate-500"
+                          : isSideAWinner
+                          ? "border border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700"
+                          : "border border-fuchsia-100 bg-fuchsia-50/80 text-fuchsia-600"
+                      }`}
+                    >
+                      {isDraw ? "🤝 DRAW" : isSideAWinner ? "🏆 WINNER" : "🥈 RUNNER-UP"}
                     </div>
 
-                    <div className="min-w-0 flex-1">
-                      <div className="text-slate-800 font-bold text-[11px] sm:text-xs truncate">
-                        {player.display_name || player.name || "User"}
-                      </div>
-                      <div className="text-slate-400 text-[9px] sm:text-[10px] font-medium">
-                        Seat #{player.seat_no}
-                      </div>
+                    <div
+                      className={`font-black tracking-widest text-sm sm:text-base mb-1 ${
+                        isDraw
+                          ? "text-slate-700"
+                          : isSideAWinner
+                          ? "text-fuchsia-900"
+                          : "text-fuchsia-800"
+                      }`}
+                    >
+                      SIDE A
+                    </div>
+
+                    <div
+                      className={`text-4xl sm:text-5xl leading-none font-black text-transparent bg-clip-text drop-shadow-sm ${
+                        isDraw
+                          ? "bg-gradient-to-b from-slate-500 to-slate-700"
+                          : isSideAWinner
+                          ? "bg-gradient-to-b from-fuchsia-500 to-fuchsia-700"
+                          : "bg-gradient-to-b from-fuchsia-500 to-fuchsia-700"
+                      }`}
+                    >
+                      {Number(pkResultData.scoreA || 0)}
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
 
-            <div className="rounded-[24px] border border-cyan-100 bg-white/80 p-3 shadow-sm backdrop-blur-sm">
-              <div className="text-cyan-900 text-xs sm:text-sm font-black mb-2 text-center">
-                Side B Players
-              </div>
-              <div className="h-[2px] w-12 mx-auto bg-gradient-to-r from-transparent via-cyan-300 to-transparent mb-3" />
-
-              <div className="space-y-2 max-h-[140px] overflow-y-auto pr-1">
-                {(pkResultData.sideBPlayers || []).map((player, idx) => (
                   <div
-                    key={`${player.user_id || player.id || idx}-B`}
-                    className="flex items-center gap-2 rounded-[16px] border border-cyan-50 bg-gradient-to-r from-cyan-50/30 to-white p-2 shadow-sm hover:shadow-md transition-shadow"
+                    className={`relative rounded-[24px] p-4 text-center shadow-sm overflow-hidden group ${
+                      isDraw
+                        ? "border border-slate-200 bg-gradient-to-b from-white to-slate-50/80"
+                        : isSideBWinner
+                        ? "border border-cyan-300 bg-gradient-to-b from-white to-cyan-100/60 shadow-[0_0_25px_rgba(34,211,238,0.2)]"
+                        : "border border-cyan-200 bg-gradient-to-b from-white to-cyan-50/70"
+                    }`}
                   >
-                    <div className="relative shrink-0">
-                      <img
-                        src={player.avatar_url || FALLBACK_AVATAR}
-                        alt={player.display_name || "User"}
-                        className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
-                        onError={(e) => {
-                          e.currentTarget.src = FALLBACK_AVATAR;
-                        }}
-                      />
-                      <div className="absolute -bottom-1 -right-1 text-xs drop-shadow-md">
-                        {isDraw ? "🤝" : isSideBWinner ? "🏆" : "🥈"}
-                      </div>
+                    <div className="absolute -left-4 -top-4 w-20 h-20 bg-cyan-400/20 rounded-full blur-xl group-hover:bg-cyan-400/30 transition-all"></div>
+
+                    <div
+                      className={`mx-auto mb-3 inline-flex items-center gap-1 rounded-full px-3 py-1 font-bold tracking-wider text-[10px] sm:text-xs shadow-sm ${
+                        isDraw
+                          ? "border border-slate-200 bg-slate-50 text-slate-500"
+                          : isSideBWinner
+                          ? "border border-cyan-200 bg-cyan-50 text-cyan-700"
+                          : "border border-cyan-100 bg-cyan-50/80 text-cyan-600"
+                      }`}
+                    >
+                      {isDraw ? "🤝 DRAW" : isSideBWinner ? "🏆 WINNER" : "🥈 RUNNER-UP"}
                     </div>
 
-                    <div className="min-w-0 flex-1">
-                      <div className="text-slate-800 font-bold text-[11px] sm:text-xs truncate">
-                        {player.display_name || player.name || "User"}
-                      </div>
-                      <div className="text-slate-400 text-[9px] sm:text-[10px] font-medium">
-                        Seat #{player.seat_no}
-                      </div>
+                    <div
+                      className={`font-black tracking-widest text-sm sm:text-base mb-1 ${
+                        isDraw
+                          ? "text-slate-700"
+                          : isSideBWinner
+                          ? "text-cyan-900"
+                          : "text-cyan-800"
+                      }`}
+                    >
+                      SIDE B
+                    </div>
+
+                    <div
+                      className={`text-4xl sm:text-5xl leading-none font-black text-transparent bg-clip-text ${
+                        isDraw
+                          ? "bg-gradient-to-b from-slate-500 to-slate-700"
+                          : isSideBWinner
+                          ? "bg-gradient-to-b from-cyan-400 to-cyan-600 drop-shadow-[0_2px_10px_rgba(34,211,238,0.4)]"
+                          : "bg-gradient-to-b from-cyan-400 to-cyan-600"
+                      }`}
+                    >
+                      {Number(pkResultData.scoreB || 0)}
                     </div>
                   </div>
-                ))}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 mb-6">
+                  <div className="rounded-[24px] border border-fuchsia-100 bg-white/80 p-3 shadow-sm backdrop-blur-sm">
+                    <div className="text-fuchsia-800 text-xs sm:text-sm font-black mb-2 text-center">
+                      Side A Players
+                    </div>
+                    <div className="h-[2px] w-12 mx-auto bg-gradient-to-r from-transparent via-fuchsia-300 to-transparent mb-3" />
+
+                    <div className="space-y-2 max-h-[140px] overflow-y-auto pr-1">
+                      {(pkResultData.sideAPlayers || []).map((player, idx) => (
+                        <div
+                          key={`${player.user_id || player.id || idx}-A`}
+                          className="flex items-center gap-2 rounded-[16px] border border-fuchsia-50 bg-gradient-to-r from-fuchsia-50/30 to-white p-2 shadow-sm hover:shadow-md transition-shadow"
+                        >
+                          <div className="relative shrink-0">
+                            <img
+                              src={player.avatar_url || FALLBACK_AVATAR}
+                              alt={player.display_name || "User"}
+                              className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
+                              onError={(e) => {
+                                e.currentTarget.src = FALLBACK_AVATAR;
+                              }}
+                            />
+                            <div className="absolute -bottom-1 -right-1 text-xs drop-shadow-md">
+                              {isDraw ? "🤝" : isSideAWinner ? "🏆" : "🥈"}
+                            </div>
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <div className="text-slate-800 font-bold text-[11px] sm:text-xs truncate">
+                              {player.display_name || player.name || "User"}
+                            </div>
+                            <div className="text-slate-400 text-[9px] sm:text-[10px] font-medium">
+                              Seat #{player.seat_no}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="rounded-[24px] border border-cyan-100 bg-white/80 p-3 shadow-sm backdrop-blur-sm">
+                    <div className="text-cyan-900 text-xs sm:text-sm font-black mb-2 text-center">
+                      Side B Players
+                    </div>
+                    <div className="h-[2px] w-12 mx-auto bg-gradient-to-r from-transparent via-cyan-300 to-transparent mb-3" />
+
+                    <div className="space-y-2 max-h-[140px] overflow-y-auto pr-1">
+                      {(pkResultData.sideBPlayers || []).map((player, idx) => (
+                        <div
+                          key={`${player.user_id || player.id || idx}-B`}
+                          className="flex items-center gap-2 rounded-[16px] border border-cyan-50 bg-gradient-to-r from-cyan-50/30 to-white p-2 shadow-sm hover:shadow-md transition-shadow"
+                        >
+                          <div className="relative shrink-0">
+                            <img
+                              src={player.avatar_url || FALLBACK_AVATAR}
+                              alt={player.display_name || "User"}
+                              className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
+                              onError={(e) => {
+                                e.currentTarget.src = FALLBACK_AVATAR;
+                              }}
+                            />
+                            <div className="absolute -bottom-1 -right-1 text-xs drop-shadow-md">
+                              {isDraw ? "🤝" : isSideBWinner ? "🏆" : "🥈"}
+                            </div>
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <div className="text-slate-800 font-bold text-[11px] sm:text-xs truncate">
+                              {player.display_name || player.name || "User"}
+                            </div>
+                            <div className="text-slate-400 text-[9px] sm:text-[10px] font-medium">
+                              Seat #{player.seat_no}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPkResultOpen(false);
+                    }}
+                    className="h-12 sm:h-14 rounded-[20px] border-2 border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 hover:border-slate-300 transition-all active:scale-95"
+                  >
+                    Close
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPkResultOpen(false);
+                      setPkResultData(null);
+                      setShowPkModal(true);
+                    }}
+                    className="h-12 sm:h-14 rounded-[20px] bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white text-[13px] sm:text-sm font-bold shadow-[0_4px_15px_rgba(168,85,247,0.4)] hover:shadow-[0_6px_20px_rgba(168,85,247,0.6)] hover:-translate-y-0.5 transition-all active:scale-95 leading-tight px-2"
+                  >
+                    Start New Round
+                  </button>
+                </div>
               </div>
             </div>
           </div>
+        );
+      })()}
 
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                setPkResultOpen(false);
-              }}
-              className="h-12 sm:h-14 rounded-[20px] border-2 border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 hover:border-slate-300 transition-all active:scale-95"
-            >
-              Close
-            </button>
+      <div>
+        {giftPanelOpen ? (
+          <div className="fixed inset-0 z-[100]">
+            <div
+              className="absolute inset-0 bg-black/30"
+              onClick={() => setGiftPanelOpen(false)}
+              aria-hidden="true"
+            />
 
-            <button
-              type="button"
-              onClick={() => {
-                setPkResultOpen(false);
-                setPkResultData(null);
-                setShowPkModal(true);
-              }}
-              className="h-12 sm:h-14 rounded-[20px] bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white text-[13px] sm:text-sm font-bold shadow-[0_4px_15px_rgba(168,85,247,0.4)] hover:shadow-[0_6px_20px_rgba(168,85,247,0.6)] hover:-translate-y-0.5 transition-all active:scale-95 leading-tight px-2"
-            >
-              Start New Round
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-})()}
+            <div className="absolute left-0 right-0 bottom-0 z-[101] bg-white rounded-t-3xl shadow-2xl border-t max-h-[85vh] sm:max-h-[80vh] overflow-hidden max-w-2xl mx-auto flex flex-col">
+              <div className="mx-auto mt-2 mb-2 h-1.5 w-12 rounded-full bg-gray-300 shrink-0" />
 
-      {giftPanelOpen && (
-        <div className="fixed inset-0 z-[100]">
-          <div
-            className="absolute inset-0 bg-black/30"
-            onClick={() => setGiftPanelOpen(false)}
-            aria-hidden="true"
-          />
-
-          <div className="absolute left-0 right-0 bottom-0 z-[101] bg-white rounded-t-3xl shadow-2xl border-t max-h-[85vh] sm:max-h-[80vh] overflow-hidden max-w-2xl mx-auto flex flex-col">
-            <div className="mx-auto mt-2 mb-2 h-1.5 w-12 rounded-full bg-gray-300 shrink-0" />
-
-            <div className="h-full flex flex-col overflow-hidden">
-              <GiftPanel
-                recipientId={
-                  giftTargetMode === "single"
-                    ? (giftSelectedRecipient?.id || null)
-                    : null
-                }
-                recipientName={
-                  giftSelectedRecipient?.name ||
-                  giftTarget?.name ||
-                  giftTarget?.username
-                }
-                onClose={() => setGiftPanelOpen(false)}
-                onGiftSent={handleRoomGiftSend}
-                targetMode={giftTargetMode}
-                quantity={giftQuantity}
-                setQuantity={setGiftQuantity}
-                roomUsers={giftPanelUsers}
-                hostUser={hostUser}
-                selectedRecipient={giftSelectedRecipient}
-                onRecipientChange={({ mode, user }) => {
-                  const nextMode = resolveGiftTargetMode(mode, user);
-                  setGiftTargetMode(nextMode);
-                  setGiftSelectedRecipient(user || null);
-                  setGiftTarget(nextMode === "single" ? user || null : null);
-                }}
-                onOpenUserCard={(userId, user) => {
-                  if (
-                    userId === "mic_users_virtual" ||
-                    userId === "all_users_virtual"
-                  ) {
-                    return;
+              <div className="h-full flex flex-col overflow-hidden">
+                <GiftPanel
+                  recipientId={
+                    giftTargetMode === "single"
+                      ? (giftSelectedRecipient?.id || null)
+                      : null
                   }
+                  recipientName={
+                    giftSelectedRecipient?.name ||
+                    giftTarget?.name ||
+                    giftTarget?.username
+                  }
+                  onClose={() => setGiftPanelOpen(false)}
+                  onGiftSent={handleRoomGiftSend}
+                  targetMode={giftTargetMode}
+                  quantity={giftQuantity}
+                  setQuantity={setGiftQuantity}
+                  roomUsers={giftPanelUsers}
+                  hostUser={hostUser}
+                  selectedRecipient={giftSelectedRecipient}
+                  onRecipientChange={({ mode, user }) => {
+                    const nextMode = resolveGiftTargetMode(mode, user);
+                    setGiftTargetMode(nextMode);
+                    setGiftSelectedRecipient(user || null);
+                    setGiftTarget(nextMode === "single" ? user || null : null);
+                  }}
+                  onOpenUserCard={(userId, user) => {
+                    if (
+                      userId === "mic_users_virtual" ||
+                      userId === "all_users_virtual"
+                    ) {
+                      return;
+                    }
 
-                  setGiftPanelOpen(false);
-                  openUserCard(userId, user);
-                }}
-              />
+                    setGiftPanelOpen(false);
+                    openUserCard(userId, user);
+                  }}
+                />
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        ) : null}
 
-      <UserCardModal
-  open={isUserCardOpen}
-  onClose={closeUserCard}
-  cardLoading={cardLoading}
-  selectedUserProfile={selectedUserProfile}
-  selectedUserId={selectedUserId}
-  selectedUserIsMod={selectedUserIsMod}
-  isSelfCard={isSelfCard}
-  canShowOwnerTools={canShowOwnerTools}
-  isOwner={isOwner}
-  hostUserId={hostUser?.id || room?.owner_user_id || null}
-  targetMutedActive={targetMutedActive}
-  moderatorsMap={moderatorsMap}
-  effectiveSeats={effectiveSeats}
-  FALLBACK_AVATAR={FALLBACK_AVATAR}
-  mentionUser={mentionUser}
-  openGiftPanelForUser={openGiftPanelForUser}
-  goToProfilePage={goToProfilePage}
-  toast={toast}
-  setInviteTargetUserId={setInviteTargetUserId}
-  setInviteOnlyMode={setInviteOnlyMode}
-  setSeatMenuSeatNo={setSeatMenuSeatNo}
-  setSeatMenuOpen={setSeatMenuOpen}
-  setInviteOpen={setInviteOpen}
-  muteUser={muteUser}
-  unmuteUser={unmuteUser}
-  openKickConfirm={openKickConfirm}
-  openBanConfirm={openBanConfirm}
-  assignModerator={assignModerator}
-  removeModerator={removeModerator}
-/>
+        <UserCardModal
+          open={isUserCardOpen}
+          onClose={closeUserCard}
+          cardLoading={cardLoading}
+          selectedUserProfile={selectedUserProfile}
+          selectedUserId={selectedUserId}
+          selectedUserIsMod={selectedUserIsMod}
+          isSelfCard={isSelfCard}
+          canShowOwnerTools={canShowOwnerTools}
+          isOwner={isOwner}
+          hostUserId={hostUser?.id || room?.owner_user_id || null}
+          targetMutedActive={targetMutedActive}
+          moderatorsMap={moderatorsMap}
+          effectiveSeats={effectiveSeats}
+          FALLBACK_AVATAR={FALLBACK_AVATAR}
+          mentionUser={mentionUser}
+          openGiftPanelForUser={openGiftPanelForUser}
+          goToProfilePage={goToProfilePage}
+          toast={toast}
+          setInviteTargetUserId={setInviteTargetUserId}
+          setInviteOnlyMode={setInviteOnlyMode}
+          setSeatMenuSeatNo={setSeatMenuSeatNo}
+          setSeatMenuOpen={setSeatMenuOpen}
+          setInviteOpen={setInviteOpen}
+          muteUser={muteUser}
+          unmuteUser={unmuteUser}
+          openKickConfirm={openKickConfirm}
+          openBanConfirm={openBanConfirm}
+          assignModerator={assignModerator}
+          removeModerator={removeModerator}
+        />
       </div>
-    </div>
-  );
+</div>
+
+);
 }
