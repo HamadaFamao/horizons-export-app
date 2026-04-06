@@ -6349,7 +6349,7 @@ useEffect(() => {
         return (
           <div
             key={`${s.room_id}_${s.seat_no}`}
-            className={`relative rounded-xl border border-white/10 p-2 transition-all duration-300 bg-transparent ${pkSide === "A"
+            className={`relative rounded-xl border border-white/40 p-2 transition-all duration-300 bg-white/10 backdrop-blur-sm ${pkSide === "A"
               ? "shadow-[0_0_12px_rgba(232,121,249,0.25)]"
               : pkSide === "B"
                 ? "shadow-[0_0_12px_rgba(34,211,238,0.25)]"
