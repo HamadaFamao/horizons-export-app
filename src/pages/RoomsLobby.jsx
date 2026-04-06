@@ -116,11 +116,11 @@ export default function RoomsLobby() {
             </Button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {rooms.map((r) => (
               <div
                 key={r.id}
-                className="bg-white border rounded-xl p-4 hover:shadow-sm transition cursor-pointer"
+                className="bg-white border rounded-2xl overflow-hidden hover:shadow-lg transition cursor-pointer flex flex-col"
                 onClick={() => navigate(`/rooms/${r.id}`)}
                 role="button"
                 tabIndex={0}
@@ -128,46 +128,48 @@ export default function RoomsLobby() {
                   if (e.key === 'Enter') navigate(`/rooms/${r.id}`);
                 }}
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center">
-                    {r.avatar_url ? (
-                      <img
-                        src={r.avatar_url}
-                        alt={r.title}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                          e.currentTarget.parentElement.innerHTML = '<svg class="w-6 h-6 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>';
-                        }}
-                      />
+                {/* Image Container */}
+                <div className="w-full aspect-square bg-slate-100 flex items-center justify-center overflow-hidden">
+                  {r.avatar_url ? (
+                    <img
+                      src={r.avatar_url}
+                      alt={r.title}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        e.currentTarget.parentElement.innerHTML = '<svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>';
+                      }}
+                    />
+                  ) : (
+                    <Mic className="w-8 h-8 text-slate-400" />
+                  )}
+                </div>
+
+                {/* Content Container */}
+                <div className="p-3 flex flex-col flex-1">
+                  {/* Title */}
+                  <h3 className="font-bold text-slate-900 truncate mb-2 text-sm">{r.title}</h3>
+
+                  {/* Badge */}
+                  <div className="mb-2">
+                    {r.is_locked ? (
+                      <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                        <Lock className="w-3 h-3" />
+                        <span>Locked</span>
+                      </span>
                     ) : (
-                      <Mic className="w-6 h-6 text-slate-700" />
+                      <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <Unlock className="w-3 h-3" />
+                        <span>Open</span>
+                      </span>
                     )}
                   </div>
 
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-slate-900 truncate">{r.title}</h3>
-                      {r.is_locked ? (
-                        <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-                          <Lock className="w-3 h-3" /> Locked
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          <Unlock className="w-3 h-3" /> Open
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="text-xs text-slate-500 mt-1 flex items-center gap-2">
-                      <span className="font-mono truncate">#{String(r.id).slice(0, 8)}</span>
-                      <span>•</span>
-                      <span>{r.max_mics || 6} mics</span>
-                    </div>
+                  {/* Mics Info */}
+                  <div className="text-xs text-slate-500">
+                    <span>{r.max_mics || 6} mics</span>
                   </div>
-
-                  <div className="text-xs font-semibold text-slate-700">Join →</div>
                 </div>
               </div>
             ))}
