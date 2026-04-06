@@ -300,6 +300,7 @@ export default function LiveRoomPage() {
   const selectedPkSessionIdRef = useRef(null);
   const audioUnlockedRef = useRef(false);
   const roomAvatarInputRef = useRef(null);
+  const roomBackgroundInputRef = useRef(null);
 
   const miniRoomActiveRef = useRef(false);
   const livekitRoomRef = useRef(null);
@@ -361,6 +362,49 @@ export default function LiveRoomPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [joinNotifs, setJoinNotifs] = useState([]);
+  const [favoriteRoomIds, setFavoriteRoomIds] = useState([]);
+  const isFavorite = useMemo(
+    () => !!room?.id && favoriteRoomIds.includes(String(room.id)),
+    [favoriteRoomIds, room?.id]
+  );
+
+  useEffect(() => {
+    try {
+      const savedFavorites = window.localStorage.getItem('favorite_room_ids');
+      if (savedFavorites) {
+        const ids = JSON.parse(savedFavorites);
+        if (Array.isArray(ids)) {
+          setFavoriteRoomIds(ids.filter((id) => id));
+        }
+      }
+    } catch (error) {
+      console.warn('[LiveRoomPage] unable to read favorite_room_ids', error);
+    }
+  }, []);
+
+  const saveFavoriteRoomIds = (ids) => {
+    try {
+      window.localStorage.setItem('favorite_room_ids', JSON.stringify(ids));
+    } catch (error) {
+      console.warn('[LiveRoomPage] unable to save favorite_room_ids', error);
+    }
+  };
+
+  const toggleFavoriteRoom = (roomId) => {
+    if (!roomId) return;
+    const normalized = String(roomId);
+    const isCurrentlyFavorite = favoriteRoomIds.includes(normalized);
+    const next = isCurrentlyFavorite
+      ? favoriteRoomIds.filter((id) => id !== normalized)
+      : [normalized, ...favoriteRoomIds];
+
+    setFavoriteRoomIds(next);
+    saveFavoriteRoomIds(next);
+    toast(
+      isCurrentlyFavorite ? 'Removed room from favorites' : 'Added room to favorites',
+      1200
+    );
+  };
 
   const [isUserCardOpen, setIsUserCardOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState(null);
@@ -509,6 +553,7 @@ useEffect(() => {
   const [settingsTab, setSettingsTab] = useState("general");
   const [settingsBusy, setSettingsBusy] = useState(false);
   const [roomAvatarUploading, setRoomAvatarUploading] = useState(false);
+  const [roomBackgroundUploading, setRoomBackgroundUploading] = useState(false);
   const [bannedList, setBannedList] = useState([]);
   const [loadingBans, setLoadingBans] = useState(false);
   const [seatMenuOpen, setSeatMenuOpen] = useState(false);
@@ -3648,6 +3693,84 @@ console.log("MODERATORS MAP:", nextMap);
     }
   };
 
+  const handleRoomBackgroundUpload = async (e) => {
+    if (!isOwner) {
+      toast("Only room owners can change the room background.");
+      return;
+    }
+
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      toast("File size must be less than 5MB.");
+      return;
+    }
+
+    setRoomBackgroundUploading(true);
+
+    try {
+      const ext = getExt(file);
+      const path = `${roomId}/background.${ext}`;
+
+      console.log('[ROOM_BACKGROUND_UPLOAD] Starting upload', { roomId, path, fileName: file.name });
+
+      const { error: uploadError } = await supabase.storage
+        .from('room_backgrounds')
+        .upload(path, file, {
+          cacheControl: '3600',
+          upsert: true,
+          contentType: file.type,
+        });
+
+      if (uploadError) {
+        console.error('[ROOM_BACKGROUND_UPLOAD] Upload error:', uploadError);
+        if (uploadError.message?.includes('not found') || uploadError.message?.includes('does not exist')) {
+          throw new Error('Storage bucket "room_backgrounds" does not exist. Please create it in your Supabase dashboard or via create-buckets.sh.');
+        }
+        throw new Error(`Upload failed: ${uploadError.message}`);
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from('room_backgrounds')
+        .getPublicUrl(path);
+
+      const backgroundUrl = publicUrlData?.publicUrl;
+      if (!backgroundUrl) {
+        throw new Error('Failed to obtain public background URL');
+      }
+
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError || !authData.user) {
+        throw new Error('Authentication error: ' + authError?.message);
+      }
+
+      const authUserId = authData.user.id;
+      const { error: updateError } = await supabase
+        .from('live_rooms')
+        .update({ background_url: backgroundUrl })
+        .eq('id', roomId)
+        .eq('owner_user_id', authUserId);
+
+      if (updateError) {
+        console.error('[ROOM_BACKGROUND_UPLOAD] Update error:', updateError);
+        throw updateError;
+      }
+
+      setRoom(prev => prev ? { ...prev, background_url: backgroundUrl } : prev);
+      toast("Room background updated successfully!");
+    } catch (error) {
+      console.error('[ROOM_BACKGROUND_UPLOAD] Error:', error);
+      toast(`Failed to upload room background: ${error.message}`);
+    } finally {
+      setRoomBackgroundUploading(false);
+      if (roomBackgroundInputRef.current) {
+        roomBackgroundInputRef.current.value = '';
+      }
+    }
+  };
+
   const openBansTab = async () => {
     setSettingsTab("bans");
     const list = await fetchBans();
@@ -5766,8 +5889,17 @@ useEffect(() => {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-white sm:border sm:rounded-xl sm:mx-4 sm:mb-4">
-        <div className="shrink-0 p-2 sm:p-2.5 border-b flex items-center gap-1 overflow-x-auto whitespace-nowrap hide-scrollbar">
+      <div
+        className="relative flex-1 min-h-0 flex flex-col overflow-hidden bg-white sm:border sm:rounded-xl sm:mx-4 sm:mb-4"
+        style={{
+          backgroundImage: room?.background_url ? `url(${room.background_url})` : undefined,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat'
+        }}
+      >
+        {room?.background_url ? <div className="absolute inset-0 bg-black/40 pointer-events-none" /> : null}
+        <div className="relative shrink-0 p-2 sm:p-2.5 border-b flex items-center gap-1 overflow-x-auto whitespace-nowrap hide-scrollbar">
           <button
             onClick={() => openUserCard(room.owner_user_id)}
             className="shrink-0 w-12 h-12 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center cursor-pointer border"
@@ -5799,6 +5931,14 @@ useEffect(() => {
                 title="Copy room id"
               >
                 <Copy className="w-3 h-3" />
+              </button>
+
+              <button
+                onClick={() => toggleFavoriteRoom(room?.id)}
+                className={`inline-flex items-center justify-center w-8 h-8 rounded-lg border p-0 shrink-0 ${isFavorite ? 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100' : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'}`}
+                title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+              >
+                <Heart className="w-4 h-4" fill={isFavorite ? 'currentColor' : 'none'} />
               </button>
             </div>
           </div>
@@ -6901,6 +7041,62 @@ useEffect(() => {
                       </label>
                       <div className="text-xs text-slate-500 mt-2">
                         Max file size: 5MB. Supported formats: PNG, GIF.
+                      </div>
+                    </div>
+
+                    <div className="mt-6">
+                      <div className="text-sm font-semibold text-slate-900">Room Background</div>
+                      <div className="text-xs text-slate-500 mt-1">Upload a background image to display behind your room UI.</div>
+
+                      <div className="mt-3 flex items-center gap-3">
+                        <div className="w-20 h-20 rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
+                          {room?.background_url ? (
+                            <div
+                              className="w-full h-full bg-cover bg-center"
+                              style={{ backgroundImage: `url(${room.background_url})` }}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-slate-400">
+                              <ImageIcon className="w-6 h-6" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <div className="text-sm text-slate-700">Current room background</div>
+                          <div className="text-xs text-slate-500 mt-1">
+                            {room?.background_url ? 'Click upload to replace' : 'No background set'}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-4">
+                        <label className={`flex items-center justify-center w-full p-3 border-2 border-dashed rounded-xl transition cursor-pointer group ${
+                          !isOwner ? 'border-slate-200 bg-slate-50 cursor-not-allowed' : 'border-slate-300 hover:border-blue-500 hover:bg-blue-50'
+                        }`}>
+                          <input
+                            ref={roomBackgroundInputRef}
+                            type="file"
+                            accept="image/png,image/gif"
+                            onChange={handleRoomBackgroundUpload}
+                            disabled={roomBackgroundUploading || !isOwner}
+                            className="hidden"
+                          />
+                          {roomBackgroundUploading ? (
+                            <Loader2 className="w-5 h-5 text-blue-500 animate-spin mr-2" />
+                          ) : (
+                            <ImageIcon className={`w-5 h-5 mr-2 transition ${
+                              !isOwner ? 'text-slate-300' : 'text-slate-400 group-hover:text-blue-500'
+                            }`} />
+                          )}
+                          <span className={`text-sm font-medium transition ${
+                            !isOwner ? 'text-slate-400' : 'text-slate-600 group-hover:text-blue-600'
+                          }`}>
+                            {roomBackgroundUploading ? 'Uploading...' : !isOwner ? 'Only owners can upload' : 'Upload background'}
+                          </span>
+                        </label>
+                        <div className="text-xs text-slate-500 mt-2">
+                          Max file size: 5MB. Supported formats: PNG, GIF.
+                        </div>
                       </div>
                     </div>
 

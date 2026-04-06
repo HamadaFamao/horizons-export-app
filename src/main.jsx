@@ -19,7 +19,7 @@ setupGlobalErrorHandlers();
 
 // Check for required storage buckets
 console.log('🔍 Checking Supabase storage buckets...');
-console.log('📦 Required buckets: room_avatars (public), profile-photos (public)');
+console.log('📦 Required buckets: room_avatars (public), profile-photos (public), room_backgrounds (public)');
 console.log('⚠️  If upload fails with "bucket does not exist", create buckets manually in Supabase dashboard');
 console.log('📋 See SUPABASE_BUCKETS.md for step-by-step instructions');
 console.log('🛠️  Or use CLI: ./create-buckets.sh (if you have Supabase CLI installed)');
@@ -34,13 +34,15 @@ import('./lib/supabaseWarmup.js').then(({ supabaseWarmup }) => {
         const { data: buckets } = await supabase.storage.listBuckets();
         const hasRoomAvatars = buckets?.some(b => b.name === 'room_avatars');
         const hasProfilePhotos = buckets?.some(b => b.name === 'profile-photos');
+        const hasRoomBackgrounds = buckets?.some(b => b.name === 'room_backgrounds');
 
         console.log('📦 Bucket status:', {
           'room_avatars': hasRoomAvatars ? '✅ Found' : '❌ Missing',
-          'profile-photos': hasProfilePhotos ? '✅ Found' : '❌ Missing'
+          'profile-photos': hasProfilePhotos ? '✅ Found' : '❌ Missing',
+          'room_backgrounds': hasRoomBackgrounds ? '✅ Found' : '❌ Missing'
         });
 
-        if (!hasRoomAvatars || !hasProfilePhotos) {
+        if (!hasRoomAvatars || !hasProfilePhotos || !hasRoomBackgrounds) {
           console.warn('⚠️  Some storage buckets are missing. Upload features may not work until buckets are created.');
         }
       } catch (e) {

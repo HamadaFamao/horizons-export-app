@@ -16,6 +16,12 @@ This application requires the following storage buckets to be created in your Su
 - **Allowed MIME Types**: `image/png`, `image/gif`, `image/jpeg`, `image/webp`
 - **File Size Limit**: 5MB (5242880 bytes)
 
+### 3. `room_backgrounds`
+- **Purpose**: Store room background images
+- **Public**: Yes (check the "Public bucket" option)
+- **Allowed MIME Types**: `image/png`, `image/gif`
+- **File Size Limit**: 5MB (5242880 bytes)
+
 ## How to Create Buckets
 
 1. **Go to your Supabase Dashboard**
@@ -40,9 +46,40 @@ This application requires the following storage buckets to be created in your Su
    - Repeat steps 3-4 for bucket name: `profile-photos`
    - Set "Allowed MIME types": `image/png,image/gif,image/jpeg,image/webp`
 
+6. **Create Third Bucket**
+   - Repeat steps 3-4 for bucket name: `room_backgrounds`
+   - Set "Allowed MIME types": `image/png,image/gif`
+
 ## Bucket Policies
 
-The buckets will inherit default policies. For production, you may want to add custom RLS policies to restrict uploads to authenticated users only.
+For the `room_backgrounds` bucket, add policies that allow authenticated users to upload/update/delete and public users to read:
+
+```sql
+create policy "room_backgrounds select public" on storage.objects
+  for select using (bucket_id = 'room_backgrounds');
+
+create policy "room_backgrounds insert authenticated" on storage.objects
+  for insert with check (bucket_id = 'room_backgrounds' AND auth.role() = 'authenticated')
+  using (bucket_id = 'room_backgrounds' AND auth.role() = 'authenticated');
+
+create policy "room_backgrounds update authenticated" on storage.objects
+  for update with check (bucket_id = 'room_backgrounds' AND auth.role() = 'authenticated')
+  using (bucket_id = 'room_backgrounds' AND auth.role() = 'authenticated');
+
+create policy "room_backgrounds delete authenticated" on storage.objects
+  for delete using (bucket_id = 'room_backgrounds' AND auth.role() = 'authenticated');
+```
+
+If you want the same policy applied for `room_avatars`, use the same pattern with `bucket_id = 'room_avatars'`.
+
+### Room schema update
+
+If the `background_url` column does not exist on `live_rooms`, add it with:
+
+```sql
+alter table live_rooms
+  add column if not exists background_url text;
+```
 
 ## Troubleshooting
 

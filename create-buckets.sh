@@ -19,15 +19,22 @@ supabase storage create room_avatars --public
 # Create profile-photos bucket
 supabase storage create profile-photos --public
 
+# Create room_backgrounds bucket
+supabase storage create room_backgrounds --public
+
 # Set MIME types for room_avatars (PNG and GIF only)
 supabase storage update room_avatars --allowed-mime-types "image/png,image/gif"
 
 # Set MIME types for profile-photos (PNG, GIF, JPEG, WebP)
 supabase storage update profile-photos --allowed-mime-types "image/png,image/gif,image/jpeg,image/webp"
 
-# Set file size limit to 5MB for both buckets
+# Set MIME types for room_backgrounds (PNG and GIF only)
+supabase storage update room_backgrounds --allowed-mime-types "image/png,image/gif"
+
+# Set file size limit to 5MB for all buckets
 supabase storage update room_avatars --file-size-limit 5242880
 supabase storage update profile-photos --file-size-limit 5242880
+supabase storage update room_backgrounds --file-size-limit 5242880
 ```
 
 ## Alternative: Manual Creation
