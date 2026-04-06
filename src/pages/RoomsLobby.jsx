@@ -26,7 +26,7 @@ export default function RoomsLobby() {
     try {
       const { data, error } = await supabase
         .from('live_rooms')
-        .select('id,title,avatar_url,is_locked,max_mics,is_active,created_at,owner_user_id')
+        .select('id,title,avatar_url,is_locked,max_mics,is_active,created_at,owner_user_id,public_room_id')
         .eq('is_active', true)
         .order('created_at', { ascending: false })
         .limit(50);
@@ -267,7 +267,7 @@ export default function RoomsLobby() {
               {actionLabel}
             </Button>
             <div className="flex items-center gap-2">
-              <span className="text-[11px] text-slate-500 font-mono">#{String(room.id).slice(0, 8)}</span>
+              <span className="text-[11px] text-slate-500 font-mono">{room.public_room_id ? `#${room.public_room_id}` : `#${String(room.id).slice(0, 8)}`}</span>
             </div>
           </div>
         </div>

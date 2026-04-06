@@ -1740,7 +1740,8 @@ useEffect(() => {
 
   const copyRoomId = async () => {
     try {
-      await navigator.clipboard.writeText(String(roomId));
+      const copyText = room?.public_room_id ? `#${room.public_room_id}` : `#${String(roomId).slice(0, 8)}`;
+      await navigator.clipboard.writeText(copyText);
       toast("✅ Room ID copied", 1200);
     } catch {
       toast("❌ Failed to copy", 1200);
