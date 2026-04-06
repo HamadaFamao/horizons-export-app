@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Loader2, Mic, Lock, Unlock, Plus, Sparkles, Crown } from 'lucide-react';
+import { Loader2, Mic, Lock, Unlock, Plus, Sparkles, Crown, RefreshCw, Heart } from 'lucide-react';
 import CreateRoomModal from '@/components/CreateRoomModal';
 
 export default function RoomsLobby() {
@@ -14,6 +14,7 @@ export default function RoomsLobby() {
   const [banners, setBanners] = useState([]);
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
   const [recentRoomIds, setRecentRoomIds] = useState([]);
+  const [favoriteRoomIds, setFavoriteRoomIds] = useState([]);
   const [pinnedRoomId, setPinnedRoomId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
@@ -57,7 +58,7 @@ export default function RoomsLobby() {
 
   useEffect(() => {
     try {
-      const saved = window.localStorage.getItem('recent_rooms');
+      const saved = window.localStorage.getItem('recent_room_ids');
       if (saved) {
         const ids = JSON.parse(saved);
         if (Array.isArray(ids)) {
@@ -65,7 +66,19 @@ export default function RoomsLobby() {
         }
       }
     } catch (error) {
-      console.warn('[RoomsLobby] unable to read recent_rooms', error);
+      console.warn('[RoomsLobby] unable to read recent_room_ids', error);
+    }
+
+    try {
+      const savedFavorites = window.localStorage.getItem('favorite_room_ids');
+      if (savedFavorites) {
+        const ids = JSON.parse(savedFavorites);
+        if (Array.isArray(ids)) {
+          setFavoriteRoomIds(ids.filter((id) => id));
+        }
+      }
+    } catch (error) {
+      console.warn('[RoomsLobby] unable to read favorite_room_ids', error);
     }
 
     try {
@@ -96,9 +109,17 @@ export default function RoomsLobby() {
 
   const saveRecentRoomIds = (ids) => {
     try {
-      window.localStorage.setItem('recent_rooms', JSON.stringify(ids));
+      window.localStorage.setItem('recent_room_ids', JSON.stringify(ids));
     } catch (error) {
-      console.warn('[RoomsLobby] unable to save recent_rooms', error);
+      console.warn('[RoomsLobby] unable to save recent_room_ids', error);
+    }
+  };
+
+  const saveFavoriteRoomIds = (ids) => {
+    try {
+      window.localStorage.setItem('favorite_room_ids', JSON.stringify(ids));
+    } catch (error) {
+      console.warn('[RoomsLobby] unable to save favorite_room_ids', error);
     }
   };
 
@@ -131,6 +152,15 @@ export default function RoomsLobby() {
     savePinnedRoomId(roomId);
   };
 
+  const toggleFavoriteRoom = (roomId) => {
+    const normalized = String(roomId);
+    const next = favoriteRoomIds.includes(normalized)
+      ? favoriteRoomIds.filter((id) => String(id) !== normalized)
+      : [normalized, ...favoriteRoomIds];
+    setFavoriteRoomIds(next);
+    saveFavoriteRoomIds(next);
+  };
+
   const openBannerLink = (linkUrl) => {
     if (!linkUrl) return;
     if (linkUrl.startsWith('/')) {
@@ -149,12 +179,19 @@ export default function RoomsLobby() {
     navigate(`/rooms/${roomId}`);
   };
 
-  const renderRoomCard = (room, actionLabel = 'Join', actionVariant = 'outline') => {
+  const renderRoomCard = (
+    room,
+    actionLabel = 'Join',
+    actionVariant = 'outline',
+    showPinToggle = true,
+    gridMode = false
+  ) => {
     const isPinned = String(room.id) === String(pinnedRoomId);
+    const isFavorite = favoriteRoomIds.includes(String(room.id));
     return (
       <div
         key={room.id}
-        className="min-w-[220px] sm:min-w-[240px] flex-none bg-white border rounded-3xl overflow-hidden hover:shadow-xl transition cursor-pointer flex flex-col"
+        className={`bg-white border rounded-3xl overflow-hidden hover:shadow-xl transition cursor-pointer flex flex-col ${gridMode ? 'w-full' : 'min-w-[220px] sm:min-w-[240px] flex-none'}`}
         onClick={() => handleOpenRoom(room.id)}
         role="button"
         tabIndex={0}
@@ -162,7 +199,7 @@ export default function RoomsLobby() {
           if (e.key === 'Enter') handleOpenRoom(room.id);
         }}
       >
-        <div className="w-full aspect-square bg-slate-100 flex items-center justify-center overflow-hidden">
+        <div className="relative w-full aspect-square bg-slate-100 flex items-center justify-center overflow-hidden">
           {room.avatar_url ? (
             <img
               src={room.avatar_url}
@@ -177,6 +214,17 @@ export default function RoomsLobby() {
           ) : (
             <Mic className="w-8 h-8 text-slate-400" />
           )}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleFavoriteRoom(room.id);
+            }}
+            className="absolute top-3 right-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-slate-600 shadow-sm transition hover:bg-white"
+            aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+          >
+            <Heart className={`w-4 h-4 ${isFavorite ? 'text-rose-500' : 'text-slate-400'}`} fill={isFavorite ? 'currentColor' : 'none'} />
+          </button>
         </div>
 
         <div className="p-3 flex flex-col flex-1">
@@ -209,16 +257,18 @@ export default function RoomsLobby() {
               {actionLabel}
             </Button>
             <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  togglePinnedRoom(room.id);
-                }}
-              >
-                {isPinned ? 'Unpin' : 'Pin'}
-              </Button>
+              {showPinToggle ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    togglePinnedRoom(room.id);
+                  }}
+                >
+                  {isPinned ? 'Unpin' : 'Pin'}
+                </Button>
+              ) : null}
               <span className="text-[11px] text-slate-500 font-mono">#{String(room.id).slice(0, 8)}</span>
             </div>
           </div>
@@ -246,21 +296,40 @@ export default function RoomsLobby() {
       .filter((room) => !pinnedRoom || String(room.id) !== String(pinnedRoom.id));
   }, [recentRoomIds, rooms, myRoom, pinnedRoom]);
 
+  const favoriteRooms = useMemo(() => {
+    if (!favoriteRoomIds.length) return [];
+    return favoriteRoomIds
+      .map((id) => rooms.find((room) => String(room.id) === String(id)))
+      .filter(Boolean);
+  }, [favoriteRoomIds, rooms]);
+
   const excludedRoomIds = useMemo(
     () => new Set([
       String(myRoom?.id || ''),
       String(pinnedRoom?.id || ''),
-      ...recentRooms.map((room) => String(room.id))
+      ...recentRooms.map((room) => String(room.id)),
+      ...favoriteRooms.map((room) => String(room.id))
     ]),
-    [myRoom, pinnedRoom, recentRooms]
+    [myRoom, pinnedRoom, recentRooms, favoriteRooms]
   );
 
   const otherRooms = useMemo(
-    () => rooms.filter((room) => !excludedRoomIds.has(String(room.id))),
+    () => rooms
+      .filter((room) => !excludedRoomIds.has(String(room.id)))
+      .sort((a, b) => {
+        const aTime = new Date(a.created_at).getTime() || 0;
+        const bTime = new Date(b.created_at).getTime() || 0;
+        return bTime - aTime;
+      }),
     [rooms, excludedRoomIds]
   );
 
   const hasRooms = useMemo(() => Array.isArray(rooms) && rooms.length > 0, [rooms]);
+
+  const hasOwnActiveRoom = useMemo(
+    () => Array.isArray(rooms) && rooms.some((room) => String(room.owner_user_id) === String(user?.id)),
+    [rooms, user?.id]
+  );
 
   const activeBanner = banners.length ? banners[currentBannerIndex % banners.length] : null;
 
@@ -306,20 +375,21 @@ export default function RoomsLobby() {
       ) : null}
 
       {/* Header */}
-      <div className="flex items-start justify-between gap-3 mb-6">
-        <div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+        <div className="flex items-center gap-3">
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Rooms Lobby</h1>
-          <p className="text-slate-600 mt-1 text-sm sm:text-base">
-            Discover active voice chat rooms or create your own room.
-          </p>
+          <button
+            type="button"
+            onClick={fetchRooms}
+            disabled={loading}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label="Refresh rooms"
+          >
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+          </button>
         </div>
 
-        {/* Desktop buttons */}
         <div className="hidden sm:flex items-center gap-2">
-          <Button variant="outline" onClick={fetchRooms} disabled={loading}>
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Refresh'}
-          </Button>
-
           <Button onClick={() => setOpenCreate(true)} className="gap-2">
             <Plus className="w-4 h-4" />
             Create Room
@@ -377,18 +447,13 @@ export default function RoomsLobby() {
 
           {myRoom ? (
             <div className="mb-6">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div className="inline-flex items-center gap-2 text-sm font-semibold text-slate-900">
-                  <Crown className="w-4 h-4 text-amber-500" />
-                  <span>Your Room</span>
-                </div>
-                <Button size="sm" onClick={() => handleOpenRoom(myRoom.id)}>
-                  Manage
-                </Button>
+              <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900">
+                <Crown className="w-4 h-4 text-amber-500" />
+                <span>My Room</span>
               </div>
               <div className="overflow-x-auto pb-3">
                 <div className="flex gap-4 min-w-max">
-                  {renderRoomCard(myRoom, 'Manage', 'secondary')}
+                  {renderRoomCard(myRoom, 'Join', 'outline', false)}
                 </div>
               </div>
             </div>
@@ -416,12 +481,26 @@ export default function RoomsLobby() {
           {recentRooms.length > 0 ? (
             <div className="mb-6">
               <div className="mb-3 flex items-center justify-between gap-3">
-                <h2 className="text-lg font-semibold text-slate-900">Recent</h2>
+                <h2 className="text-lg font-semibold text-slate-900">Recently Visited</h2>
                 <span className="text-sm text-slate-500">Last visited</span>
               </div>
               <div className="overflow-x-auto pb-3">
                 <div className="flex gap-4 min-w-max">
-                  {recentRooms.map((room) => renderRoomCard(room))}
+                  {recentRooms.map((room) => renderRoomCard(room, 'Join', 'outline', true))}
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {favoriteRooms.length > 0 ? (
+            <div className="mb-6">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold text-slate-900">Favorites ❤️</h2>
+                <span className="text-sm text-slate-500">Your favorite rooms</span>
+              </div>
+              <div className="overflow-x-auto pb-3">
+                <div className="flex gap-4 min-w-max">
+                  {favoriteRooms.map((room) => renderRoomCard(room, 'Join', 'outline', true))}
                 </div>
               </div>
             </div>
@@ -433,26 +512,25 @@ export default function RoomsLobby() {
                 <h2 className="text-lg font-semibold text-slate-900">All Rooms</h2>
                 <span className="text-sm text-slate-500">Browse active rooms</span>
               </div>
-              <div className="overflow-x-auto pb-3">
-                <div className="flex gap-4 min-w-max">
-                  {otherRooms.map((room) => renderRoomCard(room))}
-                </div>
+              <div className="grid grid-cols-2 gap-4">
+                {otherRooms.map((room) => renderRoomCard(room, 'Join', 'outline', true, true))}
               </div>
             </div>
           ) : null}
         </>
       )}
 
-      {/* ✅ Floating Create button for mobile (guaranteed visible) */}
-      <button
-        type="button"
-        onClick={() => setOpenCreate(true)}
-        className="sm:hidden fixed bottom-[80px] right-5 z-50 min-w-[180px] rounded-full bg-gradient-to-r from-violet-500 via-fuchsia-500 to-pink-500 text-white px-4 py-3 flex items-center justify-center gap-2 shadow-2xl shadow-fuchsia-500/30 hover:shadow-[0_0_30px_rgba(236,72,153,0.45)] animate-pulse"
-        aria-label="Create Room"
-      >
-        <Sparkles className="w-4 h-4" />
-        <span className="text-sm font-semibold">Create Room</span>
-      </button>
+      {!hasOwnActiveRoom ? (
+        <button
+          type="button"
+          onClick={() => setOpenCreate(true)}
+          className="sm:hidden fixed bottom-[80px] right-5 z-50 min-w-[180px] rounded-full bg-gradient-to-r from-violet-500 via-fuchsia-500 to-pink-500 text-white px-4 py-3 flex items-center justify-center gap-2 shadow-2xl shadow-fuchsia-500/30 hover:shadow-[0_0_30px_rgba(236,72,153,0.45)] animate-pulse"
+          aria-label="Create Room"
+        >
+          <Sparkles className="w-4 h-4" />
+          <span className="text-sm font-semibold">Create Room</span>
+        </button>
+      ) : null}
 
       {/* Modal */}
       <CreateRoomModal
