@@ -6366,7 +6366,7 @@ useEffect(() => {
                         }}
                       >
                         <div className="mb-1 flex items-start justify-between gap-1">
-                          <div className="text-[10px] text-slate-500">Seat #{s.seat_no}</div>
+                          <div className="text-[10px] text-white/70">Seat #{s.seat_no}</div>
 
                           <div className="flex items-center gap-1">
                             {pkSide === "A" && (
