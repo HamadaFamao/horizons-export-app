@@ -282,42 +282,6 @@ export default function RoomsLobby() {
       {/* ✅ Debug marker: لو مش شايف السطر ده يبقى بتعدل ملف غلط */}
       <div className="text-[10px] text-slate-400 mb-2">RoomsLobby v2</div>
 
-      {activeBanner ? (
-        <div className="mb-6">
-          <div className="relative overflow-hidden rounded-3xl bg-slate-100 aspect-video">
-            <button
-              type="button"
-              onClick={() => openBannerLink(activeBanner.link_url)}
-              className="absolute inset-0"
-              aria-label={activeBanner.title || 'Banner'}
-            >
-              <img
-                src={activeBanner.image_url}
-                alt={activeBanner.title || 'Banner image'}
-                className="h-full w-full object-cover"
-                loading="lazy"
-              />
-            </button>
-            {activeBanner.title ? (
-              <div className="absolute bottom-4 left-4 right-4 rounded-2xl bg-black/40 px-4 py-2 text-sm font-semibold text-white backdrop-blur-sm">
-                {activeBanner.title}
-              </div>
-            ) : null}
-          </div>
-          <div className="mt-3 flex items-center justify-center gap-2">
-            {banners.map((banner, index) => (
-              <button
-                key={banner.id}
-                type="button"
-                onClick={() => setCurrentBannerIndex(index)}
-                className={`h-2 w-2 rounded-full transition ${index === currentBannerIndex ? 'bg-slate-900' : 'bg-slate-300'}`}
-                aria-label={`Go to banner ${index + 1}`}
-              />
-            ))}
-          </div>
-        </div>
-      ) : null}
-
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
         <div className="flex items-center gap-3">
@@ -352,6 +316,43 @@ export default function RoomsLobby() {
           ) : null}
         </div>
       </div>
+
+      {activeBanner ? (
+        <div className="mb-6">
+          <div className="relative overflow-hidden rounded-xl aspect-[2/1] shadow-[0_20px_60px_rgba(99,102,241,0.18)] bg-slate-900">
+            <button
+              type="button"
+              onClick={() => openBannerLink(activeBanner.link_url)}
+              className="absolute inset-0"
+              aria-label={activeBanner.title || 'Banner'}
+            >
+              <img
+                src={activeBanner.image_url}
+                alt={activeBanner.title || 'Banner image'}
+                className="h-full w-full object-cover"
+                loading="lazy"
+              />
+            </button>
+            <div className="absolute inset-0 bg-gradient-to-r from-violet-700/30 via-fuchsia-500/10 to-pink-700/30" />
+            {activeBanner.title ? (
+              <div className="absolute bottom-4 left-4 right-4 rounded-3xl border border-white/20 bg-slate-950/70 px-4 py-3 text-sm font-semibold text-white shadow-lg backdrop-blur-sm">
+                {activeBanner.title}
+              </div>
+            ) : null}
+          </div>
+          <div className="mt-3 flex items-center justify-center gap-2">
+            {banners.map((banner, index) => (
+              <button
+                key={banner.id}
+                type="button"
+                onClick={() => setCurrentBannerIndex(index)}
+                className={`h-2.5 w-2.5 rounded-full transition ${index === currentBannerIndex ? 'bg-white' : 'bg-slate-300'}`}
+                aria-label={`Go to banner ${index + 1}`}
+              />
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <div className="mb-6 flex flex-wrap items-center gap-2 border border-slate-200 rounded-full bg-white p-1 shadow-sm">
         {[
