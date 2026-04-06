@@ -6314,90 +6314,90 @@ useEffect(() => {
           <div className="shrink-0 bg-transparent border-b lg:border-b-0 lg:border-r flex flex-col lg:w-[312px] xl:w-[336px] bg-white/5 backdrop-blur-sm">
 
             <div className="min-h-0 overflow-y-auto overscroll-contain p-2.5 sm:p-3">
-              <div className="grid grid-cols-3 gap-2">
-                {loading
-                  ? null
-                  : (effectiveSeats || []).map((s) => {
-                    const person = s.occupant || null;
-                    let name = "Empty";
-                    let avatar = FALLBACK_AVATAR;
+  <div className="grid grid-cols-3 gap-2">
+    {loading
+      ? null
+      : (effectiveSeats || []).map((s) => {
+        const person = s.occupant || null;
+        let name = "Empty";
+        let avatar = FALLBACK_AVATAR;
 
-                    if (person) {
-                      name =
-                        person.display_name ||
-                        person.full_name ||
-                        person.raw_profile?.name ||
-                        "User";
-                      avatar = person.avatar_url || FALLBACK_AVATAR;
-                    } else {
-                      name = "Empty";
-                      avatar = FALLBACK_AVATAR;
-                    }
+        if (person) {
+          name =
+            person.display_name ||
+            person.full_name ||
+            person.raw_profile?.name ||
+            "User";
+          avatar = person.avatar_url || FALLBACK_AVATAR;
+        } else {
+          name = "Empty";
+          avatar = FALLBACK_AVATAR;
+        }
 
-                    const isMySeat = !!(
-                      user?.id &&
-                      s.user_id &&
-                      String(s.user_id) === String(user.id)
-                    );
-                    const isSeatMuted = !!mutedUsers?.[String(s.user_id)];
-                    const isLocked = !!s.locked;
-                    const speakerLevel = Number(activeSpeakers?.[s.user_id] || 0);
-                    const isSpeakingNow = speakerLevel > 0.04;
-                    const waveScale = 1 + Math.min(speakerLevel, 0.5) * 0.35;
-                    const pkSide = s.user_id ? pkUserSideMap.get(String(s.user_id)) : null;
+        const isMySeat = !!(
+          user?.id &&
+          s.user_id &&
+          String(s.user_id) === String(user.id)
+        );
+        const isSeatMuted = !!mutedUsers?.[String(s.user_id)];
+        const isLocked = !!s.locked;
+        const speakerLevel = Number(activeSpeakers?.[s.user_id] || 0);
+        const isSpeakingNow = speakerLevel > 0.04;
+        const waveScale = 1 + Math.min(speakerLevel, 0.5) * 0.35;
+        const pkSide = s.user_id ? pkUserSideMap.get(String(s.user_id)) : null;
 
-                    return (
-                      <div
-                        key={`${s.room_id}_${s.seat_no}`}
-                        className={`relative rounded-xl border p-2 transition-all duration-300 bg-white/5 backdrop-blur-sm ${pkSide === "A"
-                          ? "shadow-[0_0_12px_rgba(232,121,249,0.25)]"
-                          : pkSide === "B"
-                            ? "shadow-[0_0_12px_rgba(34,211,238,0.25)]"
-                            : ""
-                          }`}
-                        ref={(el) => {
-                          if (s?.user_id) {
-                            if (el) {
-                              micSeatRefs.current[String(s.user_id)] = el;
-                            } else {
-                              delete micSeatRefs.current[String(s.user_id)];
-                            }
-                          }
-                        }}
-                      >
-                        <div className="mb-1 flex items-start justify-between gap-1">
-                          <div className="text-[10px] text-white/70">Seat #{s.seat_no}</div>
+        return (
+          <div
+            key={`${s.room_id}_${s.seat_no}`}
+            className={`relative rounded-xl border border-white/10 p-2 transition-all duration-300 bg-transparent ${pkSide === "A"
+              ? "shadow-[0_0_12px_rgba(232,121,249,0.25)]"
+              : pkSide === "B"
+                ? "shadow-[0_0_12px_rgba(34,211,238,0.25)]"
+                : ""
+              }`}
+            ref={(el) => {
+              if (s?.user_id) {
+                if (el) {
+                  micSeatRefs.current[String(s.user_id)] = el;
+                } else {
+                  delete micSeatRefs.current[String(s.user_id)];
+                }
+              }
+            }}
+          >
+            <div className="mb-1 flex items-start justify-between gap-1">
+              <div className="text-[10px] text-white/70">Seat #{s.seat_no}</div>
 
-                          <div className="flex items-center gap-1">
-                            {pkSide === "A" && (
-                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-fuchsia-100 text-fuchsia-700 border border-fuchsia-200">
-                                A
-                              </span>
-                            )}
-                            {pkSide === "B" && (
-                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-cyan-100 text-cyan-700 border border-cyan-200">
-                                B
-                              </span>
-                            )}
-                            {isLocked ? (
-                              <span className="text-[9px] font-semibold px-1 py-0.5 rounded bg-rose-50 text-rose-600 border border-rose-200">
-                                🔒
-                              </span>
-                            ) : null}
+              <div className="flex items-center gap-1">
+                {pkSide === "A" && (
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-fuchsia-500/10 text-fuchsia-300 border border-fuchsia-500/20">
+                    A
+                  </span>
+                )}
+                {pkSide === "B" && (
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
+                    B
+                  </span>
+                )}
+                {isLocked ? (
+                  <span className="text-[9px] font-semibold px-1 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20">
+                    🔒
+                  </span>
+                ) : null}
 
-                            {canModerate &&
-                              s.user_id &&
-                              !isMySeat &&
-                              (isOwner || String(s.user_id) !== String(room?.owner_user_id)) ? (
-                              <button
-                                type="button"
-                                onClick={() => removeFromMic(s.user_id)}
-                                className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition"
-                                title="Remove from mic"
-                              >
-                                <XCircle className="w-3.5 h-3.5" />
-                              </button>
-                            ) : null}
+                {canModerate &&
+                  s.user_id &&
+                  !isMySeat &&
+                  (isOwner || String(s.user_id) !== String(room?.owner_user_id)) ? (
+                  <button
+                    type="button"
+                    onClick={() => removeFromMic(s.user_id)}
+                    className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-white/20 bg-transparent text-white/70 hover:bg-rose-500/20 hover:text-rose-400 hover:border-rose-500/30 transition"
+                    title="Remove from mic"
+                  >
+                    <XCircle className="w-3.5 h-3.5" />
+                  </button>
+                ) : null}
 
                             {isMySeat ? (
                               <button
