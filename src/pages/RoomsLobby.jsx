@@ -92,10 +92,51 @@ export default function RoomsLobby() {
         .order('sort_order', { ascending: true });
 
       if (error) throw error;
-      setBanners(Array.isArray(data) ? data.filter((banner) => banner?.image_url) : []);
+      const validBanners = Array.isArray(data) ? data.filter((banner) => banner?.image_url) : [];
+      
+      // Use demo banners if DB is empty
+      if (validBanners.length === 0) {
+        const demoBanners = [
+          {
+            id: 'demo-1',
+            title: '🏆 Weekly Tournament',
+            subtitle: 'Join now and win prizes!',
+            gradient: 'from-purple-600 to-pink-600',
+            isDemo: true
+          },
+          {
+            id: 'demo-2',
+            title: '🎤 Voice Rooms',
+            subtitle: 'Discover amazing rooms',
+            gradient: 'from-blue-600 to-cyan-600',
+            isDemo: true
+          }
+        ];
+        setBanners(demoBanners);
+      } else {
+        setBanners(validBanners);
+      }
     } catch (fetchError) {
       console.warn('[RoomsLobby] fetch banners failed', fetchError);
-      setBanners([]);
+      
+      // Fall back to demo banners on error
+      const demoBanners = [
+        {
+          id: 'demo-1',
+          title: '🏆 Weekly Tournament',
+          subtitle: 'Join now and win prizes!',
+          gradient: 'from-purple-600 to-pink-600',
+          isDemo: true
+        },
+        {
+          id: 'demo-2',
+          title: '🎤 Voice Rooms',
+          subtitle: 'Discover amazing rooms',
+          gradient: 'from-blue-600 to-cyan-600',
+          isDemo: true
+        }
+      ];
+      setBanners(demoBanners);
     }
   };
 
@@ -319,27 +360,36 @@ export default function RoomsLobby() {
 
       {activeBanner ? (
         <div className="mb-6">
-          <div className="relative overflow-hidden rounded-xl aspect-[2/1] shadow-[0_20px_60px_rgba(99,102,241,0.18)] bg-slate-900">
-            <button
-              type="button"
-              onClick={() => openBannerLink(activeBanner.link_url)}
-              className="absolute inset-0"
-              aria-label={activeBanner.title || 'Banner'}
-            >
-              <img
-                src={activeBanner.image_url}
-                alt={activeBanner.title || 'Banner image'}
-                className="h-full w-full object-cover"
-                loading="lazy"
-              />
-            </button>
-            <div className="absolute inset-0 bg-gradient-to-r from-violet-700/30 via-fuchsia-500/10 to-pink-700/30" />
-            {activeBanner.title ? (
-              <div className="absolute bottom-4 left-4 right-4 rounded-3xl border border-white/20 bg-slate-950/70 px-4 py-3 text-sm font-semibold text-white shadow-lg backdrop-blur-sm">
-                {activeBanner.title}
+          {activeBanner.isDemo ? (
+            <div className={`relative overflow-hidden rounded-xl bg-gradient-to-r ${activeBanner.gradient} shadow-xl flex items-center justify-center min-h-[140px] px-6 py-8`}>
+              <div className="text-center text-white">
+                <h2 className="text-3xl sm:text-4xl font-bold mb-2">{activeBanner.title}</h2>
+                <p className="text-sm sm:text-base opacity-90 font-medium">{activeBanner.subtitle}</p>
               </div>
-            ) : null}
-          </div>
+            </div>
+          ) : (
+            <div className="relative overflow-hidden rounded-xl aspect-[2/1] shadow-[0_20px_60px_rgba(99,102,241,0.18)] bg-slate-900">
+              <button
+                type="button"
+                onClick={() => openBannerLink(activeBanner.link_url)}
+                className="absolute inset-0"
+                aria-label={activeBanner.title || 'Banner'}
+              >
+                <img
+                  src={activeBanner.image_url}
+                  alt={activeBanner.title || 'Banner image'}
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                />
+              </button>
+              <div className="absolute inset-0 bg-gradient-to-r from-violet-700/30 via-fuchsia-500/10 to-pink-700/30" />
+              {activeBanner.title ? (
+                <div className="absolute bottom-4 left-4 right-4 rounded-3xl border border-white/20 bg-slate-950/70 px-4 py-3 text-sm font-semibold text-white shadow-lg backdrop-blur-sm">
+                  {activeBanner.title}
+                </div>
+              ) : null}
+            </div>
+          )}
           <div className="mt-3 flex items-center justify-center gap-2">
             {banners.map((banner, index) => (
               <button
@@ -405,20 +455,6 @@ export default function RoomsLobby() {
         </div>
       ) : (
         <>
-          {/* Mobile refresh row */}
-          <div className="sm:hidden flex items-center justify-between mb-3">
-            <Button variant="outline" onClick={fetchRooms} disabled={loading} className="w-full">
-              {loading ? (
-                <span className="inline-flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Loading...
-                </span>
-              ) : (
-                'Refresh rooms'
-              )}
-            </Button>
-          </div>
-
           <div className="mb-6">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
@@ -437,7 +473,7 @@ export default function RoomsLobby() {
             </div>
 
             {activeTabRooms.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 {activeTabRooms.map((room) => renderRoomCard(room, 'Join', 'outline', true, true))}
               </div>
             ) : (
