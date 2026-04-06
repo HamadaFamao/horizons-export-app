@@ -103,6 +103,19 @@ export default function CreateRoomModal({ open, onClose, onCreated }) {
 
       setLoading(true);
 
+      // 0) تحقق لو المستخدم عنده غرفة active بالفعل
+      const { data: existingRooms, error: checkErr } = await supabase
+        .from("live_rooms")
+        .select("id")
+        .eq("owner_user_id", authUser.id)
+        .eq("is_active", true)
+        .limit(1);
+
+      if (checkErr) throw checkErr;
+      if (existingRooms && existingRooms.length > 0) {
+        throw new Error("You already have an active room. Please close it first.");
+      }
+
       // 1) create room first (without avatar)
       const { data: room, error: rErr } = await supabase
         .from("live_rooms")

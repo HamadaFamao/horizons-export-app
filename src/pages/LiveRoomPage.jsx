@@ -3672,7 +3672,7 @@ console.log("MODERATORS MAP:", nextMap);
     setLeaveRoomOpen(false);
     await stopVoice();
     await leaveRoomPresence();
-    navigate("/rooms");
+    navigate("/rooms", { replace: true });
   };
 
   const handleResetMicGiftCounters = async () => {
@@ -4830,7 +4830,7 @@ useEffect(() => {
           else if (payload?.until) setErr(`👢 You were kicked until ${new Date(payload.until).toLocaleString()}`);
           else setErr("👢 You were kicked.");
 
-          setTimeout(() => navigate("/rooms"), 600);
+          setTimeout(() => navigate("/rooms", { replace: true }), 600);
         } catch { }
       });
 
