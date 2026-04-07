@@ -26,7 +26,7 @@ function RoomCardModal({ room, hostUser, onClose, openUserCard }) {
       />
       <div className="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-y-auto max-h-[90vh] animate-in slide-in-from-bottom-4 duration-300">
         {/* Header image */}
-        <div className="relative h-24 bg-gradient-to-br from-slate-700 to-slate-900">
+        <div className="relative h-16 bg-gradient-to-br from-slate-700 to-slate-900">
           {room?.background_url && (
             <img
               src={room.background_url}
