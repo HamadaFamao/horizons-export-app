@@ -155,6 +155,7 @@ export default function RoomModals({
   openBanConfirm,
   assignModerator,
   removeModerator,
+  setSeatMenuOpen,
 }) {
   return (
     <>

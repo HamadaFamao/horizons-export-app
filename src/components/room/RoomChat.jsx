@@ -38,6 +38,7 @@ export default function RoomChat({
   sendText,
   openGiftPanelForAll,
   sending,
+  canModerate,
 }) {
   return (
     <div className="flex-1 min-h-0 flex flex-col overflow-hidden lg:w-2/3 bg-black/30 backdrop-blur-sm">
