@@ -9,7 +9,7 @@ const FALLBACK_AVATAR =
   "data:image/svg+xml;utf8," +
   encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128"><rect width="128" height="128" rx="64" fill="#f1f5f9"/><circle cx="64" cy="52" r="22" fill="#cbd5e1"/><path d="M24 112c8-22 28-34 40-34s32 12 40 34" fill="#cbd5e1"/></svg>`);
 
-function RoomCardModal({ room, onClose, openUserCard }) {
+function RoomCardModal({ room, hostUser, onClose, openUserCard }) {
   const roomId = room?.public_room_id
     ? `#${room.public_room_id}`
     : room?.id
@@ -120,7 +120,7 @@ function RoomCardModal({ room, onClose, openUserCard }) {
               <div className="text-left min-w-0">
                 <div className="text-xs text-slate-500">Host</div>
                 <div className="font-semibold text-slate-800 truncate">
-                  {room?.owner_name || "Room Owner"}
+                  {hostUser?.name || hostUser?.display_name || "Room Owner"}
                 </div>
               </div>
               <span className="ml-auto text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold shrink-0">
@@ -136,6 +136,7 @@ function RoomCardModal({ room, onClose, openUserCard }) {
 
 export default function RoomHeader({
   room,
+  hostUser,
   setLeaveRoomOpen,
   openUserCard,
   copyRoomId,

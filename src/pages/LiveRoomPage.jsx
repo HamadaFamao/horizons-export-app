@@ -5880,7 +5880,8 @@ useEffect(() => {
       ) : null}
 
       <RoomHeader
-        room={room}
+  room={room}
+  hostUser={hostUser}
         setLeaveRoomOpen={setLeaveRoomOpen}
         openUserCard={openUserCard}
         copyRoomId={copyRoomId}
