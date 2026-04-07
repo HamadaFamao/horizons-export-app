@@ -220,7 +220,8 @@ export default function RoomChat({
       )}
 
       <div
-  className="bg-black/40 backdrop-blur-sm px-3 py-2.5 z-20 shrink-0"
+  className="bg-black/40 backdrop-blur-sm px-3 pt-2.5 z-20 shrink-0"
+  style={{ paddingBottom: 'calc(0.625rem + env(safe-area-inset-bottom, 0px))' }}
 >
         {myMutedActive ? (
           <div className="mb-2 text-sm bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-2">
