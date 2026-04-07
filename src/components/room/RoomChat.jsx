@@ -44,7 +44,7 @@ export default function RoomChat({
     <div className="flex-1 flex flex-col h-full overflow-hidden lg:w-2/3 bg-black/30 backdrop-blur-sm">
       <div
         ref={chatScrollRef}
-        className="flex-1 overflow-y-auto overscroll-contain min-h-0 px-3 sm:px-4 pt-3 pb-20"
+        className="flex-1 overflow-y-auto min-h-0 pb-20"
       >
             <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 mb-3 text-center">
               <div className="text-sm font-semibold text-blue-900">Welcome to the room 🎤</div>
@@ -221,7 +221,7 @@ export default function RoomChat({
 
       <div
         style={{ position: 'fixed', bottom: 0, left: 0, right: 0 }}
-        className="bg-black/40 backdrop-blur-sm px-3 sm:px-4 py-2.5 z-20"
+        className="bg-black/40 backdrop-blur-sm px-3 py-2.5 z-20"
       >
         {myMutedActive ? (
           <div className="mb-2 text-sm bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-2">
