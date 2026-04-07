@@ -189,7 +189,7 @@ export default function RoomHeader({
         {/* Room avatar — opens room card */}
         <button
           onClick={() => setShowRoomCard(true)}
-          className="shrink-0 w-12 h-12 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center cursor-pointer border hover:ring-2 hover:ring-slate-300 transition"
+          className="shrink-0 w-14 h-14 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center cursor-pointer border hover:ring-2 hover:ring-slate-300 transition"
           title="Room info"
         >
           {room?.avatar_url ? (
@@ -214,11 +214,7 @@ export default function RoomHeader({
           </button>
 
           <div className="text-xs text-slate-400 font-mono flex items-center gap-2">
-            {room?.public_room_id
-              ? `#${room.public_room_id}`
-              : room?.id
-              ? `#${String(room.id).slice(0, 8)}`
-              : ""}
+            
             <button
               onClick={copyRoomId}
               className="inline-flex items-center justify-center w-5 h-5 rounded text-slate-500 hover:text-slate-900 hover:bg-slate-100 shrink-0"
