@@ -55,6 +55,10 @@ import {
 } from "lucide-react";
 
 import LeaderboardModal from "@/components/LeaderboardModal";
+import RoomHeader from "@/components/room/RoomHeader";
+import RoomSeats from "@/components/room/RoomSeats";
+import RoomChat from "@/components/room/RoomChat";
+import RoomModals from "@/components/room/RoomModals";
 
 const FALLBACK_AVATAR =
   "data:image/svg+xml;utf8," +
@@ -297,7 +301,7 @@ export default function LiveRoomPage() {
   const countdownAudioRef = useRef(null);
   const countdownStartedRef = useRef(false);
   const selectedPkAudioRef = useRef(null);
-  const selectedPkSessionIdRef = useRef(null);
+  const selectedPkSessionIdRef = useRef(null);P
   const audioUnlockedRef = useRef(false);
   const roomAvatarInputRef = useRef(null);
   const roomBackgroundInputRef = useRef(null);
@@ -5875,152 +5879,32 @@ useEffect(() => {
         </div>
       ) : null}
 
-      <div className="shrink-0 sticky top-0 z-20 bg-white/95 backdrop-blur border-b p-2 sm:p-4 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          {room?.is_locked ? (
-            <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-              <Lock className="w-3 h-3" /> Locked
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-              <Unlock className="w-3 h-3" /> Open
-            </span>
-          )}
-
-          <button
-            onClick={() => setLeaveRoomOpen(true)}
-            className="p-2 rounded-full border bg-white hover:bg-gray-50"
-            title="Leave Room"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
+      <RoomHeader
+        room={room}
+        setLeaveRoomOpen={setLeaveRoomOpen}
+        openUserCard={openUserCard}
+        copyRoomId={copyRoomId}
+        toggleFavoriteRoom={toggleFavoriteRoom}
+        isFavorite={isFavorite}
+        currentPeopleRanked={currentPeopleRanked}
+        setShowPeople={setShowPeople}
+        canModerate={canModerate}
+        pendingRequests={pendingRequests}
+        setRequestsOpen={setRequestsOpen}
+        pkSession={pkSession}
+        pkBusy={pkBusy}
+        setShowPkModal={setShowPkModal}
+        setShowLeaderboard={setShowLeaderboard}
+        handleResetMicGiftCounters={handleResetMicGiftCounters}
+        openSettings={openSettings}
+        myIncomingInvites={myIncomingInvites}
+        handleAcceptMyInvite={handleAcceptMyInvite}
+        handleRejectMyInvite={handleRejectMyInvite}
+      />
 
       <div
         className="relative flex-1 min-h-0 flex flex-col overflow-hidden bg-transparent sm:border sm:rounded-xl sm:mx-4 sm:mb-4"
       >
-        <div className="relative shrink-0 p-2 sm:p-2.5 border-b flex items-center gap-1 overflow-x-auto whitespace-nowrap hide-scrollbar">
-          <button
-            onClick={() => openUserCard(room.owner_user_id)}
-            className="shrink-0 w-12 h-12 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center cursor-pointer border"
-            title="Open owner card"
-          >
-            {room?.avatar_url ? (
-              <img 
-                src={room.avatar_url} 
-                alt={room.title} 
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                  e.currentTarget.parentElement.innerHTML = '<svg class="w-4 h-4 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>';
-                }}
-              />
-            ) : (
-              <Mic className="w-4 h-4 text-slate-700" />
-            )}
-          </button>
-
-          <div className="min-w-0 flex-1 max-w-[160px]">
-            <div className="font-semibold text-slate-900 truncate text-[13px]">{room?.title}</div>
-
-            <div className="text-xs text-slate-400 font-mono flex items-center gap-2">
-              {room?.public_room_id ? `#${room.public_room_id}` : room?.id ? `#${String(room.id).slice(0, 8)}` : ''}
-              <button
-                onClick={copyRoomId}
-                className="inline-flex items-center justify-center w-5 h-5 rounded text-slate-500 hover:text-slate-900 hover:bg-slate-100 shrink-0"
-                title="Copy room id"
-              >
-                <Copy className="w-3 h-3" />
-              </button>
-
-              <button
-                onClick={() => toggleFavoriteRoom(room?.id)}
-                className={`inline-flex items-center justify-center w-8 h-8 rounded-lg border p-0 shrink-0 ${isFavorite ? 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100' : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'}`}
-                title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-              >
-                <Heart className="w-4 h-4" fill={isFavorite ? 'currentColor' : 'none'} />
-              </button>
-            </div>
-          </div>
-
-          <PeopleInRoomButton
-  people={currentPeopleRanked}
-  onClick={() => setShowPeople(true)}
-/>
-
-          {canModerate ? (
-  <MicRequestsButton
-    count={pendingRequests.length}
-    onClick={() => setRequestsOpen(prev => !prev)}
-  />
-) : null}
-
-          {canModerate && (!pkSession || pkSession.status !== "live") ? (
-  <PkButton
-    onClick={() => setShowPkModal(true)}
-    disabled={pkBusy}
-  />
-) : null}
-
-          <Button
-            variant="outline"
-            className="shrink-0 h-8 w-8 rounded-lg bg-yellow-50 border-yellow-200 text-yellow-700 hover:bg-yellow-100 p-0"
-            onClick={() => setShowLeaderboard(true)}
-          >
-            <span className="text-sm">🏆</span>
-          </Button>
-
-          {canModerate ? (
-            <Button
-              variant="outline"
-              className="shrink-0 h-8 w-8 rounded-lg text-rose-600 hover:bg-rose-50 hover:text-rose-700 border-rose-200 p-0"
-              onClick={handleResetMicGiftCounters}
-            >
-              <RefreshCw className="w-4 h-4" />
-            </Button>
-          ) : null}
-
-          {canModerate ? (
-            <Button
-              variant="outline"
-              className="shrink-0 h-8 w-8 rounded-lg p-0"
-              onClick={openSettings}
-            >
-              <Settings className="w-4 h-4" />
-            </Button>
-          ) : null}
-
-          {myIncomingInvites.length > 0 ? (
-            <div className="flex items-center gap-2 shrink-0">
-              {myIncomingInvites.map((inv) => (
-                <div key={inv.id} className="flex items-center gap-2 bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-lg">
-                  <span className="text-xs font-semibold text-indigo-800 flex items-center gap-1 hidden sm:flex">
-                    <Mic className="w-3.5 h-3.5" />
-                    Mic Invite
-                  </span>
-                  <Button
-                    size="sm"
-                    onClick={() => handleAcceptMyInvite(inv)}
-                    className="h-7 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white px-2"
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    Accept
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleRejectMyInvite(inv)}
-                    className="h-7 text-xs gap-1 text-rose-600 hover:bg-rose-50 px-2"
-                  >
-                    <XCircle className="w-3.5 h-3.5" />
-                    Reject
-                  </Button>
-                </div>
-              ))}
-            </div>
-          ) : null}
-        </div>
 
         {err ? <div className="shrink-0 px-4 py-2 text-sm border-b bg-rose-50 text-rose-700">{err}</div> : null}
 
@@ -6311,1354 +6195,182 @@ useEffect(() => {
         ) : null}
 
         <div className="flex-1 min-h-0 overflow-hidden flex flex-col lg:flex-row">
-          <div className="shrink-0 bg-white border-b lg:border-b-0 lg:border-r flex flex-col lg:w-[312px] xl:w-[336px]">
-
-            <div className="min-h-0 overflow-y-auto overscroll-contain p-2.5 sm:p-3">
-              <div className="grid grid-cols-3 gap-2">
-                {loading
-                  ? null
-                  : (effectiveSeats || []).map((s) => {
-                    const person = s.occupant || null;
-                    let name = "Empty";
-                    let avatar = FALLBACK_AVATAR;
-
-                    if (person) {
-                      name =
-                        person.display_name ||
-                        person.full_name ||
-                        person.raw_profile?.name ||
-                        "User";
-                      avatar = person.avatar_url || FALLBACK_AVATAR;
-                    } else {
-                      name = "Empty";
-                      avatar = FALLBACK_AVATAR;
-                    }
-
-                    const isMySeat = !!(
-                      user?.id &&
-                      s.user_id &&
-                      String(s.user_id) === String(user.id)
-                    );
-                    const isSeatMuted = !!mutedUsers?.[String(s.user_id)];
-                    const isLocked = !!s.locked;
-                    const speakerLevel = Number(activeSpeakers?.[s.user_id] || 0);
-                    const isSpeakingNow = speakerLevel > 0.04;
-                    const waveScale = 1 + Math.min(speakerLevel, 0.5) * 0.35;
-                    const pkSide = s.user_id ? pkUserSideMap.get(String(s.user_id)) : null;
-
-                    return (
-                      <div
-                        key={`${s.room_id}_${s.seat_no}`}
-                        className={`relative rounded-xl border p-2 transition-all duration-300 ${pkSide === "A"
-                          ? "bg-fuchsia-50 border-fuchsia-300 shadow-[0_0_12px_rgba(232,121,249,0.25)]"
-                          : pkSide === "B"
-                            ? "bg-cyan-50 border-cyan-300 shadow-[0_0_12px_rgba(34,211,238,0.25)]"
-                            : "bg-slate-50"
-                          }`}
-                        ref={(el) => {
-                          if (s?.user_id) {
-                            if (el) {
-                              micSeatRefs.current[String(s.user_id)] = el;
-                            } else {
-                              delete micSeatRefs.current[String(s.user_id)];
-                            }
-                          }
-                        }}
-                      >
-                        <div className="mb-1 flex items-start justify-between gap-1">
-                          <div className="text-[10px] text-slate-500">Seat #{s.seat_no}</div>
-
-                          <div className="flex items-center gap-1">
-                            {pkSide === "A" && (
-                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-fuchsia-100 text-fuchsia-700 border border-fuchsia-200">
-                                A
-                              </span>
-                            )}
-                            {pkSide === "B" && (
-                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-cyan-100 text-cyan-700 border border-cyan-200">
-                                B
-                              </span>
-                            )}
-                            {isLocked ? (
-                              <span className="text-[9px] font-semibold px-1 py-0.5 rounded bg-rose-50 text-rose-600 border border-rose-200">
-                                🔒
-                              </span>
-                            ) : null}
-
-                            {canModerate &&
-                              s.user_id &&
-                              !isMySeat &&
-                              (isOwner || String(s.user_id) !== String(room?.owner_user_id)) ? (
-                              <button
-                                type="button"
-                                onClick={() => removeFromMic(s.user_id)}
-                                className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition"
-                                title="Remove from mic"
-                              >
-                                <XCircle className="w-3.5 h-3.5" />
-                              </button>
-                            ) : null}
-
-                            {isMySeat ? (
-                              <button
-                                type="button"
-                                onClick={() => leaveMySeat(s.seat_no)}
-                                className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition"
-                                title="Leave seat"
-                              >
-                                <XCircle className="w-3.5 h-3.5" />
-                              </button>
-                            ) : null}
-                          </div>
-                        </div>
-
-                        <button
-                          className="w-full text-left"
-                          onClick={() => {
-                            if (isMySeat) {
-                              openSeatMenu(s.seat_no);
-                              return;
-                            }
-
-                            if (s.user_id) {
-                              openUserCard(s.user_id);
-                              return;
-                            }
-
-                            if (!s.user_id && canModerate) {
-                              openSeatMenu(s.seat_no);
-                              return;
-                            }
-
-                            if (!s.user_id && !canModerate) {
-                              if (isLocked) {
-                                toast("Seat is locked", 1200);
-                                return;
-                              }
-
-                              if (micMode === "open") {
-                                takeSeat(s.seat_no);
-                                return;
-                              }
-
-                              toast("Request Mic first", 1200);
-                            }
-                          }}
-                          disabled={false}
-                          title={isMySeat ? "Open seat menu" : s.user_id ? "Open user card" : ""}
-                        >
-                          <div className="flex flex-col items-center text-center">
-                            <div className="relative flex items-center justify-center shrink-0">
-                              {isSpeakingNow ? (
-                                <>
-                                  <span
-                                    className="absolute inset-0 rounded-full border-2 border-emerald-400/70 animate-ping"
-                                    style={{
-                                      transform: `scale(${waveScale})`,
-                                      animationDuration: "900ms",
-                                    }}
-                                  />
-                                  <span
-                                    className="absolute inset-0 rounded-full border border-emerald-300/60"
-                                    style={{
-                                      transform: `scale(${1.08 + Math.min(speakerLevel, 0.4) * 0.22})`,
-                                      boxShadow: `0 0 ${16 + speakerLevel * 26}px rgba(52,211,153,${0.25 + speakerLevel * 0.35
-                                        })`,
-                                    }}
-                                  />
-                                </>
-                              ) : null}
-
-                              <img
-                                src={avatar}
-                                alt={name}
-                                onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
-                                className={`w-9 h-9 sm:w-10 sm:h-10 object-cover bg-white/30 relative z-10 rounded-full border transition-all duration-150 backdrop-blur-sm ${s.user_id ? "cursor-pointer" : ""
-                                  } ${isSpeakingNow
-                                    ? "ring-4 ring-emerald-400 scale-[1.06] shadow-[0_0_24px_rgba(52,211,153,0.65)]"
-                                    : ""
-                                  }`}
-                                style={
-                                  isSpeakingNow
-                                    ? {
-                                      boxShadow: `0 0 ${18 + speakerLevel * 28}px rgba(52,211,153,${0.35 + speakerLevel * 0.45
-                                        })`,
-                                      transform: `scale(${1 + Math.min(speakerLevel, 0.35) * 0.18})`,
-                                    }
-                                    : undefined
-                                }
-                                onClick={(e) => {
-                                  if (!isMySeat && s.user_id) {
-                                    e.stopPropagation();
-                                    openUserCard(s.user_id);
-                                  }
-                                }}
-                              />
-
-                              {isSpeakingNow ? (
-                                <div className="absolute -top-2 left-1/2 -translate-x-1/2 flex items-end gap-[2px] px-1.5 py-1 rounded-full bg-black/45 backdrop-blur-sm z-20">
-                                  {[0, 1, 2, 3].map((i) => {
-                                    const heights = [
-                                      6 + speakerLevel * 14,
-                                      10 + speakerLevel * 18,
-                                      7 + speakerLevel * 12,
-                                      12 + speakerLevel * 20,
-                                    ];
-                                    return (
-                                      <span
-                                        key={i}
-                                        className="w-[3px] rounded-full bg-emerald-400 transition-all duration-150"
-                                        style={{ height: `${heights[i]}px` }}
-                                      />
-                                    );
-                                  })}
-                                </div>
-                              ) : null}
-
-                              {isSeatMuted ? (
-                                <div className="absolute -bottom-1 -right-1 z-20 w-5 h-5 rounded-full bg-rose-600 text-white flex items-center justify-center border-2 border-white shadow-md">
-                                  <MicOff className="w-3 h-3" />
-                                </div>
-                              ) : null}
-                            </div>
-
-                            <div
-                              className={`mt-1 w-full text-xs sm:text-[13px] font-semibold text-slate-900 truncate flex items-center justify-center ${s.user_id ? "cursor-pointer" : ""
-                                }`}
-                              onClick={(e) => {
-                                if (!isMySeat && s.user_id) {
-                                  e.stopPropagation();
-                                  openUserCard(s.user_id);
-                                }
-                              }}
-                            >
-                              <span className="truncate max-w-full">{s.user_id ? name : "Empty"}</span>
-                              {s.user_id ? renderRoleBadge(s.user_id) : null}
-                            </div>
-
-                            {s.user_id && micGiftTotalsReady ? (
-                              <div className="mt-1 text-[11px] font-bold text-yellow-500 drop-shadow flex items-center justify-center gap-1">
-                                <span>💰</span>
-                                <span>{(micGiftTotals[s.user_id] || 0).toLocaleString()}</span>
-                              </div>
-                            ) : (
-                              <div className="mt-1 h-[16px]" />
-                            )}
-                          </div>
-                        </button>
-                      </div>
-                    );
-                  })}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex-1 min-h-0 flex flex-col overflow-hidden lg:w-2/3 bg-black/30 backdrop-blur-sm">
-            <div className="shrink-0 px-3 sm:px-4 pt-3 sm:pt-4 pb-2">
-
-            </div>
-
-            <div className="flex-1 min-h-0 flex flex-col overflow-hidden px-3 sm:px-4 pb-3 sm:pb-4">
-              <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-                <div
-                  ref={chatScrollRef}
-                  className="flex-1 min-h-0 overflow-y-auto overscroll-contain border rounded-xl p-3 bg-white/10"
-                >
-                  <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 mb-3 text-center">
-                    <div className="text-sm font-semibold text-blue-900">Welcome to the room 🎤</div>
-                    <div className="text-xs text-blue-800 mt-1">
-                      Respect everyone and enjoy the conversation.
-                    </div>
-                  </div>
-
-                  {visibleMessages.length === 0 ? (
-                    <div className="text-sm text-slate-500 text-center mt-4">No messages yet…</div>
-                  ) : (
-                    <div className="space-y-2">
-                      {visibleMessages.map((m) => {
-                        if (m.type === "gift" || m.content_type === "gift") {
-                          return (
-                            <div key={m.id} className="bg-rose-50 border border-rose-100 rounded-xl p-2 mb-2">
-                              <div className="flex items-start gap-2">
-                                <button
-                                  onClick={() => openUserCard(m.sender_id)}
-                                  className="w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden border bg-white flex items-center justify-center cursor-pointer shrink-0"
-                                >
-                                  <img
-                                    src={m.sender_avatar || FALLBACK_AVATAR}
-                                    alt={m.sender_name}
-                                    onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
-                                    className="w-full h-full object-cover"
-                                  />
-                                </button>
-
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex items-center justify-between gap-2">
-                                    <div className="flex items-center min-w-0">
-                                      <button
-                                        onClick={() => openUserCard(m.sender_id)}
-                                        className="text-xs sm:text-sm font-bold text-rose-700 truncate hover:underline cursor-pointer text-left"
-                                      >
-                                        {m.sender_name}
-                                      </button>
-                                    </div>
-
-                                    <div className="text-[10px] sm:text-[11px] text-rose-400 font-mono whitespace-nowrap">
-                                      {new Date(m.created_at).toLocaleString()}
-                                    </div>
-                                  </div>
-
-                                  <div className="text-xs sm:text-sm text-rose-900 mt-0.5 flex items-center flex-wrap gap-1">
-                                    <span>sent</span>
-                                    <span className="font-bold">
-                                      {m.gift_name} ×{m.quantity || 1}
-                                    </span>
-                                    <span>to</span>
-                                    <button
-                                      onClick={() => openUserCard(m.receiver_id)}
-                                      className="font-bold hover:underline cursor-pointer"
-                                    >
-                                      {m.receiver_name}
-                                    </button>
-                                    {m.gift_icon && (
-                                      <img
-                                        src={m.gift_icon}
-                                        alt="gift"
-                                        className="w-5 h-5 inline-block ml-1 object-contain"
-                                      />
-                                    )}
-                                  </div>
-
-                                  {ENABLE_GIFT_MESSAGE_TEXT && m.message?.trim() ? (
-                                    <div className="mt-1 text-xs text-rose-700/80 italic break-words">
-                                      "{m.message.trim()}"
-                                    </div>
-                                  ) : null}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        }
-
-                        const senderProfile =
-                          participantsMap?.[m.sender_user_id] ||
-                          participantsMap?.[m.user_id] ||
-                          null;
-
-                        const name =
-                          senderProfile?.display_name ||
-                          senderProfile?.full_name ||
-                          m.sender_name ||
-                          "User";
-
-                        const avatar =
-                          senderProfile?.avatar_url ||
-                          m.sender_avatar ||
-                          m.sender_avatar_url ||
-                          FALLBACK_AVATAR;
-
-                        return (
-                          <div key={m.id} className="bg-white border rounded-xl p-2">
-                            <div className="flex items-start gap-2">
-                              <button
-                                onClick={() => openUserCard(m.sender_user_id)}
-                                className="w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden border bg-slate-50 flex items-center justify-center cursor-pointer"
-                                title="Open user card"
-                              >
-                                <img
-                                  src={avatar}
-                                  alt={name}
-                                  onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
-                                  className="w-full h-full object-cover"
-                                />
-                              </button>
-
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center justify-between gap-2">
-                                  <div className="flex items-center min-w-0">
-                                    <button
-                                      onClick={() => openUserCard(m.sender_user_id)}
-                                      className="text-xs sm:text-sm font-semibold text-slate-900 truncate hover:underline cursor-pointer text-left"
-                                      title="Open user card"
-                                    >
-                                      {name}
-                                    </button>
-                                    {renderRoleBadge(m.sender_user_id)}
-                                  </div>
-
-                                  <div className="text-[10px] sm:text-[11px] text-slate-500 font-mono whitespace-nowrap">
-                                    {new Date(m.created_at).toLocaleString()}
-                                  </div>
-                                </div>
-
-                                <div className="text-xs sm:text-sm text-slate-900 mt-1 whitespace-pre-wrap">
-                                  {m.content}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                      <div ref={chatBottomRef} />
-                    </div>
-                  )}
-                </div>
-
-                {lastSentGift && showRepeatButton && (
-                  <div className="absolute bottom-4 right-4 z-40 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                    <button
-                      onClick={handleRepeatLastGift}
-                      disabled={!isJoinedToRoom || repeatSending}
-                      className="relative rounded-full h-12 sm:h-14 px-2 sm:px-3 pr-3 sm:pr-4 flex items-center gap-2 border border-pink-200/80 bg-white/90 backdrop-blur-md shadow-lg text-pink-600 transition-all duration-200 hover:scale-[1.03] active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed animate-[pulse_1.6s_ease-in-out_2]"
-                      title="Repeat Last Gift"
-                    >
-                      {Number(lastSentGift.quantity || 1) > 1 && (
-                        <span className="absolute -top-1 -right-1 min-w-[24px] h-6 px-2 rounded-full bg-pink-500 text-white text-xs font-bold flex items-center justify-center shadow-md">
-                          ×{lastSentGift.quantity}
-                        </span>
-                      )}
-
-                      {lastSentGift.giftIconUrl ? (
-                        <img
-                          src={lastSentGift.giftIconUrl}
-                          alt="gift"
-                          className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover bg-white shadow-sm shrink-0 border border-pink-100"
-                        />
-                      ) : (
-                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-pink-50 flex items-center justify-center text-lg shadow-sm shrink-0 border border-pink-100">
-                          <span>{lastSentGift.giftEmoji || "🔁"}</span>
-                        </div>
-                      )}
-
-                      <span className="text-xs sm:text-sm font-bold whitespace-nowrap">
-                        {repeatSending ? "Sending..." : "Repeat"}
-                      </span>
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {myMutedActive ? (
-                <div className="mt-2 text-sm bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-2 shrink-0">
-                  🔇 You are muted by room moderation.
-                </div>
-              ) : null}
-
-              <div className="mt-2 sm:mt-3 shrink-0 border-t bg-black/40 backdrop-blur-sm px-3 sm:px-4 py-2.5">
-                <div className="flex items-center gap-2">
-                  {((effectiveSeats || []).some((s) => s.user_id && String(s.user_id) === String(user?.id))) ? (
-                    <button
-                      type="button"
-                      onClick={toggleMicMute}
-                      className={`shrink-0 h-10 w-10 rounded-xl border flex items-center justify-center transition-colors ${isMicMuted
-                        ? "bg-amber-50/50 border-amber-200/50 text-amber-600 hover:bg-amber-100/50 backdrop-blur-sm"
-                        : "bg-white/20 border-slate-200/50 text-slate-700 hover:bg-slate-50/50 backdrop-blur-sm"
-                        }`}
-                      title={isMicMuted ? "Unmute" : "Mute"}
-                    >
-                      {isMicMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-                    </button>
-                  ) : !canModerate ? (
-                    <button
-                      type="button"
-                      onClick={requestMic}
-                      disabled={!user?.id || !!myPendingRequest}
-                      className={`shrink-0 h-10 w-10 rounded-xl border flex items-center justify-center transition-colors disabled:opacity-60 disabled:cursor-not-allowed backdrop-blur-sm ${myPendingRequest
-                        ? "bg-yellow-100/50 border-yellow-200/50 text-yellow-600"
-                        : "bg-white/20 border-slate-200/50 text-slate-700 hover:bg-slate-50/50"
-                        }`}
-                      title={myPendingRequest ? "Request Sent" : "Request Mic"}
-                    >
-                      <Mic className="w-5 h-5" />
-                    </button>
-                  ) : null}
-
-                  <Input
-                    className="flex-1"
-                    value={text}
-                    onChange={(e) => setText(e.target.value)}
-                    placeholder={
-                      !isJoinedToRoom
-                        ? "Joining room..."
-                        : myMutedActive
-                          ? "You are muted in this room…"
-                          : "Write a message…"
-                    }
-                    disabled={!isJoinedToRoom || myMutedActive}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") sendText();
-                    }}
-                  />
-
-                  <button
-                    onClick={openGiftPanelForAll}
-                    disabled={!isJoinedToRoom}
-                    className="shrink-0 h-10 w-10 rounded-xl border bg-white/20 hover:bg-rose-50/50 backdrop-blur-sm flex items-center justify-center text-rose-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Send Gift"
-                  >
-                    <Gift className="w-5 h-5" />
-                  </button>
-
-                  <Button
-                    onClick={sendText}
-                    disabled={!isJoinedToRoom || sending || !text.trim() || myMutedActive}
-                    className="gap-2 shrink-0 px-3"
-                  >
-                    {sending ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Send className="w-4 h-4" />
-                    )}
-                    <span className="hidden sm:inline">Send</span>
-                  </Button>
-                </div>
-              </div>
-
-            </div>
-          </div>
-        </div>
-
-
-      </div>
-
-      <PeopleInRoomModal
-  isOpen={showPeople}
-  onClose={() => setShowPeople(false)}
-  people={currentPeopleRanked}
-  openUserCard={openUserCard}
-/>
-
-      {seatMenuOpen ? (
-        <div className="fixed inset-0 z-[85]">
-          <div className="absolute inset-0 bg-black/50" onClick={closeSeatMenu} aria-hidden="true" />
-          <div className="absolute inset-0 flex items-end sm:items-center justify-center p-3">
-            <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border overflow-hidden">
-              <div className="px-4 py-3 border-b flex items-center justify-between">
-                <div className="font-semibold flex items-center gap-2">
-                  Options
-                  {(() => {
-                    const mySeat = (effectiveSeats || []).find(s => user?.id && String(s.user_id) === String(user.id));
-                    const isMyCurrentSeat = !!mySeat && Number(mySeat.seat_no) === Number(seatMenuSeatNo);
-                    if (isMyCurrentSeat) {
-                      return (
-                        <button
-                          onClick={() => { toast("Mute Mic (soon)", 1200); closeSeatMenu(); }}
-                          className="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-full text-slate-700 transition"
-                          title="Mute Mic"
-                        >
-                          <MicOff className="w-4 h-4" />
-                        </button>
-                      );
-                    }
-                    return null;
-                  })()}
-                </div>
-                <button className="text-sm text-slate-600 hover:text-slate-900" onClick={closeSeatMenu}>Close</button>
-              </div>
-
-              <div className="p-4 space-y-2">
-                {(() => {
-                  const mySeat = (effectiveSeats || []).find(s => user?.id && String(s.user_id) === String(user.id));
-                  const isOnMic = !!mySeat;
-                  const canMoveHere = isOnMic && Number(mySeat?.seat_no) !== Number(seatMenuSeatNo);
-                  const seatMenuSeat = (effectiveSeats || []).find(s => s.seat_no === seatMenuSeatNo);
-                  const isOccupied = !!seatMenuSeat?.user_id;
-
-                  return (
-                    <>
-                      {!isOccupied && (
-                        <Button
-                          className="w-full"
-                          variant="outline"
-                          onClick={() => {
-                            setInviteOnlyMode(false);
-                            setInviteTargetUserId(null);
-                            setInviteOpen(true);
-                          }}
-                        >
-                          Invite to Mic
-                        </Button>
-                      )}
-
-                      {!inviteOnlyMode && !isOnMic && !isOccupied && (
-                        <Button className="w-full" onClick={async () => {
-                          try {
-                            await takeMicSeat(seatMenuSeatNo);
-                            toast("Mic taken", 1200);
-                            closeSeatMenu();
-                          } catch (e) { toast(e?.message || "Failed", 1400); }
-                        }}>
-                          Take Mic
-                        </Button>
-                      )}
-
-                      {!inviteOnlyMode && canMoveHere && !isOccupied && (
-                        <Button className="w-full" onClick={async () => {
-                          try {
-                            await moveMicSeat(seatMenuSeatNo);
-                            toast("Mic moved", 1200);
-                            closeSeatMenu();
-                          } catch (e) { toast(e?.message || "Failed", 1400); }
-                        }}>
-                          Move here
-                        </Button>
-                      )}
-
-                      {!inviteOnlyMode && canModerate && (
-                        <Button className="w-full" variant="outline" onClick={async () => {
-                          try {
-                            await setSeatLocked(seatMenuSeatNo, !seatMenuSeatLocked);
-                            toast("Seat updated", 1200);
-                            closeSeatMenu();
-                          } catch (e) { toast(e?.message || "Failed", 1400); }
-                        }}>
-                          {seatMenuSeatLocked ? "Unlock Seat" : "Lock Seat"}
-                        </Button>
-                      )}
-                    </>
-                  );
-                })()}
-
-                {inviteOpen ? (
-                  <div className="mt-3 border-t pt-3">
-                    <div className="text-sm font-semibold text-slate-900">Select user</div>
-                    <div className="mt-2 max-h-[45vh] overflow-auto space-y-2">
-                      {activeParticipants.filter(p => p.user_id !== user?.id).map((p) => (
-                        <button
-                          key={p.user_id}
-                          onClick={async () => {
-                            try { await inviteUserToMic(p.user_id); }
-                            catch (e) { toast(e?.message || "Failed to invite", 1400); }
-                          }}
-                          className="w-full text-left border rounded-xl p-2 hover:bg-slate-50 transition flex items-center gap-3"
-                        >
-                          <img src={p.avatar_url || FALLBACK_AVATAR} onError={(e) => e.currentTarget.src = FALLBACK_AVATAR}
-                            className="w-10 h-10 rounded-full object-cover border bg-white" alt={p.display_name || "User"} />
-                          <div className="min-w-0 flex-1">
-                            <div className="font-semibold text-slate-900 truncate">{p.display_name || "User"}</div>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {showSettings ? (
-        <div className="fixed inset-0 z-[75]">
-          <div className="absolute inset-0 bg-black/50" onClick={closeSettings} aria-hidden="true" />
-          <div className="absolute inset-0 flex items-end sm:items-center justify-center p-3">
-            <div className="w-full max-lg bg-white rounded-2xl shadow-xl border overflow-hidden">
-              <div className="px-4 py-3 border-b flex items-center justify-between">
-                <div className="font-semibold flex items-center gap-2">
-                  <Settings className="w-4 h-4 text-slate-600" />
-                  Room Settings
-                </div>
-                <button className="text-sm text-slate-600 hover:text-slate-900" onClick={closeSettings}>
-                  Close
-                </button>
-              </div>
-
-              <div className="px-3 pt-3">
-                <div className="flex gap-2">
-                  <button
-                    className={`px-3 py-2 rounded-xl text-sm border ${settingsTab === "general" ? "bg-slate-900 text-white border-slate-900" : "bg-white hover:bg-slate-50"
-                      }`}
-                    onClick={() => setSettingsTab("general")}
-                  >
-                    General
-                  </button>
-
-                  <button
-                    className={`px-3 py-2 rounded-xl text-sm border ${settingsTab === "bans" ? "bg-slate-900 text-white border-slate-900" : "bg-white hover:bg-slate-50"
-                      }`}
-                    onClick={openBansTab}
-                  >
-                    Bans
-                  </button>
-                </div>
-              </div>
-
-              <div className="p-4">
-                {settingsTab === "general" ? (
-                  <>
-                    <div className="text-sm font-semibold text-slate-900">Room Avatar</div>
-                    <div className="text-xs text-slate-500 mt-1">Upload a PNG or GIF image for your room's main picture.</div>
-
-                    {/* Current Avatar Display */}
-                    <div className="mt-3 flex items-center gap-3">
-                      <div className="w-16 h-16 rounded-xl border-2 border-slate-200 overflow-hidden bg-slate-50">
-                        {room?.avatar_url ? (
-                          <img
-                            src={room.avatar_url}
-                            alt="Room avatar"
-                            className="w-full h-full object-cover"
-                            onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-slate-400">
-                            <ImageIcon className="w-6 h-6" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-sm text-slate-700">Current room avatar</div>
-                        <div className="text-xs text-slate-500 mt-1">
-                          {room?.avatar_url ? "Click upload to change" : "No avatar set"}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Upload Button */}
-                    <div className="mt-4">
-                      <label className={`flex items-center justify-center w-full p-3 border-2 border-dashed rounded-xl transition cursor-pointer group ${
-                        !isOwner ? 'border-slate-200 bg-slate-50 cursor-not-allowed' : 'border-slate-300 hover:border-blue-500 hover:bg-blue-50'
-                      }`}>
-                        <input
-                          ref={roomAvatarInputRef}
-                          type="file"
-                          accept="image/png,image/gif"
-                          onChange={handleRoomAvatarUpload}
-                          disabled={roomAvatarUploading || !isOwner}
-                          className="hidden"
-                        />
-                        {roomAvatarUploading ? (
-                          <Loader2 className="w-5 h-5 text-blue-500 animate-spin mr-2" />
-                        ) : (
-                          <ImageIcon className={`w-5 h-5 mr-2 transition ${
-                            !isOwner ? 'text-slate-300' : 'text-slate-400 group-hover:text-blue-500'
-                          }`} />
-                        )}
-                        <span className={`text-sm font-medium transition ${
-                          !isOwner ? 'text-slate-400' : 'text-slate-600 group-hover:text-blue-600'
-                        }`}>
-                          {roomAvatarUploading ? 'Uploading...' : !isOwner ? 'Only owners can upload' : 'Upload image'}
-                        </span>
-                      </label>
-                      <div className="text-xs text-slate-500 mt-2">
-                        Max file size: 5MB. Supported formats: PNG, GIF.
-                      </div>
-                    </div>
-
-                    <div className="mt-6">
-                      <div className="text-sm font-semibold text-slate-900">Room Background</div>
-                      <div className="text-xs text-slate-500 mt-1">Upload a background image to display behind your room UI.</div>
-
-                      <div className="mt-3 flex items-center gap-3">
-                        <div className="w-20 h-20 rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
-                          {room?.background_url ? (
-                            <div
-                              className="w-full h-full bg-cover bg-center"
-                              style={{ backgroundImage: `url(${room.background_url})` }}
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-slate-400">
-                              <ImageIcon className="w-6 h-6" />
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex-1">
-                          <div className="text-sm text-slate-700">Current room background</div>
-                          <div className="text-xs text-slate-500 mt-1">
-                            {room?.background_url ? 'Click upload to replace' : 'No background set'}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="mt-4">
-                        <label className={`flex items-center justify-center w-full p-3 border-2 border-dashed rounded-xl transition cursor-pointer group ${
-                          !isOwner ? 'border-slate-200 bg-slate-50 cursor-not-allowed' : 'border-slate-300 hover:border-blue-500 hover:bg-blue-50'
-                        }`}>
-                          <input
-                            ref={roomBackgroundInputRef}
-                            type="file"
-                            accept="image/png,image/gif"
-                            onChange={handleRoomBackgroundUpload}
-                            disabled={roomBackgroundUploading || !isOwner}
-                            className="hidden"
-                          />
-                          {roomBackgroundUploading ? (
-                            <Loader2 className="w-5 h-5 text-blue-500 animate-spin mr-2" />
-                          ) : (
-                            <ImageIcon className={`w-5 h-5 mr-2 transition ${
-                              !isOwner ? 'text-slate-300' : 'text-slate-400 group-hover:text-blue-500'
-                            }`} />
-                          )}
-                          <span className={`text-sm font-medium transition ${
-                            !isOwner ? 'text-slate-400' : 'text-slate-600 group-hover:text-blue-600'
-                          }`}>
-                            {roomBackgroundUploading ? 'Uploading...' : !isOwner ? 'Only owners can upload' : 'Upload background'}
-                          </span>
-                        </label>
-                        <div className="text-xs text-slate-500 mt-2">
-                          Max file size: 5MB. Supported formats: PNG, GIF.
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 border-t pt-3">
-                      <div className="text-sm font-semibold text-slate-900">Coming next</div>
-                      <ul className="mt-2 text-sm text-slate-600 list-disc pl-5 space-y-1">
-                        <li>Room background image</li>
-                        <li>Additional room settings</li>
-                        <li>Moderator management</li>
-                      </ul>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="text-sm font-semibold text-slate-900">Banned users</div>
-                        <div className="text-xs text-slate-500 mt-1">Ban = منع نهائي حتى Unban.</div>
-                      </div>
-
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-2"
-                        onClick={async () => {
-                          const list = await fetchBans();
-                          if (mountedRef.current) setBannedList(list);
-                        }}
-                        disabled={settingsBusy || loadingBans}
-                      >
-                        {loadingBans ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                        Refresh
-                      </Button>
-                    </div>
-
-                    {loadingBans ? (
-                      <div className="mt-3 flex items-center gap-2 text-slate-600">
-                        <Loader2 className="w-4 h-4 animate-spin" /> Loading…
-                      </div>
-                    ) : bannedList.length === 0 ? (
-                      <div className="mt-3 text-sm text-slate-500">No banned users.</div>
-                    ) : (
-                      <div className="mt-3 space-y-2 max-h-[50vh] overflow-auto">
-                        {bannedList.map((b) => (
-                          <div key={b.user_id} className="border rounded-xl p-2 flex items-center gap-3">
-                            <img
-                              src={b.avatar_url || FALLBACK_AVATAR}
-                              onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
-                              alt={b.display_name || "User"}
-                              className="w-10 h-10 rounded-full object-cover border bg-white cursor-pointer"
-                              onClick={() => openUserCard(b.user_id)}
-                            />
-                            <div className="min-w-0 flex-1">
-                              <div
-                                className="font-semibold text-slate-900 truncate cursor-pointer"
-                                onClick={() => openUserCard(b.user_id)}
-                              >
-                                {b.display_name || "User"}
-                              </div>
-                              <div className="text-[11px] text-slate-500 mt-0.5">
-                                {b.banned_until ? `Until: ${new Date(b.banned_until).toLocaleString()}` : "Permanent"}
-                              </div>
-                              {b.reason ? <div className="text-[11px] text-slate-500 mt-0.5">Reason: {b.reason}</div> : null}
-                            </div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="gap-2"
-                              onClick={() => unbanUser(b.user_id)}
-                              disabled={!canModerate || settingsBusy}
-                            >
-                              <CheckCircle2 className="w-4 h-4" />
-                              Unban
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      <MicRequestsModal
-  open={requestsOpen}
-  onClose={() => setRequestsOpen(false)}
-  requests={pendingRequests}
-  onApprove={acceptRequest}
-  onReject={rejectRequest}
-  canModerate={canModerate}
-  openUserCard={openUserCard}
-/>
-
-      {leaveRoomOpen ? (
-        <div
-          className="fixed inset-0 z-[90]"
-          onClick={() => setLeaveRoomOpen(false)}
-        >
-          {/* Background */}
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-
-          {/* Bottom Sheet */}
-          <div className="absolute inset-0 flex items-end justify-center p-3">
-            <div
-              className="w-full max-w-md rounded-3xl bg-white p-5 shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Title */}
-              <div className="relative mb-4 text-center">
-                <button
-                  type="button"
-                  onClick={() => setLeaveRoomOpen(false)}
-                  className="absolute right-0 top-0 inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
-                  title="Close"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-
-                <div className="text-lg font-bold text-slate-900">
-                  Leave room?
-                </div>
-                <div className="mt-1 text-sm text-slate-500">
-                  Keep it running or exit completely
-                </div>
-              </div>
-
-              {/* Buttons */}
-              <div className="flex items-center justify-between gap-4">
-                {/* Share */}
-                <button
-                  type="button"
-                  className="flex flex-1 flex-col items-center gap-1"
-                  onClick={async () => {
-                    try {
-                      if (navigator.share) {
-                        await navigator.share({
-                          title: room?.title || room?.name || "Live Room",
-                          text: "Join my live room",
-                          url: window.location.href,
-                        });
-                      } else {
-                        await navigator.clipboard.writeText(window.location.href);
-                      }
-                    } catch (_) { }
-                  }}
-                >
-                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gray-100">
-                    <Share2 className="h-6 w-6 text-slate-700" />
-                  </div>
-                  <span className="text-xs text-slate-600">Share</span>
-                </button>
-
-                {/* Keep */}
-                <button
-                  type="button"
-                  className="flex flex-1 flex-col items-center gap-1"
-                  onClick={() => {
-                    setLeaveRoomOpen(false);
-
-                    setRoomData({
-                      roomId: roomId,
-                      name: room?.title || room?.name || "Live Room",
-                    });
-
-                    miniRoomActiveRef.current = true;
-                    setMiniRoomActive(true);
-                    navigate("/");
-                  }}
-                >
-                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gray-100">
-                    <Minimize2 className="h-6 w-6 text-slate-700" />
-                  </div>
-                  <span className="text-xs text-slate-600">Keep</span>
-                </button>
-
-                {/* Exit */}
-                <button
-                  type="button"
-                  className="flex flex-1 flex-col items-center gap-1"
-                  onClick={handleExitRoom}
-                >
-                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-100">
-                    <Power className="h-6 w-6 text-red-600" />
-                  </div>
-                  <span className="text-xs font-semibold text-red-600">Exit</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      <LeaderboardModal
-  open={showLeaderboard}
-  onClose={() => setShowLeaderboard(false)}
-  leaderboardTab={leaderboardTab}
-  setLeaderboardTab={setLeaderboardTab}
-  leaderboardData={leaderboardData}
-  fallbackAvatar={FALLBACK_AVATAR}
-  onOpenUserCard={(userId, user) => {
-    if (!userId) return;
-    setShowLeaderboard(false);
-    openUserCard(userId, user);
-  }}
-/>
-
-      <PkModal
-  open={showPkModal}
-  onClose={() => setShowPkModal(false)}
-  pkBusy={pkBusy}
-  pkMode={pkMode}
-  setPkMode={setPkMode}
-  pkSeatsA={pkSeatsA}
-  setPkSeatsA={setPkSeatsA}
-  pkSeatsB={pkSeatsB}
-  setPkSeatsB={setPkSeatsB}
-  pkSeatA={pkSeatA}
-  setPkSeatA={setPkSeatA}
-  pkSeatB={pkSeatB}
-  setPkSeatB={setPkSeatB}
-  pkDuration={pkDuration}
-  setPkDuration={setPkDuration}
-  occupiedPkEligibleSeats={occupiedPkEligibleSeats}
-  togglePkSeat={togglePkSeat}
-  getRequiredPkTeamSize={getRequiredPkTeamSize}
-  fallbackAvatar={FALLBACK_AVATAR}
-  onCreatePk={handleCreatePk}
-/>
-
-{pkResultOpen && pkResultData && (() => {
-  const winnerSide = pkResultData?.winnerSide || "draw";
-  const isDraw = winnerSide === "draw";
-  const isSideAWinner = winnerSide === "A";
-  const isSideBWinner = winnerSide === "B";
-
-  return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-      <div className="absolute w-[80vw] h-[80vw] max-w-[400px] max-h-[400px] bg-gradient-to-tr from-fuchsia-500/30 to-cyan-500/30 blur-[80px] rounded-full animate-pulse pointer-events-none"></div>
-
-      <div
-        className="w-full max-w-[380px] sm:max-w-md overflow-hidden rounded-[32px] bg-white/95 backdrop-blur-md shadow-[0_0_50px_rgba(0,0,0,0.4)] border border-white/20 relative animate-in zoom-in-95 duration-500"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="relative px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-fuchsia-50 via-white to-cyan-50 text-center overflow-hidden">
-          <h2 className="relative text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-600 to-cyan-600 drop-shadow-sm">
-            PK Result
-          </h2>
-        </div>
-
-        <div className="p-4 sm:p-5 bg-slate-50/40 relative">
-          <div className="flex justify-center mb-5 relative z-10">
-            <div
-              className={`inline-flex items-center rounded-full px-6 py-2 text-white font-extrabold text-base sm:text-lg border shadow-[0_0_20px_rgba(34,211,238,0.35)] ${
-                isDraw
-                  ? "bg-gradient-to-r from-slate-400 to-slate-500 border-slate-300"
-                  : isSideAWinner
-                  ? "bg-gradient-to-r from-fuchsia-500 to-purple-500 border-fuchsia-300/50"
-                  : "bg-gradient-to-r from-cyan-400 to-blue-500 border-cyan-300/50"
-              }`}
-            >
-              <span className="drop-shadow-md">
-                {isDraw ? "🤝 Draw" : `🏆 Winner: Side ${winnerSide}`}
-              </span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 mb-5">
-            <div
-              className={`relative rounded-[24px] p-4 text-center shadow-sm overflow-hidden group ${
-                isDraw
-                  ? "border border-slate-200 bg-gradient-to-b from-white to-slate-50/80"
-                  : isSideAWinner
-                  ? "border border-fuchsia-300 bg-gradient-to-b from-white to-fuchsia-100/70 shadow-[0_0_25px_rgba(217,70,239,0.18)]"
-                  : "border border-fuchsia-200 bg-gradient-to-b from-white to-fuchsia-50/80"
-              }`}
-            >
-              <div className="absolute -right-4 -top-4 w-16 h-16 bg-fuchsia-400/10 rounded-full blur-xl group-hover:bg-fuchsia-400/20 transition-all"></div>
-
-              <div
-                className={`mx-auto mb-3 inline-flex items-center gap-1 rounded-full px-3 py-1 font-bold tracking-wider text-[10px] sm:text-xs shadow-sm ${
-                  isDraw
-                    ? "border border-slate-200 bg-slate-50 text-slate-500"
-                    : isSideAWinner
-                    ? "border border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700"
-                    : "border border-fuchsia-100 bg-fuchsia-50/80 text-fuchsia-600"
-                }`}
-              >
-                {isDraw ? "🤝 DRAW" : isSideAWinner ? "🏆 WINNER" : "🥈 RUNNER-UP"}
-              </div>
-
-              <div
-                className={`font-black tracking-widest text-sm sm:text-base mb-1 ${
-                  isDraw
-                    ? "text-slate-700"
-                    : isSideAWinner
-                    ? "text-fuchsia-900"
-                    : "text-fuchsia-800"
-                }`}
-              >
-                SIDE A
-              </div>
-
-              <div
-                className={`text-4xl sm:text-5xl leading-none font-black text-transparent bg-clip-text drop-shadow-sm ${
-                  isDraw
-                    ? "bg-gradient-to-b from-slate-500 to-slate-700"
-                    : isSideAWinner
-                    ? "bg-gradient-to-b from-fuchsia-500 to-fuchsia-700"
-                    : "bg-gradient-to-b from-fuchsia-500 to-fuchsia-700"
-                }`}
-              >
-                {Number(pkResultData.scoreA || 0)}
-              </div>
-            </div>
-
-            <div
-              className={`relative rounded-[24px] p-4 text-center shadow-sm overflow-hidden group ${
-                isDraw
-                  ? "border border-slate-200 bg-gradient-to-b from-white to-slate-50/80"
-                  : isSideBWinner
-                  ? "border border-cyan-300 bg-gradient-to-b from-white to-cyan-100/60 shadow-[0_0_25px_rgba(34,211,238,0.2)]"
-                  : "border border-cyan-200 bg-gradient-to-b from-white to-cyan-50/70"
-              }`}
-            >
-              <div className="absolute -left-4 -top-4 w-20 h-20 bg-cyan-400/20 rounded-full blur-xl group-hover:bg-cyan-400/30 transition-all"></div>
-
-              <div
-                className={`mx-auto mb-3 inline-flex items-center gap-1 rounded-full px-3 py-1 font-bold tracking-wider text-[10px] sm:text-xs shadow-sm ${
-                  isDraw
-                    ? "border border-slate-200 bg-slate-50 text-slate-500"
-                    : isSideBWinner
-                    ? "border border-cyan-200 bg-cyan-50 text-cyan-700"
-                    : "border border-cyan-100 bg-cyan-50/80 text-cyan-600"
-                }`}
-              >
-                {isDraw ? "🤝 DRAW" : isSideBWinner ? "🏆 WINNER" : "🥈 RUNNER-UP"}
-              </div>
-
-              <div
-                className={`font-black tracking-widest text-sm sm:text-base mb-1 ${
-                  isDraw
-                    ? "text-slate-700"
-                    : isSideBWinner
-                    ? "text-cyan-900"
-                    : "text-cyan-800"
-                }`}
-              >
-                SIDE B
-              </div>
-
-              <div
-                className={`text-4xl sm:text-5xl leading-none font-black text-transparent bg-clip-text ${
-                  isDraw
-                    ? "bg-gradient-to-b from-slate-500 to-slate-700"
-                    : isSideBWinner
-                    ? "bg-gradient-to-b from-cyan-400 to-cyan-600 drop-shadow-[0_2px_10px_rgba(34,211,238,0.4)]"
-                    : "bg-gradient-to-b from-cyan-400 to-cyan-600"
-                }`}
-              >
-                {Number(pkResultData.scoreB || 0)}
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 mb-6">
-            <div className="rounded-[24px] border border-fuchsia-100 bg-white/80 p-3 shadow-sm backdrop-blur-sm">
-              <div className="text-fuchsia-800 text-xs sm:text-sm font-black mb-2 text-center">
-                Side A Players
-              </div>
-              <div className="h-[2px] w-12 mx-auto bg-gradient-to-r from-transparent via-fuchsia-300 to-transparent mb-3" />
-
-              <div className="space-y-2 max-h-[140px] overflow-y-auto pr-1">
-                {(pkResultData.sideAPlayers || []).map((player, idx) => (
-                  <div
-                    key={`${player.user_id || player.id || idx}-A`}
-                    className="flex items-center gap-2 rounded-[16px] border border-fuchsia-50 bg-gradient-to-r from-fuchsia-50/30 to-white p-2 shadow-sm hover:shadow-md transition-shadow"
-                  >
-                    <div className="relative shrink-0">
-                      <img
-                        src={player.avatar_url || FALLBACK_AVATAR}
-                        alt={player.display_name || "User"}
-                        className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
-                        onError={(e) => {
-                          e.currentTarget.src = FALLBACK_AVATAR;
-                        }}
-                      />
-                      <div className="absolute -bottom-1 -right-1 text-xs drop-shadow-md">
-                        {isDraw ? "🤝" : isSideAWinner ? "🏆" : "🥈"}
-                      </div>
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <div className="text-slate-800 font-bold text-[11px] sm:text-xs truncate">
-                        {player.display_name || player.name || "User"}
-                      </div>
-                      <div className="text-slate-400 text-[9px] sm:text-[10px] font-medium">
-                        Seat #{player.seat_no}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-[24px] border border-cyan-100 bg-white/80 p-3 shadow-sm backdrop-blur-sm">
-              <div className="text-cyan-900 text-xs sm:text-sm font-black mb-2 text-center">
-                Side B Players
-              </div>
-              <div className="h-[2px] w-12 mx-auto bg-gradient-to-r from-transparent via-cyan-300 to-transparent mb-3" />
-
-              <div className="space-y-2 max-h-[140px] overflow-y-auto pr-1">
-                {(pkResultData.sideBPlayers || []).map((player, idx) => (
-                  <div
-                    key={`${player.user_id || player.id || idx}-B`}
-                    className="flex items-center gap-2 rounded-[16px] border border-cyan-50 bg-gradient-to-r from-cyan-50/30 to-white p-2 shadow-sm hover:shadow-md transition-shadow"
-                  >
-                    <div className="relative shrink-0">
-                      <img
-                        src={player.avatar_url || FALLBACK_AVATAR}
-                        alt={player.display_name || "User"}
-                        className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
-                        onError={(e) => {
-                          e.currentTarget.src = FALLBACK_AVATAR;
-                        }}
-                      />
-                      <div className="absolute -bottom-1 -right-1 text-xs drop-shadow-md">
-                        {isDraw ? "🤝" : isSideBWinner ? "🏆" : "🥈"}
-                      </div>
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <div className="text-slate-800 font-bold text-[11px] sm:text-xs truncate">
-                        {player.display_name || player.name || "User"}
-                      </div>
-                      <div className="text-slate-400 text-[9px] sm:text-[10px] font-medium">
-                        Seat #{player.seat_no}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                setPkResultOpen(false);
-              }}
-              className="h-12 sm:h-14 rounded-[20px] border-2 border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 hover:border-slate-300 transition-all active:scale-95"
-            >
-              Close
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setPkResultOpen(false);
-                setPkResultData(null);
-                setShowPkModal(true);
-              }}
-              className="h-12 sm:h-14 rounded-[20px] bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white text-[13px] sm:text-sm font-bold shadow-[0_4px_15px_rgba(168,85,247,0.4)] hover:shadow-[0_6px_20px_rgba(168,85,247,0.6)] hover:-translate-y-0.5 transition-all active:scale-95 leading-tight px-2"
-            >
-              Start New Round
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-})()}
-
-      {giftPanelOpen && (
-        <div className="fixed inset-0 z-[100]">
-          <div
-            className="absolute inset-0 bg-black/30"
-            onClick={() => setGiftPanelOpen(false)}
-            aria-hidden="true"
+          <RoomSeats
+            loading={loading}
+            effectiveSeats={effectiveSeats}
+            user={user}
+            mutedUsers={mutedUsers}
+            activeSpeakers={activeSpeakers}
+            pkUserSideMap={pkUserSideMap}
+            canModerate={canModerate}
+            isOwner={isOwner}
+            room={room}
+            micSeatRefs={micSeatRefs}
+            removeFromMic={removeFromMic}
+            leaveMySeat={leaveMySeat}
+            openSeatMenu={openSeatMenu}
+            openUserCard={openUserCard}
+            toast={toast}
+            micMode={micMode}
+            takeSeat={takeSeat}
+            renderRoleBadge={renderRoleBadge}
+            micGiftTotals={micGiftTotals}
+            micGiftTotalsReady={micGiftTotalsReady}
           />
 
-          <div className="absolute left-0 right-0 bottom-0 z-[101] bg-white rounded-t-3xl shadow-2xl border-t max-h-[85vh] sm:max-h-[80vh] overflow-hidden max-w-2xl mx-auto flex flex-col">
-            <div className="mx-auto mt-2 mb-2 h-1.5 w-12 rounded-full bg-gray-300 shrink-0" />
-
-            <div className="h-full flex flex-col overflow-hidden">
-              <GiftPanel
-                recipientId={
-                  giftTargetMode === "single"
-                    ? (giftSelectedRecipient?.id || null)
-                    : null
-                }
-                recipientName={
-                  giftSelectedRecipient?.name ||
-                  giftTarget?.name ||
-                  giftTarget?.username
-                }
-                onClose={() => setGiftPanelOpen(false)}
-                onGiftSent={handleRoomGiftSend}
-                targetMode={giftTargetMode}
-                quantity={giftQuantity}
-                setQuantity={setGiftQuantity}
-                roomUsers={giftPanelUsers}
-                hostUser={hostUser}
-                selectedRecipient={giftSelectedRecipient}
-                onRecipientChange={({ mode, user }) => {
-                  const nextMode = resolveGiftTargetMode(mode, user);
-                  setGiftTargetMode(nextMode);
-                  setGiftSelectedRecipient(user || null);
-                  setGiftTarget(nextMode === "single" ? user || null : null);
-                }}
-                onOpenUserCard={(userId, user) => {
-                  if (
-                    userId === "mic_users_virtual" ||
-                    userId === "all_users_virtual"
-                  ) {
-                    return;
-                  }
-
-                  setGiftPanelOpen(false);
-                  openUserCard(userId, user);
-                }}
-              />
-            </div>
-          </div>
+          <RoomChat
+            chatScrollRef={chatScrollRef}
+            chatBottomRef={chatBottomRef}
+            visibleMessages={visibleMessages}
+            participantsMap={participantsMap}
+            openUserCard={openUserCard}
+            renderRoleBadge={renderRoleBadge}
+            lastSentGift={lastSentGift}
+            showRepeatButton={showRepeatButton}
+            handleRepeatLastGift={handleRepeatLastGift}
+            isJoinedToRoom={isJoinedToRoom}
+            repeatSending={repeatSending}
+            myMutedActive={myMutedActive}
+            effectiveSeats={effectiveSeats}
+            user={user}
+            toggleMicMute={toggleMicMute}
+            isMicMuted={isMicMuted}
+            requestMic={requestMic}
+            myPendingRequest={myPendingRequest}
+            text={text}
+            setText={setText}
+            sendText={sendText}
+            openGiftPanelForAll={openGiftPanelForAll}
+            sending={sending}
+            canModerate={canModerate}
+          />
         </div>
-      )}
 
-      <UserCardModal
-  open={isUserCardOpen}
-  onClose={closeUserCard}
-  cardLoading={cardLoading}
-  selectedUserProfile={selectedUserProfile}
-  selectedUserId={selectedUserId}
-  selectedUserIsMod={selectedUserIsMod}
-  isSelfCard={isSelfCard}
-  canShowOwnerTools={canShowOwnerTools}
-  isOwner={isOwner}
-  hostUserId={hostUser?.id || room?.owner_user_id || null}
-  targetMutedActive={targetMutedActive}
-  moderatorsMap={moderatorsMap}
-  effectiveSeats={effectiveSeats}
-  FALLBACK_AVATAR={FALLBACK_AVATAR}
-  mentionUser={mentionUser}
-  openGiftPanelForUser={openGiftPanelForUser}
-  goToProfilePage={goToProfilePage}
-  toast={toast}
-  setInviteTargetUserId={setInviteTargetUserId}
-  setInviteOnlyMode={setInviteOnlyMode}
-  setSeatMenuSeatNo={setSeatMenuSeatNo}
-  setSeatMenuOpen={setSeatMenuOpen}
-  setInviteOpen={setInviteOpen}
-  muteUser={muteUser}
-  unmuteUser={unmuteUser}
-  openKickConfirm={openKickConfirm}
-  openBanConfirm={openBanConfirm}
-  assignModerator={assignModerator}
-  removeModerator={removeModerator}
-/>
+
+      </div>
+
+      <RoomModals
+        showPeople={showPeople}
+        setShowPeople={setShowPeople}
+        currentPeopleRanked={currentPeopleRanked}
+        openUserCard={openUserCard}
+        seatMenuOpen={seatMenuOpen}
+        closeSeatMenu={closeSeatMenu}
+        effectiveSeats={effectiveSeats}
+        user={user}
+        seatMenuSeatNo={seatMenuSeatNo}
+        setSeatMenuSeatNo={setSeatMenuSeatNo}
+        canModerate={canModerate}
+        inviteOnlyMode={inviteOnlyMode}
+        setInviteOnlyMode={setInviteOnlyMode}
+        inviteTargetUserId={inviteTargetUserId}
+        setInviteTargetUserId={setInviteTargetUserId}
+        inviteOpen={inviteOpen}
+        setInviteOpen={setInviteOpen}
+        takeMicSeat={takeMicSeat}
+        moveMicSeat={moveMicSeat}
+        setSeatLocked={setSeatLocked}
+        seatMenuSeatLocked={seatMenuSeatLocked}
+        activeParticipants={activeParticipants}
+        inviteUserToMic={inviteUserToMic}
+        toast={toast}
+        showSettings={showSettings}
+        closeSettings={closeSettings}
+        settingsTab={settingsTab}
+        setSettingsTab={setSettingsTab}
+        openBansTab={openBansTab}
+        room={room}
+        isOwner={isOwner}
+        roomAvatarInputRef={roomAvatarInputRef}
+        handleRoomAvatarUpload={handleRoomAvatarUpload}
+        roomAvatarUploading={roomAvatarUploading}
+        roomBackgroundInputRef={roomBackgroundInputRef}
+        handleRoomBackgroundUpload={handleRoomBackgroundUpload}
+        roomBackgroundUploading={roomBackgroundUploading}
+        loadingBans={loadingBans}
+        bannedList={bannedList}
+        setBannedList={setBannedList}
+        settingsBusy={settingsBusy}
+        fetchBans={fetchBans}
+        mountedRef={mountedRef}
+        unbanUser={unbanUser}
+        requestsOpen={requestsOpen}
+        setRequestsOpen={setRequestsOpen}
+        pendingRequests={pendingRequests}
+        acceptRequest={acceptRequest}
+        rejectRequest={rejectRequest}
+        leaveRoomOpen={leaveRoomOpen}
+        setLeaveRoomOpen={setLeaveRoomOpen}
+        roomId={roomId}
+        setRoomData={setRoomData}
+        miniRoomActiveRef={miniRoomActiveRef}
+        setMiniRoomActive={setMiniRoomActive}
+        navigate={navigate}
+        handleExitRoom={handleExitRoom}
+        showLeaderboard={showLeaderboard}
+        setShowLeaderboard={setShowLeaderboard}
+        leaderboardTab={leaderboardTab}
+        setLeaderboardTab={setLeaderboardTab}
+        leaderboardData={leaderboardData}
+        showPkModal={showPkModal}
+        setShowPkModal={setShowPkModal}
+        pkBusy={pkBusy}
+        pkMode={pkMode}
+        setPkMode={setPkMode}
+        pkSeatsA={pkSeatsA}
+        setPkSeatsA={setPkSeatsA}
+        pkSeatsB={pkSeatsB}
+        setPkSeatsB={setPkSeatsB}
+        pkSeatA={pkSeatA}
+        setPkSeatA={setPkSeatA}
+        pkSeatB={pkSeatB}
+        setPkSeatB={setPkSeatB}
+        pkDuration={pkDuration}
+        setPkDuration={setPkDuration}
+        occupiedPkEligibleSeats={occupiedPkEligibleSeats}
+        togglePkSeat={togglePkSeat}
+        getRequiredPkTeamSize={getRequiredPkTeamSize}
+        handleCreatePk={handleCreatePk}
+        pkResultOpen={pkResultOpen}
+        pkResultData={pkResultData}
+        setPkResultOpen={setPkResultOpen}
+        setPkResultData={setPkResultData}
+        giftPanelOpen={giftPanelOpen}
+        setGiftPanelOpen={setGiftPanelOpen}
+        giftTargetMode={giftTargetMode}
+        giftSelectedRecipient={giftSelectedRecipient}
+        giftTarget={giftTarget}
+        handleRoomGiftSend={handleRoomGiftSend}
+        giftQuantity={giftQuantity}
+        setGiftQuantity={setGiftQuantity}
+        giftPanelUsers={giftPanelUsers}
+        hostUser={hostUser}
+        resolveGiftTargetMode={resolveGiftTargetMode}
+        setGiftTargetMode={setGiftTargetMode}
+        setGiftSelectedRecipient={setGiftSelectedRecipient}
+        setGiftTarget={setGiftTarget}
+        isUserCardOpen={isUserCardOpen}
+        closeUserCard={closeUserCard}
+        cardLoading={cardLoading}
+        selectedUserProfile={selectedUserProfile}
+        selectedUserId={selectedUserId}
+        selectedUserIsMod={selectedUserIsMod}
+        isSelfCard={isSelfCard}
+        canShowOwnerTools={canShowOwnerTools}
+        targetMutedActive={targetMutedActive}
+        moderatorsMap={moderatorsMap}
+        mentionUser={mentionUser}
+        openGiftPanelForUser={openGiftPanelForUser}
+        goToProfilePage={goToProfilePage}
+        muteUser={muteUser}
+        unmuteUser={unmuteUser}
+        openKickConfirm={openKickConfirm}
+        openBanConfirm={openBanConfirm}
+        assignModerator={assignModerator}
+        removeModerator={removeModerator}
+        setSeatMenuOpen={setSeatMenuOpen}
+        setInviteOpen={setInviteOpen}
+      />
       </div>
     </div>
   );
