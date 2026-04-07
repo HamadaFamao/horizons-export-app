@@ -301,7 +301,7 @@ export default function LiveRoomPage() {
   const countdownAudioRef = useRef(null);
   const countdownStartedRef = useRef(false);
   const selectedPkAudioRef = useRef(null);
-  const selectedPkSessionIdRef = useRef(null);P
+  const selectedPkSessionIdRef = useRef(null);
   const audioUnlockedRef = useRef(false);
   const roomAvatarInputRef = useRef(null);
   const roomBackgroundInputRef = useRef(null);
