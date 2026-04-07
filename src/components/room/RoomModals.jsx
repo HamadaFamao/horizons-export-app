@@ -288,10 +288,10 @@ export default function RoomModals({
       ) : null}
 
       {showSettings ? (
-        <div className="fixed inset-0 z-[75]">
-          <div className="absolute inset-0 bg-black/50" onClick={closeSettings} aria-hidden="true" />
-          <div className="absolute inset-0 flex items-end sm:items-center justify-center p-3">
-            <div className="w-full max-lg bg-white rounded-2xl shadow-xl border overflow-hidden">
+  <div className="fixed inset-0 z-[75]">
+    <div className="absolute inset-0 bg-black/50" onClick={closeSettings} aria-hidden="true" />
+    <div className="absolute inset-0 flex justify-end">
+      <div className="w-[85vw] max-w-sm bg-white shadow-xl border-l h-full flex flex-col animate-in slide-in-from-right duration-300">
               <div className="px-4 py-3 border-b flex items-center justify-between">
                 <div className="font-semibold flex items-center gap-2">
                   <Settings className="w-4 h-4 text-slate-600" />
