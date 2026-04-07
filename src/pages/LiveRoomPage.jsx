@@ -5514,7 +5514,7 @@ useEffect(() => {
   });
 
   return (
-    <div className="h-[100svh] max-h-[100svh] overflow-hidden overscroll-none bg-gray-50 flex flex-col w-full max-w-6xl mx-auto"
+    <div className="h-[100svh] max-h-[100svh] overscroll-none bg-gray-50 flex flex-col w-full max-w-6xl mx-auto"
          style={{
            backgroundImage: room?.background_url ? `url(${room.background_url})` : undefined,
            backgroundSize: 'cover',
@@ -5903,7 +5903,7 @@ useEffect(() => {
       />
 
       <div
-        className="relative flex-1 min-h-0 flex flex-col overflow-hidden bg-transparent sm:border sm:rounded-xl sm:mx-4 sm:mb-4"
+        className="relative flex-1 min-h-0 flex flex-col bg-transparent sm:border sm:rounded-xl sm:mx-4 sm:mb-4"
       >
 
         {err ? <div className="shrink-0 px-4 py-2 text-sm border-b bg-rose-50 text-rose-700">{err}</div> : null}
@@ -6194,7 +6194,7 @@ useEffect(() => {
           </div>
         ) : null}
 
-        <div className="flex-1 min-h-0 overflow-hidden flex flex-col lg:flex-row">
+        <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
           <RoomSeats
             loading={loading}
             effectiveSeats={effectiveSeats}
