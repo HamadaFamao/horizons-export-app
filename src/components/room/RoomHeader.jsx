@@ -26,25 +26,18 @@ function RoomCardModal({ room, hostUser, onClose, openUserCard }) {
       />
       <div className="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-y-auto max-h-[90vh] animate-in slide-in-from-bottom-4 duration-300">
         {/* Header image */}
-        <div className="relative h-16 bg-gradient-to-br from-slate-700 to-slate-900">
-          {room?.background_url && (
-            <img
-              src={room.background_url}
-              alt=""
-              className="absolute inset-0 w-full h-full object-cover opacity-60"
-            />
-          )}
-          <button
-            onClick={onClose}
-            className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/40 flex items-center justify-center text-white hover:bg-black/60"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+        <div className="flex justify-end p-3">
+  <button
+    onClick={onClose}
+    className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center hover:bg-slate-200"
+  >
+    <X className="w-4 h-4" />
+  </button>
+</div>
 
         {/* Room avatar */}
         <div className="px-5 pb-5">
-          <div className="flex items-end gap-4 -mt-10 mb-4">
+          <div className="flex items-end gap-4 mt-0 mb-4 px-5">
             <div className="w-20 h-20 rounded-2xl border-4 border-white shadow-lg overflow-hidden bg-slate-100 shrink-0">
               {room?.avatar_url ? (
                 <img
