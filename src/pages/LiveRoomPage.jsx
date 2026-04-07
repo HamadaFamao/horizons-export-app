@@ -6245,10 +6245,8 @@ useEffect(() => {
             canModerate={canModerate}
           />
         </div>
-
-
       </div>
-
+      
       <RoomModals
         showPeople={showPeople}
         setShowPeople={setShowPeople}
