@@ -33,7 +33,7 @@ export default function RoomSeats({
   micGiftTotalsReady,
 }) {
   return (
-    <div className="shrink-0 bg-white border-b lg:border-b-0 lg:border-r flex flex-col lg:w-[312px] xl:w-[336px]">
+    <div className="shrink-0 bg-transparent border-b lg:border-b-0 lg:border-r border-white/20 flex flex-col lg:w-[312px] xl:w-[336px]">
       <div className="min-h-0 overflow-y-auto overscroll-contain p-2.5 sm:p-3">
         <div className="grid grid-cols-3 gap-2">
           {loading
@@ -70,11 +70,11 @@ export default function RoomSeats({
               return (
                 <div
                   key={`${s.room_id}_${s.seat_no}`}
-                  className={`relative rounded-xl border p-2 transition-all duration-300 ${pkSide === "A"
-                    ? "bg-fuchsia-50 border-fuchsia-300 shadow-[0_0_12px_rgba(232,121,249,0.25)]"
+                  className={`relative rounded-xl border p-2 transition-all duration-300 backdrop-blur-sm ${pkSide === "A"
+                    ? "bg-fuchsia-500/15 border-fuchsia-300/50 shadow-[0_0_12px_rgba(232,121,249,0.25)]"
                     : pkSide === "B"
-                      ? "bg-cyan-50 border-cyan-300 shadow-[0_0_12px_rgba(34,211,238,0.25)]"
-                      : "bg-slate-50"
+                      ? "bg-cyan-500/15 border-cyan-300/50 shadow-[0_0_12px_rgba(34,211,238,0.25)]"
+                      : "bg-white/10 border-white/20"
                     }`}
                   ref={(el) => {
                     if (s?.user_id) {
@@ -87,7 +87,7 @@ export default function RoomSeats({
                   }}
                 >
                   <div className="mb-1 flex items-start justify-between gap-1">
-                    <div className="text-[10px] text-slate-500">Seat #{s.seat_no}</div>
+                    <div className="text-[10px] text-white/70">Seat #{s.seat_no}</div>
 
                     <div className="flex items-center gap-1">
                       {pkSide === "A" && (
@@ -253,7 +253,7 @@ export default function RoomSeats({
                           }
                         }}
                       >
-                        <span className="truncate max-w-full">{s.user_id ? name : "Empty"}</span>
+                        <span className={`truncate max-w-full ${!s.user_id ? "text-white/80" : ""}`}>{s.user_id ? name : "Empty"}</span>
                         {s.user_id ? renderRoleBadge(s.user_id) : null}
                       </div>
 

@@ -50,7 +50,7 @@ export default function RoomChat({
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
           <div
             ref={chatScrollRef}
-            className="flex-1 min-h-0 overflow-y-auto overscroll-contain border rounded-xl p-3 bg-white/10"
+            className="flex-1 min-h-0 overflow-y-auto overscroll-contain border rounded-xl p-3 bg-white/10 pb-20"
           >
             <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 mb-3 text-center">
               <div className="text-sm font-semibold text-blue-900">Welcome to the room 🎤</div>
@@ -232,7 +232,7 @@ export default function RoomChat({
           </div>
         ) : null}
 
-        <div className="mt-2 sm:mt-3 shrink-0 border-t bg-black/40 backdrop-blur-sm px-3 sm:px-4 py-2.5">
+        <div className="fixed bottom-0 left-0 right-0 z-30 border-t bg-black/40 backdrop-blur-sm px-3 sm:px-4 py-2.5">
           <div className="flex items-center gap-2">
             {((effectiveSeats || []).some((s) => s.user_id && String(s.user_id) === String(user?.id))) ? (
               <button
