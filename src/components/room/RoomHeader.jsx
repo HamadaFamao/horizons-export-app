@@ -19,12 +19,12 @@ function RoomCardModal({ room, hostUser, onClose, openUserCard }) {
   const roomLevel = room?.room_level ?? null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3">
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
+      <div className="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-y-auto max-h-[90vh] animate-in slide-in-from-bottom-4 duration-300">
         {/* Header image */}
         <div className="relative h-36 bg-gradient-to-br from-slate-700 to-slate-900">
           {room?.background_url && (
