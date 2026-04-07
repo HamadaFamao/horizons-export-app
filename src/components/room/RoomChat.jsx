@@ -41,7 +41,7 @@ export default function RoomChat({
   canModerate,
 }) {
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden lg:w-2/3 bg-black/30 backdrop-blur-sm">
+    <div className="flex flex-col h-full relative lg:w-2/3 bg-black/30 backdrop-blur-sm">
       <div
         ref={chatScrollRef}
         className="flex-1 overflow-y-auto min-h-0 pb-20"
