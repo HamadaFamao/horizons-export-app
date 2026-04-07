@@ -5841,7 +5841,7 @@ useEffect(() => {
         </div>
       ) : null}
 
-      <div className="relative z-10">
+      <div className="relative z-10 flex flex-col h-full overflow-hidden">
       {joinNotifs.length > 0 ? (
         <div className="fixed top-3 left-0 right-0 z-[60] flex justify-center pointer-events-none">
           <div className="w-full max-w-md px-3 space-y-2">
@@ -5903,8 +5903,8 @@ useEffect(() => {
       />
 
       <div
-        className="relative flex-1 min-h-0 flex flex-col bg-transparent sm:border sm:rounded-xl sm:mx-4 sm:mb-4"
-      >
+  className="relative flex-1 min-h-0 flex flex-col bg-transparent sm:border sm:rounded-xl sm:mx-4 sm:mb-4 overflow-hidden"
+>
 
         {err ? <div className="shrink-0 px-4 py-2 text-sm border-b bg-rose-50 text-rose-700">{err}</div> : null}
 
@@ -6194,7 +6194,7 @@ useEffect(() => {
           </div>
         ) : null}
 
-        <div className="flex-1 min-h-0 flex flex-col lg:flex-row relative">
+        <div className="flex-1 min-h-0 flex flex-col lg:flex-row relative overflow-hidden">
           <RoomSeats
             loading={loading}
             effectiveSeats={effectiveSeats}
