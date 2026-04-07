@@ -19,7 +19,7 @@ function RoomCardModal({ room, hostUser, onClose, openUserCard }) {
   const roomLevel = room?.room_level ?? null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3">
+    <div className="fixed inset-0 z-50 flex items-end justify-center p-3">
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
         onClick={onClose}
@@ -104,9 +104,9 @@ function RoomCardModal({ room, hostUser, onClose, openUserCard }) {
               className="w-full flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:bg-slate-50 transition"
             >
               <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden shrink-0">
-                {room?.owner_avatar_url ? (
+                {hostUser.avatar_url ? (
                   <img
-                    src={room.owner_avatar_url}
+                    src={hostUser.avatar_url}
                     alt=""
                     className="w-full h-full object-cover"
                     onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
