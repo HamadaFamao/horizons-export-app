@@ -5514,7 +5514,7 @@ useEffect(() => {
   });
 
   return (
-    <div className="h-[100svh] max-h-[100svh] overscroll-none bg-gray-50 flex flex-col w-full max-w-6xl mx-auto"
+    <div className="h-[100svh] max-h-[100svh] overflow-hidden overscroll-none bg-gray-50 flex flex-col w-full max-w-6xl mx-auto"
          style={{
            backgroundImage: room?.background_url ? `url(${room.background_url})` : undefined,
            backgroundSize: 'cover',
@@ -6194,7 +6194,7 @@ useEffect(() => {
           </div>
         ) : null}
 
-        <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
+        <div className="flex-1 min-h-0 flex flex-col lg:flex-row relative">
           <RoomSeats
             loading={loading}
             effectiveSeats={effectiveSeats}
@@ -6369,7 +6369,6 @@ useEffect(() => {
         assignModerator={assignModerator}
         removeModerator={removeModerator}
         setSeatMenuOpen={setSeatMenuOpen}
-        setInviteOpen={setInviteOpen}
       />
       </div>
     </div>
