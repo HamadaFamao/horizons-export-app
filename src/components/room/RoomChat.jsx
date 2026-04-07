@@ -41,17 +41,11 @@ export default function RoomChat({
   canModerate,
 }) {
   return (
-    <div className="flex-1 min-h-0 flex flex-col overflow-hidden lg:w-2/3 bg-black/30 backdrop-blur-sm">
-      <div className="shrink-0 px-3 sm:px-4 pt-3 sm:pt-4 pb-2">
-
-      </div>
-
-      <div className="flex-1 min-h-0 flex flex-col overflow-hidden px-3 sm:px-4 pb-3 sm:pb-4">
-        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-          <div
-            ref={chatScrollRef}
-            className="flex-1 min-h-0 overflow-y-auto overscroll-contain border rounded-xl p-3 bg-white/10 pb-20"
-          >
+    <div className="flex-1 flex flex-col h-full overflow-hidden lg:w-2/3 bg-black/30 backdrop-blur-sm">
+      <div
+        ref={chatScrollRef}
+        className="flex-1 overflow-y-auto overscroll-contain min-h-0 px-3 sm:px-4 pt-3 pb-20"
+      >
             <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 mb-3 text-center">
               <div className="text-sm font-semibold text-blue-900">Welcome to the room 🎤</div>
               <div className="text-xs text-blue-800 mt-1">
@@ -192,8 +186,8 @@ export default function RoomChat({
             )}
           </div>
 
-          {lastSentGift && showRepeatButton && (
-            <div className="absolute bottom-4 right-4 z-40 animate-in fade-in slide-in-from-bottom-2 duration-300">
+      {lastSentGift && showRepeatButton && (
+        <div className="fixed bottom-20 right-4 z-40 animate-in fade-in slide-in-from-bottom-2 duration-300">
               <button
                 onClick={handleRepeatLastGift}
                 disabled={!isJoinedToRoom || repeatSending}
@@ -223,16 +217,17 @@ export default function RoomChat({
                 </span>
               </button>
             </div>
-          )}
-        </div>
+      )}
 
+      <div
+        style={{ position: 'fixed', bottom: 0, left: 0, right: 0 }}
+        className="bg-black/40 backdrop-blur-sm px-3 sm:px-4 py-2.5 z-20"
+      >
         {myMutedActive ? (
-          <div className="mt-2 text-sm bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-2 shrink-0">
+          <div className="mb-2 text-sm bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-2">
             🔇 You are muted by room moderation.
           </div>
         ) : null}
-
-        <div className="fixed bottom-0 left-0 right-0 z-30 border-t bg-black/40 backdrop-blur-sm px-3 sm:px-4 py-2.5">
           <div className="flex items-center gap-2">
             {((effectiveSeats || []).some((s) => s.user_id && String(s.user_id) === String(user?.id))) ? (
               <button
@@ -301,8 +296,6 @@ export default function RoomChat({
             </Button>
           </div>
         </div>
-
-      </div>
     </div>
   );
 }
