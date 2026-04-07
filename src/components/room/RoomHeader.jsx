@@ -26,7 +26,7 @@ function RoomCardModal({ room, hostUser, onClose, openUserCard }) {
       />
       <div className="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-y-auto max-h-[90vh] animate-in slide-in-from-bottom-4 duration-300">
         {/* Header image */}
-        <div className="relative h-36 bg-gradient-to-br from-slate-700 to-slate-900">
+        <div className="relative h-24 bg-gradient-to-br from-slate-700 to-slate-900">
           {room?.background_url && (
             <img
               src={room.background_url}
@@ -163,10 +163,11 @@ export default function RoomHeader({
     <>
       {showRoomCard && (
         <RoomCardModal
-          room={room}
-          onClose={() => setShowRoomCard(false)}
-          openUserCard={openUserCard}
-        />
+  room={room}
+  hostUser={hostUser}
+  onClose={() => setShowRoomCard(false)}
+  openUserCard={openUserCard}
+/>
       )}
 
       <div className="shrink-0 sticky top-0 z-20 bg-white/95 backdrop-blur border-b p-2 sm:p-4 flex items-center justify-between gap-3">
