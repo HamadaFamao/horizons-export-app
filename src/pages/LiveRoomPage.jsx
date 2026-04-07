@@ -558,6 +558,8 @@ useEffect(() => {
   const [loadingBans, setLoadingBans] = useState(false);
   const [seatMenuOpen, setSeatMenuOpen] = useState(false);
   const [seatMenuSeatNo, setSeatMenuSeatNo] = useState(null);
+  const [welcomeMessageEdit, setWelcomeMessageEdit] = useState("");
+  const [welcomeMessageSaving, setWelcomeMessageSaving] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteTargetUserId, setInviteTargetUserId] = useState(null);
   const [inviteOnlyMode, setInviteOnlyMode] = useState(false);
@@ -566,6 +568,7 @@ useEffect(() => {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [leaderboardTab, setLeaderboardTab] = useState("weekly");
   const [leaderboardData, setLeaderboardData] = useState([]);
+  const [showRoomInfo, setShowRoomInfo] = useState(false);
   const leaderboardRefreshTimerRef = useRef(null);
   const refreshLeaderboardNow = useCallback(() => {
   if (!roomId) return;
@@ -3545,6 +3548,7 @@ console.log("MODERATORS MAP:", nextMap);
 
   const openSettings = async () => {
     if (!canModerate) return;
+    setWelcomeMessageEdit(room?.welcome_message || "");
     setShowSettings(true);
     setSettingsTab("general");
   };
@@ -3553,6 +3557,7 @@ console.log("MODERATORS MAP:", nextMap);
     setShowSettings(false);
     setSettingsBusy(false);
     setRoomAvatarUploading(false);
+    setWelcomeMessageSaving(false);
   };
 
   const handleRoomAvatarUpload = async (e) => {
@@ -5875,21 +5880,21 @@ useEffect(() => {
         </div>
       ) : null}
 
-      <div className="shrink-0 sticky top-0 z-20 bg-white/95 backdrop-blur border-b p-2 sm:p-4 flex items-center justify-between gap-3">
+      <div className="shrink-0 sticky top-0 z-20 bg-black/30 backdrop-blur-sm border-b border-white/20 p-2 sm:p-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           {room?.is_locked ? (
-            <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+            <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-white/20 text-white border border-white/30">
               <Lock className="w-3 h-3" /> Locked
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-white/20 text-white border border-white/30">
               <Unlock className="w-3 h-3" /> Open
             </span>
           )}
 
           <button
             onClick={() => setLeaveRoomOpen(true)}
-            className="p-2 rounded-full border bg-white hover:bg-gray-50"
+            className="p-2 rounded-full border border-white/30 bg-white/20 hover:bg-white/30 text-white transition-colors"
             title="Leave Room"
           >
             <LogOut className="w-4 h-4" />
@@ -5902,9 +5907,9 @@ useEffect(() => {
       >
         <div className="relative shrink-0 p-2 sm:p-2.5 border-b flex items-center gap-1 overflow-x-auto whitespace-nowrap hide-scrollbar">
           <button
-            onClick={() => openUserCard(room.owner_user_id)}
+            onClick={() => setShowRoomInfo(true)}
             className="shrink-0 w-12 h-12 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center cursor-pointer border"
-            title="Open owner card"
+            title="Open room info"
           >
             {room?.avatar_url ? (
               <img 
@@ -5970,16 +5975,6 @@ useEffect(() => {
           >
             <span className="text-sm">🏆</span>
           </Button>
-
-          {canModerate ? (
-            <Button
-              variant="outline"
-              className="shrink-0 h-8 w-8 rounded-lg text-rose-600 hover:bg-rose-50 hover:text-rose-700 border-rose-200 p-0"
-              onClick={handleResetMicGiftCounters}
-            >
-              <RefreshCw className="w-4 h-4" />
-            </Button>
-          ) : null}
 
           {canModerate ? (
             <Button
@@ -6557,13 +6552,16 @@ useEffect(() => {
             <div className="flex-1 min-h-0 overflow-hidden px-3 sm:px-4 pt-3 sm:pt-4 pb-2">
               <div
                 ref={chatScrollRef}
-                className="h-full overflow-y-auto overscroll-contain border rounded-xl p-3 bg-white/10"
+                className="h-full overflow-y-auto overscroll-contain border rounded-xl p-3 pb-20 bg-white/10"
               >
-                  <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 mb-3 text-center">
-                    <div className="text-sm font-semibold text-blue-900">Welcome to the room 🎤</div>
-                    <div className="text-xs text-blue-800 mt-1">
-                      Respect everyone and enjoy the conversation.
+                  <div className="mb-4">
+                    <div className="h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"></div>
+                    <div className="text-center py-3">
+                      <div className="text-sm italic text-white/60">
+                        {room?.welcome_message || "Welcome to the room! 🎤 Respect everyone and enjoy the conversation."}
+                      </div>
                     </div>
+                    <div className="h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"></div>
                   </div>
 
                   {visibleMessages.length === 0 ? (
@@ -7071,7 +7069,7 @@ useEffect(() => {
                           <input
                             ref={roomBackgroundInputRef}
                             type="file"
-                            accept="image/png,image/gif"
+                            accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
                             onChange={handleRoomBackgroundUpload}
                             disabled={roomBackgroundUploading || !isOwner}
                             className="hidden"
@@ -7090,8 +7088,77 @@ useEffect(() => {
                           </span>
                         </label>
                         <div className="text-xs text-slate-500 mt-2">
-                          Max file size: 5MB. Supported formats: PNG, GIF.
+                          Max file size: 5MB. Supported formats: PNG, JPG, JPEG, GIF, WEBP.
                         </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-6">
+                      <div className="text-sm font-semibold text-slate-900">Welcome Message</div>
+                      <div className="text-xs text-slate-500 mt-1">Customize the welcome message displayed when users join the room.</div>
+                      <div className="mt-3">
+                        <textarea
+                          value={welcomeMessageEdit}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val.length <= 150) setWelcomeMessageEdit(val);
+                          }}
+                          placeholder="Enter welcome message (max 150 characters)..."
+                          className="w-full p-3 border border-slate-300 rounded-lg text-sm font-sans resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          rows="3"
+                        />
+                        <div className="text-xs text-slate-500 mt-1">{welcomeMessageEdit.length}/150</div>
+                      </div>
+                      <div className="mt-3 flex gap-2">
+                        <Button
+                          onClick={async () => {
+                            setWelcomeMessageSaving(true);
+                            try {
+                              const { error } = await supabase
+                                .from('live_rooms')
+                                .update({ welcome_message: welcomeMessageEdit })
+                                .eq('id', roomId)
+                                .eq('owner_user_id', user?.id);
+                              if (error) throw error;
+                              setRoom(prev => prev ? { ...prev, welcome_message: welcomeMessageEdit } : prev);
+                              toast("Welcome message updated!");
+                            } catch (error) {
+                              console.error('[WELCOME_MESSAGE_UPDATE_ERROR]', error);
+                              toast(`Failed to update welcome message: ${error.message}`);
+                            } finally {
+                              setWelcomeMessageSaving(false);
+                            }
+                          }}
+                          disabled={welcomeMessageSaving || !isOwner}
+                          className="bg-blue-600 hover:bg-blue-700 text-white"
+                          size="sm"
+                        >
+                          {welcomeMessageSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                          Save Message
+                        </Button>
+                        <Button
+                          onClick={() => setWelcomeMessageEdit(room?.welcome_message || "")}
+                          variant="outline"
+                          size="sm"
+                        >
+                          Reset
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="mt-6">
+                      <div className="text-sm font-semibold text-slate-900">Gift Counters</div>
+                      <div className="text-xs text-slate-500 mt-1">Manage gift counter statistics for mic seats.</div>
+                      <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                        <p className="text-xs text-amber-800 mb-3">⚠️ Resetting gift counters will clear all gift count statistics. This action cannot be undone.</p>
+                        <Button
+                          onClick={handleResetMicGiftCounters}
+                          className="w-full bg-amber-600 hover:bg-amber-700 text-white"
+                          size="sm"
+                        >
+                          <RefreshCw className="w-4 h-4 mr-2" />
+                          Reset All Gift Counters
+                        </Button>
                       </div>
                     </div>
 
@@ -7323,6 +7390,113 @@ useEffect(() => {
   fallbackAvatar={FALLBACK_AVATAR}
   onCreatePk={handleCreatePk}
 />
+
+      {showRoomInfo ? (
+        <div className="fixed inset-0 z-[75]">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowRoomInfo(false)} aria-hidden="true" />
+          <div className="absolute inset-0 flex items-end sm:items-center justify-center p-3">
+            <div className="w-full max-w-md bg-white rounded-3xl shadow-xl border overflow-hidden">
+              <div className="px-6 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b flex items-center justify-between">
+                <h2 className="font-bold text-lg text-slate-900">Room Info</h2>
+                <button
+                  onClick={() => setShowRoomInfo(false)}
+                  className="text-slate-500 hover:text-slate-900 p-1"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-5">
+                {/* Room Avatar */}
+                <div className="flex justify-center">
+                  <div className="w-24 h-24 rounded-2xl overflow-hidden border-2 border-slate-200 bg-slate-100 flex items-center justify-center">
+                    {room?.avatar_url ? (
+                      <img
+                        src={room.avatar_url}
+                        alt={room.title}
+                        className="w-full h-full object-cover"
+                        onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
+                      />
+                    ) : (
+                      <Mic className="w-8 h-8 text-slate-400" />
+                    )}
+                  </div>
+                </div>
+
+                {/* Room Name */}
+                <div className="text-center">
+                  <h3 className="text-xl font-bold text-slate-900">{room?.title}</h3>
+                </div>
+
+                {/* Room ID */}
+                <div className="flex items-center justify-between bg-slate-50 rounded-xl p-3">
+                  <div className="text-sm font-mono text-slate-600">
+                    #{room?.public_room_id || String(room?.id).slice(0, 8)}
+                  </div>
+                  <button
+                    onClick={copyRoomId}
+                    className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 hover:text-slate-900 transition"
+                    title="Copy room ID"
+                  >
+                    <Copy className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Owner Info */}
+                {hostUser && (
+                  <div
+                    className="flex items-center gap-3 bg-slate-50 rounded-xl p-3 cursor-pointer hover:bg-slate-100 transition"
+                    onClick={() => {
+                      setShowRoomInfo(false);
+                      openUserCard(hostUser.id);
+                    }}
+                  >
+                    <div className="w-10 h-10 rounded-full overflow-hidden border border-slate-200 bg-white">
+                      <img
+                        src={hostUser.avatar_url || FALLBACK_AVATAR}
+                        alt={hostUser.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs text-slate-500">Room Owner</div>
+                      <div className="text-sm font-semibold text-slate-900 truncate">{hostUser.name}</div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Room Stats */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-3 text-center border border-blue-200">
+                    <div className="text-2xl mb-1">⭐</div>
+                    <div className="text-xs text-slate-500">Level</div>
+                    <div className="font-bold text-slate-900">{room?.room_level || 1}</div>
+                  </div>
+                  <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-3 text-center border border-green-200">
+                    <div className="text-2xl mb-1">🎤</div>
+                    <div className="text-xs text-slate-500">Mics</div>
+                    <div className="font-bold text-slate-900">{(effectiveSeats || []).length}</div>
+                  </div>
+                </div>
+
+                {/* Status */}
+                <div className="flex items-center justify-center gap-2">
+                  {room?.is_locked ? (
+                    <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-sm font-medium">
+                      <Lock className="w-4 h-4" /> Locked
+                    </div>
+                  ) : (
+                    <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-sm font-medium">
+                      <Unlock className="w-4 h-4" /> Open
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {pkResultOpen && pkResultData && (() => {
         const winnerSide = pkResultData?.winnerSide || "draw";
