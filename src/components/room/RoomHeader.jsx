@@ -1,9 +1,138 @@
-import React from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import PeopleInRoomButton from "@/components/room/PeopleInRoomButton";
 import MicRequestsButton from "@/components/room/MicRequestsButton";
 import PkButton from "@/components/room/PkButton";
-import { Lock, Unlock, LogOut, Copy, Heart, Mic, CheckCircle2, XCircle, RefreshCw, Settings } from "lucide-react";
+import { Lock, Unlock, LogOut, Copy, Heart, Mic, CheckCircle2, XCircle, RefreshCw, Settings, X, Star } from "lucide-react";
+
+const FALLBACK_AVATAR =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128"><rect width="128" height="128" rx="64" fill="#f1f5f9"/><circle cx="64" cy="52" r="22" fill="#cbd5e1"/><path d="M24 112c8-22 28-34 40-34s32 12 40 34" fill="#cbd5e1"/></svg>`);
+
+function RoomCardModal({ room, onClose, openUserCard }) {
+  const roomId = room?.public_room_id
+    ? `#${room.public_room_id}`
+    : room?.id
+    ? `#${String(room.id).slice(0, 8)}`
+    : "";
+
+  const roomLevel = room?.room_level ?? null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <div className="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
+        {/* Header image */}
+        <div className="relative h-36 bg-gradient-to-br from-slate-700 to-slate-900">
+          {room?.background_url && (
+            <img
+              src={room.background_url}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover opacity-60"
+            />
+          )}
+          <button
+            onClick={onClose}
+            className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/40 flex items-center justify-center text-white hover:bg-black/60"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Room avatar */}
+        <div className="px-5 pb-5">
+          <div className="flex items-end gap-4 -mt-10 mb-4">
+            <div className="w-20 h-20 rounded-2xl border-4 border-white shadow-lg overflow-hidden bg-slate-100 shrink-0">
+              {room?.avatar_url ? (
+                <img
+                  src={room.avatar_url}
+                  alt={room?.title}
+                  className="w-full h-full object-cover"
+                  onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <Mic className="w-8 h-8 text-slate-400" />
+                </div>
+              )}
+            </div>
+            <div className="mb-2 min-w-0">
+              <div className="font-bold text-slate-900 text-lg truncate">{room?.title}</div>
+              <div className="text-slate-500 text-sm font-mono">{roomId}</div>
+            </div>
+          </div>
+
+          {/* Stats */}
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            {roomLevel !== null && (
+              <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 flex items-center gap-2">
+                <Star className="w-5 h-5 text-amber-500 shrink-0" fill="currentColor" />
+                <div>
+                  <div className="text-xs text-amber-700 font-medium">Room Level</div>
+                  <div className="text-lg font-bold text-amber-800">{roomLevel}</div>
+                </div>
+              </div>
+            )}
+            <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 flex items-center gap-2">
+              {room?.is_locked ? (
+                <>
+                  <Lock className="w-5 h-5 text-slate-500 shrink-0" />
+                  <div>
+                    <div className="text-xs text-slate-500 font-medium">Status</div>
+                    <div className="text-sm font-bold text-slate-700">Locked</div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <Unlock className="w-5 h-5 text-emerald-500 shrink-0" />
+                  <div>
+                    <div className="text-xs text-slate-500 font-medium">Status</div>
+                    <div className="text-sm font-bold text-emerald-700">Open</div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Host */}
+          {room?.owner_user_id && (
+            <button
+              onClick={() => { openUserCard(room.owner_user_id); onClose(); }}
+              className="w-full flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:bg-slate-50 transition"
+            >
+              <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden shrink-0">
+                {room?.owner_avatar_url ? (
+                  <img
+                    src={room.owner_avatar_url}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Mic className="w-4 h-4 text-slate-400" />
+                  </div>
+                )}
+              </div>
+              <div className="text-left min-w-0">
+                <div className="text-xs text-slate-500">Host</div>
+                <div className="font-semibold text-slate-800 truncate">
+                  {room?.owner_name || "Room Owner"}
+                </div>
+              </div>
+              <span className="ml-auto text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold shrink-0">
+                HOST
+              </span>
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function RoomHeader({
   room,
@@ -27,8 +156,18 @@ export default function RoomHeader({
   handleAcceptMyInvite,
   handleRejectMyInvite,
 }) {
+  const [showRoomCard, setShowRoomCard] = useState(false);
+
   return (
     <>
+      {showRoomCard && (
+        <RoomCardModal
+          room={room}
+          onClose={() => setShowRoomCard(false)}
+          openUserCard={openUserCard}
+        />
+      )}
+
       <div className="shrink-0 sticky top-0 z-20 bg-white/95 backdrop-blur border-b p-2 sm:p-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           {room?.is_locked ? (
@@ -52,20 +191,18 @@ export default function RoomHeader({
       </div>
 
       <div className="relative shrink-0 p-2 sm:p-2.5 border-b flex items-center gap-1 overflow-x-auto whitespace-nowrap hide-scrollbar">
+        {/* Room avatar — opens room card */}
         <button
-          onClick={() => openUserCard(room.owner_user_id)}
-          className="shrink-0 w-12 h-12 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center cursor-pointer border"
-          title="Open owner card"
+          onClick={() => setShowRoomCard(true)}
+          className="shrink-0 w-12 h-12 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center cursor-pointer border hover:ring-2 hover:ring-slate-300 transition"
+          title="Room info"
         >
           {room?.avatar_url ? (
             <img
               src={room.avatar_url}
               alt={room.title}
               className="w-full h-full object-cover"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none';
-                e.currentTarget.parentElement.innerHTML = '<svg class="w-4 h-4 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>';
-              }}
+              onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
             />
           ) : (
             <Mic className="w-4 h-4 text-slate-700" />
@@ -73,10 +210,20 @@ export default function RoomHeader({
         </button>
 
         <div className="min-w-0 flex-1 max-w-[160px]">
-          <div className="font-semibold text-slate-900 truncate text-[13px]">{room?.title}</div>
+          {/* Room title — opens room card */}
+          <button
+            onClick={() => setShowRoomCard(true)}
+            className="font-semibold text-slate-900 truncate text-[13px] text-left w-full hover:text-slate-600 transition"
+          >
+            {room?.title}
+          </button>
 
           <div className="text-xs text-slate-400 font-mono flex items-center gap-2">
-            {room?.public_room_id ? `#${room.public_room_id}` : room?.id ? `#${String(room.id).slice(0, 8)}` : ''}
+            {room?.public_room_id
+              ? `#${room.public_room_id}`
+              : room?.id
+              ? `#${String(room.id).slice(0, 8)}`
+              : ""}
             <button
               onClick={copyRoomId}
               className="inline-flex items-center justify-center w-5 h-5 rounded text-slate-500 hover:text-slate-900 hover:bg-slate-100 shrink-0"
@@ -87,10 +234,14 @@ export default function RoomHeader({
 
             <button
               onClick={() => toggleFavoriteRoom(room?.id)}
-              className={`inline-flex items-center justify-center w-8 h-8 rounded-lg border p-0 shrink-0 ${isFavorite ? 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100' : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'}`}
-              title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+              className={`inline-flex items-center justify-center w-8 h-8 rounded-lg border p-0 shrink-0 ${
+                isFavorite
+                  ? "bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100"
+                  : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100"
+              }`}
+              title={isFavorite ? "Remove from favorites" : "Add to favorites"}
             >
-              <Heart className="w-4 h-4" fill={isFavorite ? 'currentColor' : 'none'} />
+              <Heart className="w-4 h-4" fill={isFavorite ? "currentColor" : "none"} />
             </button>
           </div>
         </div>
@@ -103,15 +254,12 @@ export default function RoomHeader({
         {canModerate ? (
           <MicRequestsButton
             count={pendingRequests.length}
-            onClick={() => setRequestsOpen(prev => !prev)}
+            onClick={() => setRequestsOpen((prev) => !prev)}
           />
         ) : null}
 
         {canModerate && (!pkSession || pkSession.status !== "live") ? (
-          <PkButton
-            onClick={() => setShowPkModal(true)}
-            disabled={pkBusy}
-          />
+          <PkButton onClick={() => setShowPkModal(true)} disabled={pkBusy} />
         ) : null}
 
         <Button
@@ -145,7 +293,10 @@ export default function RoomHeader({
         {myIncomingInvites.length > 0 ? (
           <div className="flex items-center gap-2 shrink-0">
             {myIncomingInvites.map((inv) => (
-              <div key={inv.id} className="flex items-center gap-2 bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-lg">
+              <div
+                key={inv.id}
+                className="flex items-center gap-2 bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-lg"
+              >
                 <span className="text-xs font-semibold text-indigo-800 flex items-center gap-1 hidden sm:flex">
                   <Mic className="w-3.5 h-3.5" />
                   Mic Invite
