@@ -40,11 +40,16 @@ export default function RoomChat({
   sending,
   canModerate,
 }) {
+  const KEYBOARD_CLOSED_THRESHOLD_PX = 8;
+  const KEYBOARD_EXTRA_LIFT_PX = 28;
   const [keyboardOffset, setKeyboardOffset] = React.useState(0);
   const [focusFallbackOffset, setFocusFallbackOffset] = React.useState(0);
   const [footerHeight, setFooterHeight] = React.useState(0);
   const footerRef = React.useRef(null);
-  const footerBottomOffset = Math.max(keyboardOffset, focusFallbackOffset) + 2;
+  const rawBottomOffset = Math.max(keyboardOffset, focusFallbackOffset);
+  const footerBottomOffset = rawBottomOffset > KEYBOARD_CLOSED_THRESHOLD_PX
+    ? rawBottomOffset + KEYBOARD_EXTRA_LIFT_PX
+    : 0;
 
   React.useEffect(() => {
     if (typeof window === "undefined") return;
@@ -63,6 +68,10 @@ export default function RoomChat({
           window.navigator?.virtualKeyboard?.boundingRect?.height || 0
         );
         const inset = Math.max(insetByVisualViewport, insetByClientHeight, virtualKeyboardHeight);
+
+        if (inset <= KEYBOARD_CLOSED_THRESHOLD_PX) {
+          setFocusFallbackOffset(0);
+        }
 
         setKeyboardOffset((prev) => (prev === inset ? prev : inset));
       });
@@ -141,13 +150,17 @@ export default function RoomChat({
       0,
       Math.round(window.innerHeight - ((viewport?.height || window.innerHeight) + (viewport?.offsetTop || 0)))
     );
-    const guaranteedInset = Math.round(window.innerHeight * 0.36);
+    const guaranteedInset = Math.round(window.innerHeight * 0.46);
     setFocusFallbackOffset(Math.max(measuredInset, guaranteedInset));
     window.requestAnimationFrame(() => window.scrollTo(0, 0));
   }, []);
 
   const handleInputBlur = React.useCallback(() => {
     setFocusFallbackOffset(0);
+    window.setTimeout(() => {
+      setFocusFallbackOffset(0);
+      setKeyboardOffset(0);
+    }, 220);
     window.setTimeout(() => window.scrollTo(0, 0), 60);
   }, []);
 
