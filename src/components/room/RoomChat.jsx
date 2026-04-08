@@ -43,33 +43,25 @@ export default function RoomChat({
   const [keyboardOffset, setKeyboardOffset] = React.useState(0);
   const [footerHeight, setFooterHeight] = React.useState(0);
   const footerRef = React.useRef(null);
-  const maxVisualBottomRef = React.useRef(0);
-  const footerBottomOffset = keyboardOffset > 0 ? keyboardOffset : 0;
+  const footerBottomOffset = keyboardOffset > 0 ? keyboardOffset + 2 : 0;
 
   React.useEffect(() => {
     if (typeof window === "undefined") return;
     let frameId = 0;
-
-    const setBaselinesFromCurrentViewport = () => {
-      const viewport = window.visualViewport;
-      const visualBottom = Math.round((viewport?.height || window.innerHeight) + (viewport?.offsetTop || 0));
-      maxVisualBottomRef.current = visualBottom;
-    };
-
-    setBaselinesFromCurrentViewport();
 
     const updateKeyboardOffset = () => {
       if (frameId) cancelAnimationFrame(frameId);
 
       frameId = requestAnimationFrame(() => {
         const viewport = window.visualViewport;
-        const visualBottom = Math.round((viewport?.height || window.innerHeight) + (viewport?.offsetTop || 0));
-        maxVisualBottomRef.current = Math.max(maxVisualBottomRef.current, visualBottom);
-        const insetByVisualViewport = Math.max(0, maxVisualBottomRef.current - visualBottom);
+        const viewportHeight = Math.round(viewport?.height || window.innerHeight);
+        const viewportTop = Math.round(viewport?.offsetTop || 0);
+        const insetByVisualViewport = Math.max(0, Math.round(window.innerHeight - (viewportHeight + viewportTop)));
+        const insetByClientHeight = Math.max(0, Math.round(document.documentElement.clientHeight - (viewportHeight + viewportTop)));
         const virtualKeyboardHeight = Math.round(
           window.navigator?.virtualKeyboard?.boundingRect?.height || 0
         );
-        const inset = Math.max(insetByVisualViewport, virtualKeyboardHeight);
+        const inset = Math.max(insetByVisualViewport, insetByClientHeight, virtualKeyboardHeight);
 
         setKeyboardOffset((prev) => (prev === inset ? prev : inset));
       });
@@ -91,7 +83,6 @@ export default function RoomChat({
     window.addEventListener("focusin", updateKeyboardOffset);
     window.addEventListener("focusout", updateKeyboardOffset);
     window.addEventListener("resize", updateKeyboardOffset);
-    window.addEventListener("orientationchange", setBaselinesFromCurrentViewport);
 
     const handleFocusIn = () => {
       updateKeyboardOffset();
@@ -99,7 +90,7 @@ export default function RoomChat({
     };
     const handleFocusOut = () => {
       window.setTimeout(updateKeyboardOffset, 40);
-      window.setTimeout(setBaselinesFromCurrentViewport, 220);
+      window.setTimeout(updateKeyboardOffset, 200);
     };
 
     window.addEventListener("focusin", handleFocusIn);
@@ -113,7 +104,6 @@ export default function RoomChat({
       window.removeEventListener("focusin", updateKeyboardOffset);
       window.removeEventListener("focusout", updateKeyboardOffset);
       window.removeEventListener("resize", updateKeyboardOffset);
-      window.removeEventListener("orientationchange", setBaselinesFromCurrentViewport);
       window.removeEventListener("focusin", handleFocusIn);
       window.removeEventListener("focusout", handleFocusOut);
     };
@@ -336,7 +326,7 @@ export default function RoomChat({
   ref={footerRef}
   className="fixed lg:absolute left-0 right-0 bottom-0 bg-black/40 backdrop-blur-sm px-3 pt-2.5 z-20"
   style={{
-    bottom: `${footerBottomOffset}px`,
+    bottom: `max(env(keyboard-inset-height, 0px), ${footerBottomOffset}px)`,
     paddingBottom: "max(env(safe-area-inset-bottom, 0px), 8px)",
     transition: "bottom 60ms linear",
     willChange: "bottom",
