@@ -40,6 +40,56 @@ export default function RoomChat({
   sending,
   canModerate,
 }) {
+  const [keyboardOffset, setKeyboardOffset] = React.useState(0);
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const KEYBOARD_THRESHOLD = 80;
+    let frameId = 0;
+
+    const updateKeyboardOffset = () => {
+      if (frameId) cancelAnimationFrame(frameId);
+
+      frameId = requestAnimationFrame(() => {
+        const viewport = window.visualViewport;
+        if (!viewport) {
+          setKeyboardOffset(0);
+          return;
+        }
+
+        const inset = Math.max(0, Math.round(window.innerHeight - (viewport.height + viewport.offsetTop)));
+        const next = inset >= KEYBOARD_THRESHOLD ? inset : 0;
+        setKeyboardOffset((prev) => (prev === next ? prev : next));
+      });
+    };
+
+    updateKeyboardOffset();
+
+    const viewport = window.visualViewport;
+    viewport?.addEventListener("resize", updateKeyboardOffset);
+    viewport?.addEventListener("scroll", updateKeyboardOffset);
+    window.addEventListener("focusin", updateKeyboardOffset);
+    window.addEventListener("focusout", updateKeyboardOffset);
+    window.addEventListener("resize", updateKeyboardOffset);
+
+    return () => {
+      if (frameId) cancelAnimationFrame(frameId);
+      viewport?.removeEventListener("resize", updateKeyboardOffset);
+      viewport?.removeEventListener("scroll", updateKeyboardOffset);
+      window.removeEventListener("focusin", updateKeyboardOffset);
+      window.removeEventListener("focusout", updateKeyboardOffset);
+      window.removeEventListener("resize", updateKeyboardOffset);
+    };
+  }, []);
+
+  const handleInputFocus = React.useCallback(() => {
+    window.requestAnimationFrame(() => window.scrollTo(0, 0));
+  }, []);
+
+  const handleInputBlur = React.useCallback(() => {
+    window.setTimeout(() => window.scrollTo(0, 0), 60);
+  }, []);
 
   return (
     <div className="flex flex-col h-full relative lg:w-2/3 bg-black/30 backdrop-blur-sm">
@@ -224,6 +274,9 @@ export default function RoomChat({
   className="bg-black/40 backdrop-blur-sm px-3 pt-2.5 z-20 shrink-0"
   style={{
     paddingBottom: "env(safe-area-inset-bottom, 0px)",
+    transform: `translateY(-${keyboardOffset}px)`,
+    transition: "transform 120ms ease-out",
+    willChange: "transform",
   }}
 >
         {myMutedActive ? (
@@ -274,6 +327,8 @@ export default function RoomChat({
               onKeyDown={(e) => {
                 if (e.key === "Enter") sendText();
               }}
+              onFocus={handleInputFocus}
+              onBlur={handleInputBlur}
             />
 
             <button
@@ -300,5 +355,6 @@ export default function RoomChat({
           </div>
         </div>
     </div>
+
   );
 }
