@@ -5514,7 +5514,7 @@ useEffect(() => {
   });
 
   return (
-    <div className="h-[100svh] max-h-[100svh] overflow-hidden overscroll-none bg-gray-50 flex flex-col w-full max-w-6xl mx-auto"
+    <div className="h-dvh max-h-dvh overflow-hidden overscroll-none bg-gray-50 flex flex-col w-full max-w-6xl mx-auto"
          style={{
            backgroundImage: room?.background_url ? `url(${room.background_url})` : undefined,
            backgroundSize: 'cover',
