@@ -41,6 +41,7 @@ export default function RoomChat({
   canModerate,
 }) {
   const [footerViewportOffset, setFooterViewportOffset] = React.useState(0);
+  const KEYBOARD_INSET_THRESHOLD_PX = 80;
 
   React.useEffect(() => {
     if (typeof window === "undefined") return;
@@ -65,7 +66,9 @@ export default function RoomChat({
           Math.round(window.innerHeight - (viewport.height + viewport.offsetTop))
         );
 
-        setFooterViewportOffset((prev) => (prev === bottomInset ? prev : bottomInset));
+        const stabilizedInset = bottomInset >= KEYBOARD_INSET_THRESHOLD_PX ? bottomInset : 0;
+
+        setFooterViewportOffset((prev) => (prev === stabilizedInset ? prev : stabilizedInset));
       });
     };
 
@@ -76,6 +79,8 @@ export default function RoomChat({
     viewport?.addEventListener("scroll", updateFooterViewportOffset);
     window.addEventListener("resize", updateFooterViewportOffset);
     window.addEventListener("orientationchange", updateFooterViewportOffset);
+    window.addEventListener("focusin", updateFooterViewportOffset);
+    window.addEventListener("focusout", updateFooterViewportOffset);
 
     return () => {
       if (frameId) {
@@ -85,6 +90,8 @@ export default function RoomChat({
       viewport?.removeEventListener("scroll", updateFooterViewportOffset);
       window.removeEventListener("resize", updateFooterViewportOffset);
       window.removeEventListener("orientationchange", updateFooterViewportOffset);
+      window.removeEventListener("focusin", updateFooterViewportOffset);
+      window.removeEventListener("focusout", updateFooterViewportOffset);
     };
   }, []);
 
