@@ -40,84 +40,8 @@ export default function RoomChat({
   sending,
   canModerate,
 }) {
-  const KEYBOARD_CLOSED_THRESHOLD_PX = 8;
-  const KEYBOARD_EXTRA_LIFT_PX = 28;
-  const [keyboardOffset, setKeyboardOffset] = React.useState(0);
-  const [focusFallbackOffset, setFocusFallbackOffset] = React.useState(0);
   const [footerHeight, setFooterHeight] = React.useState(0);
   const footerRef = React.useRef(null);
-  const rawBottomOffset = Math.max(keyboardOffset, focusFallbackOffset);
-  const footerBottomOffset = rawBottomOffset > KEYBOARD_CLOSED_THRESHOLD_PX
-    ? rawBottomOffset + KEYBOARD_EXTRA_LIFT_PX
-    : 0;
-
-  React.useEffect(() => {
-    if (typeof window === "undefined") return;
-    let frameId = 0;
-
-    const updateKeyboardOffset = () => {
-      if (frameId) cancelAnimationFrame(frameId);
-
-      frameId = requestAnimationFrame(() => {
-        const viewport = window.visualViewport;
-        const viewportHeight = Math.round(viewport?.height || window.innerHeight);
-        const viewportTop = Math.round(viewport?.offsetTop || 0);
-        const insetByVisualViewport = Math.max(0, Math.round(window.innerHeight - (viewportHeight + viewportTop)));
-        const insetByClientHeight = Math.max(0, Math.round(document.documentElement.clientHeight - (viewportHeight + viewportTop)));
-        const virtualKeyboardHeight = Math.round(
-          window.navigator?.virtualKeyboard?.boundingRect?.height || 0
-        );
-        const inset = Math.max(insetByVisualViewport, insetByClientHeight, virtualKeyboardHeight);
-
-        if (inset <= KEYBOARD_CLOSED_THRESHOLD_PX) {
-          setFocusFallbackOffset(0);
-        }
-
-        setKeyboardOffset((prev) => (prev === inset ? prev : inset));
-      });
-    };
-
-    updateKeyboardOffset();
-
-    const viewport = window.visualViewport;
-    try {
-      if (window.navigator?.virtualKeyboard) {
-        window.navigator.virtualKeyboard.overlaysContent = true;
-      }
-    } catch {
-      // ignore unsupported/blocked virtualKeyboard writes
-    }
-    viewport?.addEventListener("resize", updateKeyboardOffset);
-    viewport?.addEventListener("scroll", updateKeyboardOffset);
-    window.navigator?.virtualKeyboard?.addEventListener?.("geometrychange", updateKeyboardOffset);
-    window.addEventListener("focusin", updateKeyboardOffset);
-    window.addEventListener("focusout", updateKeyboardOffset);
-    window.addEventListener("resize", updateKeyboardOffset);
-
-    const handleFocusIn = () => {
-      updateKeyboardOffset();
-      window.setTimeout(updateKeyboardOffset, 120);
-    };
-    const handleFocusOut = () => {
-      window.setTimeout(updateKeyboardOffset, 40);
-      window.setTimeout(updateKeyboardOffset, 200);
-    };
-
-    window.addEventListener("focusin", handleFocusIn);
-    window.addEventListener("focusout", handleFocusOut);
-
-    return () => {
-      if (frameId) cancelAnimationFrame(frameId);
-      viewport?.removeEventListener("resize", updateKeyboardOffset);
-      viewport?.removeEventListener("scroll", updateKeyboardOffset);
-      window.navigator?.virtualKeyboard?.removeEventListener?.("geometrychange", updateKeyboardOffset);
-      window.removeEventListener("focusin", updateKeyboardOffset);
-      window.removeEventListener("focusout", updateKeyboardOffset);
-      window.removeEventListener("resize", updateKeyboardOffset);
-      window.removeEventListener("focusin", handleFocusIn);
-      window.removeEventListener("focusout", handleFocusOut);
-    };
-  }, []);
 
   React.useEffect(() => {
     const footerEl = footerRef.current;
@@ -144,32 +68,12 @@ export default function RoomChat({
     };
   }, []);
 
-  const handleInputFocus = React.useCallback(() => {
-    const viewport = window.visualViewport;
-    const measuredInset = Math.max(
-      0,
-      Math.round(window.innerHeight - ((viewport?.height || window.innerHeight) + (viewport?.offsetTop || 0)))
-    );
-    const guaranteedInset = Math.round(window.innerHeight * 0.46);
-    setFocusFallbackOffset(Math.max(measuredInset, guaranteedInset));
-    window.requestAnimationFrame(() => window.scrollTo(0, 0));
-  }, []);
-
-  const handleInputBlur = React.useCallback(() => {
-    setFocusFallbackOffset(0);
-    window.setTimeout(() => {
-      setFocusFallbackOffset(0);
-      setKeyboardOffset(0);
-    }, 220);
-    window.setTimeout(() => window.scrollTo(0, 0), 60);
-  }, []);
-
   return (
-    <div className="flex flex-col h-full relative lg:w-2/3 bg-black/30 backdrop-blur-sm">
+    <div className="flex flex-col min-h-0 h-full relative lg:w-2/3 bg-black/30 backdrop-blur-sm">
       <div
         ref={chatScrollRef}
         className="flex-1 overflow-y-auto min-h-0"
-        style={{ paddingBottom: `${footerHeight + footerBottomOffset + 8}px` }}
+        style={{ paddingBottom: `calc(${footerHeight + 8}px + env(safe-area-inset-bottom, 0px))` }}
       >
             <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 mb-3 text-center">
               <div className="text-sm font-semibold text-blue-900">Welcome to the room 🎤</div>
@@ -346,12 +250,9 @@ export default function RoomChat({
 
       <div
   ref={footerRef}
-  className="fixed lg:absolute left-0 right-0 bottom-0 bg-black/40 backdrop-blur-sm px-3 pt-2.5 z-[9999]"
+  className="absolute left-0 right-0 bottom-0 bg-black/40 backdrop-blur-sm px-3 pt-2.5 z-20"
   style={{
-    bottom: `max(env(keyboard-inset-height, 0px), ${footerBottomOffset}px)`,
     paddingBottom: "max(env(safe-area-inset-bottom, 0px), 8px)",
-    transition: "bottom 60ms linear",
-    willChange: "bottom",
   }}
 >
         {myMutedActive ? (
@@ -402,8 +303,6 @@ export default function RoomChat({
               onKeyDown={(e) => {
                 if (e.key === "Enter") sendText();
               }}
-              onFocus={handleInputFocus}
-              onBlur={handleInputBlur}
             />
 
             <button
