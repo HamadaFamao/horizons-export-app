@@ -40,60 +40,6 @@ export default function RoomChat({
   sending,
   canModerate,
 }) {
-  const [footerViewportOffset, setFooterViewportOffset] = React.useState(0);
-  const KEYBOARD_INSET_THRESHOLD_PX = 80;
-
-  React.useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    let frameId = 0;
-
-    const updateFooterViewportOffset = () => {
-      if (frameId) {
-        cancelAnimationFrame(frameId);
-      }
-
-      frameId = requestAnimationFrame(() => {
-        const viewport = window.visualViewport;
-
-        if (!viewport) {
-          setFooterViewportOffset(0);
-          return;
-        }
-
-        const bottomInset = Math.max(
-          0,
-          Math.round(window.innerHeight - (viewport.height + viewport.offsetTop))
-        );
-
-        const stabilizedInset = bottomInset >= KEYBOARD_INSET_THRESHOLD_PX ? bottomInset : 0;
-
-        setFooterViewportOffset((prev) => (prev === stabilizedInset ? prev : stabilizedInset));
-      });
-    };
-
-    updateFooterViewportOffset();
-
-    const viewport = window.visualViewport;
-    viewport?.addEventListener("resize", updateFooterViewportOffset);
-    viewport?.addEventListener("scroll", updateFooterViewportOffset);
-    window.addEventListener("resize", updateFooterViewportOffset);
-    window.addEventListener("orientationchange", updateFooterViewportOffset);
-    window.addEventListener("focusin", updateFooterViewportOffset);
-    window.addEventListener("focusout", updateFooterViewportOffset);
-
-    return () => {
-      if (frameId) {
-        cancelAnimationFrame(frameId);
-      }
-      viewport?.removeEventListener("resize", updateFooterViewportOffset);
-      viewport?.removeEventListener("scroll", updateFooterViewportOffset);
-      window.removeEventListener("resize", updateFooterViewportOffset);
-      window.removeEventListener("orientationchange", updateFooterViewportOffset);
-      window.removeEventListener("focusin", updateFooterViewportOffset);
-      window.removeEventListener("focusout", updateFooterViewportOffset);
-    };
-  }, []);
 
   return (
     <div className="flex flex-col h-full relative lg:w-2/3 bg-black/30 backdrop-blur-sm">
@@ -278,9 +224,6 @@ export default function RoomChat({
   className="bg-black/40 backdrop-blur-sm px-3 pt-2.5 z-20 shrink-0"
   style={{
     paddingBottom: "env(safe-area-inset-bottom, 0px)",
-    transform: `translateY(-${footerViewportOffset}px)`,
-    transition: "transform 120ms ease-out",
-    willChange: "transform",
   }}
 >
         {myMutedActive ? (
