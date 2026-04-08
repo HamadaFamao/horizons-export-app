@@ -41,11 +41,11 @@ export default function RoomChat({
   canModerate,
 }) {
   const [keyboardOffset, setKeyboardOffset] = React.useState(0);
+  const [footerHeight, setFooterHeight] = React.useState(0);
+  const footerRef = React.useRef(null);
 
   React.useEffect(() => {
     if (typeof window === "undefined") return;
-
-    const KEYBOARD_THRESHOLD = 80;
     let frameId = 0;
 
     const updateKeyboardOffset = () => {
@@ -59,8 +59,7 @@ export default function RoomChat({
         }
 
         const inset = Math.max(0, Math.round(window.innerHeight - (viewport.height + viewport.offsetTop)));
-        const next = inset >= KEYBOARD_THRESHOLD ? inset : 0;
-        setKeyboardOffset((prev) => (prev === next ? prev : next));
+        setKeyboardOffset((prev) => (prev === inset ? prev : inset));
       });
     };
 
@@ -83,6 +82,31 @@ export default function RoomChat({
     };
   }, []);
 
+  React.useEffect(() => {
+    const footerEl = footerRef.current;
+    if (!footerEl || typeof window === "undefined") return;
+
+    const updateFooterHeight = () => {
+      const next = Math.ceil(footerEl.getBoundingClientRect().height || 0);
+      setFooterHeight((prev) => (prev === next ? prev : next));
+    };
+
+    updateFooterHeight();
+
+    let resizeObserver;
+    if (typeof ResizeObserver !== "undefined") {
+      resizeObserver = new ResizeObserver(updateFooterHeight);
+      resizeObserver.observe(footerEl);
+    }
+
+    window.addEventListener("resize", updateFooterHeight);
+
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", updateFooterHeight);
+    };
+  }, []);
+
   const handleInputFocus = React.useCallback(() => {
     window.requestAnimationFrame(() => window.scrollTo(0, 0));
   }, []);
@@ -95,7 +119,8 @@ export default function RoomChat({
     <div className="flex flex-col h-full relative lg:w-2/3 bg-black/30 backdrop-blur-sm">
       <div
         ref={chatScrollRef}
-        className="flex-1 overflow-y-auto min-h-0 pb-2"
+        className="flex-1 overflow-y-auto min-h-0"
+        style={{ paddingBottom: `${footerHeight + 8}px` }}
       >
             <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 mb-3 text-center">
               <div className="text-sm font-semibold text-blue-900">Welcome to the room 🎤</div>
@@ -271,11 +296,11 @@ export default function RoomChat({
       )}
 
       <div
-  className="bg-black/40 backdrop-blur-sm px-3 pt-2.5 z-20 shrink-0"
+  ref={footerRef}
+  className="absolute left-0 right-0 bottom-0 bg-black/40 backdrop-blur-sm px-3 pt-2.5 z-20"
   style={{
     paddingBottom: "env(safe-area-inset-bottom, 0px)",
     transform: `translateY(-${keyboardOffset}px)`,
-    transition: "transform 120ms ease-out",
     willChange: "transform",
   }}
 >
