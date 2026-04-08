@@ -41,9 +41,10 @@ export default function RoomChat({
   canModerate,
 }) {
   const [keyboardOffset, setKeyboardOffset] = React.useState(0);
+  const [focusFallbackOffset, setFocusFallbackOffset] = React.useState(0);
   const [footerHeight, setFooterHeight] = React.useState(0);
   const footerRef = React.useRef(null);
-  const footerBottomOffset = keyboardOffset > 0 ? keyboardOffset + 2 : 0;
+  const footerBottomOffset = Math.max(keyboardOffset, focusFallbackOffset) + 2;
 
   React.useEffect(() => {
     if (typeof window === "undefined") return;
@@ -135,10 +136,18 @@ export default function RoomChat({
   }, []);
 
   const handleInputFocus = React.useCallback(() => {
+    const viewport = window.visualViewport;
+    const measuredInset = Math.max(
+      0,
+      Math.round(window.innerHeight - ((viewport?.height || window.innerHeight) + (viewport?.offsetTop || 0)))
+    );
+    const guaranteedInset = Math.round(window.innerHeight * 0.36);
+    setFocusFallbackOffset(Math.max(measuredInset, guaranteedInset));
     window.requestAnimationFrame(() => window.scrollTo(0, 0));
   }, []);
 
   const handleInputBlur = React.useCallback(() => {
+    setFocusFallbackOffset(0);
     window.setTimeout(() => window.scrollTo(0, 0), 60);
   }, []);
 
@@ -324,7 +333,7 @@ export default function RoomChat({
 
       <div
   ref={footerRef}
-  className="fixed lg:absolute left-0 right-0 bottom-0 bg-black/40 backdrop-blur-sm px-3 pt-2.5 z-20"
+  className="fixed lg:absolute left-0 right-0 bottom-0 bg-black/40 backdrop-blur-sm px-3 pt-2.5 z-[9999]"
   style={{
     bottom: `max(env(keyboard-inset-height, 0px), ${footerBottomOffset}px)`,
     paddingBottom: "max(env(safe-area-inset-bottom, 0px), 8px)",
