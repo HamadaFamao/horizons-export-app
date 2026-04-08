@@ -44,6 +44,16 @@ export default function RoomChat({
   const footerRef = React.useRef(null);
 
   React.useEffect(() => {
+    try {
+      if (window.navigator?.virtualKeyboard) {
+        window.navigator.virtualKeyboard.overlaysContent = true;
+      }
+    } catch {
+      // no-op on unsupported browsers
+    }
+  }, []);
+
+  React.useEffect(() => {
     const footerEl = footerRef.current;
     if (!footerEl || typeof window === "undefined") return;
 
@@ -73,7 +83,7 @@ export default function RoomChat({
       <div
         ref={chatScrollRef}
         className="flex-1 overflow-y-auto min-h-0"
-        style={{ paddingBottom: `calc(${footerHeight + 8}px + env(safe-area-inset-bottom, 0px))` }}
+        style={{ paddingBottom: `calc(${footerHeight + 8}px + env(safe-area-inset-bottom, 0px) + env(keyboard-inset-height, 0px))` }}
       >
             <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 mb-3 text-center">
               <div className="text-sm font-semibold text-blue-900">Welcome to the room 🎤</div>
@@ -250,8 +260,9 @@ export default function RoomChat({
 
       <div
   ref={footerRef}
-  className="absolute left-0 right-0 bottom-0 bg-black/40 backdrop-blur-sm px-3 pt-2.5 z-20"
+  className="fixed lg:absolute left-0 right-0 bottom-0 bg-black/40 backdrop-blur-sm px-3 pt-2.5 z-20"
   style={{
+    bottom: "env(keyboard-inset-height, 0px)",
     paddingBottom: "max(env(safe-area-inset-bottom, 0px), 8px)",
   }}
 >
