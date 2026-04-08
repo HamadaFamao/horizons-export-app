@@ -367,61 +367,10 @@ export default function LiveRoomPage() {
   const [err, setErr] = useState("");
   const [joinNotifs, setJoinNotifs] = useState([]);
   const [favoriteRoomIds, setFavoriteRoomIds] = useState([]);
-  const [roomViewportHeight, setRoomViewportHeight] = useState(() => {
-    if (typeof window === "undefined") return 0;
-    return Math.max(1, Math.round(window.visualViewport?.height || window.innerHeight));
-  });
   const isFavorite = useMemo(
     () => !!room?.id && favoriteRoomIds.includes(String(room.id)),
     [favoriteRoomIds, room?.id]
   );
-
-  const fullscreenRoomStyle = useMemo(() => {
-    const height = roomViewportHeight > 0 ? `${roomViewportHeight}px` : "100svh";
-    return {
-      height,
-      maxHeight: height,
-    };
-  }, [roomViewportHeight]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    let frameId = 0;
-
-    const updateRoomViewportHeight = () => {
-      if (frameId) {
-        cancelAnimationFrame(frameId);
-      }
-
-      frameId = requestAnimationFrame(() => {
-        const nextHeight = Math.max(
-          1,
-          Math.round(window.visualViewport?.height || window.innerHeight)
-        );
-
-        setRoomViewportHeight((prev) => (prev === nextHeight ? prev : nextHeight));
-      });
-    };
-
-    updateRoomViewportHeight();
-
-    const viewport = window.visualViewport;
-    viewport?.addEventListener("resize", updateRoomViewportHeight);
-    viewport?.addEventListener("scroll", updateRoomViewportHeight);
-    window.addEventListener("resize", updateRoomViewportHeight);
-    window.addEventListener("orientationchange", updateRoomViewportHeight);
-
-    return () => {
-      if (frameId) {
-        cancelAnimationFrame(frameId);
-      }
-      viewport?.removeEventListener("resize", updateRoomViewportHeight);
-      viewport?.removeEventListener("scroll", updateRoomViewportHeight);
-      window.removeEventListener("resize", updateRoomViewportHeight);
-      window.removeEventListener("orientationchange", updateRoomViewportHeight);
-    };
-  }, []);
 
   useEffect(() => {
     try {
@@ -5567,7 +5516,6 @@ useEffect(() => {
   return (
     <div className="fixed inset-0 w-screen overflow-hidden overscroll-none bg-gray-50 flex flex-col"
          style={{
-           ...fullscreenRoomStyle,
            backgroundImage: room?.background_url ? `url(${room.background_url})` : undefined,
            backgroundSize: 'cover',
            backgroundPosition: 'center',
