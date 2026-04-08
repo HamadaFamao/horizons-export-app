@@ -5400,6 +5400,7 @@ useEffect(() => {
   // ==========================================
   if (loading) {
     return (
+      <div className="fixed inset-0 w-screen overflow-hidden overscroll-none bg-gray-50 flex flex-col items-center justify-center p-6">
         <div className="bg-white border rounded-xl p-10 flex items-center justify-center gap-3">
           <Loader2 className="w-5 h-5 animate-spin" />
           <span className="text-slate-600">Loading room…</span>
@@ -5410,6 +5411,7 @@ useEffect(() => {
 
   if (!room) {
     return (
+      <div className="fixed inset-0 w-screen overflow-hidden overscroll-none bg-gray-50 flex flex-col p-6">
         <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-4 shrink-0">Room not found</div>
       </div>
     );
@@ -5461,6 +5463,7 @@ useEffect(() => {
 
   if (miniRoomMode) {
     return (
+      <div className="fixed inset-0 w-screen overflow-hidden overscroll-none bg-gray-50 flex flex-col p-4">
         <div className="bg-white border rounded-xl p-4 flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
