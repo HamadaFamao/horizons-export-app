@@ -44,8 +44,7 @@ export default function RoomChat({
   const [footerHeight, setFooterHeight] = React.useState(0);
   const footerRef = React.useRef(null);
   const maxVisualBottomRef = React.useRef(0);
-  const maxInnerHeightRef = React.useRef(0);
-  const footerBottomOffset = keyboardOffset > 0 ? keyboardOffset + 2 : 0;
+  const footerBottomOffset = keyboardOffset > 0 ? keyboardOffset : 0;
 
   React.useEffect(() => {
     if (typeof window === "undefined") return;
@@ -55,7 +54,6 @@ export default function RoomChat({
       const viewport = window.visualViewport;
       const visualBottom = Math.round((viewport?.height || window.innerHeight) + (viewport?.offsetTop || 0));
       maxVisualBottomRef.current = visualBottom;
-      maxInnerHeightRef.current = window.innerHeight;
     };
 
     setBaselinesFromCurrentViewport();
@@ -66,13 +64,12 @@ export default function RoomChat({
       frameId = requestAnimationFrame(() => {
         const viewport = window.visualViewport;
         const visualBottom = Math.round((viewport?.height || window.innerHeight) + (viewport?.offsetTop || 0));
-
         maxVisualBottomRef.current = Math.max(maxVisualBottomRef.current, visualBottom);
-        maxInnerHeightRef.current = Math.max(maxInnerHeightRef.current, window.innerHeight);
-
         const insetByVisualViewport = Math.max(0, maxVisualBottomRef.current - visualBottom);
-        const insetByInnerHeight = Math.max(0, maxInnerHeightRef.current - window.innerHeight);
-        const inset = Math.max(insetByVisualViewport, insetByInnerHeight);
+        const virtualKeyboardHeight = Math.round(
+          window.navigator?.virtualKeyboard?.boundingRect?.height || 0
+        );
+        const inset = Math.max(insetByVisualViewport, virtualKeyboardHeight);
 
         setKeyboardOffset((prev) => (prev === inset ? prev : inset));
       });
@@ -81,8 +78,16 @@ export default function RoomChat({
     updateKeyboardOffset();
 
     const viewport = window.visualViewport;
+    try {
+      if (window.navigator?.virtualKeyboard) {
+        window.navigator.virtualKeyboard.overlaysContent = true;
+      }
+    } catch {
+      // ignore unsupported/blocked virtualKeyboard writes
+    }
     viewport?.addEventListener("resize", updateKeyboardOffset);
     viewport?.addEventListener("scroll", updateKeyboardOffset);
+    window.navigator?.virtualKeyboard?.addEventListener?.("geometrychange", updateKeyboardOffset);
     window.addEventListener("focusin", updateKeyboardOffset);
     window.addEventListener("focusout", updateKeyboardOffset);
     window.addEventListener("resize", updateKeyboardOffset);
@@ -104,6 +109,7 @@ export default function RoomChat({
       if (frameId) cancelAnimationFrame(frameId);
       viewport?.removeEventListener("resize", updateKeyboardOffset);
       viewport?.removeEventListener("scroll", updateKeyboardOffset);
+      window.navigator?.virtualKeyboard?.removeEventListener?.("geometrychange", updateKeyboardOffset);
       window.removeEventListener("focusin", updateKeyboardOffset);
       window.removeEventListener("focusout", updateKeyboardOffset);
       window.removeEventListener("resize", updateKeyboardOffset);
@@ -151,7 +157,7 @@ export default function RoomChat({
       <div
         ref={chatScrollRef}
         className="flex-1 overflow-y-auto min-h-0"
-        style={{ paddingBottom: `${footerHeight + 8}px` }}
+        style={{ paddingBottom: `${footerHeight + footerBottomOffset + 8}px` }}
       >
             <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 mb-3 text-center">
               <div className="text-sm font-semibold text-blue-900">Welcome to the room 🎤</div>
@@ -328,10 +334,10 @@ export default function RoomChat({
 
       <div
   ref={footerRef}
-  className="absolute left-0 right-0 bottom-0 bg-black/40 backdrop-blur-sm px-3 pt-2.5 z-20"
+  className="fixed lg:absolute left-0 right-0 bottom-0 bg-black/40 backdrop-blur-sm px-3 pt-2.5 z-20"
   style={{
     bottom: `${footerBottomOffset}px`,
-    paddingBottom: "env(safe-area-inset-bottom, 0px)",
+    paddingBottom: "max(env(safe-area-inset-bottom, 0px), 8px)",
     transition: "bottom 60ms linear",
     willChange: "bottom",
   }}
