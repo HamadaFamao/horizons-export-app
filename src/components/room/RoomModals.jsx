@@ -52,6 +52,7 @@ export default function RoomModals({
   setRoom,
   settingsTab,
   setSettingsTab,
+  handleResetMicGiftCounters,
   openBansTab,
   room,
   isOwner,
@@ -366,7 +367,10 @@ export default function RoomModals({
   <div className="text-sm font-semibold text-slate-900">Gift Counters</div>
   <div className="text-xs text-slate-500 mt-1">Reset all mic gift support counters.</div>
   <button
-    onClick={() => { handleResetMicGiftCounters(); closeSettings(); }}
+    onClick={async () => {
+  closeSettings();
+  await handleResetMicGiftCounters();
+}}
     className="mt-3 w-full py-2 rounded-xl border border-rose-200 text-rose-600 text-sm font-semibold hover:bg-rose-50 transition flex items-center justify-center gap-2"
   >
     <RefreshCw className="w-4 h-4" />
