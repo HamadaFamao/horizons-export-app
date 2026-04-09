@@ -3806,8 +3806,8 @@ console.log("MODERATORS MAP:", nextMap);
   const handleResetMicGiftCounters = async () => {
     if (!roomId || !canModerate) return;
 
-    const confirmed = window.confirm("Are you sure you want to reset the room support counters? This will start a new round for everyone.");
-    if (!confirmed) return;
+    const confirmed = window.confirm("Reset gift counters?");
+if (!confirmed) return;
 
     console.log('[ROOM_GIFT_RESET_CONFIRMED]', { roomId });
 
