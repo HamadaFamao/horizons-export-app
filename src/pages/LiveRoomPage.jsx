@@ -6394,6 +6394,8 @@ useEffect(() => {
         assignModerator={assignModerator}
         removeModerator={removeModerator}
         setSeatMenuOpen={setSeatMenuOpen}
+        setMessages={setMessages}
+        setRoomGiftMessages={setRoomGiftMessages}
       />
       </div>
     </div>
