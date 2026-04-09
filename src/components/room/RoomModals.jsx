@@ -69,6 +69,7 @@ export default function RoomModals({
   fetchBans,
   mountedRef,
   unbanUser,
+  toast,
 
   // MicRequestsModal
   requestsOpen,
