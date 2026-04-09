@@ -335,20 +335,28 @@ export default function RoomModals({
     Shown to everyone when they join the room.
   </div>
   <textarea
+    id="welcome-msg-input"
     className="mt-2 w-full border rounded-xl p-3 text-sm text-slate-800 resize-none focus:outline-none focus:ring-2 focus:ring-slate-300"
     rows={3}
     maxLength={200}
     defaultValue={room?.welcome_message || "Respect everyone and enjoy the conversation."}
-    onBlur={async (e) => {
-      const newMsg = e.target.value.trim();
+    placeholder="Enter welcome message..."
+  />
+  <button
+    onClick={async () => {
+      const el = document.getElementById("welcome-msg-input");
+      const newMsg = el?.value?.trim();
       if (!newMsg) return;
       await supabase
         .from("live_rooms")
         .update({ welcome_message: newMsg })
         .eq("id", room?.id);
+      toast("✅ Welcome message updated", 1400);
     }}
-    placeholder="Enter welcome message..."
-  />
+    className="mt-2 w-full py-2 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-700 transition"
+  >
+    Save
+  </button>
 </div>
 
                     {/* Current Avatar Display */}
