@@ -264,16 +264,6 @@ export default function RoomHeader({
         {canModerate ? (
           <Button
             variant="outline"
-            className="shrink-0 h-8 w-8 rounded-lg text-rose-600 hover:bg-rose-50 hover:text-rose-700 border-rose-200 p-0"
-            onClick={handleResetMicGiftCounters}
-          >
-            <RefreshCw className="w-4 h-4" />
-          </Button>
-        ) : null}
-
-        {canModerate ? (
-          <Button
-            variant="outline"
             className="shrink-0 h-8 w-8 rounded-lg p-0"
             onClick={openSettings}
           >

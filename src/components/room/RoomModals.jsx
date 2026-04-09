@@ -361,6 +361,19 @@ export default function RoomModals({
   </button>
 </div>
 
+{/* Reset Counters */}
+<div className="mt-6 border-t pt-4">
+  <div className="text-sm font-semibold text-slate-900">Gift Counters</div>
+  <div className="text-xs text-slate-500 mt-1">Reset all mic gift support counters.</div>
+  <button
+    onClick={() => { handleResetMicGiftCounters(); closeSettings(); }}
+    className="mt-3 w-full py-2 rounded-xl border border-rose-200 text-rose-600 text-sm font-semibold hover:bg-rose-50 transition flex items-center justify-center gap-2"
+  >
+    <RefreshCw className="w-4 h-4" />
+    Reset Counters
+  </button>
+</div>
+
                     {/* Current Avatar Display */}
                     <div className="mt-3 flex items-center gap-3">
                       <div className="w-16 h-16 rounded-xl border-2 border-slate-200 overflow-hidden bg-slate-50">
