@@ -5920,7 +5920,6 @@ useEffect(() => {
         pkBusy={pkBusy}
         setShowPkModal={setShowPkModal}
         setShowLeaderboard={setShowLeaderboard}
-        handleResetMicGiftCounters={handleResetMicGiftCounters}
         openSettings={openSettings}
         myIncomingInvites={myIncomingInvites}
         handleAcceptMyInvite={handleAcceptMyInvite}
@@ -6274,6 +6273,7 @@ useEffect(() => {
       </div>
       
       <RoomModals
+        handleResetMicGiftCounters={handleResetMicGiftCounters}
         showPeople={showPeople}
         setRoom={setRoom}
         setShowPeople={setShowPeople}
