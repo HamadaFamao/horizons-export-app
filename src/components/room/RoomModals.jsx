@@ -7,7 +7,7 @@ import LeaderboardModal from "@/components/LeaderboardModal";
 import GiftPanel from "@/components/GiftPanel";
 import { Button } from "@/components/ui/button";
 import { Loader2, MicOff, CheckCircle2, RefreshCw, Settings, ImageIcon, X, Minimize2, Power, Share2 } from "lucide-react";
-
+import { supabase } from "@/lib/supabaseClient";
 const FALLBACK_AVATAR =
   "data:image/svg+xml;utf8," +
   encodeURIComponent(`
@@ -327,6 +327,29 @@ export default function RoomModals({
                   <>
                     <div className="text-sm font-semibold text-slate-900">Room Avatar</div>
                     <div className="text-xs text-slate-500 mt-1">Upload a PNG or GIF image for your room's main picture.</div>
+
+                    {/* Welcome Message */}
+<div className="mb-6">
+  <div className="text-sm font-semibold text-slate-900">Welcome Message</div>
+  <div className="text-xs text-slate-500 mt-1">
+    Shown to everyone when they join the room.
+  </div>
+  <textarea
+    className="mt-2 w-full border rounded-xl p-3 text-sm text-slate-800 resize-none focus:outline-none focus:ring-2 focus:ring-slate-300"
+    rows={3}
+    maxLength={200}
+    defaultValue={room?.welcome_message || "Respect everyone and enjoy the conversation."}
+    onBlur={async (e) => {
+      const newMsg = e.target.value.trim();
+      if (!newMsg) return;
+      await supabase
+        .from("live_rooms")
+        .update({ welcome_message: newMsg })
+        .eq("id", room?.id);
+    }}
+    placeholder="Enter welcome message..."
+  />
+</div>
 
                     {/* Current Avatar Display */}
                     <div className="mt-3 flex items-center gap-3">
