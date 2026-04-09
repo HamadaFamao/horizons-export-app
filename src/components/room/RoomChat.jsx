@@ -86,11 +86,26 @@ export default function RoomChat({
         className="flex-1 overflow-y-auto min-h-0"
         style={{ paddingBottom: `calc(${footerHeight + 8}px + env(safe-area-inset-bottom, 0px) + env(keyboard-inset-height, 0px))` }}
       >
-            <div className="p-3 mb-3 text-center">
+           <div className="p-3 mb-3 text-center">
   <div className="text-sm font-semibold text-white drop-shadow">Welcome to the room 🎤</div>
-  <div className="text-xs text-white/80 mt-1 drop-shadow">
+  <div
+    className="text-xs mt-1 font-medium drop-shadow"
+    style={{
+      background: 'linear-gradient(90deg, #38bdf8, #818cf8, #38bdf8)',
+      backgroundSize: '200% auto',
+      WebkitBackgroundClip: 'text',
+      WebkitTextFillColor: 'transparent',
+      animation: 'shimmer 3s linear infinite',
+    }}
+  >
     {room?.welcome_message || "Respect everyone and enjoy the conversation."}
   </div>
+  <style>{`
+    @keyframes shimmer {
+      0% { background-position: 0% center; }
+      100% { background-position: 200% center; }
+    }
+  `}</style>
 </div>
 
             {visibleMessages.length === 0 ? (
