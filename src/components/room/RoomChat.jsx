@@ -86,9 +86,9 @@ export default function RoomChat({
         className="flex-1 overflow-y-auto min-h-0"
         style={{ paddingBottom: `calc(${footerHeight + 8}px + env(safe-area-inset-bottom, 0px) + env(keyboard-inset-height, 0px))` }}
       >
-            <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 mb-3 text-center">
-  <div className="text-sm font-semibold text-blue-900">Welcome to the room 🎤</div>
-  <div className="text-xs text-blue-800 mt-1">
+            <div className="p-3 mb-3 text-center">
+  <div className="text-sm font-semibold text-white drop-shadow">Welcome to the room 🎤</div>
+  <div className="text-xs text-white/80 mt-1 drop-shadow">
     {room?.welcome_message || "Respect everyone and enjoy the conversation."}
   </div>
 </div>
