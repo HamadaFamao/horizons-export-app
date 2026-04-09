@@ -202,7 +202,7 @@ export default function RoomModals({
                 <button className="text-sm text-slate-600 hover:text-slate-900" onClick={closeSeatMenu}>Close</button>
               </div>
 
-              <div className="p-4 overflow-y-auto flex-1">
+              <div className="p-4 space-y-2">
                 {(() => {
                   const mySeat = (effectiveSeats || []).find(s => user?.id && String(s.user_id) === String(user.id));
                   const isOnMic = !!mySeat;
@@ -330,7 +330,7 @@ export default function RoomModals({
                 </div>
               </div>
 
-              <div className="p-4">
+              <div className="p-4 overflow-y-auto flex-1">
                 {settingsTab === "general" ? (
                   <>
                     <div className="text-sm font-semibold text-slate-900">Room Avatar</div>
