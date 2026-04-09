@@ -15,6 +15,7 @@ const FALLBACK_AVATAR =
 const ENABLE_GIFT_MESSAGE_TEXT = true;
 
 export default function RoomChat({
+  room,
   chatScrollRef,
   chatBottomRef,
   visibleMessages,
