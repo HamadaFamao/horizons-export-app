@@ -45,6 +45,8 @@ export default function RoomModals({
   activeParticipants,
   inviteUserToMic,
   toast,
+  setMessages,
+  setRoomGiftMessages,
 
   // showSettings modal
   showSettings,
@@ -69,7 +71,6 @@ export default function RoomModals({
   fetchBans,
   mountedRef,
   unbanUser,
-  toast,
 
   // MicRequestsModal
   requestsOpen,
@@ -385,20 +386,22 @@ export default function RoomModals({
   <div className="text-xs text-slate-500 mt-1">Delete all messages in the room chat.</div>
   <button
     onClick={async () => {
-      const confirmed = window.confirm("Are you sure you want to clear all chat messages?");
-      if (!confirmed) return;
-      closeSettings();
-      setTimeout(async () => {
-        const { error } = await supabase.rpc("clear_live_room_messages", {
-          p_room_id: room?.id
-        });
-        if (error) {
-          toast("❌ Failed to clear chat", 1400);
-        } else {
-          toast("✅ Chat cleared", 1400);
-        }
-      }, 300);
-    }}
+  const confirmed = window.confirm("Are you sure you want to clear all chat messages?");
+  if (!confirmed) return;
+  closeSettings();
+  setTimeout(async () => {
+    const { error } = await supabase.rpc("clear_live_room_messages", {
+      p_room_id: room?.id
+    });
+    if (error) {
+      toast("❌ Failed to clear chat", 1400);
+    } else {
+      setMessages([]);
+      setRoomGiftMessages([]);
+      toast("✅ Chat cleared", 1400);
+    }
+  }, 300);
+}}
     className="mt-3 w-full py-2 rounded-xl border border-rose-200 text-rose-600 text-sm font-semibold hover:bg-rose-50 transition flex items-center justify-center gap-2"
   >
     <span>🗑️</span>
