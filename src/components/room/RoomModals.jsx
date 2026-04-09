@@ -51,7 +51,7 @@ export default function RoomModals({
   showSettings,
   closeSettings,
   setRoom,
-  channelRef,
+  onToggleChat,
   settingsTab,
   setSettingsTab,
   handleResetMicGiftCounters,
@@ -406,29 +406,7 @@ export default function RoomModals({
   </div>
   <button
     onClick={async () => {
-      const newChatDisabled = !room?.chat_disabled;
-
-      const { error } = await supabase
-        .from("live_rooms")
-        .update({ chat_disabled: newChatDisabled })
-        .eq("id", room?.id);
-
-      if (error) {
-        toast("❌ Failed to update chat status", 1400);
-        return;
-      }
-
-      setRoom((prev) => ({ ...prev, chat_disabled: !prev.chat_disabled }));
-
-      if (channelRef?.current) {
-        channelRef.current.send({
-          type: "broadcast",
-          event: "chat_toggled",
-          payload: { room_id: room?.id, chat_disabled: newChatDisabled },
-        });
-      }
-
-      toast(`✅ Chat ${newChatDisabled ? "disabled" : "enabled"}`, 1400);
+      await onToggleChat?.();
     }}
     className="mt-3 w-full py-2 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition flex items-center justify-center gap-2"
   >

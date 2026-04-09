@@ -308,7 +308,7 @@ export default function RoomChat({
 >
         {room?.chat_disabled && !canModerate ? (
           <div className="mb-2 text-sm bg-slate-100 border border-slate-200 text-slate-700 rounded-lg p-2 text-center">
-            Chat is currently disabled by the host
+            Chat is disabled by the host 🔇
           </div>
         ) : (
           <>

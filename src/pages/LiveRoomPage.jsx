@@ -3884,6 +3884,36 @@ if (!confirmed) return;
     }
   };
 
+  const handleToggleChat = async () => {
+    try {
+      const { error } = await supabase
+        .from("live_rooms")
+        .update({ chat_disabled: !room?.chat_disabled })
+        .eq("id", room?.id);
+
+      if (error) throw error;
+
+      let nextChatDisabled = false;
+      setRoom((prev) => {
+        const next = !prev?.chat_disabled;
+        nextChatDisabled = next;
+        return { ...prev, chat_disabled: next };
+      });
+
+      if (channelRef.current) {
+        await channelRef.current.send({
+          type: "broadcast",
+          event: "chat_toggled",
+          payload: { room_id: roomId, chat_disabled: nextChatDisabled },
+        });
+      }
+
+      toast(`✅ Chat ${nextChatDisabled ? "disabled" : "enabled"}`, 1400);
+    } catch (err) {
+      toast(err?.message || "❌ Failed to update chat status", 1400);
+    }
+  };
+
   const handleStartPkSession = async () => {
     if (!pkSession?.id || !canModerate) return;
 
@@ -6342,7 +6372,7 @@ useEffect(() => {
         closeSettings={closeSettings}
         settingsTab={settingsTab}
         setSettingsTab={setSettingsTab}
-        channelRef={channelRef}
+        onToggleChat={handleToggleChat}
         openBansTab={openBansTab}
         room={room}
         isOwner={isOwner}
