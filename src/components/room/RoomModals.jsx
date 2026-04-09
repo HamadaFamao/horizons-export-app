@@ -46,6 +46,8 @@ export default function RoomModals({
   inviteUserToMic,
   toast,
   handleClearChat,
+  onLockRoom,
+  onUnlockRoom,
 
   // showSettings modal
   showSettings,
@@ -396,6 +398,56 @@ export default function RoomModals({
     <span>🗑️</span>
     Clear Chat
   </button>
+</div>
+
+{/* Lock Room */}
+<div className="mt-6 border-t pt-4">
+  <div className="text-sm font-semibold text-slate-900">Lock Room</div>
+
+  {room?.is_locked ? (
+    <>
+      <div className="text-xs text-slate-500 mt-1">
+        🔒 Room is locked until {room?.lock_expires_at ? new Date(room.lock_expires_at).toLocaleString() : "-"}
+      </div>
+      <button
+        onClick={async () => {
+          await onUnlockRoom?.();
+        }}
+        className="mt-3 w-full py-2 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition flex items-center justify-center gap-2"
+      >
+        Unlock
+      </button>
+    </>
+  ) : (
+    <div className="mt-3 space-y-2">
+      <button
+        onClick={async () => {
+          await onLockRoom?.(24, 500);
+        }}
+        className="w-full py-2 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition"
+      >
+        🔒 Lock 24 hours — 500 coins
+      </button>
+
+      <button
+        onClick={async () => {
+          await onLockRoom?.(24 * 7, 3000);
+        }}
+        className="w-full py-2 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition"
+      >
+        🔒 Lock 7 days — 3,000 coins
+      </button>
+
+      <button
+        onClick={async () => {
+          await onLockRoom?.(24 * 30, 10000);
+        }}
+        className="w-full py-2 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition"
+      >
+        🔒 Lock 30 days — 10,000 coins
+      </button>
+    </div>
+  )}
 </div>
 
 {/* Chat Toggle */}

@@ -2158,6 +2158,25 @@ useEffect(() => {
       if (error) throw error;
       if (!data) throw new Error("Room not found");
 
+      if (data?.is_locked && data?.lock_expires_at) {
+        const lockExpiresAtMs = new Date(data.lock_expires_at).getTime();
+        if (Number.isFinite(lockExpiresAtMs) && lockExpiresAtMs <= Date.now()) {
+          try {
+            const { error: unlockErr } = await supabase
+              .from("live_rooms")
+              .update({ is_locked: false, lock_expires_at: null })
+              .eq("id", roomId);
+
+            if (!unlockErr) {
+              data.is_locked = false;
+              data.lock_expires_at = null;
+            }
+          } catch {
+            // Keep original lock state if auto-unlock fails.
+          }
+        }
+      }
+
       if (mountedRef.current) {
         setRoom(data);
         setMicMode(data?.mic_mode || "request");
@@ -3911,6 +3930,90 @@ if (!confirmed) return;
     }
   };
 
+  const handleLockRoom = async (durationHours, coinsCost) => {
+    try {
+      if (!user?.id || !roomId) return;
+
+      const { data: walletData, error: walletError } = await fetchUserWallet(user.id);
+      if (walletError) throw new Error(walletError);
+
+      const currentCoins = Number(walletData?.coins || 0);
+      const cost = Number(coinsCost || 0);
+      if (currentCoins < cost) {
+        toast("❌ Not enough coins", 1400);
+        return;
+      }
+
+      const { error: walletUpdateError } = await supabase
+        .from("wallets")
+        .update({ coins: currentCoins - cost })
+        .eq("user_id", user.id);
+
+      if (walletUpdateError) throw walletUpdateError;
+
+      const lockExpiresAt = new Date(Date.now() + Number(durationHours || 0) * 60 * 60 * 1000).toISOString();
+
+      const { error: roomUpdateError } = await supabase
+        .from("live_rooms")
+        .update({ is_locked: true, lock_expires_at: lockExpiresAt })
+        .eq("id", roomId);
+
+      if (roomUpdateError) throw roomUpdateError;
+
+      setRoom((prev) => ({ ...prev, is_locked: true, lock_expires_at: lockExpiresAt }));
+
+      if (channelRef.current) {
+        await channelRef.current.send({
+          type: "broadcast",
+          event: "room_locked",
+          payload: {
+            room_id: roomId,
+            is_locked: true,
+            lock_expires_at: lockExpiresAt,
+            ts: Date.now(),
+          },
+        });
+      }
+
+      fetchUserWallet(user.id).catch(() => { });
+      toast("✅ Room locked", 1400);
+    } catch (err) {
+      toast(err?.message || "❌ Failed to lock room", 1400);
+    }
+  };
+
+  const handleUnlockRoom = async () => {
+    try {
+      if (!roomId) return;
+
+      const { error } = await supabase
+        .from("live_rooms")
+        .update({ is_locked: false, lock_expires_at: null })
+        .eq("id", roomId);
+
+      if (error) throw error;
+
+      setRoom((prev) => ({ ...prev, is_locked: false, lock_expires_at: null }));
+
+      if (channelRef.current) {
+        await channelRef.current.send({
+          type: "broadcast",
+          event: "room_unlocked",
+          payload: {
+            room_id: roomId,
+            is_locked: false,
+            lock_expires_at: null,
+            ts: Date.now(),
+          },
+        });
+      }
+
+      toast("✅ Room unlocked", 1400);
+    } catch (err) {
+      toast(err?.message || "❌ Failed to unlock room", 1400);
+    }
+  };
+
   const handleStartPkSession = async () => {
     if (!pkSession?.id || !canModerate) return;
 
@@ -5170,6 +5273,18 @@ useEffect(() => {
   }
 });
 
+      ch.on("broadcast", { event: "room_locked" }, ({ payload }) => {
+  if (String(payload?.room_id) === String(roomId)) {
+    setRoom((prev) => ({ ...prev, is_locked: true, lock_expires_at: payload?.lock_expires_at }));
+  }
+});
+
+      ch.on("broadcast", { event: "room_unlocked" }, ({ payload }) => {
+  if (String(payload?.room_id) === String(roomId)) {
+    setRoom((prev) => ({ ...prev, is_locked: false, lock_expires_at: null }));
+  }
+});
+
       channelRef.current = ch;
 
       ch.subscribe((status) => {
@@ -6340,6 +6455,8 @@ useEffect(() => {
       <RoomModals
         handleResetMicGiftCounters={handleResetMicGiftCounters}
         handleClearChat={handleClearChat}
+        onLockRoom={handleLockRoom}
+        onUnlockRoom={handleUnlockRoom}
         showPeople={showPeople}
         setRoom={setRoom}
         setShowPeople={setShowPeople}
