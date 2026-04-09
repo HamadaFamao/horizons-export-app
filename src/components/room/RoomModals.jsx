@@ -409,7 +409,7 @@ export default function RoomModals({
   {room?.is_locked ? (
     <>
       <div className="text-xs text-slate-500 mt-1">
-        🔒 Room is locked until {room?.lock_expires_at ? new Date(room.lock_expires_at).toLocaleString() : "-"}
+        🔒 Room is locked until {room?.lock_expires_at ? new Date(room.lock_expires_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "-"}
       </div>
       <button
         onClick={async () => {
@@ -417,7 +417,7 @@ export default function RoomModals({
         }}
         className="mt-3 w-full py-2 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition flex items-center justify-center gap-2"
       >
-        Unlock
+        Unlock Room
       </button>
     </>
   ) : (
@@ -441,13 +441,13 @@ export default function RoomModals({
             toast("Enter a valid 4-digit PIN", 1400);
             return;
           }
-          const confirmed = window.confirm("Are you sure you want to lock this room for 24 hours for 500 coins?");
+          const confirmed = window.confirm("Lock room for 24 hours for 500 coins?");
           if (!confirmed) return;
           await onLockRoom?.(24, 500, lockPin);
         }}
         className="w-full py-2 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition"
       >
-        🔒 Lock 24 hours — 500 coins
+        🔒 24 hours — 500 coins
       </button>
 
       <button
@@ -456,13 +456,13 @@ export default function RoomModals({
             toast("Enter a valid 4-digit PIN", 1400);
             return;
           }
-          const confirmed = window.confirm("Are you sure you want to lock this room for 7 days for 3000 coins?");
+          const confirmed = window.confirm("Lock room for 7 days for 3000 coins?");
           if (!confirmed) return;
           await onLockRoom?.(24 * 7, 3000, lockPin);
         }}
         className="w-full py-2 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition"
       >
-        🔒 Lock 7 days — 3,000 coins
+        🔒 7 days — 3,000 coins
       </button>
 
       <button
@@ -471,13 +471,13 @@ export default function RoomModals({
             toast("Enter a valid 4-digit PIN", 1400);
             return;
           }
-          const confirmed = window.confirm("Are you sure you want to lock this room for 30 days for 10000 coins?");
+          const confirmed = window.confirm("Lock room for 30 days for 10000 coins?");
           if (!confirmed) return;
           await onLockRoom?.(24 * 30, 10000, lockPin);
         }}
         className="w-full py-2 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition"
       >
-        🔒 Lock 30 days — 10,000 coins
+        🔒 30 days — 10,000 coins
       </button>
     </div>
   )}

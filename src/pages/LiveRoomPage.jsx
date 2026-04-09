@@ -682,6 +682,7 @@ useEffect(() => {
   const [rtStatus, setRtStatus] = useState("INIT");
   const [showJoinPinModal, setShowJoinPinModal] = useState(false);
   const [joinPinInput, setJoinPinInput] = useState("");
+  const [joinPinError, setJoinPinError] = useState("");
 
   const [lastSentGift, setLastSentGift] = useState(null);
   const [repeatSending, setRepeatSending] = useState(false);
@@ -3011,7 +3012,25 @@ console.log("MODERATORS MAP:", nextMap);
     const roomOwnerId = roomSnapshot?.owner_user_id;
     const isHost = !!(roomOwnerId && user?.id && String(roomOwnerId) === String(user.id));
 
-    if (roomIsLocked && !isHost && !pinCode) {
+    let isMod = false;
+    if (roomIsLocked && !isHost && user?.id) {
+      try {
+        const { data: modRow } = await supabase
+          .from("live_room_roles")
+          .select("user_id")
+          .eq("room_id", roomId)
+          .eq("user_id", user.id)
+          .eq("role", "mod")
+          .eq("is_active", true)
+          .is("revoked_at", null)
+          .maybeSingle();
+        isMod = !!modRow;
+      } catch {
+        isMod = false;
+      }
+    }
+
+    if (roomIsLocked && !isHost && !isMod && !pinCode) {
       setShowJoinPinModal(true);
       setIsJoinedToRoom(false);
       return false;
@@ -3031,16 +3050,17 @@ console.log("MODERATORS MAP:", nextMap);
       setIsJoinedToRoom(true);
       setShowJoinPinModal(false);
       setJoinPinInput("");
+      setJoinPinError("");
       await loadActiveParticipants();
       await cleanupStaleMicSeats();
       return true;
     } catch (e) {
       setIsJoinedToRoom(false);
       const msg = e?.message || 'Failed to join room';
-      if (roomIsLocked && !isHost) {
+      if (roomIsLocked && !isHost && !isMod) {
         setShowJoinPinModal(true);
+        setJoinPinError(msg || "Incorrect PIN");
         setErr('');
-        toast(msg, 1400);
       } else {
         setErr(msg);
       }
@@ -4003,7 +4023,7 @@ if (!confirmed) return;
       }
 
       fetchUserWallet(user.id).catch(() => { });
-      toast("✅ Room locked", 1400);
+      toast("🔒 Room locked successfully", 1400);
     } catch (err) {
       toast(err?.message || "❌ Failed to lock room", 1400);
     }
@@ -5744,6 +5764,55 @@ useEffect(() => {
     hasResultData: !!pkResultData,
   });
 
+  if (showJoinPinModal && room?.is_locked && !canModerate) {
+    return (
+      <div className="fixed inset-0 w-screen h-[100dvh] max-h-[100dvh] overflow-hidden overscroll-none bg-gray-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/65" />
+        <div className="relative w-full max-w-sm bg-white rounded-2xl shadow-xl border p-5">
+          <div className="text-4xl text-center">🔒</div>
+          <div className="text-lg font-semibold text-slate-900 text-center mt-2">This room is locked</div>
+
+          <input
+            type="text"
+            inputMode="numeric"
+            maxLength={4}
+            value={joinPinInput}
+            onChange={(e) => {
+              setJoinPinInput(String(e.target.value || "").replace(/\D/g, "").slice(0, 4));
+              setJoinPinError("");
+            }}
+            placeholder="Enter 4-digit PIN"
+            className="mt-4 w-full border rounded-xl px-3 py-2 text-sm"
+          />
+
+          {joinPinError ? (
+            <div className="mt-2 text-sm text-red-600 text-center">{joinPinError}</div>
+          ) : null}
+
+          <Button
+            className="mt-4 w-full"
+            onClick={async () => {
+              if (!/^\d{4}$/.test(joinPinInput)) {
+                setJoinPinError("Incorrect PIN");
+                return;
+              }
+
+              if (String(joinPinInput) !== String(room?.lock_pin || "")) {
+                setJoinPinError("Incorrect PIN");
+                return;
+              }
+
+              setJoinPinError("");
+              await ensureJoinedToRoom(joinPinInput, room);
+            }}
+          >
+            Enter
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 w-screen h-[100dvh] max-h-[100dvh] overflow-hidden overscroll-none bg-gray-50 flex flex-col"
          style={{
@@ -6478,49 +6547,6 @@ useEffect(() => {
           />
         </div>
 
-        {showJoinPinModal ? (
-          <div className="fixed inset-0 z-[95]">
-            <div className="absolute inset-0 bg-black/60" />
-            <div className="absolute inset-0 flex items-center justify-center p-4">
-              <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl border p-4">
-                <div className="text-base font-semibold text-slate-900">Locked Room</div>
-                <div className="text-sm text-slate-600 mt-1">Enter the 4-digit PIN to join this room.</div>
-
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={4}
-                  value={joinPinInput}
-                  onChange={(e) => setJoinPinInput(String(e.target.value || "").replace(/\D/g, "").slice(0, 4))}
-                  placeholder="Enter PIN"
-                  className="mt-3 w-full border rounded-xl px-3 py-2 text-sm"
-                />
-
-                <div className="mt-3 flex gap-2">
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => navigate("/rooms", { replace: true })}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    className="flex-1"
-                    onClick={async () => {
-                      if (!/^\d{4}$/.test(joinPinInput)) {
-                        toast("Enter a valid 4-digit PIN", 1400);
-                        return;
-                      }
-                      await ensureJoinedToRoom(joinPinInput, room);
-                    }}
-                  >
-                    Join
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : null}
       </div>
       
       <RoomModals
