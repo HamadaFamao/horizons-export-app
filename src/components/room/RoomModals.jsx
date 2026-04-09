@@ -49,6 +49,7 @@ export default function RoomModals({
   // showSettings modal
   showSettings,
   closeSettings,
+  setRoom,
   settingsTab,
   setSettingsTab,
   openBansTab,
@@ -344,15 +345,16 @@ export default function RoomModals({
   />
   <button
     onClick={async () => {
-      const el = document.getElementById("welcome-msg-input");
-      const newMsg = el?.value?.trim();
-      if (!newMsg) return;
-      await supabase
-        .from("live_rooms")
-        .update({ welcome_message: newMsg })
-        .eq("id", room?.id);
-      toast("✅ Welcome message updated", 1400);
-    }}
+  const el = document.getElementById("welcome-msg-input");
+  const newMsg = el?.value?.trim();
+  if (!newMsg) return;
+  await supabase
+    .from("live_rooms")
+    .update({ welcome_message: newMsg })
+    .eq("id", room?.id);
+  setRoom(prev => ({ ...prev, welcome_message: newMsg }));
+  toast("✅ Welcome message updated", 1400);
+}}
     className="mt-2 w-full py-2 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-700 transition"
   >
     Save

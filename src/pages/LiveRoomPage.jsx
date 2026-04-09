@@ -6268,12 +6268,14 @@ useEffect(() => {
             openGiftPanelForAll={openGiftPanelForAll}
             sending={sending}
             canModerate={canModerate}
+            room={room}
           />
         </div>
       </div>
       
       <RoomModals
         showPeople={showPeople}
+        setRoom={setRoom}
         setShowPeople={setShowPeople}
         currentPeopleRanked={currentPeopleRanked}
         openUserCard={openUserCard}
