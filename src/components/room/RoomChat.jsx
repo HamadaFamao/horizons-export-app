@@ -87,23 +87,47 @@ export default function RoomChat({
         style={{ paddingBottom: `calc(${footerHeight + 8}px + env(safe-area-inset-bottom, 0px) + env(keyboard-inset-height, 0px))` }}
       >
            <div className="p-3 mb-3 text-center">
-  <div className="text-sm font-semibold text-white drop-shadow">Welcome to the room 🎤</div>
-  <div
-    className="text-xs mt-1 font-medium drop-shadow"
+  <div 
+    className="text-sm font-bold tracking-wide"
     style={{
-      background: 'linear-gradient(90deg, #38bdf8, #818cf8, #38bdf8)',
+      animation: 'dazzle-main 2.5s ease-in-out infinite',
+    }}
+  >
+    Welcome to the room 🎤
+  </div>
+  <div
+    className="text-xs mt-2 font-bold tracking-wider"
+    style={{
+      background: 'linear-gradient(90deg, #38bdf8, #c084fc, #f472b6, #c084fc, #38bdf8)',
       backgroundSize: '200% auto',
       WebkitBackgroundClip: 'text',
       WebkitTextFillColor: 'transparent',
-      animation: 'shimmer 3s linear infinite',
+      animation: 'shimmer 3s linear infinite, float-sub 3s ease-in-out infinite',
+      filter: 'drop-shadow(0px 2px 3px rgba(0,0,0,0.4))'
     }}
   >
     {room?.welcome_message || "Respect everyone and enjoy the conversation."}
   </div>
   <style>{`
+    @keyframes dazzle-main {
+      0%, 100% {
+        color: #ffffff;
+        text-shadow: 0 0 4px rgba(255, 255, 255, 0.8), 0 0 10px #38bdf8, 0 0 15px #38bdf8;
+        transform: scale(1);
+      }
+      50% {
+        color: #fdf4ff;
+        text-shadow: 0 0 8px #ffffff, 0 0 15px #c084fc, 0 0 25px #c084fc, 0 0 35px #f472b6;
+        transform: scale(1.04);
+      }
+    }
     @keyframes shimmer {
       0% { background-position: 0% center; }
       100% { background-position: 200% center; }
+    }
+    @keyframes float-sub {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-3px); }
     }
   `}</style>
 </div>
