@@ -5321,9 +5321,13 @@ useEffect(() => {
 });
 
       ch.on("broadcast", { event: "room_locked" }, ({ payload }) => {
-  if (String(payload?.room_id) === String(roomId)) {
-    setRoom((prev) => ({ ...prev, is_locked: true, lock_expires_at: payload?.lock_expires_at }));
-  }
+  if (payload?.room_id && String(payload.room_id) !== String(roomId)) return;
+  setRoom((prev) => ({
+    ...prev,
+    is_locked: payload?.is_locked ?? true,
+    lock_expires_at: payload?.lock_expires_at ?? prev?.lock_expires_at,
+    lock_pin: payload?.lock_pin ?? prev?.lock_pin,
+  }));
 });
 
       ch.on("broadcast", { event: "room_unlocked" }, ({ payload }) => {
@@ -5797,7 +5801,19 @@ useEffect(() => {
                 return;
               }
 
-              if (String(joinPinInput) !== String(room?.lock_pin || "")) {
+              const enteredPin = String(joinPinInput || "").trim();
+              let roomPin = String(room?.lock_pin || "").trim();
+
+              if (!roomPin && room?.id) {
+                const { data: lockRow } = await supabase
+                  .from("live_rooms")
+                  .select("lock_pin")
+                  .eq("id", room.id)
+                  .maybeSingle();
+                roomPin = String(lockRow?.lock_pin || "").trim();
+              }
+
+              if (enteredPin !== roomPin) {
                 setJoinPinError("Incorrect PIN");
                 return;
               }
