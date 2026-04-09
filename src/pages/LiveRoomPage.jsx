@@ -3859,6 +3859,31 @@ if (!confirmed) return;
     }
   };
 
+  const handleClearChat = async () => {
+    try {
+      const { error } = await supabase.rpc("clear_live_room_messages", {
+        p_room_id: roomId,
+      });
+
+      if (error) throw error;
+
+      setMessages([]);
+      setRoomGiftMessages([]);
+
+      if (channelRef.current) {
+        await channelRef.current.send({
+          type: "broadcast",
+          event: "chat_cleared",
+          payload: { room_id: roomId, ts: Date.now() },
+        });
+      }
+
+      toast("✅ Chat cleared", 1400);
+    } catch (err) {
+      toast(err?.message || "❌ Failed to clear chat", 1400);
+    }
+  };
+
   const handleStartPkSession = async () => {
     if (!pkSession?.id || !canModerate) return;
 
@@ -5105,6 +5130,13 @@ useEffect(() => {
         }
       );
 
+      ch.on("broadcast", { event: "chat_cleared" }, ({ payload }) => {
+  if (payload?.room_id === roomId) {
+    setMessages([]);
+    setRoomGiftMessages([]);
+  }
+});
+
       channelRef.current = ch;
 
       ch.subscribe((status) => {
@@ -6274,6 +6306,7 @@ useEffect(() => {
       
       <RoomModals
         handleResetMicGiftCounters={handleResetMicGiftCounters}
+        handleClearChat={handleClearChat}
         showPeople={showPeople}
         setRoom={setRoom}
         setShowPeople={setShowPeople}
@@ -6394,8 +6427,6 @@ useEffect(() => {
         assignModerator={assignModerator}
         removeModerator={removeModerator}
         setSeatMenuOpen={setSeatMenuOpen}
-        setMessages={setMessages}
-        setRoomGiftMessages={setRoomGiftMessages}
       />
       </div>
     </div>
