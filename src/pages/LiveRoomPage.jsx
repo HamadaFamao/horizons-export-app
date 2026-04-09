@@ -680,6 +680,8 @@ useEffect(() => {
   const [giftSelectedRecipient, setGiftSelectedRecipient] = useState(null);
   const [isJoinedToRoom, setIsJoinedToRoom] = useState(false);
   const [rtStatus, setRtStatus] = useState("INIT");
+  const [showJoinPinModal, setShowJoinPinModal] = useState(false);
+  const [joinPinInput, setJoinPinInput] = useState("");
 
   const [lastSentGift, setLastSentGift] = useState(null);
   const [repeatSending, setRepeatSending] = useState(false);
@@ -2164,12 +2166,13 @@ useEffect(() => {
           try {
             const { error: unlockErr } = await supabase
               .from("live_rooms")
-              .update({ is_locked: false, lock_expires_at: null })
+              .update({ is_locked: false, lock_expires_at: null, lock_pin: null })
               .eq("id", roomId);
 
             if (!unlockErr) {
               data.is_locked = false;
               data.lock_expires_at = null;
+              data.lock_pin = null;
             }
           } catch {
             // Keep original lock state if auto-unlock fails.
@@ -2875,7 +2878,7 @@ console.log("MODERATORS MAP:", nextMap);
         return;
       }
 
-      const joined = await ensureJoinedToRoom();
+      const joined = await ensureJoinedToRoom(null, roomData);
 
       await loadRoomRole(roomData.owner_user_id);
 
@@ -3001,13 +3004,23 @@ console.log("MODERATORS MAP:", nextMap);
     }
   };
 
-  const ensureJoinedToRoom = async () => {
+  const ensureJoinedToRoom = async (pinCode = null, roomSnapshot = room) => {
     if (!roomId) return false;
+
+    const roomIsLocked = !!roomSnapshot?.is_locked;
+    const roomOwnerId = roomSnapshot?.owner_user_id;
+    const isHost = !!(roomOwnerId && user?.id && String(roomOwnerId) === String(user.id));
+
+    if (roomIsLocked && !isHost && !pinCode) {
+      setShowJoinPinModal(true);
+      setIsJoinedToRoom(false);
+      return false;
+    }
 
     try {
       const { data, error } = await supabase.rpc('join_live_room', {
         p_room_id: roomId,
-        p_pin: null
+        p_pin: pinCode || null
       });
 
       if (error) throw error;
@@ -3016,12 +3029,21 @@ console.log("MODERATORS MAP:", nextMap);
       }
 
       setIsJoinedToRoom(true);
+      setShowJoinPinModal(false);
+      setJoinPinInput("");
       await loadActiveParticipants();
       await cleanupStaleMicSeats();
       return true;
     } catch (e) {
       setIsJoinedToRoom(false);
-      setErr(e?.message || 'Failed to join room');
+      const msg = e?.message || 'Failed to join room';
+      if (roomIsLocked && !isHost) {
+        setShowJoinPinModal(true);
+        setErr('');
+        toast(msg, 1400);
+      } else {
+        setErr(msg);
+      }
       return false;
     }
   };
@@ -3930,9 +3952,14 @@ if (!confirmed) return;
     }
   };
 
-  const handleLockRoom = async (durationHours, coinsCost) => {
+  const handleLockRoom = async (durationHours, coinsCost, lockPin) => {
     try {
       if (!user?.id || !roomId) return;
+
+      if (!/^\d{4}$/.test(String(lockPin || ""))) {
+        toast("Enter a valid 4-digit PIN", 1400);
+        return;
+      }
 
       const { data: walletData, error: walletError } = await fetchUserWallet(user.id);
       if (walletError) throw new Error(walletError);
@@ -3955,12 +3982,12 @@ if (!confirmed) return;
 
       const { error: roomUpdateError } = await supabase
         .from("live_rooms")
-        .update({ is_locked: true, lock_expires_at: lockExpiresAt })
+        .update({ is_locked: true, lock_expires_at: lockExpiresAt, lock_pin: String(lockPin) })
         .eq("id", roomId);
 
       if (roomUpdateError) throw roomUpdateError;
 
-      setRoom((prev) => ({ ...prev, is_locked: true, lock_expires_at: lockExpiresAt }));
+      setRoom((prev) => ({ ...prev, is_locked: true, lock_expires_at: lockExpiresAt, lock_pin: String(lockPin) }));
 
       if (channelRef.current) {
         await channelRef.current.send({
@@ -3988,12 +4015,12 @@ if (!confirmed) return;
 
       const { error } = await supabase
         .from("live_rooms")
-        .update({ is_locked: false, lock_expires_at: null })
+        .update({ is_locked: false, lock_expires_at: null, lock_pin: null })
         .eq("id", roomId);
 
       if (error) throw error;
 
-      setRoom((prev) => ({ ...prev, is_locked: false, lock_expires_at: null }));
+      setRoom((prev) => ({ ...prev, is_locked: false, lock_expires_at: null, lock_pin: null }));
 
       if (channelRef.current) {
         await channelRef.current.send({
@@ -6450,6 +6477,50 @@ useEffect(() => {
             room={room}
           />
         </div>
+
+        {showJoinPinModal ? (
+          <div className="fixed inset-0 z-[95]">
+            <div className="absolute inset-0 bg-black/60" />
+            <div className="absolute inset-0 flex items-center justify-center p-4">
+              <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl border p-4">
+                <div className="text-base font-semibold text-slate-900">Locked Room</div>
+                <div className="text-sm text-slate-600 mt-1">Enter the 4-digit PIN to join this room.</div>
+
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={4}
+                  value={joinPinInput}
+                  onChange={(e) => setJoinPinInput(String(e.target.value || "").replace(/\D/g, "").slice(0, 4))}
+                  placeholder="Enter PIN"
+                  className="mt-3 w-full border rounded-xl px-3 py-2 text-sm"
+                />
+
+                <div className="mt-3 flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => navigate("/rooms", { replace: true })}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    className="flex-1"
+                    onClick={async () => {
+                      if (!/^\d{4}$/.test(joinPinInput)) {
+                        toast("Enter a valid 4-digit PIN", 1400);
+                        return;
+                      }
+                      await ensureJoinedToRoom(joinPinInput, room);
+                    }}
+                  >
+                    Join
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
       
       <RoomModals

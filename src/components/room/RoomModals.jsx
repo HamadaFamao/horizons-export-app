@@ -163,6 +163,8 @@ export default function RoomModals({
   removeModerator,
   setSeatMenuOpen,
 }) {
+  const [lockPin, setLockPin] = React.useState("");
+
   return (
     <>
       <PeopleInRoomModal
@@ -420,9 +422,28 @@ export default function RoomModals({
     </>
   ) : (
     <div className="mt-3 space-y-2">
+      <div>
+        <div className="text-xs text-slate-500 mb-1">Set 4-digit PIN</div>
+        <input
+          type="text"
+          inputMode="numeric"
+          maxLength={4}
+          value={lockPin}
+          onChange={(e) => setLockPin(String(e.target.value || "").replace(/\D/g, "").slice(0, 4))}
+          placeholder="Enter 4-digit PIN"
+          className="w-full border rounded-xl px-3 py-2 text-sm"
+        />
+      </div>
+
       <button
         onClick={async () => {
-          await onLockRoom?.(24, 500);
+          if (!/^\d{4}$/.test(lockPin)) {
+            toast("Enter a valid 4-digit PIN", 1400);
+            return;
+          }
+          const confirmed = window.confirm("Are you sure you want to lock this room for 24 hours for 500 coins?");
+          if (!confirmed) return;
+          await onLockRoom?.(24, 500, lockPin);
         }}
         className="w-full py-2 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition"
       >
@@ -431,7 +452,13 @@ export default function RoomModals({
 
       <button
         onClick={async () => {
-          await onLockRoom?.(24 * 7, 3000);
+          if (!/^\d{4}$/.test(lockPin)) {
+            toast("Enter a valid 4-digit PIN", 1400);
+            return;
+          }
+          const confirmed = window.confirm("Are you sure you want to lock this room for 7 days for 3000 coins?");
+          if (!confirmed) return;
+          await onLockRoom?.(24 * 7, 3000, lockPin);
         }}
         className="w-full py-2 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition"
       >
@@ -440,7 +467,13 @@ export default function RoomModals({
 
       <button
         onClick={async () => {
-          await onLockRoom?.(24 * 30, 10000);
+          if (!/^\d{4}$/.test(lockPin)) {
+            toast("Enter a valid 4-digit PIN", 1400);
+            return;
+          }
+          const confirmed = window.confirm("Are you sure you want to lock this room for 30 days for 10000 coins?");
+          if (!confirmed) return;
+          await onLockRoom?.(24 * 30, 10000, lockPin);
         }}
         className="w-full py-2 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition"
       >
