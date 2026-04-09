@@ -164,16 +164,6 @@ export default function RoomModals({
   setSeatMenuOpen,
 }) {
   const [lockPin, setLockPin] = React.useState("");
-  const [showRelockOptions, setShowRelockOptions] = React.useState(false);
-  const [selectedLockPlan, setSelectedLockPlan] = React.useState(null);
-
-  const lockPlans = [
-    { label: "24 hours", hours: 24, coins: 500 },
-    { label: "7 days", hours: 24 * 7, coins: 3000 },
-    { label: "30 days", hours: 24 * 30, coins: 10000 },
-  ];
-
-  const shouldShowLockOptions = !room?.is_locked || showRelockOptions;
 
   return (
     <>
@@ -421,28 +411,16 @@ export default function RoomModals({
       <div className="text-xs text-slate-500 mt-1">
         🔒 Room is locked until {room?.lock_expires_at ? new Date(room.lock_expires_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "-"}
       </div>
-      <div className="mt-3 flex gap-2">
-        <button
-          onClick={async () => {
-            await onUnlockRoom?.();
-            setShowRelockOptions(false);
-            setSelectedLockPlan(null);
-          }}
-          className="w-full py-2 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition flex items-center justify-center gap-2"
-        >
-          🔓 Unlock Room
-        </button>
-        <button
-          onClick={() => setShowRelockOptions((prev) => !prev)}
-          className="w-full py-2 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition flex items-center justify-center gap-2"
-        >
-          🔒 Lock Again
-        </button>
-      </div>
+      <button
+        onClick={async () => {
+          await onUnlockRoom?.();
+        }}
+        className="mt-3 w-full py-2 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition flex items-center justify-center gap-2"
+      >
+        🔓 Unlock Room
+      </button>
     </>
-  ) : null}
-
-  {shouldShowLockOptions ? (
+  ) : (
     <div className="mt-3 space-y-2">
       <div>
         <div className="text-xs text-slate-500 mb-1">Set 4-digit PIN</div>
@@ -458,24 +436,16 @@ export default function RoomModals({
       </div>
 
       <button
-        onClick={() => setSelectedLockPlan(lockPlans[0])}
-        className={`w-full py-2 rounded-xl border text-slate-700 text-sm font-semibold transition ${selectedLockPlan?.hours === lockPlans[0].hours ? "border-slate-900 bg-slate-50" : "border-slate-300 hover:bg-slate-50"}`}
+        onClick={async () => {
+          if (!/^\d{4}$/.test(lockPin)) {
+            toast("Enter a valid 4-digit PIN", 1400);
+            return;
+          }
+          await onLockRoom?.(24, 500, lockPin);
+        }}
+        className="w-full py-2 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition"
       >
         🔒 24 hours — 500 coins
-      </button>
-
-      <button
-        onClick={() => setSelectedLockPlan(lockPlans[1])}
-        className={`w-full py-2 rounded-xl border text-slate-700 text-sm font-semibold transition ${selectedLockPlan?.hours === lockPlans[1].hours ? "border-slate-900 bg-slate-50" : "border-slate-300 hover:bg-slate-50"}`}
-      >
-        🔒 7 days — 3,000 coins
-      </button>
-
-      <button
-        onClick={() => setSelectedLockPlan(lockPlans[2])}
-        className={`w-full py-2 rounded-xl border text-slate-700 text-sm font-semibold transition ${selectedLockPlan?.hours === lockPlans[2].hours ? "border-slate-900 bg-slate-50" : "border-slate-300 hover:bg-slate-50"}`}
-      >
-        🔒 30 days — 10,000 coins
       </button>
 
       <button
@@ -484,20 +454,27 @@ export default function RoomModals({
             toast("Enter a valid 4-digit PIN", 1400);
             return;
           }
-          if (!selectedLockPlan) {
-            toast("Select lock duration", 1400);
+          await onLockRoom?.(24 * 7, 3000, lockPin);
+        }}
+        className="w-full py-2 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition"
+      >
+        🔒 7 days — 3,000 coins
+      </button>
+
+      <button
+        onClick={async () => {
+          if (!/^\d{4}$/.test(lockPin)) {
+            toast("Enter a valid 4-digit PIN", 1400);
             return;
           }
-          await onLockRoom?.(selectedLockPlan.hours, selectedLockPlan.coins, lockPin);
-          setShowRelockOptions(false);
-          setSelectedLockPlan(null);
+          await onLockRoom?.(24 * 30, 10000, lockPin);
         }}
-        className="w-full py-2 rounded-xl border border-slate-900 bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 transition"
+        className="w-full py-2 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition"
       >
-        {selectedLockPlan ? `Confirm & Pay ${selectedLockPlan.coins} coins` : "Confirm & Pay"}
+        🔒 30 days — 10,000 coins
       </button>
     </div>
-  ) : null}
+  )}
 </div>
 
 {/* Chat Toggle */}

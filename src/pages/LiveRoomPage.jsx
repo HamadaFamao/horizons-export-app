@@ -2154,12 +2154,21 @@ useEffect(() => {
     try {
       const { data, error } = await supabase
         .from("live_rooms")
-        .select("*")
+        .select("*, lock_pin")
         .eq("id", roomId)
         .single();
 
       if (error) throw error;
       if (!data) throw new Error("Room not found");
+
+      if (data?.is_locked) {
+        const { data: pinRow } = await supabase
+          .from("live_rooms")
+          .select("lock_pin")
+          .eq("id", roomId)
+          .maybeSingle();
+        data.lock_pin = pinRow?.lock_pin ?? data.lock_pin ?? null;
+      }
 
       if (data?.is_locked && data?.lock_expires_at) {
         const lockExpiresAtMs = new Date(data.lock_expires_at).getTime();
@@ -3059,7 +3068,7 @@ console.log("MODERATORS MAP:", nextMap);
       const msg = e?.message || 'Failed to join room';
       if (roomIsLocked && !isHost && !isMod) {
         setShowJoinPinModal(true);
-        setJoinPinError(msg || "Incorrect PIN");
+        setJoinPinError(msg || "Incorrect PIN ❌");
         setErr('');
       } else {
         setErr(msg);
@@ -5797,7 +5806,7 @@ useEffect(() => {
             className="mt-4 w-full"
             onClick={async () => {
               if (!/^\d{4}$/.test(joinPinInput)) {
-                setJoinPinError("Incorrect PIN");
+                setJoinPinError("Incorrect PIN ❌");
                 return;
               }
 
@@ -5814,7 +5823,7 @@ useEffect(() => {
               }
 
               if (enteredPin !== roomPin) {
-                setJoinPinError("Incorrect PIN");
+                setJoinPinError("Incorrect PIN ❌");
                 return;
               }
 
