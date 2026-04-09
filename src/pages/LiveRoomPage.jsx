@@ -5137,6 +5137,12 @@ useEffect(() => {
   }
 });
 
+      ch.on("broadcast", { event: "chat_toggled" }, ({ payload }) => {
+  if (payload?.room_id === roomId) {
+    setRoom((prev) => ({ ...(prev || {}), chat_disabled: payload?.chat_disabled }));
+  }
+});
+
       channelRef.current = ch;
 
       ch.subscribe((status) => {
@@ -6336,6 +6342,7 @@ useEffect(() => {
         closeSettings={closeSettings}
         settingsTab={settingsTab}
         setSettingsTab={setSettingsTab}
+        channelRef={channelRef}
         openBansTab={openBansTab}
         room={room}
         isOwner={isOwner}

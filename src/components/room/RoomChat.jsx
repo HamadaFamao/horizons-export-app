@@ -306,6 +306,12 @@ export default function RoomChat({
     paddingBottom: "max(env(safe-area-inset-bottom, 0px), 8px)",
   }}
 >
+        {room?.chat_disabled && !canModerate ? (
+          <div className="mb-2 text-sm bg-slate-100 border border-slate-200 text-slate-700 rounded-lg p-2 text-center">
+            Chat is currently disabled by the host
+          </div>
+        ) : (
+          <>
         {myMutedActive ? (
           <div className="mb-2 text-sm bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-2">
             🔇 You are muted by room moderation.
@@ -378,6 +384,8 @@ export default function RoomChat({
               <span className="hidden sm:inline">Send</span>
             </Button>
           </div>
+          </>
+        )}
         </div>
     </div>
 
