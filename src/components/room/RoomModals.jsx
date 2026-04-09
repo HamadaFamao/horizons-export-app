@@ -202,7 +202,7 @@ export default function RoomModals({
                 <button className="text-sm text-slate-600 hover:text-slate-900" onClick={closeSeatMenu}>Close</button>
               </div>
 
-              <div className="p-4 space-y-2">
+              <div className="p-4 overflow-y-auto flex-1">
                 {(() => {
                   const mySeat = (effectiveSeats || []).find(s => user?.id && String(s.user_id) === String(user.id));
                   const isOnMic = !!mySeat;
