@@ -378,6 +378,33 @@ export default function RoomModals({
   </button>
 </div>
 
+{/* Clear Chat */}
+<div className="mt-6 border-t pt-4">
+  <div className="text-sm font-semibold text-slate-900">Clear Chat</div>
+  <div className="text-xs text-slate-500 mt-1">Delete all messages in the room chat.</div>
+  <button
+    onClick={async () => {
+      const confirmed = window.confirm("Are you sure you want to clear all chat messages?");
+      if (!confirmed) return;
+      closeSettings();
+      setTimeout(async () => {
+        const { error } = await supabase.rpc("clear_live_room_messages", {
+          p_room_id: room?.id
+        });
+        if (error) {
+          toast("❌ Failed to clear chat", 1400);
+        } else {
+          toast("✅ Chat cleared", 1400);
+        }
+      }, 300);
+    }}
+    className="mt-3 w-full py-2 rounded-xl border border-rose-200 text-rose-600 text-sm font-semibold hover:bg-rose-50 transition flex items-center justify-center gap-2"
+  >
+    <span>🗑️</span>
+    Clear Chat
+  </button>
+</div>
+
                     {/* Current Avatar Display */}
                     <div className="mt-3 flex items-center gap-3">
                       <div className="w-16 h-16 rounded-xl border-2 border-slate-200 overflow-hidden bg-slate-50">
