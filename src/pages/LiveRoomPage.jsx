@@ -3886,29 +3886,26 @@ if (!confirmed) return;
 
   const handleToggleChat = async () => {
     try {
+      const newChatDisabled = !room?.chat_disabled;
+
       const { error } = await supabase
         .from("live_rooms")
-        .update({ chat_disabled: !room?.chat_disabled })
+        .update({ chat_disabled: newChatDisabled })
         .eq("id", room?.id);
 
       if (error) throw error;
 
-      let nextChatDisabled = false;
-      setRoom((prev) => {
-        const next = !prev?.chat_disabled;
-        nextChatDisabled = next;
-        return { ...prev, chat_disabled: next };
-      });
+      setRoom((prev) => ({ ...prev, chat_disabled: !prev?.chat_disabled }));
 
       if (channelRef.current) {
         await channelRef.current.send({
           type: "broadcast",
           event: "chat_toggled",
-          payload: { room_id: roomId, chat_disabled: nextChatDisabled },
+          payload: { room_id: roomId, chat_disabled: newChatDisabled },
         });
       }
 
-      toast(`✅ Chat ${nextChatDisabled ? "disabled" : "enabled"}`, 1400);
+      toast(`✅ Chat ${newChatDisabled ? "disabled" : "enabled"}`, 1400);
     } catch (err) {
       toast(err?.message || "❌ Failed to update chat status", 1400);
     }
@@ -5168,8 +5165,8 @@ useEffect(() => {
 });
 
       ch.on("broadcast", { event: "chat_toggled" }, ({ payload }) => {
-  if (payload?.room_id === roomId) {
-    setRoom((prev) => ({ ...(prev || {}), chat_disabled: payload?.chat_disabled }));
+  if (String(payload?.room_id) === String(roomId)) {
+    setRoom((prev) => ({ ...prev, chat_disabled: payload?.chat_disabled }));
   }
 });
 
