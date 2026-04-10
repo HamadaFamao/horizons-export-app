@@ -49,6 +49,29 @@ export default function RoomsLobby() {
   }, []);
 
   useEffect(() => {
+  const channel = supabase
+    .channel('rooms_lobby_rt')
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'live_rooms' },
+      (payload) => {
+        setRooms((prev) =>
+          prev.map((room) =>
+            room.id === payload.new.id
+              ? { ...room, is_locked: payload.new.is_locked }
+              : room
+          )
+        );
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, []);
+
+  useEffect(() => {
     if (!banners.length) return undefined;
     const interval = window.setInterval(() => {
       setCurrentBannerIndex((prevIndex) => (prevIndex + 1) % banners.length);
