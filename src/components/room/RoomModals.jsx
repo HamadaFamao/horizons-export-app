@@ -406,39 +406,73 @@ export default function RoomModals({
 <div className="mt-6 border-t pt-4">
   <div className="text-sm font-semibold text-slate-900">Lock Room</div>
 
-  {room?.is_locked ? (
-  <>
-    <div className="mt-2 p-3 rounded-xl bg-amber-50 border border-amber-200">
-      <div className="text-xs font-semibold text-amber-800">🔒 Room is locked</div>
-      <div className="text-xs text-amber-600 mt-1">
-        Expires: {room?.lock_expires_at ? new Date(room.lock_expires_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "-"}
+  {/* لو عنده اشتراك نشط */}
+  {room?.lock_expires_at && new Date(room.lock_expires_at) > new Date() ? (
+    <>
+      <div className="mt-2 p-3 rounded-xl bg-slate-50 border border-slate-200">
+        <div className="text-xs text-slate-500">
+          Plan expires: {new Date(room.lock_expires_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
+        </div>
       </div>
-    </div>
-    <button
-      onClick={async () => { await onUnlockRoom?.(); }}
-      className="mt-3 w-full py-2 rounded-xl border border-emerald-200 text-emerald-700 text-sm font-semibold hover:bg-emerald-50 transition flex items-center justify-center gap-2"
-    >
-      🔓 Unlock Room
-    </button>
-  </>
-) : room?.lock_expires_at && new Date(room.lock_expires_at) > new Date() ? (
-  <>
-    <div className="mt-2 p-3 rounded-xl bg-slate-50 border border-slate-200">
-      <div className="text-xs font-semibold text-slate-700">🔓 Room is unlocked</div>
-      <div className="text-xs text-slate-500 mt-1">
-        Plan expires: {new Date(room.lock_expires_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
+
+      {/* زر Lock/Unlock */}
+      {room?.is_locked ? (
+        <button
+          onClick={async () => { await onUnlockRoom?.(); }}
+          className="mt-3 w-full py-2 rounded-xl border border-emerald-200 text-emerald-700 text-sm font-semibold hover:bg-emerald-50 transition flex items-center justify-center gap-2"
+        >
+          🔓 Unlock Room
+        </button>
+      ) : (
+        <>
+          <div className="mt-3">
+            <div className="text-xs text-slate-500 mb-1">PIN to lock with</div>
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={4}
+              value={lockPin}
+              onChange={(e) => setLockPin(String(e.target.value || "").replace(/\D/g, "").slice(0, 4))}
+              placeholder="Enter 4-digit PIN"
+              className="w-full border rounded-xl px-3 py-2 text-sm"
+            />
+          </div>
+          <button
+            onClick={async () => {
+              if (!/^\d{4}$/.test(lockPin)) {
+                toast("Enter a valid 4-digit PIN", 1400);
+                return;
+              }
+              await onLockRoom?.(0, 0, lockPin);
+            }}
+            className="mt-3 w-full py-2 rounded-xl border border-amber-200 text-amber-700 text-sm font-semibold hover:bg-amber-50 transition flex items-center justify-center gap-2"
+          >
+            🔒 Lock Room (free)
+          </button>
+        </>
+      )}
+
+      {/* زر تجديد الاشتراك */}
+      <div className="mt-4 border-t pt-3">
+        <div className="text-xs text-slate-500 mb-2">Renew or extend plan:</div>
+        <div className="space-y-2">
+          <button onClick={async () => { if (!/^\d{4}$/.test(lockPin)) { toast("Enter PIN first", 1400); return; } const confirmed = window.confirm("Renew for 24h for 500 coins?"); if (!confirmed) return; await onLockRoom?.(24, 500, lockPin); }}
+            className="w-full py-2 rounded-xl border border-slate-200 text-slate-600 text-sm hover:bg-slate-50 transition">
+            🔒 24 hours — 500 coins
+          </button>
+          <button onClick={async () => { if (!/^\d{4}$/.test(lockPin)) { toast("Enter PIN first", 1400); return; } const confirmed = window.confirm("Renew for 7 days for 3000 coins?"); if (!confirmed) return; await onLockRoom?.(24 * 7, 3000, lockPin); }}
+            className="w-full py-2 rounded-xl border border-slate-200 text-slate-600 text-sm hover:bg-slate-50 transition">
+            🔒 7 days — 3,000 coins
+          </button>
+          <button onClick={async () => { if (!/^\d{4}$/.test(lockPin)) { toast("Enter PIN first", 1400); return; } const confirmed = window.confirm("Renew for 30 days for 10000 coins?"); if (!confirmed) return; await onLockRoom?.(24 * 30, 10000, lockPin); }}
+            className="w-full py-2 rounded-xl border border-slate-200 text-slate-600 text-sm hover:bg-slate-50 transition">
+            🔒 30 days — 10,000 coins
+          </button>
+        </div>
       </div>
-    </div>
-    <button
-      onClick={async () => { await onLockRoom?.(0, 0, lockPin); }}
-      className="mt-3 w-full py-2 rounded-xl border border-amber-200 text-amber-700 text-sm font-semibold hover:bg-amber-50 transition flex items-center justify-center gap-2"
-    >
-      🔒 Lock Again (free)
-    </button>
-  </>
-) : (
-  // الـ PIN + الأزرار الأصلية
-    
+    </>
+  ) : (
+    /* مفيش اشتراك — أزرار الشراء الأصلية */
     <div className="mt-3 space-y-2">
       <div>
         <div className="text-xs text-slate-500 mb-1">Set 4-digit PIN</div>
@@ -452,43 +486,16 @@ export default function RoomModals({
           className="w-full border rounded-xl px-3 py-2 text-sm"
         />
       </div>
-
-      <button
-        onClick={async () => {
-          if (!/^\d{4}$/.test(lockPin)) {
-            toast("Enter a valid 4-digit PIN", 1400);
-            return;
-          }
-          await onLockRoom?.(24, 500, lockPin);
-        }}
-        className="w-full py-2 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition"
-      >
+      <button onClick={async () => { if (!/^\d{4}$/.test(lockPin)) { toast("Enter a valid 4-digit PIN", 1400); return; } const confirmed = window.confirm("Lock room for 24 hours for 500 coins?"); if (!confirmed) return; await onLockRoom?.(24, 500, lockPin); }}
+        className="w-full py-2 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition">
         🔒 24 hours — 500 coins
       </button>
-
-      <button
-        onClick={async () => {
-          if (!/^\d{4}$/.test(lockPin)) {
-            toast("Enter a valid 4-digit PIN", 1400);
-            return;
-          }
-          await onLockRoom?.(24 * 7, 3000, lockPin);
-        }}
-        className="w-full py-2 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition"
-      >
+      <button onClick={async () => { if (!/^\d{4}$/.test(lockPin)) { toast("Enter a valid 4-digit PIN", 1400); return; } const confirmed = window.confirm("Lock room for 7 days for 3000 coins?"); if (!confirmed) return; await onLockRoom?.(24 * 7, 3000, lockPin); }}
+        className="w-full py-2 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition">
         🔒 7 days — 3,000 coins
       </button>
-
-      <button
-        onClick={async () => {
-          if (!/^\d{4}$/.test(lockPin)) {
-            toast("Enter a valid 4-digit PIN", 1400);
-            return;
-          }
-          await onLockRoom?.(24 * 30, 10000, lockPin);
-        }}
-        className="w-full py-2 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition"
-      >
+      <button onClick={async () => { if (!/^\d{4}$/.test(lockPin)) { toast("Enter a valid 4-digit PIN", 1400); return; } const confirmed = window.confirm("Lock room for 30 days for 10000 coins?"); if (!confirmed) return; await onLockRoom?.(24 * 30, 10000, lockPin); }}
+        className="w-full py-2 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition">
         🔒 30 days — 10,000 coins
       </button>
     </div>

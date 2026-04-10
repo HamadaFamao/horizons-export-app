@@ -4000,13 +4000,15 @@ if (!confirmed) return;
         return;
       }
 
-      const { error: walletUpdateError } = await supabase
-        .from("wallets")
-        .update({ coins: currentCoins - cost })
-        .eq("user_id", user.id);
+      
 
-      if (walletUpdateError) throw walletUpdateError;
-
+      if (cost > 0) {
+  const { error: walletUpdateError } = await supabase
+    .from("wallets")
+    .update({ coins: currentCoins - cost })
+    .eq("user_id", user.id);
+  if (walletUpdateError) throw walletUpdateError;
+}
       const lockExpiresAt = new Date(Date.now() + Number(durationHours || 0) * 60 * 60 * 1000).toISOString();
 
       const { error: roomUpdateError } = await supabase
