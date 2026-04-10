@@ -407,20 +407,38 @@ export default function RoomModals({
   <div className="text-sm font-semibold text-slate-900">Lock Room</div>
 
   {room?.is_locked ? (
-    <>
-      <div className="text-xs text-slate-500 mt-1">
-        🔒 Room is locked until {room?.lock_expires_at ? new Date(room.lock_expires_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "-"}
+  <>
+    <div className="mt-2 p-3 rounded-xl bg-amber-50 border border-amber-200">
+      <div className="text-xs font-semibold text-amber-800">🔒 Room is locked</div>
+      <div className="text-xs text-amber-600 mt-1">
+        Expires: {room?.lock_expires_at ? new Date(room.lock_expires_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "-"}
       </div>
-      <button
-        onClick={async () => {
-          await onUnlockRoom?.();
-        }}
-        className="mt-3 w-full py-2 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition flex items-center justify-center gap-2"
-      >
-        🔓 Unlock Room
-      </button>
-    </>
-  ) : (
+    </div>
+    <button
+      onClick={async () => { await onUnlockRoom?.(); }}
+      className="mt-3 w-full py-2 rounded-xl border border-emerald-200 text-emerald-700 text-sm font-semibold hover:bg-emerald-50 transition flex items-center justify-center gap-2"
+    >
+      🔓 Unlock Room
+    </button>
+  </>
+) : room?.lock_expires_at && new Date(room.lock_expires_at) > new Date() ? (
+  <>
+    <div className="mt-2 p-3 rounded-xl bg-slate-50 border border-slate-200">
+      <div className="text-xs font-semibold text-slate-700">🔓 Room is unlocked</div>
+      <div className="text-xs text-slate-500 mt-1">
+        Plan expires: {new Date(room.lock_expires_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
+      </div>
+    </div>
+    <button
+      onClick={async () => { await onLockRoom?.(0, 0, lockPin); }}
+      className="mt-3 w-full py-2 rounded-xl border border-amber-200 text-amber-700 text-sm font-semibold hover:bg-amber-50 transition flex items-center justify-center gap-2"
+    >
+      🔒 Lock Again (free)
+    </button>
+  </>
+) : (
+  // الـ PIN + الأزرار الأصلية
+    
     <div className="mt-3 space-y-2">
       <div>
         <div className="text-xs text-slate-500 mb-1">Set 4-digit PIN</div>
