@@ -430,7 +430,7 @@ export default function RoomModals({
         type="text"
         inputMode="numeric"
         maxLength={4}
-        value={lockPin}
+        value={lockPin || room?.lock_pin || ""}
         onChange={(e) => setLockPin(String(e.target.value || "").replace(/\D/g, "").slice(0, 4))}
         placeholder="Enter 4-digit PIN"
         className="w-full border rounded-xl px-3 py-2 text-sm"
@@ -438,8 +438,9 @@ export default function RoomModals({
     </div>
     <button
       onClick={async () => {
-        if (!/^\d{4}$/.test(lockPin)) { toast("Enter a valid 4-digit PIN", 1400); return; }
-        await onLockRoom?.(0, 0, lockPin);
+        const pinToUse = lockPin || room?.lock_pin || "";
+        if (!/^\d{4}$/.test(pinToUse)) { toast("Enter a valid 4-digit PIN", 1400); return; }
+        await onLockRoom?.(0, 0, pinToUse);
       }}
       className="mt-3 w-full py-2 rounded-xl border border-amber-200 text-amber-700 text-sm font-semibold hover:bg-amber-50 transition flex items-center justify-center gap-2"
     >

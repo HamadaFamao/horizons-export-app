@@ -3990,25 +3990,23 @@ if (!confirmed) return;
         return;
       }
 
-      const { data: walletData, error: walletError } = await fetchUserWallet(user.id);
-      if (walletError) throw new Error(walletError);
-
-      const currentCoins = Number(walletData?.coins || 0);
       const cost = Number(coinsCost || 0);
-      if (currentCoins < cost) {
-        toast("❌ Not enough coins", 1400);
-        return;
-      }
-
-      
-
       if (cost > 0) {
-  const { error: walletUpdateError } = await supabase
-    .from("wallets")
-    .update({ coins: currentCoins - cost })
-    .eq("user_id", user.id);
-  if (walletUpdateError) throw walletUpdateError;
-}
+        const { data: walletData, error: walletError } = await fetchUserWallet(user.id);
+        if (walletError) throw new Error(walletError);
+
+        const currentCoins = Number(walletData?.coins || 0);
+        if (currentCoins < cost) {
+          toast("❌ Not enough coins", 1400);
+          return;
+        }
+
+        const { error: walletUpdateError } = await supabase
+          .from("wallets")
+          .update({ coins: currentCoins - cost })
+          .eq("user_id", user.id);
+        if (walletUpdateError) throw walletUpdateError;
+      }
       const lockExpiresAt = new Date(Date.now() + Number(durationHours || 0) * 60 * 60 * 1000).toISOString();
 
       const { error: roomUpdateError } = await supabase
@@ -4018,7 +4016,7 @@ if (!confirmed) return;
 
       if (roomUpdateError) throw roomUpdateError;
 
-      setRoom((prev) => ({ ...prev, is_locked: true, lock_expires_at: lockExpiresAt, lock_pin: String(lockPin) }));
+      setRoom((prev) => ({ ...prev, is_locked: false, lock_pin: prev?.lock_pin }));
 
       if (channelRef.current) {
   await channelRef.current.send({
