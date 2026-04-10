@@ -415,42 +415,38 @@ export default function RoomModals({
         </div>
       </div>
 
-      {/* زر Lock/Unlock */}
       {room?.is_locked ? (
-        <button
-          onClick={async () => { await onUnlockRoom?.(); }}
-          className="mt-3 w-full py-2 rounded-xl border border-emerald-200 text-emerald-700 text-sm font-semibold hover:bg-emerald-50 transition flex items-center justify-center gap-2"
-        >
-          🔓 Unlock Room
-        </button>
-      ) : (
-        <>
-          <div className="mt-3">
-            <div className="text-xs text-slate-500 mb-1">PIN to lock with</div>
-            <input
-              type="text"
-              inputMode="numeric"
-              maxLength={4}
-              value={lockPin}
-              onChange={(e) => setLockPin(String(e.target.value || "").replace(/\D/g, "").slice(0, 4))}
-              placeholder="Enter 4-digit PIN"
-              className="w-full border rounded-xl px-3 py-2 text-sm"
-            />
-          </div>
-          <button
-            onClick={async () => {
-              if (!/^\d{4}$/.test(lockPin)) {
-                toast("Enter a valid 4-digit PIN", 1400);
-                return;
-              }
-              await onLockRoom?.(0, 0, lockPin);
-            }}
-            className="mt-3 w-full py-2 rounded-xl border border-amber-200 text-amber-700 text-sm font-semibold hover:bg-amber-50 transition flex items-center justify-center gap-2"
-          >
-            🔒 Lock Room (free)
-          </button>
-        </>
-      )}
+  <button
+    onClick={async () => { await onUnlockRoom?.(); }}
+    className="mt-3 w-full py-2 rounded-xl border border-emerald-200 text-emerald-700 text-sm font-semibold hover:bg-emerald-50 transition flex items-center justify-center gap-2"
+  >
+    🔓 Unlock Room
+  </button>
+) : (
+  <>
+    <div className="mt-3">
+      <div className="text-xs text-slate-500 mb-1">PIN to lock with</div>
+      <input
+        type="text"
+        inputMode="numeric"
+        maxLength={4}
+        value={lockPin}
+        onChange={(e) => setLockPin(String(e.target.value || "").replace(/\D/g, "").slice(0, 4))}
+        placeholder="Enter 4-digit PIN"
+        className="w-full border rounded-xl px-3 py-2 text-sm"
+      />
+    </div>
+    <button
+      onClick={async () => {
+        if (!/^\d{4}$/.test(lockPin)) { toast("Enter a valid 4-digit PIN", 1400); return; }
+        await onLockRoom?.(0, 0, lockPin);
+      }}
+      className="mt-3 w-full py-2 rounded-xl border border-amber-200 text-amber-700 text-sm font-semibold hover:bg-amber-50 transition flex items-center justify-center gap-2"
+    >
+      🔒 Lock Room (free)
+    </button>
+  </>
+)}
 
       {/* زر تجديد الاشتراك */}
       <div className="mt-4 border-t pt-3">
