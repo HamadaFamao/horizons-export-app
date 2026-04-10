@@ -4073,6 +4073,17 @@ supabase.removeChannel(globalChannel);
         });
       }
 
+      // broadcast global for lobby
+const globalChannel = supabase.channel('rooms_lobby_lock_rt');
+await globalChannel.send({
+  type: "broadcast",
+  event: "room_unlocked",
+  payload: { room_id: roomId, is_locked: false },
+});
+supabase.removeChannel(globalChannel);
+
+toast("✅ Room unlocked", 1400);
+
       toast("✅ Room unlocked", 1400);
     } catch (err) {
       toast(err?.message || "❌ Failed to unlock room", 1400);
