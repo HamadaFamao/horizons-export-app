@@ -4054,13 +4054,13 @@ supabase.removeChannel(globalChannel);
       if (!roomId) return;
 
       const { error } = await supabase
-        .from("live_rooms")
-        .update({ is_locked: false, lock_expires_at: null, lock_pin: null })
-        .eq("id", roomId);
+  .from("live_rooms")
+  .update({ is_locked: false })
+  .eq("id", roomId);
 
       if (error) throw error;
 
-      setRoom((prev) => ({ ...prev, is_locked: false, lock_expires_at: null, lock_pin: null }));
+      setRoom((prev) => ({ ...prev, is_locked: false }));
 
       if (channelRef.current) {
         await channelRef.current.send({
