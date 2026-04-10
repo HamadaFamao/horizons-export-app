@@ -4019,17 +4019,26 @@ if (!confirmed) return;
       setRoom((prev) => ({ ...prev, is_locked: true, lock_expires_at: lockExpiresAt, lock_pin: String(lockPin) }));
 
       if (channelRef.current) {
-        await channelRef.current.send({
-          type: "broadcast",
-          event: "room_locked",
-          payload: {
-            room_id: roomId,
-            is_locked: true,
-            lock_expires_at: lockExpiresAt,
-            ts: Date.now(),
-          },
-        });
-      }
+  await channelRef.current.send({
+    type: "broadcast",
+    event: "room_locked",
+    payload: {
+      room_id: roomId,
+      is_locked: true,
+      lock_expires_at: lockExpiresAt,
+      ts: Date.now(),
+    },
+  });
+}
+
+// broadcast global for lobby
+const globalChannel = supabase.channel('rooms_lobby_lock_rt');
+await globalChannel.send({
+  type: "broadcast",
+  event: "room_locked",
+  payload: { room_id: roomId, is_locked: true },
+});
+supabase.removeChannel(globalChannel);
 
       fetchUserWallet(user.id).catch(() => { });
       toast("🔒 Room locked successfully", 1400);
