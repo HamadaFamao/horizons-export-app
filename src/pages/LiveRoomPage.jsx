@@ -4007,16 +4007,33 @@ if (!confirmed) return;
           .eq("user_id", user.id);
         if (walletUpdateError) throw walletUpdateError;
       }
-      const lockExpiresAt = new Date(Date.now() + Number(durationHours || 0) * 60 * 60 * 1000).toISOString();
+      const duration = Number(durationHours || 0);
+      const lockExpiresAt = duration > 0
+        ? new Date(Date.now() + duration * 60 * 60 * 1000).toISOString()
+        : null;
+
+      const roomLockUpdatePayload = duration > 0
+        ? { is_locked: true, lock_expires_at: lockExpiresAt, lock_pin: String(lockPin) }
+        : { is_locked: true, lock_pin: String(lockPin) };
 
       const { error: roomUpdateError } = await supabase
         .from("live_rooms")
-        .update({ is_locked: true, lock_expires_at: lockExpiresAt, lock_pin: String(lockPin) })
+        .update(roomLockUpdatePayload)
         .eq("id", roomId);
 
       if (roomUpdateError) throw roomUpdateError;
 
-      setRoom((prev) => ({ ...prev, is_locked: false, lock_pin: prev?.lock_pin }));
+      let nextLockExpiresAtForBroadcast = room?.lock_expires_at ?? null;
+      setRoom((prev) => {
+        const nextLockExpiresAt = duration > 0 ? lockExpiresAt : prev?.lock_expires_at ?? null;
+        nextLockExpiresAtForBroadcast = nextLockExpiresAt;
+        return {
+          ...prev,
+          is_locked: true,
+          lock_pin: String(lockPin),
+          lock_expires_at: nextLockExpiresAt,
+        };
+      });
 
       if (channelRef.current) {
   await channelRef.current.send({
@@ -4025,7 +4042,7 @@ if (!confirmed) return;
     payload: {
       room_id: roomId,
       is_locked: true,
-      lock_expires_at: lockExpiresAt,
+      lock_expires_at: nextLockExpiresAtForBroadcast,
       ts: Date.now(),
     },
   });
@@ -4040,7 +4057,9 @@ await globalChannel.send({
 });
 supabase.removeChannel(globalChannel);
 
-      fetchUserWallet(user.id).catch(() => { });
+      if (cost > 0) {
+        fetchUserWallet(user.id).catch(() => { });
+      }
       toast("🔒 Room locked successfully", 1400);
     } catch (err) {
       toast(err?.message || "❌ Failed to lock room", 1400);
@@ -4058,7 +4077,11 @@ supabase.removeChannel(globalChannel);
 
       if (error) throw error;
 
-      setRoom((prev) => ({ ...prev, is_locked: false }));
+      let preservedLockExpiresAt = room?.lock_expires_at ?? null;
+      setRoom((prev) => {
+        preservedLockExpiresAt = prev?.lock_expires_at ?? null;
+        return { ...prev, is_locked: false };
+      });
 
       if (channelRef.current) {
         await channelRef.current.send({
@@ -4067,7 +4090,7 @@ supabase.removeChannel(globalChannel);
           payload: {
             room_id: roomId,
             is_locked: false,
-            lock_expires_at: null,
+            lock_expires_at: preservedLockExpiresAt,
             ts: Date.now(),
           },
         });
