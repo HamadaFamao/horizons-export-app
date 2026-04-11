@@ -307,10 +307,10 @@ export default function RoomsLobby() {
             )}
           </div>
 
-          <div className="mb-1 flex items-center gap-1 text-xs font-medium text-slate-500">
-            <Users className="w-3.5 h-3.5" />
-            {room.participant_count || 0}
-          </div>
+          <div className={`mb-1 flex items-center gap-1 text-xs font-medium ${room.participant_count > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
+  <Users className="w-3.5 h-3.5" />
+  {room.participant_count || 0}
+</div>
 
           <div className="mt-auto pt-1 flex items-center justify-between gap-2">
             <Button
