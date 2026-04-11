@@ -46,6 +46,9 @@ const ROOM_BACKGROUND_PRESETS = [
 ];
 
 export default function RoomModals({
+  // Background changed callback
+  onBackgroundChanged,
+
   // PeopleInRoomModal
   showPeople,
   setShowPeople,
@@ -224,36 +227,11 @@ export default function RoomModals({
     setRoomBackgroundPreviewFailed(false);
   }, [previewBackgroundUrl]);
 
-  const applyRandomBackground = React.useCallback(async () => {
-    if (!isOwner || !room?.id) return;
-
-    const accessiblePresets = isVIP
-      ? ROOM_BACKGROUND_PRESETS
-      : ROOM_BACKGROUND_PRESETS.filter((p) => !p.vip);
-
-    if (!accessiblePresets.length) return;
-
-    const random = accessiblePresets[Math.floor(Math.random() * accessiblePresets.length)];
-
-    const { error } = await supabase
-      .from("live_rooms")
-      .update({ background_url: random.url })
-      .eq("id", room.id);
-
-    if (!error) {
-      setRoom((prev) => (prev ? { ...prev, background_url: random.url } : prev));
-      setSelectedBackgroundPreset(random);
-      toast("🎲 Background changed!", 1000);
-    }
-  }, [isOwner, isVIP, room?.id, setRoom, toast]);
-
   React.useEffect(() => {
-    if (showBackgroundGallery) return;
-    if (randomIntervalRef.current) {
+    if (!showBackgroundGallery && randomAutoPlay) {
       clearInterval(randomIntervalRef.current);
-      randomIntervalRef.current = null;
+      setRandomAutoPlay(false);
     }
-    setRandomAutoPlay(false);
   }, [showBackgroundGallery]);
 
   React.useEffect(() => {
@@ -280,6 +258,7 @@ export default function RoomModals({
       if (error) throw error;
 
       setRoom((prev) => (prev ? { ...prev, background_url: newUrl } : prev));
+      await onBackgroundChanged?.(newUrl);
       setSelectedBackgroundPreset(null);
       setShowBackgroundGallery(false);
       toast("Room background updated successfully!");
@@ -287,6 +266,41 @@ export default function RoomModals({
       toast(e?.message || "Failed to update room background", 1400);
     } finally {
       setApplyingBackgroundPreset(false);
+    }
+  };
+
+  const applyRandomBackground = async () => {
+    const accessiblePresets = isVIP
+      ? ROOM_BACKGROUND_PRESETS
+      : ROOM_BACKGROUND_PRESETS.filter((p) => !p.vip);
+
+    if (!accessiblePresets.length) return;
+
+    const random = accessiblePresets[Math.floor(Math.random() * accessiblePresets.length)];
+
+    const { error } = await supabase
+      .from("live_rooms")
+      .update({ background_url: random.url })
+      .eq("id", room.id);
+
+    if (!error) {
+      setRoom((prev) => (prev ? { ...prev, background_url: random.url } : prev));
+      setSelectedBackgroundPreset(random);
+      await onBackgroundChanged?.(random.url);
+      toast("🎲 Background changed!", 1000);
+    }
+  };
+
+  const toggleRandomMode = () => {
+    if (randomAutoPlay) {
+      clearInterval(randomIntervalRef.current);
+      setRandomAutoPlay(false);
+      toast("🎲 Random stopped", 1000);
+    } else {
+      setRandomAutoPlay(true);
+      applyRandomBackground();
+      randomIntervalRef.current = setInterval(applyRandomBackground, 8000);
+      toast("🎲 Random started!", 1000);
     }
   };
 
@@ -306,6 +320,7 @@ export default function RoomModals({
     }
 
     setRoom((prev) => (prev ? { ...prev, background_url: preset.url } : prev));
+    await onBackgroundChanged?.(preset.url);
     toast("✅ Background applied!", 1200);
   };
 
@@ -935,8 +950,21 @@ export default function RoomModals({
                         </div>
 
                         <div className="mt-3 p-3 border rounded-xl bg-slate-50/70">
-                          <div className="text-xs font-semibold text-slate-700 mb-2">🖼️ Free Backgrounds</div>
-                          <div className="grid grid-cols-2 gap-2">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="text-xs font-bold text-slate-700">🖼️ Free Backgrounds</div>
+                            <button
+                              type="button"
+                              onClick={toggleRandomMode}
+                              className={`px-3 py-1 rounded-full text-xs font-bold transition ${
+                                randomAutoPlay
+                                  ? 'bg-rose-500 text-white animate-pulse'
+                                  : 'border border-slate-300 text-slate-600 hover:bg-slate-50'
+                              }`}
+                            >
+                              {randomAutoPlay ? '⏹ Stop' : '🎲 Random'}
+                            </button>
+                          </div>
+                        <div className="grid grid-cols-2 gap-2">
                             {freeBackgroundPresets.map((preset) => {
                               const selected = selectedBackgroundPreset?.id === preset.id;
                               return (

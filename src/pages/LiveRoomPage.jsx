@@ -3903,6 +3903,7 @@ console.log("MODERATORS MAP:", nextMap);
       }
 
       setRoom(prev => prev ? { ...prev, background_url: newUrl } : prev);
+      await handleBackgroundChanged(newUrl);
       toast("Room background updated successfully!");
     } catch (error) {
       console.error('[ROOM_BACKGROUND_UPLOAD] Error:', error);
@@ -3914,6 +3915,27 @@ console.log("MODERATORS MAP:", nextMap);
       }
     }
   };
+
+  React.useEffect(() => {
+    if (lastUploadedFiles?.length > 0) {
+      const file = lastUploadedFiles[0];
+      const newUrl = `${roomBackgroundPath}${file.name}`;
+      handleBackgroundChanged(newUrl);
+    }
+  }, [room?.background_url]);
+
+  const handleBackgroundChanged = useCallback(async (newUrl) => {
+    if (!channelRef.current) return;
+    await channelRef.current.send({
+      type: "broadcast",
+      event: "background_changed",
+      payload: {
+        room_id: roomId,
+        background_url: newUrl,
+        ts: Date.now(),
+      },
+    });
+  }, [roomId]);
 
   const handleRoomBackgroundVipUpload = async (e) => {
     if (!isOwner) {
@@ -5565,6 +5587,13 @@ useEffect(() => {
     }));
   }
 });
+
+      ch.on("broadcast", { event: "background_changed" }, ({ payload }) => {
+        if (payload?.room_id && String(payload.room_id) !== String(roomId)) return;
+        if (payload?.background_url !== undefined) {
+          setRoom(prev => prev ? { ...prev, background_url: payload.background_url } : prev);
+        }
+      });
 
       channelRef.current = ch;
 
