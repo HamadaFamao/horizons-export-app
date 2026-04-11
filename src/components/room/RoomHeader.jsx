@@ -269,33 +269,35 @@ export default function RoomHeader({
         />
 
         {canModerate ? (
-          <div className="relative shrink-0 transform scale-[0.85] group flex items-center justify-center">
-            <div className="absolute inset-0 bg-blue-400/40 blur-md rounded-full group-hover:bg-blue-400/60 transition-all duration-300 animate-pulse"></div>
-            <div className="relative z-10">
+          <div className="relative shrink-0 group flex items-center justify-center w-10 h-10">
+            <div className="absolute inset-0 bg-blue-400/40 blur-md rounded-xl group-hover:bg-blue-400/60 transition-all duration-300 animate-pulse"></div>
+            <div className="relative z-10 w-full h-full [&>*]:!w-full [&>*]:!h-full [&_button]:!w-full [&_button]:!h-full [&_button]:!rounded-xl [&_button]:!p-0 [&_button]:!flex [&_button]:!items-center [&_button]:!justify-center">
               <MicRequestsButton
                 count={pendingRequests.length}
                 onClick={() => setRequestsOpen((prev) => !prev)}
+                className="!w-full !h-full !p-0 !flex !items-center !justify-center !rounded-xl"
               />
             </div>
           </div>
         ) : null}
 
         {canModerate && (!pkSession || pkSession.status !== "live") ? (
-          <div className="relative shrink-0 group flex items-center justify-center">
-            <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 blur-md opacity-70 group-hover:opacity-100 transition-opacity duration-300 rounded-xl animate-pulse"></div>
-            <div className="relative z-10 transform group-hover:scale-105 transition-transform duration-300">
+          <div className="relative shrink-0 group flex items-center justify-center w-10 h-10">
+            <div className="absolute inset-0 bg-blue-500/50 blur-md opacity-70 group-hover:opacity-100 transition-opacity duration-300 rounded-xl animate-pulse"></div>
+            <div className="relative z-10 w-full h-full transform group-hover:scale-105 transition-transform duration-300 overflow-hidden rounded-xl [&>*]:!w-full [&>*]:!h-full [&_button]:!w-full [&_button]:!h-full [&_button]:!rounded-xl [&_button]:!p-0 [&_button]:!flex [&_button]:!items-center [&_button]:!justify-center">
               <PkButton 
                 onClick={() => setShowPkModal(true)} 
                 disabled={pkBusy} 
-                className="!bg-gradient-to-r !from-indigo-900 !via-purple-900 !to-fuchsia-900 !text-white !border-0 !shadow-[0_0_20px_rgba(192,38,211,0.5)]"
+                className="!w-full !h-full !p-0 !flex !items-center !justify-center !bg-gradient-to-br !from-blue-900/80 !via-blue-800/80 !to-blue-950/80 !text-white !border !border-blue-400/30 !shadow-[0_0_15px_rgba(59,130,246,0.5)] !rounded-xl backdrop-blur-md"
               />
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full animate-shimmer pointer-events-none !w-full !h-full"></div>
             </div>
           </div>
         ) : null}
 
         <Button
           variant="outline"
-          className="relative shrink-0 h-10 w-10 rounded-xl bg-gradient-to-br from-yellow-200 via-amber-300 to-yellow-500 border border-yellow-400 text-yellow-900 shadow-[0_0_15px_rgba(251,191,36,0.6)] hover:shadow-[0_0_25px_rgba(251,191,36,0.8)] transition-all duration-300 hover:scale-110 p-0 flex items-center justify-center group overflow-hidden"
+          className="relative shrink-0 h-10 w-10 rounded-xl bg-gradient-to-br from-yellow-100/50 via-amber-200/50 to-yellow-300/50 border border-yellow-300/50 text-yellow-900 shadow-[0_0_15px_rgba(251,191,36,0.3)] hover:shadow-[0_0_25px_rgba(251,191,36,0.5)] transition-all duration-300 hover:scale-110 p-0 flex items-center justify-center group overflow-hidden backdrop-blur-md"
           onClick={() => setShowLeaderboard(true)}
           title="Leaderboard"
         >
