@@ -202,6 +202,8 @@ export default function RoomModals({
   const [showBackgroundGallery, setShowBackgroundGallery] = React.useState(false);
   const [selectedBackgroundPreset, setSelectedBackgroundPreset] = React.useState(null);
   const [applyingBackgroundPreset, setApplyingBackgroundPreset] = React.useState(false);
+  const [randomAutoPlay, setRandomAutoPlay] = React.useState(false);
+  const randomIntervalRef = React.useRef(null);
 
   const isVideoBackground = (url) => /\.(mp4|webm)(\?|#|$)/i.test(String(url || ""));
   const previewBackgroundUrl = selectedBackgroundPreset?.url || room?.background_url;
@@ -221,6 +223,44 @@ export default function RoomModals({
   React.useEffect(() => {
     setRoomBackgroundPreviewFailed(false);
   }, [previewBackgroundUrl]);
+
+  const applyRandomBackground = React.useCallback(async () => {
+    if (!isOwner || !room?.id) return;
+
+    const accessiblePresets = isVIP
+      ? ROOM_BACKGROUND_PRESETS
+      : ROOM_BACKGROUND_PRESETS.filter((p) => !p.vip);
+
+    if (!accessiblePresets.length) return;
+
+    const random = accessiblePresets[Math.floor(Math.random() * accessiblePresets.length)];
+
+    const { error } = await supabase
+      .from("live_rooms")
+      .update({ background_url: random.url })
+      .eq("id", room.id);
+
+    if (!error) {
+      setRoom((prev) => (prev ? { ...prev, background_url: random.url } : prev));
+      setSelectedBackgroundPreset(random);
+      toast("🎲 Background changed!", 1000);
+    }
+  }, [isOwner, isVIP, room?.id, setRoom, toast]);
+
+  React.useEffect(() => {
+    if (showBackgroundGallery) return;
+    if (randomIntervalRef.current) {
+      clearInterval(randomIntervalRef.current);
+      randomIntervalRef.current = null;
+    }
+    setRandomAutoPlay(false);
+  }, [showBackgroundGallery]);
+
+  React.useEffect(() => {
+    return () => {
+      if (randomIntervalRef.current) clearInterval(randomIntervalRef.current);
+    };
+  }, []);
 
   const applyBackgroundPreset = async () => {
     if (!isOwner || !room?.id || !selectedBackgroundPreset?.url) return;
@@ -791,7 +831,7 @@ export default function RoomModals({
                             className={`w-full p-3 border rounded-xl text-sm font-medium transition ${
                               !isOwner || !canUseGallery
                                 ? 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed opacity-70'
-                                : 'border-slate-300 text-slate-700 hover:bg-slate-50'
+                                : `${isVIP ? 'border-amber-200 hover:shadow-[0_0_12px_rgba(251,191,36,0.4)]' : 'border-slate-300'} text-slate-700 hover:bg-slate-50`
                             }`}
                             onClick={() => {
                               setShowBackgroundGallery((v) => !v);
@@ -800,15 +840,28 @@ export default function RoomModals({
                           >
                             <span className="inline-flex items-center gap-1.5">
                               Choose from gallery
-                              <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">VIP 👑</span>
+                              <span
+                                className="relative inline-flex items-center overflow-hidden rounded-full border border-amber-300 bg-gradient-to-r from-amber-400 to-yellow-300 px-2 py-0.5 text-[10px] font-black text-amber-900"
+                                style={{ animation: 'vipBadgePulse 2s ease-in-out infinite' }}
+                              >
+                                VIP 👑
+                                <span className="pointer-events-none absolute inset-0 overflow-hidden">
+                                  <span
+                                    className="absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-white/40 to-transparent"
+                                    style={{ animation: 'badgeShimmer 2s infinite' }}
+                                  />
+                                </span>
+                              </span>
                               {!canUseGallery ? <span className="text-sm">🔒</span> : null}
                             </span>
                           </button>
                         </div>
 
                         <div className="mt-2">
-                          <label className={`flex items-center justify-center w-full p-3 border-2 border-dashed rounded-xl transition cursor-pointer group ${
-                            !isOwner || !isVIP ? 'border-amber-200 bg-amber-50 text-amber-300 cursor-not-allowed opacity-80' : 'border-amber-400 bg-amber-50 hover:border-amber-500 hover:bg-amber-100'
+                          <label className={`relative overflow-hidden flex items-center justify-center w-full p-3 border-2 rounded-xl transition cursor-pointer group ${
+                            !isOwner || !isVIP
+                              ? 'border-slate-300 bg-slate-200 text-slate-500 cursor-not-allowed opacity-50'
+                              : 'border-amber-300 bg-gradient-to-r from-amber-500 to-yellow-400 text-white font-bold hover:brightness-110 hover:shadow-[0_0_14px_rgba(251,191,36,0.5)]'
                           }`}>
                             <input
                               ref={roomBackgroundVipInputRef}
@@ -819,19 +872,26 @@ export default function RoomModals({
                               className="hidden"
                             />
                             {roomBackgroundUploading ? (
-                              <Loader2 className="w-5 h-5 text-amber-600 animate-spin mr-2" />
+                              <Loader2 className={`w-5 h-5 animate-spin mr-2 ${!isOwner || !isVIP ? 'text-slate-500' : 'text-white'}`} />
                             ) : (
                               <ImageIcon className={`w-5 h-5 mr-2 transition ${
-                                !isOwner || !isVIP ? 'text-amber-300' : 'text-amber-600 group-hover:text-amber-700'
+                                !isOwner || !isVIP ? 'text-slate-500' : 'text-white'
                               }`} />
                             )}
-                            <span className={`text-sm font-medium transition ${
-                              !isOwner || !isVIP ? 'text-amber-400' : 'text-amber-700 group-hover:text-amber-800'
+                            <span className={`text-sm transition ${
+                              !isOwner || !isVIP ? 'text-slate-600 font-medium' : 'text-white font-bold'
                             }`}>
+                              {!isOwner || !isVIP ? '🔒 ' : '👑 '}
                               VIP Upload
                             </span>
-                            <span className="ml-2 inline-flex items-center rounded-full bg-amber-200 px-2 py-0.5 text-[10px] font-semibold text-amber-800">👑</span>
-                            {!isVIP ? <span className="ml-2 text-sm">🔒</span> : null}
+                            {!isOwner || !isVIP ? null : (
+                              <span className="pointer-events-none absolute inset-0 overflow-hidden">
+                                <span
+                                  className="absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/45 to-transparent"
+                                  style={{ animation: 'badgeShimmer 2.5s infinite' }}
+                                />
+                              </span>
+                            )}
                           </label>
                         </div>
 
@@ -856,21 +916,44 @@ export default function RoomModals({
                                 0% { transform: translateX(-150%) skewX(-20deg); }
                                 100% { transform: translateX(250%) skewX(-20deg); }
                               }
+                              @keyframes vipBadgePulse {
+                                0%, 100% { box-shadow: 0 0 4px rgba(251,191,36,0.4); transform: scale(1); }
+                                50% { box-shadow: 0 0 10px rgba(251,191,36,0.9); transform: scale(1.08); }
+                              }
+                              @keyframes badgeShimmer {
+                                0% { transform: translateX(-150%) skewX(-20deg); }
+                                100% { transform: translateX(250%) skewX(-20deg); }
+                              }
                             `}</style>
                             <div className="mb-2 flex items-center justify-between gap-2">
                               <div className="text-xs font-semibold text-slate-700">Background Gallery</div>
                               <button
                                 type="button"
-                                onClick={() => {
-                                  const presets = isVIP ? ROOM_BACKGROUND_PRESETS : freeBackgroundPresets;
-                                  if (!presets.length) return;
-                                  const randomPreset = presets[Math.floor(Math.random() * presets.length)];
-                                  setSelectedBackgroundPreset(randomPreset);
-                                  toast("🎲 Random background selected!", 1200);
+                                onClick={async () => {
+                                  if (randomAutoPlay) {
+                                    if (randomIntervalRef.current) {
+                                      clearInterval(randomIntervalRef.current);
+                                      randomIntervalRef.current = null;
+                                    }
+                                    setRandomAutoPlay(false);
+                                    return;
+                                  }
+
+                                  await applyRandomBackground();
+
+                                  randomIntervalRef.current = setInterval(() => {
+                                    applyRandomBackground();
+                                  }, 8000);
+
+                                  setRandomAutoPlay(true);
                                 }}
-                                className={`inline-flex items-center rounded-full border border-slate-300 px-2.5 py-1 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 ${isVIP ? 'hover:shadow-[0_0_12px_rgba(251,191,36,0.35)]' : ''}`}
+                                className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold transition ${
+                                  randomAutoPlay
+                                    ? 'bg-rose-500 text-white animate-pulse'
+                                    : 'border border-slate-300 text-slate-700 hover:bg-slate-100'
+                                }`}
                               >
-                                🎲 Random
+                                {randomAutoPlay ? '⏹ Stop Random' : '🎲 Random'}
                               </button>
                             </div>
                             <div className="text-xs font-semibold text-slate-700 mb-2">🖼️ Free Backgrounds</div>
