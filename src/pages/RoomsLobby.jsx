@@ -26,13 +26,39 @@ export default function RoomsLobby() {
     try {
       const { data, error } = await supabase
         .from('live_rooms')
-        .select('id,title,avatar_url,is_locked,max_mics,is_active,created_at,owner_user_id,public_room_id,live_room_participants(count)')
+        .select('id,title,avatar_url,is_locked,max_mics,is_active,created_at,owner_user_id,public_room_id')
         .eq('is_active', true)
         .order('created_at', { ascending: false })
         .limit(50);
 
       if (error) throw error;
-      setRooms(Array.isArray(data) ? data : []);
+
+      const baseRooms = Array.isArray(data) ? data : [];
+      if (baseRooms.length === 0) {
+        setRooms([]);
+        return;
+      }
+
+      const roomIds = baseRooms.map((r) => r.id).filter(Boolean);
+
+      const { data: participantCounts } = await supabase
+        .from('live_room_participants')
+        .select('room_id, user_id')
+        .in('room_id', roomIds)
+        .is('left_at', null);
+
+      const countsByRoomId = (participantCounts || []).reduce((acc, row) => {
+        const roomId = String(row.room_id);
+        acc[roomId] = (acc[roomId] || 0) + 1;
+        return acc;
+      }, {});
+
+      const mergedRooms = baseRooms.map((room) => ({
+        ...room,
+        participant_count: countsByRoomId[String(room.id)] || 0,
+      }));
+
+      setRooms(mergedRooms);
     } catch (e) {
       console.error(e);
       setErr(e?.message || 'Failed to load rooms');
@@ -266,10 +292,13 @@ export default function RoomsLobby() {
         </div>
 
         <div className="text-xs text-slate-500 mb-3 flex items-center gap-2">
-  <span>{room.max_mics || 6} mics</span>
-  <span>·</span>
-  <span>👥 {room.live_room_participants?.[0]?.count || 0}</span>
-</div>
+          <span>{room.max_mics || 6} mics</span>
+          <span>·</span>
+          <span className={`flex items-center gap-1 text-xs font-medium ${room.participant_count > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
+            {room.participant_count > 0 && <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block" />}
+            👥 {room.participant_count || 0}
+          </span>
+        </div>
 
         <div className="p-3 flex flex-col flex-1">
           <div className="mb-3 flex items-start justify-between gap-2">
