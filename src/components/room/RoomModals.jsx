@@ -193,7 +193,7 @@ export default function RoomModals({
 
       const { data: profilesData, error: profilesError } = await supabase
         .from("profiles")
-        .select("id, full_name, username, avatar_url")
+        .select("id, name, avatar_url")
         .in("id", userIds);
 
       if (profilesError) throw profilesError;
@@ -203,7 +203,7 @@ export default function RoomModals({
           const profile = (profilesData || []).find((p) => String(p.id) === String(userId));
           return {
             user_id: userId,
-            display_name: profile?.full_name || profile?.username || "User",
+            display_name: profile?.name || "User",
             avatar_url: profile?.avatar_url || null,
           };
         })
