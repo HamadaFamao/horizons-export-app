@@ -7,6 +7,8 @@ Place your room background files here:
 - soft.webp
 - nature.webp
 - abstract.webp
+- softpink.webp
+- dark.webp
 
 ## VIP Backgrounds (MP4 videos)
 - romantic.mp4

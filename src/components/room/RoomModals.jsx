@@ -23,6 +23,20 @@ const ROOM_BACKGROUND_PRESETS = [
   { id: "soft", type: "image", url: "/room-backgrounds/soft.webp", label: "Soft", vip: false },
   { id: "nature", type: "image", url: "/room-backgrounds/nature.webp", label: "Nature", vip: false },
   { id: "abstract", type: "image", url: "/room-backgrounds/abstract.webp", label: "Abstract", vip: false },
+  {
+  id: "softpink",
+  type: "image",
+  url: "/room-backgrounds/softpink.webp",
+  label: "Soft Pink",
+  vip: false
+},
+{
+  id: "dark",
+  type: "image",
+  url: "/room-backgrounds/dark.webp",
+  label: "Dark",
+  vip: false
+},
 
   // VIP - animated videos (MP4)
   { id: "romantic", type: "video", url: "/room-backgrounds/romantic.mp4", label: "Romantic", vip: true },
