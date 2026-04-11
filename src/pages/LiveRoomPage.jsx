@@ -3788,25 +3788,10 @@ console.log("MODERATORS MAP:", nextMap);
     if (!file) return;
 
     const fileType = String(file.type || '').toLowerCase();
-    const isVIP = isVipActive(user);
-    const hasAnimatedBackgroundAccess = user?.features?.background_video === true;
-    const canUsePremiumMedia = isVIP || hasAnimatedBackgroundAccess;
-    const isGif = fileType === "image/gif";
-    const isMp4 = fileType === "video/mp4";
-    const isWebm = fileType === "video/webm";
-    const isVideo = fileType.startsWith("video/");
     const isStaticImage = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/avif"].includes(fileType);
 
-    if (!isStaticImage && !isGif && !isMp4 && !isWebm) {
-      toast("Unsupported file type. Please upload PNG, JPG, WEBP, AVIF, GIF, MP4, or WebM.");
-      if (roomBackgroundInputRef.current) {
-        roomBackgroundInputRef.current.value = '';
-      }
-      return;
-    }
-
-    if ((isGif || isMp4 || isWebm || isVideo) && !canUsePremiumMedia) {
-      toast("Upgrade to VIP or use coins to unlock this feature");
+    if (!isStaticImage) {
+      toast("Free upload supports PNG, JPG, WEBP, or AVIF only");
       if (roomBackgroundInputRef.current) {
         roomBackgroundInputRef.current.value = '';
       }
@@ -3826,10 +3811,6 @@ console.log("MODERATORS MAP:", nextMap);
 
     if (file.size > recommendedMaxSize) {
       toast("Recommended max size: 10MB");
-    }
-
-    if (isGif) {
-      toast("GIF backgrounds may be heavy. Consider using MP4 for better performance");
     }
 
     setRoomBackgroundUploading(true);
@@ -3870,6 +3851,7 @@ console.log("MODERATORS MAP:", nextMap);
         throw new Error('Failed to obtain public background URL');
       }
 
+      // Pure background update flow: update current room only, never create/insert.
       const { error: updateError } = await supabase
         .from('live_rooms')
         .update({ background_url: newUrl })
