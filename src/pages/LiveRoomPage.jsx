@@ -3861,7 +3861,7 @@ const authUserId = authData?.user?.id;
 
 const { error: updateError } = await supabase
   .from('live_rooms')
-  .update({ background_url: backgroundUrl })
+  .update({ background_url: newUrl })
   .eq('id', targetRoomId)
   .eq('owner_user_id', authUserId);
 
