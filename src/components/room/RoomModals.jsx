@@ -167,7 +167,7 @@ export default function RoomModals({
   const [moderatorsList, setModeratorsList] = React.useState([]);
   const [moderatorsLoading, setModeratorsLoading] = React.useState(false);
 
-  const fetchModerators = React.useCallback(async () => {
+  const fetchModerators = async () => {
     if (!isOwner || !room?.id) {
       setModeratorsList([]);
       return;
@@ -193,7 +193,7 @@ export default function RoomModals({
 
       const { data: profilesRows, error: profilesError } = await supabase
         .from("profiles")
-        .select("id,display_name,avatar_url")
+        .select("id, full_name, username, avatar_url")
         .in("id", userIds);
 
       if (profilesError) throw profilesError;
@@ -204,7 +204,7 @@ export default function RoomModals({
           const profile = profilesMap.get(String(userId));
           return {
             user_id: userId,
-            display_name: profile?.display_name || "User",
+            display_name: profile?.full_name || profile?.username || "User",
             avatar_url: profile?.avatar_url || null,
           };
         })
@@ -215,13 +215,12 @@ export default function RoomModals({
     } finally {
       setModeratorsLoading(false);
     }
-  }, [isOwner, room?.id, toast]);
+  };
 
   React.useEffect(() => {
-    if (showSettings && settingsTab === "general" && isOwner) {
-      fetchModerators();
-    }
-  }, [showSettings, settingsTab, isOwner, fetchModerators]);
+    if (!showSettings || settingsTab !== "general" || !room?.id || !isOwner) return;
+    fetchModerators();
+  }, [showSettings, settingsTab, room?.id, isOwner]);
 
   return (
     <>
