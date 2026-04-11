@@ -290,6 +290,25 @@ export default function RoomModals({
     }
   };
 
+  const applyFreeBackgroundPreset = async (preset) => {
+    if (!isOwner || !room?.id || !preset?.url) return;
+
+    setSelectedBackgroundPreset(preset);
+
+    const { error } = await supabase
+      .from("live_rooms")
+      .update({ background_url: preset.url })
+      .eq("id", room.id);
+
+    if (error) {
+      toast(error?.message || "Failed to apply background", 1400);
+      return;
+    }
+
+    setRoom((prev) => (prev ? { ...prev, background_url: preset.url } : prev));
+    toast("✅ Background applied!", 1200);
+  };
+
   const fetchModerators = async () => {
     if (!isOwner || !room?.id) {
       setModeratorsList([]);
@@ -915,6 +934,33 @@ export default function RoomModals({
                           </span>
                         </div>
 
+                        <div className="mt-3 p-3 border rounded-xl bg-slate-50/70">
+                          <div className="text-xs font-semibold text-slate-700 mb-2">🖼️ Free Backgrounds</div>
+                          <div className="grid grid-cols-2 gap-2">
+                            {freeBackgroundPresets.map((preset) => {
+                              const selected = selectedBackgroundPreset?.id === preset.id;
+                              return (
+                                <button
+                                  key={preset.id}
+                                  type="button"
+                                  onClick={async () => {
+                                    await applyFreeBackgroundPreset(preset);
+                                  }}
+                                  className={`text-left border rounded-lg overflow-hidden bg-white transition relative ${selected ? 'border-slate-900 shadow-sm' : 'border-slate-200 hover:border-slate-300'}`}
+                                >
+                                  <div className="h-16 bg-slate-100">
+                                    <div
+                                      className="w-full h-full bg-cover bg-center"
+                                      style={{ backgroundImage: `url(${preset.url})` }}
+                                    />
+                                  </div>
+                                  <div className="px-2 py-1.5 text-xs font-medium text-slate-700 truncate">{preset.label}</div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
                         {showBackgroundGallery ? (
                           <div className="mt-3 p-3 border rounded-xl bg-slate-50/70">
                             <style>{`
@@ -936,7 +982,10 @@ export default function RoomModals({
                               }
                             `}</style>
                             <div className="mb-2 flex items-center justify-between gap-2">
-                              <div className="text-xs font-semibold text-slate-700">Background Gallery</div>
+                              <div className="flex items-center gap-2">
+                                <div className="text-xs font-semibold text-amber-800">👑 VIP Backgrounds</div>
+                                <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Gold</span>
+                              </div>
                               <button
                                 type="button"
                                 onClick={async () => {
@@ -965,33 +1014,6 @@ export default function RoomModals({
                               >
                                 {randomAutoPlay ? '⏹ Stop Random' : '🎲 Random'}
                               </button>
-                            </div>
-                            <div className="text-xs font-semibold text-slate-700 mb-2">🖼️ Free Backgrounds</div>
-                            <div className="grid grid-cols-2 gap-2">
-                              {freeBackgroundPresets.map((preset) => {
-                                const selected = selectedBackgroundPreset?.id === preset.id;
-                                return (
-                                  <button
-                                    key={preset.id}
-                                    type="button"
-                                    onClick={() => setSelectedBackgroundPreset(preset)}
-                                    className={`text-left border rounded-lg overflow-hidden bg-white transition relative ${selected ? 'border-slate-900 shadow-sm' : 'border-slate-200 hover:border-slate-300'}`}
-                                  >
-                                    <div className="h-16 bg-slate-100">
-                                      <div
-                                        className="w-full h-full bg-cover bg-center"
-                                        style={{ backgroundImage: `url(${preset.url})` }}
-                                      />
-                                    </div>
-                                    <div className="px-2 py-1.5 text-xs font-medium text-slate-700 truncate">{preset.label}</div>
-                                  </button>
-                                );
-                              })}
-                            </div>
-
-                            <div className="mt-4 mb-2 flex items-center gap-2">
-                              <div className="text-xs font-semibold text-amber-800">👑 VIP Backgrounds</div>
-                              <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Gold</span>
                             </div>
                             <div className="grid grid-cols-2 gap-2">
                               {vipBackgroundPresets.map((preset) => {
