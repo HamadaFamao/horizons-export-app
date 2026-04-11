@@ -3817,18 +3817,22 @@ console.log("MODERATORS MAP:", nextMap);
 
     try {
       const targetRoomId = room?.id;
+      const currentUserId = user?.id;
       if (!targetRoomId) {
         throw new Error('Room not found');
       }
+      if (!currentUserId) {
+        throw new Error('User not found');
+      }
 
       const ext = getExt(file);
-      const path = `${targetRoomId}/background.${ext}`;
+      const filePath = `${targetRoomId}/${currentUserId}/background.${ext}`;
 
-      console.log('[ROOM_BACKGROUND_UPLOAD] Starting upload', { roomId: targetRoomId, path, fileName: file.name });
+      console.log('[ROOM_BACKGROUND_UPLOAD] Starting upload', { roomId: targetRoomId, filePath, fileName: file.name });
 
       const { error: uploadError } = await supabase.storage
         .from('room_backgrounds')
-        .upload(path, file, {
+        .upload(filePath, file, {
           cacheControl: '3600',
           upsert: true,
           contentType: file.type,
@@ -3844,7 +3848,7 @@ console.log("MODERATORS MAP:", nextMap);
 
       const { data: publicUrlData } = supabase.storage
         .from('room_backgrounds')
-        .getPublicUrl(path);
+        .getPublicUrl(filePath);
 
       const newUrl = publicUrlData?.publicUrl;
       if (!newUrl) {
@@ -3855,7 +3859,7 @@ console.log("MODERATORS MAP:", nextMap);
       const { error: updateError } = await supabase
         .from('live_rooms')
         .update({ background_url: newUrl })
-        .eq('id', room.id);
+        .eq('id', targetRoomId);
 
       if (updateError) {
         console.error('[ROOM_BACKGROUND_UPLOAD] Update error:', updateError);
