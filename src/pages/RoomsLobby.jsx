@@ -3,9 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Loader2, Mic, Lock, Unlock, Plus, Sparkles, Crown, RefreshCw, Heart } from 'lucide-react';
-import CreateRoomModal from '@/components/CreateRoomModal';
 import { Loader2, Mic, Lock, Unlock, Plus, Sparkles, Crown, RefreshCw, Heart, Users } from 'lucide-react';
+import CreateRoomModal from '@/components/CreateRoomModal';
 
 export default function RoomsLobby() {
   const navigate = useNavigate();
