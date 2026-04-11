@@ -3916,14 +3916,6 @@ console.log("MODERATORS MAP:", nextMap);
     }
   };
 
-  React.useEffect(() => {
-    if (lastUploadedFiles?.length > 0) {
-      const file = lastUploadedFiles[0];
-      const newUrl = `${roomBackgroundPath}${file.name}`;
-      handleBackgroundChanged(newUrl);
-    }
-  }, [room?.background_url]);
-
   const handleBackgroundChanged = useCallback(async (newUrl) => {
     if (!channelRef.current) return;
     await channelRef.current.send({
