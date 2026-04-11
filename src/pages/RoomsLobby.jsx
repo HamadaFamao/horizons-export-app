@@ -338,13 +338,16 @@ export default function RoomsLobby() {
   );
 
   const popularRooms = useMemo(
-    () => [...rooms].sort((a, b) => {
-      const aTime = new Date(a.created_at).getTime() || 0;
-      const bTime = new Date(b.created_at).getTime() || 0;
-      return bTime - aTime;
-    }),
-    [rooms]
-  );
+  () => [...rooms].sort((a, b) => {
+    const aCount = Number(a.participant_count || 0);
+    const bCount = Number(b.participant_count || 0);
+    if (bCount !== aCount) return bCount - aCount;
+    const aTime = new Date(a.created_at).getTime() || 0;
+    const bTime = new Date(b.created_at).getTime() || 0;
+    return bTime - aTime;
+  }),
+  [rooms]
+);
 
   const recentRooms = useMemo(() => {
     if (!recentRoomIds.length) return [];
