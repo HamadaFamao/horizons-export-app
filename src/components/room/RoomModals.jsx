@@ -164,6 +164,64 @@ export default function RoomModals({
   setSeatMenuOpen,
 }) {
   const [lockPin, setLockPin] = React.useState("");
+  const [moderatorsList, setModeratorsList] = React.useState([]);
+  const [moderatorsLoading, setModeratorsLoading] = React.useState(false);
+
+  const fetchModerators = React.useCallback(async () => {
+    if (!isOwner || !room?.id) {
+      setModeratorsList([]);
+      return;
+    }
+
+    setModeratorsLoading(true);
+    try {
+      const { data: roleRows, error: rolesError } = await supabase
+        .from("live_room_roles")
+        .select("user_id")
+        .eq("room_id", room.id)
+        .eq("role", "mod")
+        .eq("is_active", true)
+        .is("revoked_at", null);
+
+      if (rolesError) throw rolesError;
+
+      const userIds = Array.from(new Set((roleRows || []).map((r) => r.user_id).filter(Boolean)));
+      if (userIds.length === 0) {
+        setModeratorsList([]);
+        return;
+      }
+
+      const { data: profilesRows, error: profilesError } = await supabase
+        .from("profiles")
+        .select("id,display_name,avatar_url")
+        .in("id", userIds);
+
+      if (profilesError) throw profilesError;
+
+      const profilesMap = new Map((profilesRows || []).map((p) => [String(p.id), p]));
+      setModeratorsList(
+        userIds.map((userId) => {
+          const profile = profilesMap.get(String(userId));
+          return {
+            user_id: userId,
+            display_name: profile?.display_name || "User",
+            avatar_url: profile?.avatar_url || null,
+          };
+        })
+      );
+    } catch (e) {
+      toast(e?.message || "Failed to load moderators", 1400);
+      setModeratorsList([]);
+    } finally {
+      setModeratorsLoading(false);
+    }
+  }, [isOwner, room?.id, toast]);
+
+  React.useEffect(() => {
+    if (showSettings && settingsTab === "general" && isOwner) {
+      fetchModerators();
+    }
+  }, [showSettings, settingsTab, isOwner, fetchModerators]);
 
   return (
     <>
@@ -602,7 +660,7 @@ export default function RoomModals({
                           <input
                             ref={roomBackgroundInputRef}
                             type="file"
-                            accept="image/png,image/gif"
+                            accept="image/*"
                             onChange={handleRoomBackgroundUpload}
                             disabled={roomBackgroundUploading || !isOwner}
                             className="hidden"
@@ -621,19 +679,67 @@ export default function RoomModals({
                           </span>
                         </label>
                         <div className="text-xs text-slate-500 mt-2">
-                          Max file size: 5MB. Supported formats: PNG, GIF.
+                          Supported: all image formats including GIF
                         </div>
                       </div>
                     </div>
 
-                    <div className="mt-4 border-t pt-3">
-                      <div className="text-sm font-semibold text-slate-900">Coming next</div>
-                      <ul className="mt-2 text-sm text-slate-600 list-disc pl-5 space-y-1">
-                        <li>Room background image</li>
-                        <li>Additional room settings</li>
-                        <li>Moderator management</li>
-                      </ul>
-                    </div>
+                    {isOwner ? (
+                      <div className="mt-6 border-t pt-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="text-sm font-semibold text-slate-900">Moderators</div>
+                            <div className="text-xs text-slate-500 mt-1">Manage room moderators.</div>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-2"
+                            onClick={fetchModerators}
+                            disabled={moderatorsLoading}
+                          >
+                            {moderatorsLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                            Refresh
+                          </Button>
+                        </div>
+
+                        {moderatorsLoading ? (
+                          <div className="mt-3 flex items-center gap-2 text-slate-600">
+                            <Loader2 className="w-4 h-4 animate-spin" /> Loading…
+                          </div>
+                        ) : moderatorsList.length === 0 ? (
+                          <div className="mt-3 text-sm text-slate-500">No moderators</div>
+                        ) : (
+                          <div className="mt-3 space-y-2 max-h-[40vh] overflow-auto">
+                            {moderatorsList.map((m) => (
+                              <div key={m.user_id} className="border rounded-xl p-2 flex items-center gap-3">
+                                <img
+                                  src={m.avatar_url || FALLBACK_AVATAR}
+                                  onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
+                                  alt={m.display_name || "User"}
+                                  className="w-10 h-10 rounded-full object-cover border bg-white"
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <div className="font-semibold text-slate-900 truncate">{m.display_name || "User"}</div>
+                                </div>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={async () => {
+                                    await removeModerator(m.user_id);
+                                    await fetchModerators();
+                                  }}
+                                  disabled={moderatorsLoading || settingsBusy}
+                                >
+                                  Remove
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
+
                   </>
                 ) : (
                   <>

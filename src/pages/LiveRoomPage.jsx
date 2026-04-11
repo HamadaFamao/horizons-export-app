@@ -3776,12 +3776,6 @@ console.log("MODERATORS MAP:", nextMap);
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const maxSize = 5 * 1024 * 1024; // 5MB
-    if (file.size > maxSize) {
-      toast("File size must be less than 5MB.");
-      return;
-    }
-
     setRoomBackgroundUploading(true);
 
     try {
