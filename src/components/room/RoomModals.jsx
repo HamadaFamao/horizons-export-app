@@ -18,10 +18,17 @@ const FALLBACK_AVATAR =
   </svg>`);
 
 const ROOM_BACKGROUND_PRESETS = [
-  { id: "romantic", type: "video", url: "/room-backgrounds/romantic.mp4", label: "Romantic" },
-  { id: "vip", type: "video", url: "/room-backgrounds/vip.mp4", label: "VIP" },
-  { id: "stars", type: "image", url: "/room-backgrounds/stars.jpg", label: "Stars" },
-  { id: "soft", type: "image", url: "/room-backgrounds/soft.jpg", label: "Soft" },
+  // Free - static images (WebP)
+  { id: "stars", type: "image", url: "/room-backgrounds/stars.webp", label: "Stars", vip: false },
+  { id: "soft", type: "image", url: "/room-backgrounds/soft.webp", label: "Soft", vip: false },
+  { id: "nature", type: "image", url: "/room-backgrounds/nature.webp", label: "Nature", vip: false },
+  { id: "abstract", type: "image", url: "/room-backgrounds/abstract.webp", label: "Abstract", vip: false },
+
+  // VIP - animated videos (MP4)
+  { id: "romantic", type: "video", url: "/room-backgrounds/romantic.mp4", label: "Romantic", vip: true },
+  { id: "vip", type: "video", url: "/room-backgrounds/vip.mp4", label: "VIP", vip: true },
+  { id: "neon", type: "video", url: "/room-backgrounds/neon.mp4", label: "Neon", vip: true },
+  { id: "luxury", type: "video", url: "/room-backgrounds/luxury.mp4", label: "Luxury", vip: true },
 ];
 
 export default function RoomModals({
@@ -184,8 +191,10 @@ export default function RoomModals({
 
   const isVideoBackground = (url) => /\.(mp4|webm)(\?|#|$)/i.test(String(url || ""));
   const previewBackgroundUrl = selectedBackgroundPreset?.url || room?.background_url;
-  const canUseGallery = Boolean(isVIP);
+  const canUseGallery = true;
   const hasCoinsFeature = Boolean(hasAnimatedBackgroundAccess);
+  const freeBackgroundPresets = ROOM_BACKGROUND_PRESETS.filter((preset) => !preset.vip);
+  const vipBackgroundPresets = ROOM_BACKGROUND_PRESETS.filter((preset) => preset.vip);
 
   React.useEffect(() => {
     console.log("[ROOM_BACKGROUND_ACCESS]", {
@@ -771,10 +780,6 @@ export default function RoomModals({
                                 : 'border-slate-300 text-slate-700 hover:bg-slate-50'
                             }`}
                             onClick={() => {
-                              if (!canUseGallery) {
-                                toast("Upgrade to VIP or use coins to unlock this feature", 1400);
-                                return;
-                              }
                               setShowBackgroundGallery((v) => !v);
                             }}
                             disabled={!isOwner || roomBackgroundUploading || applyingBackgroundPreset}
@@ -828,8 +833,9 @@ export default function RoomModals({
 
                         {showBackgroundGallery ? (
                           <div className="mt-3 p-3 border rounded-xl bg-slate-50/70">
+                            <div className="text-xs font-semibold text-slate-700 mb-2">🖼️ Free Backgrounds</div>
                             <div className="grid grid-cols-2 gap-2">
-                              {ROOM_BACKGROUND_PRESETS.map((preset) => {
+                              {freeBackgroundPresets.map((preset) => {
                                 const selected = selectedBackgroundPreset?.id === preset.id;
                                 return (
                                   <button
@@ -839,22 +845,51 @@ export default function RoomModals({
                                     className={`text-left border rounded-lg overflow-hidden bg-white transition relative ${selected ? 'border-slate-900 shadow-sm' : 'border-slate-200 hover:border-slate-300'}`}
                                   >
                                     <div className="h-16 bg-slate-100">
-                                      {preset.type === "video" ? (
-                                        <video
-                                          src={preset.url}
-                                          className="w-full h-full object-cover"
-                                          autoPlay
-                                          loop
-                                          muted
-                                          playsInline
-                                          preload="metadata"
-                                        />
-                                      ) : (
-                                        <div
-                                          className="w-full h-full bg-cover bg-center"
-                                          style={{ backgroundImage: `url(${preset.url})` }}
-                                        />
-                                      )}
+                                      <div
+                                        className="w-full h-full bg-cover bg-center"
+                                        style={{ backgroundImage: `url(${preset.url})` }}
+                                      />
+                                    </div>
+                                    <div className="px-2 py-1.5 text-xs font-medium text-slate-700 truncate">{preset.label}</div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            <div className="mt-4 mb-2 flex items-center gap-2">
+                              <div className="text-xs font-semibold text-amber-800">👑 VIP Backgrounds</div>
+                              <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Gold</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              {vipBackgroundPresets.map((preset) => {
+                                const selected = selectedBackgroundPreset?.id === preset.id;
+                                const locked = !isVIP;
+                                return (
+                                  <button
+                                    key={preset.id}
+                                    type="button"
+                                    onClick={() => {
+                                      if (locked) {
+                                        toast("Upgrade to VIP to unlock animated backgrounds", 1400);
+                                        return;
+                                      }
+                                      setSelectedBackgroundPreset(preset);
+                                    }}
+                                    className={`text-left border rounded-lg overflow-hidden bg-white transition relative ${selected ? 'border-amber-500 shadow-sm' : 'border-amber-300 hover:border-amber-400'}`}
+                                  >
+                                    <div className="h-16 bg-slate-100">
+                                      <video
+                                        src={preset.url}
+                                        className="w-full h-full object-cover"
+                                        autoPlay
+                                        loop
+                                        muted
+                                        playsInline
+                                        preload="metadata"
+                                      />
+                                      {locked ? (
+                                        <div className="absolute inset-0 bg-black/55 flex items-center justify-center text-white text-xl">🔒</div>
+                                      ) : null}
                                     </div>
                                     <div className="px-2 py-1.5 text-xs font-medium text-slate-700 truncate">{preset.label}</div>
                                   </button>
@@ -864,8 +899,14 @@ export default function RoomModals({
 
                             <button
                               type="button"
-                              onClick={applyBackgroundPreset}
-                              disabled={!selectedBackgroundPreset || applyingBackgroundPreset || !isOwner || !canUseGallery}
+                              onClick={() => {
+                                if (selectedBackgroundPreset?.vip && !isVIP) {
+                                  toast("Upgrade to VIP to unlock animated backgrounds", 1400);
+                                  return;
+                                }
+                                applyBackgroundPreset();
+                              }}
+                              disabled={!selectedBackgroundPreset || applyingBackgroundPreset || !isOwner || (selectedBackgroundPreset?.vip && !isVIP)}
                               className="mt-3 w-full py-2 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               {applyingBackgroundPreset ? "Saving..." : "Use this background"}
