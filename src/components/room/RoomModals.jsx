@@ -175,7 +175,7 @@ export default function RoomModals({
 
     setModeratorsLoading(true);
     try {
-      const { data: roleRows, error: rolesError } = await supabase
+      const { data: rolesData, error: rolesError } = await supabase
         .from("live_room_roles")
         .select("user_id")
         .eq("room_id", room.id)
@@ -185,23 +185,22 @@ export default function RoomModals({
 
       if (rolesError) throw rolesError;
 
-      const userIds = Array.from(new Set((roleRows || []).map((r) => r.user_id).filter(Boolean)));
+      const userIds = (rolesData || []).map((r) => r.user_id);
       if (userIds.length === 0) {
         setModeratorsList([]);
         return;
       }
 
-      const { data: profilesRows, error: profilesError } = await supabase
+      const { data: profilesData, error: profilesError } = await supabase
         .from("profiles")
         .select("id, full_name, username, avatar_url")
         .in("id", userIds);
 
       if (profilesError) throw profilesError;
 
-      const profilesMap = new Map((profilesRows || []).map((p) => [String(p.id), p]));
       setModeratorsList(
         userIds.map((userId) => {
-          const profile = profilesMap.get(String(userId));
+          const profile = (profilesData || []).find((p) => String(p.id) === String(userId));
           return {
             user_id: userId,
             display_name: profile?.full_name || profile?.username || "User",
