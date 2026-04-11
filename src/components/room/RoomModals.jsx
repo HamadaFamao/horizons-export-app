@@ -831,9 +831,13 @@ export default function RoomModals({
                             className={`w-full p-3 border rounded-xl text-sm font-medium transition ${
                               !isOwner || !canUseGallery
                                 ? 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed opacity-70'
-                                : `${isVIP ? 'border-amber-200 hover:shadow-[0_0_12px_rgba(251,191,36,0.4)]' : 'border-slate-300'} text-slate-700 hover:bg-slate-50`
+                                : `${isVIP ? 'border-amber-200 hover:shadow-[0_0_12px_rgba(251,191,36,0.4)]' : 'border-slate-300 opacity-50 cursor-not-allowed'} text-slate-700 hover:bg-slate-50`
                             }`}
                             onClick={() => {
+                              if (!isVIP) {
+                                toast("Upgrade to VIP to unlock this feature", 1400);
+                                return;
+                              }
                               setShowBackgroundGallery((v) => !v);
                             }}
                             disabled={!isOwner || roomBackgroundUploading || applyingBackgroundPreset}
@@ -862,7 +866,13 @@ export default function RoomModals({
                             !isOwner || !isVIP
                               ? 'border-slate-300 bg-slate-200 text-slate-500 cursor-not-allowed opacity-50'
                               : 'border-amber-300 bg-gradient-to-r from-amber-500 to-yellow-400 text-white font-bold hover:brightness-110 hover:shadow-[0_0_14px_rgba(251,191,36,0.5)]'
-                          }`}>
+                          }`}
+                          onClick={(e) => {
+                            if (!isVIP) {
+                              e.preventDefault();
+                              toast("Upgrade to VIP to unlock this feature", 1400);
+                            }
+                          }}>
                             <input
                               ref={roomBackgroundVipInputRef}
                               type="file"
