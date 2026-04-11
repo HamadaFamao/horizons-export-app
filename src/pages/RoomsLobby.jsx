@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Loader2, Mic, Lock, Unlock, Plus, Sparkles, Crown, RefreshCw, Heart } from 'lucide-react';
 import CreateRoomModal from '@/components/CreateRoomModal';
+import { Loader2, Mic, Lock, Unlock, Plus, Sparkles, Crown, RefreshCw, Heart, Users } from 'lucide-react';
 
 export default function RoomsLobby() {
   const navigate = useNavigate();
@@ -295,9 +296,9 @@ export default function RoomsLobby() {
           <span>{room.max_mics || 6} mics</span>
           <span>·</span>
           <span className={`flex items-center gap-1 text-xs font-medium ${room.participant_count > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
-            {room.participant_count > 0 && <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block" />}
-            👥 {room.participant_count || 0}
-          </span>
+  <Users className="w-3.5 h-3.5" />
+  {room.participant_count || 0}
+</span>
         </div>
 
         <div className="p-3 flex flex-col flex-1">
