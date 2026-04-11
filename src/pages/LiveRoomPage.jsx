@@ -3797,13 +3797,19 @@ console.log("MODERATORS MAP:", nextMap);
       return;
     }
 
-    const maxSize = 10 * 1024 * 1024; // 10MB recommended
-    if (file.size > maxSize) {
-      toast("Recommended max size: 10MB");
+    const recommendedMaxSize = 10 * 1024 * 1024; // 10MB recommended
+    const hardMaxSize = 50 * 1024 * 1024; // 50MB hard limit
+
+    if (file.size > hardMaxSize) {
+      toast("File too large. Max allowed size is 50MB");
       if (roomBackgroundInputRef.current) {
         roomBackgroundInputRef.current.value = '';
       }
       return;
+    }
+
+    if (file.size > recommendedMaxSize) {
+      toast("Recommended max size: 10MB");
     }
 
     if (fileType === 'image/gif') {
