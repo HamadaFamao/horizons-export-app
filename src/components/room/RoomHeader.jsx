@@ -9,6 +9,16 @@ const FALLBACK_AVATAR =
   "data:image/svg+xml;utf8," +
   encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128"><rect width="128" height="128" rx="64" fill="#f1f5f9"/><circle cx="64" cy="52" r="22" fill="#cbd5e1"/><path d="M24 112c8-22 28-34 40-34s32 12 40 34" fill="#cbd5e1"/></svg>`);
 
+const SHIMMER_STYLE = `
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+  .animate-shimmer {
+    animation: shimmer 2s infinite;
+  }
+`;
+
 function RoomCardModal({ room, hostUser, onClose, openUserCard }) {
   const roomId = room?.public_room_id
     ? `#${room.public_room_id}`
@@ -40,7 +50,7 @@ function RoomCardModal({ room, hostUser, onClose, openUserCard }) {
         className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity"
         onClick={onClose}
       />
-      <div className="relative w-full max-w-sm bg-white/95 backdrop-blur-xl rounded-[2rem] shadow-[0_0_50px_-12px_rgba(0,0,0,0.3)] border border-white/40 overflow-hidden max-h-[90vh] flex flex-col animate-in slide-in-from-bottom-8 sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-500 ease-out">
+      <div className="relative w-full max-w-sm bg-gradient-to-br from-white/95 via-slate-50/95 to-indigo-50/95 backdrop-blur-xl rounded-[2rem] shadow-[0_0_50px_-12px_rgba(0,0,0,0.4)] border border-white/60 overflow-hidden max-h-[90vh] flex flex-col animate-in slide-in-from-bottom-8 sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-500 ease-out">
         {/* Header image / Close */}
         <div className="flex justify-end p-4 absolute top-0 right-0 z-10">
           <button
@@ -55,8 +65,8 @@ function RoomCardModal({ room, hostUser, onClose, openUserCard }) {
         <div className="px-6 pt-8 pb-6 overflow-y-auto hide-scrollbar">
           <div className="flex flex-col items-center text-center gap-3 mb-6">
             <div className="relative group">
-              <div className="absolute inset-0 bg-indigo-500 rounded-3xl blur-xl opacity-20 group-hover:opacity-40 transition-opacity duration-500"></div>
-              <div className="w-24 h-24 rounded-3xl border-4 border-white shadow-xl overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200 shrink-0 relative z-10 transform group-hover:scale-105 transition-transform duration-500">
+              <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-3xl blur-xl opacity-30 group-hover:opacity-60 transition-opacity duration-500 animate-pulse"></div>
+              <div className="w-24 h-24 rounded-3xl border-[4px] border-white/80 shadow-[0_0_25px_rgba(0,0,0,0.15)] overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200 shrink-0 relative z-10 transform group-hover:scale-110 transition-transform duration-500">
                 {room?.avatar_url ? (
                   <img
                     src={room.avatar_url}
@@ -81,24 +91,26 @@ function RoomCardModal({ room, hostUser, onClose, openUserCard }) {
           {/* Stats */}
           <div className="grid grid-cols-2 gap-3 mb-6">
             {roomLevel !== null && (
-              <div className="bg-gradient-to-br from-amber-50 via-yellow-50/50 to-orange-50 border border-amber-200/50 rounded-2xl p-4 flex flex-col items-center justify-center gap-1 shadow-sm hover:shadow-[0_4px_20px_-5px_rgba(251,191,36,0.3)] hover:-translate-y-1 transition-all duration-300">
-                <Star className="w-6 h-6 text-amber-500 drop-shadow-sm" fill="currentColor" />
-                <div className="text-[11px] text-amber-700/80 font-bold uppercase tracking-wider mt-1">Room Level</div>
-                <div className="text-xl font-black text-amber-900">{roomLevel}</div>
+              <div className="bg-gradient-to-br from-amber-100 via-yellow-50 to-orange-100 border border-amber-300/50 rounded-2xl p-4 flex flex-col items-center justify-center gap-1 shadow-[0_4px_15px_-5px_rgba(251,191,36,0.4)] hover:shadow-[0_8px_25px_-5px_rgba(251,191,36,0.6)] hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent -translate-x-full group-hover:animate-shimmer"></div>
+                <Star className="w-7 h-7 text-amber-500 drop-shadow-md group-hover:scale-110 transition-transform" fill="currentColor" />
+                <div className="text-[11px] text-amber-800 font-extrabold uppercase tracking-wider mt-1">Room Level</div>
+                <div className="text-2xl font-black text-amber-900 drop-shadow-sm">{roomLevel}</div>
               </div>
             )}
-            <div className={`border rounded-2xl p-4 flex flex-col items-center justify-center gap-1 shadow-sm hover:-translate-y-1 transition-all duration-300 ${room?.is_locked ? 'bg-gradient-to-br from-slate-50 to-slate-100 border-slate-200/50 hover:shadow-md' : 'bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200/50 hover:shadow-[0_4px_20px_-5px_rgba(16,185,129,0.2)]'}`}>
+            <div className={`border rounded-2xl p-4 flex flex-col items-center justify-center gap-1 shadow-sm hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group ${room?.is_locked ? 'bg-gradient-to-br from-slate-100 to-slate-200 border-slate-300/50 hover:shadow-md' : 'bg-gradient-to-br from-emerald-100 to-teal-50 border-emerald-300/50 hover:shadow-[0_8px_25px_-5px_rgba(16,185,129,0.4)]'}`}>
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent -translate-x-full group-hover:animate-shimmer"></div>
               {room?.is_locked ? (
                 <>
-                  <Lock className="w-6 h-6 text-slate-500 drop-shadow-sm" />
-                  <div className="text-[11px] text-slate-500 font-bold uppercase tracking-wider mt-1">Status</div>
-                  <div className="text-xl font-black text-slate-700">Locked</div>
+                  <Lock className="w-7 h-7 text-slate-600 drop-shadow-md group-hover:scale-110 transition-transform" />
+                  <div className="text-[11px] text-slate-600 font-extrabold uppercase tracking-wider mt-1">Status</div>
+                  <div className="text-2xl font-black text-slate-800 drop-shadow-sm">Locked</div>
                 </>
               ) : (
                 <>
-                  <Unlock className="w-6 h-6 text-emerald-500 drop-shadow-sm" />
-                  <div className="text-[11px] text-emerald-700/80 font-bold uppercase tracking-wider mt-1">Status</div>
-                  <div className="text-xl font-black text-emerald-900">Open</div>
+                  <Unlock className="w-7 h-7 text-emerald-500 drop-shadow-md group-hover:scale-110 transition-transform" />
+                  <div className="text-[11px] text-emerald-800 font-extrabold uppercase tracking-wider mt-1">Status</div>
+                  <div className="text-2xl font-black text-emerald-900 drop-shadow-sm">Open</div>
                 </>
               )}
             </div>
@@ -110,7 +122,7 @@ function RoomCardModal({ room, hostUser, onClose, openUserCard }) {
               <div className="text-[11px] text-slate-400 font-bold uppercase tracking-wider px-1">Room Host</div>
               <button
                 onClick={() => { openUserCard(room.owner_user_id); onClose(); }}
-                className="w-full flex items-center gap-4 p-3 rounded-2xl border border-slate-100 bg-gradient-to-r from-slate-50 to-white hover:from-indigo-50 hover:to-white hover:border-indigo-200 hover:shadow-[0_4px_20px_-5px_rgba(99,102,241,0.2)] transition-all duration-300 group text-left"
+                className="w-full flex items-center gap-4 p-3 rounded-2xl border border-indigo-100/50 bg-gradient-to-r from-indigo-50/50 via-white to-purple-50/50 hover:from-indigo-100 hover:to-purple-100 hover:border-indigo-300/50 hover:shadow-[0_8px_25px_-5px_rgba(99,102,241,0.25)] transition-all duration-300 group text-left"
               >
                 <div className="w-12 h-12 rounded-full bg-slate-200 overflow-hidden shrink-0 border-2 border-white shadow-sm group-hover:shadow-[0_0_15px_rgba(99,102,241,0.4)] transition-all duration-300 group-hover:scale-105">
                   {hostUser?.avatar_url ? (
@@ -132,8 +144,9 @@ function RoomCardModal({ room, hostUser, onClose, openUserCard }) {
                   </div>
                   <div className="text-xs text-slate-500 truncate">View Profile</div>
                 </div>
-                <div className="shrink-0 bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold shadow-sm group-hover:bg-indigo-500 group-hover:text-white transition-colors">
-                  HOST
+                <div className="shrink-0 bg-gradient-to-r from-yellow-400 via-amber-500 to-yellow-600 text-white px-4 py-1.5 rounded-full text-xs font-extrabold shadow-[0_0_15px_rgba(251,191,36,0.6)] border border-yellow-300/50 group-hover:shadow-[0_0_25px_rgba(251,191,36,0.8)] group-hover:scale-105 transition-all duration-300 relative overflow-hidden">
+                  <span className="relative z-10 drop-shadow-md tracking-wider">HOST</span>
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent -translate-x-full animate-shimmer"></div>
                 </div>
               </button>
             </div>
@@ -171,6 +184,7 @@ export default function RoomHeader({
 
   return (
     <>
+      <style>{SHIMMER_STYLE}</style>
       {showRoomCard && (
         <RoomCardModal
           room={room}
@@ -255,23 +269,38 @@ export default function RoomHeader({
         />
 
         {canModerate ? (
-          <MicRequestsButton
-            count={pendingRequests.length}
-            onClick={() => setRequestsOpen((prev) => !prev)}
-          />
+          <div className="relative shrink-0 transform scale-[0.85] group flex items-center justify-center">
+            <div className="absolute inset-0 bg-blue-400/40 blur-md rounded-full group-hover:bg-blue-400/60 transition-all duration-300 animate-pulse"></div>
+            <div className="relative z-10">
+              <MicRequestsButton
+                count={pendingRequests.length}
+                onClick={() => setRequestsOpen((prev) => !prev)}
+              />
+            </div>
+          </div>
         ) : null}
 
         {canModerate && (!pkSession || pkSession.status !== "live") ? (
-          <PkButton onClick={() => setShowPkModal(true)} disabled={pkBusy} />
+          <div className="relative shrink-0 group flex items-center justify-center">
+            <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 blur-md opacity-70 group-hover:opacity-100 transition-opacity duration-300 rounded-xl animate-pulse"></div>
+            <div className="relative z-10 transform group-hover:scale-105 transition-transform duration-300">
+              <PkButton 
+                onClick={() => setShowPkModal(true)} 
+                disabled={pkBusy} 
+                className="!bg-gradient-to-r !from-indigo-900 !via-purple-900 !to-fuchsia-900 !text-white !border-0 !shadow-[0_0_20px_rgba(192,38,211,0.5)]"
+              />
+            </div>
+          </div>
         ) : null}
 
         <Button
           variant="outline"
-          className="shrink-0 h-10 w-10 rounded-xl bg-gradient-to-br from-yellow-50 to-amber-50 border border-yellow-200/60 text-yellow-700 hover:from-yellow-100 hover:to-amber-100 hover:shadow-[0_0_15px_rgba(251,191,36,0.3)] transition-all duration-300 hover:scale-105 p-0 flex items-center justify-center group"
+          className="relative shrink-0 h-10 w-10 rounded-xl bg-gradient-to-br from-yellow-200 via-amber-300 to-yellow-500 border border-yellow-400 text-yellow-900 shadow-[0_0_15px_rgba(251,191,36,0.6)] hover:shadow-[0_0_25px_rgba(251,191,36,0.8)] transition-all duration-300 hover:scale-110 p-0 flex items-center justify-center group overflow-hidden"
           onClick={() => setShowLeaderboard(true)}
           title="Leaderboard"
         >
-          <span className="text-lg group-hover:animate-bounce">🏆</span>
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/60 to-transparent -translate-x-full animate-shimmer"></div>
+          <span className="text-xl relative z-10 group-hover:animate-bounce drop-shadow-md">🏆</span>
         </Button>
 
         {canModerate ? (
