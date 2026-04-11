@@ -309,6 +309,7 @@ export default function LiveRoomPage() {
   const audioUnlockedRef = useRef(false);
   const roomAvatarInputRef = useRef(null);
   const roomBackgroundInputRef = useRef(null);
+  const roomBackgroundVipInputRef = useRef(null);
 
   const miniRoomActiveRef = useRef(false);
   const livekitRoomRef = useRef(null);
@@ -3898,6 +3899,110 @@ console.log("MODERATORS MAP:", nextMap);
     }
   };
 
+  const handleRoomBackgroundVipUpload = async (e) => {
+    if (!isOwner) {
+      toast("Only room owners can change the room background.");
+      return;
+    }
+
+    if (!isVipActive(currentUserProfile)) {
+      toast("VIP only feature", 1400);
+      if (roomBackgroundVipInputRef.current) {
+        roomBackgroundVipInputRef.current.value = '';
+      }
+      return;
+    }
+
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const recommendedMaxSize = 10 * 1024 * 1024; // 10MB recommended
+    const hardMaxSize = 50 * 1024 * 1024; // 50MB hard limit
+
+    if (file.size > hardMaxSize) {
+      toast("File too large. Max allowed size is 50MB");
+      if (roomBackgroundVipInputRef.current) {
+        roomBackgroundVipInputRef.current.value = '';
+      }
+      return;
+    }
+
+    if (file.size > recommendedMaxSize) {
+      toast("Recommended max size: 10MB");
+    }
+
+    setRoomBackgroundUploading(true);
+
+    try {
+      const targetRoomId = room?.id;
+      const currentUserId = user?.id;
+      if (!targetRoomId) {
+        throw new Error('Room not found');
+      }
+      if (!currentUserId) {
+        throw new Error('User not found');
+      }
+
+      const ext = getExt(file);
+      const filePath = `${targetRoomId}/${currentUserId}/background.${ext}`;
+
+      console.log('[ROOM_BACKGROUND_VIP_UPLOAD] Starting upload', { roomId: targetRoomId, filePath, fileName: file.name });
+
+      const { error: uploadError } = await supabase.storage
+        .from('room_backgrounds')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true,
+          contentType: file.type,
+        });
+
+      if (uploadError) {
+        console.error('[ROOM_BACKGROUND_VIP_UPLOAD] Upload error:', uploadError);
+        if (uploadError.message?.includes('not found') || uploadError.message?.includes('does not exist')) {
+          throw new Error('Storage bucket "room_backgrounds" does not exist. Please create it in your Supabase dashboard or via create-buckets.sh.');
+        }
+        throw new Error(`Upload failed: ${uploadError.message}`);
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from('room_backgrounds')
+        .getPublicUrl(filePath);
+
+      const newUrl = publicUrlData?.publicUrl;
+      if (!newUrl) {
+        throw new Error('Failed to obtain public background URL');
+      }
+
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError || !authData?.user?.id) {
+        throw new Error('Authentication error: ' + (authError?.message || 'Not authenticated'));
+      }
+      const authUserId = authData.user.id;
+
+      const { error: updateError } = await supabase
+        .from('live_rooms')
+        .update({ background_url: newUrl })
+        .eq('id', targetRoomId)
+        .eq('owner_user_id', authUserId);
+
+      if (updateError) {
+        console.error('[ROOM_BACKGROUND_VIP_UPLOAD] Update error:', updateError);
+        throw updateError;
+      }
+
+      setRoom(prev => prev ? { ...prev, background_url: newUrl } : prev);
+      toast("Room background updated successfully!");
+    } catch (error) {
+      console.error('[ROOM_BACKGROUND_VIP_UPLOAD] Error:', error);
+      toast(`Failed to upload room background: ${error.message}`);
+    } finally {
+      setRoomBackgroundUploading(false);
+      if (roomBackgroundVipInputRef.current) {
+        roomBackgroundVipInputRef.current.value = '';
+      }
+    }
+  };
+
   const openBansTab = async () => {
     setSettingsTab("bans");
     const list = await fetchBans();
@@ -6731,6 +6836,8 @@ useEffect(() => {
         roomAvatarUploading={roomAvatarUploading}
         roomBackgroundInputRef={roomBackgroundInputRef}
         handleRoomBackgroundUpload={handleRoomBackgroundUpload}
+        roomBackgroundVipInputRef={roomBackgroundVipInputRef}
+        handleRoomBackgroundVipUpload={handleRoomBackgroundVipUpload}
         roomBackgroundUploading={roomBackgroundUploading}
         loadingBans={loadingBans}
         bannedList={bannedList}

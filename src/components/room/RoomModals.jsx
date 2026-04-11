@@ -74,6 +74,8 @@ export default function RoomModals({
   roomAvatarUploading,
   roomBackgroundInputRef,
   handleRoomBackgroundUpload,
+  roomBackgroundVipInputRef,
+  handleRoomBackgroundVipUpload,
   roomBackgroundUploading,
   loadingBans,
   bannedList,
@@ -783,6 +785,35 @@ export default function RoomModals({
                               {!canUseGallery ? <span className="text-sm">🔒</span> : null}
                             </span>
                           </button>
+                        </div>
+
+                        <div className="mt-2">
+                          <label className={`flex items-center justify-center w-full p-3 border-2 border-dashed rounded-xl transition cursor-pointer group ${
+                            !isOwner || !isVIP ? 'border-amber-200 bg-amber-50 text-amber-300 cursor-not-allowed opacity-80' : 'border-amber-400 bg-amber-50 hover:border-amber-500 hover:bg-amber-100'
+                          }`}>
+                            <input
+                              ref={roomBackgroundVipInputRef}
+                              type="file"
+                              accept="image/*,video/mp4,video/webm"
+                              onChange={handleRoomBackgroundVipUpload}
+                              disabled={roomBackgroundUploading || !isOwner || !isVIP}
+                              className="hidden"
+                            />
+                            {roomBackgroundUploading ? (
+                              <Loader2 className="w-5 h-5 text-amber-600 animate-spin mr-2" />
+                            ) : (
+                              <ImageIcon className={`w-5 h-5 mr-2 transition ${
+                                !isOwner || !isVIP ? 'text-amber-300' : 'text-amber-600 group-hover:text-amber-700'
+                              }`} />
+                            )}
+                            <span className={`text-sm font-medium transition ${
+                              !isOwner || !isVIP ? 'text-amber-400' : 'text-amber-700 group-hover:text-amber-800'
+                            }`}>
+                              VIP Upload
+                            </span>
+                            <span className="ml-2 inline-flex items-center rounded-full bg-amber-200 px-2 py-0.5 text-[10px] font-semibold text-amber-800">👑</span>
+                            {!isVIP ? <span className="ml-2 text-sm">🔒</span> : null}
+                          </label>
                         </div>
 
                         <div className="mt-2 flex flex-wrap items-center gap-2">
