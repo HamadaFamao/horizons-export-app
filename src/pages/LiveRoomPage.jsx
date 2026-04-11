@@ -3856,10 +3856,14 @@ console.log("MODERATORS MAP:", nextMap);
       }
 
       // Pure background update flow: update current room only, never create/insert.
-      const { error: updateError } = await supabase
-        .from('live_rooms')
-        .update({ background_url: newUrl })
-        .eq('id', targetRoomId);
+      const { data: authData } = await supabase.auth.getUser();
+const authUserId = authData?.user?.id;
+
+const { error: updateError } = await supabase
+  .from('live_rooms')
+  .update({ background_url: backgroundUrl })
+  .eq('id', targetRoomId)
+  .eq('owner_user_id', authUserId);
 
       if (updateError) {
         console.error('[ROOM_BACKGROUND_UPLOAD] Update error:', updateError);
