@@ -3865,29 +3865,22 @@ console.log("MODERATORS MAP:", nextMap);
         .from('room_backgrounds')
         .getPublicUrl(path);
 
-      const backgroundUrl = publicUrlData?.publicUrl;
-      if (!backgroundUrl) {
+      const newUrl = publicUrlData?.publicUrl;
+      if (!newUrl) {
         throw new Error('Failed to obtain public background URL');
       }
 
-      const { data: authData, error: authError } = await supabase.auth.getUser();
-      if (authError || !authData.user) {
-        throw new Error('Authentication error: ' + authError?.message);
-      }
-
-      const authUserId = authData.user.id;
       const { error: updateError } = await supabase
         .from('live_rooms')
-        .update({ background_url: backgroundUrl })
-        .eq('id', targetRoomId)
-        .eq('owner_user_id', authUserId);
+        .update({ background_url: newUrl })
+        .eq('id', room.id);
 
       if (updateError) {
         console.error('[ROOM_BACKGROUND_UPLOAD] Update error:', updateError);
         throw updateError;
       }
 
-      setRoom(prev => prev ? { ...prev, background_url: backgroundUrl } : prev);
+      setRoom(prev => prev ? { ...prev, background_url: newUrl } : prev);
       toast("Room background updated successfully!");
     } catch (error) {
       console.error('[ROOM_BACKGROUND_UPLOAD] Error:', error);
