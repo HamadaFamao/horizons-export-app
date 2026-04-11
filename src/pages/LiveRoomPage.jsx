@@ -3819,10 +3819,15 @@ console.log("MODERATORS MAP:", nextMap);
     setRoomBackgroundUploading(true);
 
     try {
-      const ext = getExt(file);
-      const path = `${roomId}/background.${ext}`;
+      const targetRoomId = room?.id;
+      if (!targetRoomId) {
+        throw new Error('Room not found');
+      }
 
-      console.log('[ROOM_BACKGROUND_UPLOAD] Starting upload', { roomId, path, fileName: file.name });
+      const ext = getExt(file);
+      const path = `${targetRoomId}/background.${ext}`;
+
+      console.log('[ROOM_BACKGROUND_UPLOAD] Starting upload', { roomId: targetRoomId, path, fileName: file.name });
 
       const { error: uploadError } = await supabase.storage
         .from('room_backgrounds')
@@ -3858,7 +3863,7 @@ console.log("MODERATORS MAP:", nextMap);
       const { error: updateError } = await supabase
         .from('live_rooms')
         .update({ background_url: backgroundUrl })
-        .eq('id', roomId)
+        .eq('id', targetRoomId)
         .eq('owner_user_id', authUserId);
 
       if (updateError) {
