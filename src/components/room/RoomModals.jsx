@@ -67,6 +67,8 @@ export default function RoomModals({
   openBansTab,
   room,
   isOwner,
+  isVIP,
+  hasAnimatedBackgroundAccess,
   roomAvatarInputRef,
   handleRoomAvatarUpload,
   roomAvatarUploading,
@@ -180,8 +182,16 @@ export default function RoomModals({
 
   const isVideoBackground = (url) => /\.(mp4|webm)(\?|#|$)/i.test(String(url || ""));
   const previewBackgroundUrl = selectedBackgroundPreset?.url || room?.background_url;
-  const isVIP = user?.vip_active;
-  const hasCoinsFeature = user?.features?.background_video === true;
+  const canUseGallery = Boolean(isVIP);
+  const hasCoinsFeature = Boolean(hasAnimatedBackgroundAccess);
+
+  React.useEffect(() => {
+    console.log("[ROOM_BACKGROUND_ACCESS]", {
+      isVIP: Boolean(isVIP),
+      hasAnimatedBackgroundAccess: Boolean(hasAnimatedBackgroundAccess),
+      canUseGallery,
+    });
+  }, [isVIP, hasAnimatedBackgroundAccess, canUseGallery]);
 
   React.useEffect(() => {
     setRoomBackgroundPreviewFailed(false);
@@ -732,7 +742,7 @@ export default function RoomModals({
                             <input
                               ref={roomBackgroundInputRef}
                               type="file"
-                              accept="image/*,video/mp4,video/webm"
+                              accept="image/png,image/jpeg,image/jpg,image/webp,image/avif"
                               onChange={handleRoomBackgroundUpload}
                               disabled={roomBackgroundUploading || !isOwner}
                               className="hidden"
@@ -754,12 +764,12 @@ export default function RoomModals({
                           <button
                             type="button"
                             className={`w-full p-3 border rounded-xl text-sm font-medium transition ${
-                              !isOwner || !isVIP
+                              !isOwner || !canUseGallery
                                 ? 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed opacity-70'
                                 : 'border-slate-300 text-slate-700 hover:bg-slate-50'
                             }`}
                             onClick={() => {
-                              if (!isVIP) {
+                              if (!canUseGallery) {
                                 toast("Upgrade to VIP or use coins to unlock this feature", 1400);
                                 return;
                               }
@@ -770,14 +780,14 @@ export default function RoomModals({
                             <span className="inline-flex items-center gap-1.5">
                               Choose from gallery
                               <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">VIP 👑</span>
-                              {!isVIP ? <span className="text-sm">🔒</span> : null}
+                              {!canUseGallery ? <span className="text-sm">🔒</span> : null}
                             </span>
                           </button>
                         </div>
 
                         <div className="mt-2 flex flex-wrap items-center gap-2">
                           <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
-                            Free (PNG only)
+                            Free (PNG/JPG/WEBP/AVIF)
                           </span>
                           <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
                             Coins feature 💰
@@ -824,7 +834,7 @@ export default function RoomModals({
                             <button
                               type="button"
                               onClick={applyBackgroundPreset}
-                              disabled={!selectedBackgroundPreset || applyingBackgroundPreset || !isOwner || !isVIP}
+                              disabled={!selectedBackgroundPreset || applyingBackgroundPreset || !isOwner || !canUseGallery}
                               className="mt-3 w-full py-2 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               {applyingBackgroundPreset ? "Saving..." : "Use this background"}

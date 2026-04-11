@@ -3788,49 +3788,29 @@ console.log("MODERATORS MAP:", nextMap);
     if (!file) return;
 
     const fileType = String(file.type || '').toLowerCase();
-    const isVIP = user?.vip_active;
-    const hasCoinsFeature = user?.features?.background_video === true;
-    const isGif = file.type === "image/gif";
-    const isVideo = file.type.startsWith("video/");
-    const isImage = file.type.startsWith("image/");
+    const isVIP = isVipActive(user);
+    const hasAnimatedBackgroundAccess = user?.features?.background_video === true;
+    const canUsePremiumMedia = isVIP || hasAnimatedBackgroundAccess;
+    const isGif = fileType === "image/gif";
+    const isMp4 = fileType === "video/mp4";
+    const isWebm = fileType === "video/webm";
+    const isVideo = fileType.startsWith("video/");
+    const isStaticImage = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/avif"].includes(fileType);
 
-    if (!isImage && !isVideo) {
-      toast("Unsupported file type. Please upload PNG, JPG, GIF, or MP4.");
+    if (!isStaticImage && !isGif && !isMp4 && !isWebm) {
+      toast("Unsupported file type. Please upload PNG, JPG, WEBP, AVIF, GIF, MP4, or WebM.");
       if (roomBackgroundInputRef.current) {
         roomBackgroundInputRef.current.value = '';
       }
       return;
     }
 
-    if (!isVIP) {
-      if (isGif || isVideo) {
-        if (!hasCoinsFeature) {
-          toast("Upgrade to VIP or use coins to unlock this feature");
-          if (roomBackgroundInputRef.current) {
-            roomBackgroundInputRef.current.value = '';
-          }
-          return;
-        }
+    if ((isGif || isMp4 || isWebm || isVideo) && !canUsePremiumMedia) {
+      toast("Upgrade to VIP or use coins to unlock this feature");
+      if (roomBackgroundInputRef.current) {
+        roomBackgroundInputRef.current.value = '';
       }
-
-      if (!hasCoinsFeature) {
-        const isFreeImageType = fileType === "image/png" || fileType === "image/jpeg" || fileType === "image/jpg";
-        if (!isFreeImageType) {
-          toast("Free users can upload PNG/JPG only");
-          if (roomBackgroundInputRef.current) {
-            roomBackgroundInputRef.current.value = '';
-          }
-          return;
-        }
-      }
-
-      if (isVideo && fileType !== "video/mp4") {
-        toast("Coins feature supports MP4 video upload");
-        if (roomBackgroundInputRef.current) {
-          roomBackgroundInputRef.current.value = '';
-        }
-        return;
-      }
+      return;
     }
 
     const recommendedMaxSize = 10 * 1024 * 1024; // 10MB recommended
@@ -6709,6 +6689,8 @@ useEffect(() => {
       </div>
       
       <RoomModals
+        isVIP={isVipActive(user)}
+        hasAnimatedBackgroundAccess={user?.features?.background_video === true}
         handleResetMicGiftCounters={handleResetMicGiftCounters}
         handleClearChat={handleClearChat}
         onLockRoom={handleLockRoom}
