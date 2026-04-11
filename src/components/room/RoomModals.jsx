@@ -17,6 +17,13 @@ const FALLBACK_AVATAR =
     <path d="M24 112c8-22 28-34 40-34s32 12 40 34" fill="#cbd5e1"/>
   </svg>`);
 
+const ROOM_BACKGROUND_PRESETS = [
+  { id: "romantic", type: "video", url: "/room-backgrounds/romantic.mp4", label: "Romantic" },
+  { id: "vip", type: "video", url: "/room-backgrounds/vip.mp4", label: "VIP" },
+  { id: "stars", type: "image", url: "/room-backgrounds/stars.jpg", label: "Stars" },
+  { id: "soft", type: "image", url: "/room-backgrounds/soft.jpg", label: "Soft" },
+];
+
 export default function RoomModals({
   // PeopleInRoomModal
   showPeople,
@@ -167,12 +174,40 @@ export default function RoomModals({
   const [moderatorsList, setModeratorsList] = React.useState([]);
   const [moderatorsLoading, setModeratorsLoading] = React.useState(false);
   const [roomBackgroundPreviewFailed, setRoomBackgroundPreviewFailed] = React.useState(false);
+  const [showBackgroundGallery, setShowBackgroundGallery] = React.useState(false);
+  const [selectedBackgroundPreset, setSelectedBackgroundPreset] = React.useState(null);
+  const [applyingBackgroundPreset, setApplyingBackgroundPreset] = React.useState(false);
 
   const isVideoBackground = (url) => /\.(mp4|webm)(\?|#|$)/i.test(String(url || ""));
+  const previewBackgroundUrl = selectedBackgroundPreset?.url || room?.background_url;
 
   React.useEffect(() => {
     setRoomBackgroundPreviewFailed(false);
-  }, [room?.background_url]);
+  }, [previewBackgroundUrl]);
+
+  const applyBackgroundPreset = async () => {
+    if (!isOwner || !room?.id || !selectedBackgroundPreset?.url) return;
+
+    setApplyingBackgroundPreset(true);
+    try {
+      const newUrl = selectedBackgroundPreset.url;
+      const { error } = await supabase
+        .from("live_rooms")
+        .update({ background_url: newUrl })
+        .eq("id", room.id);
+
+      if (error) throw error;
+
+      setRoom((prev) => (prev ? { ...prev, background_url: newUrl } : prev));
+      setSelectedBackgroundPreset(null);
+      setShowBackgroundGallery(false);
+      toast("Room background updated successfully!");
+    } catch (e) {
+      toast(e?.message || "Failed to update room background", 1400);
+    } finally {
+      setApplyingBackgroundPreset(false);
+    }
+  };
 
   const fetchModerators = async () => {
     if (!isOwner || !room?.id) {
@@ -643,10 +678,10 @@ export default function RoomModals({
 
                       <div className="mt-3 flex items-center gap-3">
                         <div className="w-20 h-20 rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
-                            {room?.background_url && !roomBackgroundPreviewFailed ? (
-                              isVideoBackground(room?.background_url) ? (
+                            {previewBackgroundUrl && !roomBackgroundPreviewFailed ? (
+                              isVideoBackground(previewBackgroundUrl) ? (
                                 <video
-                                  src={room.background_url}
+                                  src={previewBackgroundUrl}
                                   className="w-full h-full object-cover"
                                   autoPlay
                                   loop
@@ -659,10 +694,10 @@ export default function RoomModals({
                                 <>
                                   <div
                                     className="w-full h-full bg-cover bg-center"
-                                    style={{ backgroundImage: `url(${room.background_url})` }}
+                                    style={{ backgroundImage: `url(${previewBackgroundUrl})` }}
                                   />
                                   <img
-                                    src={room.background_url}
+                                    src={previewBackgroundUrl}
                                     alt=""
                                     className="hidden"
                                     onError={() => setRoomBackgroundPreviewFailed(true)}
@@ -678,36 +713,99 @@ export default function RoomModals({
                         <div className="flex-1">
                           <div className="text-sm text-slate-700">Current room background</div>
                           <div className="text-xs text-slate-500 mt-1">
-                            {room?.background_url && !roomBackgroundPreviewFailed ? 'Click upload to replace' : 'No background set'}
+                            {previewBackgroundUrl && !roomBackgroundPreviewFailed ? 'Click upload to replace' : 'No background set'}
                           </div>
                         </div>
                       </div>
 
                       <div className="mt-4">
-                        <label className={`flex items-center justify-center w-full p-3 border-2 border-dashed rounded-xl transition cursor-pointer group ${
-                          !isOwner ? 'border-slate-200 bg-slate-50 cursor-not-allowed' : 'border-slate-300 hover:border-blue-500 hover:bg-blue-50'
-                        }`}>
-                          <input
-                            ref={roomBackgroundInputRef}
-                            type="file"
-                            accept="image/*,video/mp4,video/webm"
-                            onChange={handleRoomBackgroundUpload}
-                            disabled={roomBackgroundUploading || !isOwner}
-                            className="hidden"
-                          />
-                          {roomBackgroundUploading ? (
-                            <Loader2 className="w-5 h-5 text-blue-500 animate-spin mr-2" />
-                          ) : (
-                            <ImageIcon className={`w-5 h-5 mr-2 transition ${
-                              !isOwner ? 'text-slate-300' : 'text-slate-400 group-hover:text-blue-500'
-                            }`} />
-                          )}
-                          <span className={`text-sm font-medium transition ${
-                            !isOwner ? 'text-slate-400' : 'text-slate-600 group-hover:text-blue-600'
+                        <div className="grid grid-cols-2 gap-2">
+                          <label className={`flex items-center justify-center w-full p-3 border-2 border-dashed rounded-xl transition cursor-pointer group ${
+                            !isOwner ? 'border-slate-200 bg-slate-50 cursor-not-allowed' : 'border-slate-300 hover:border-blue-500 hover:bg-blue-50'
                           }`}>
-                            {roomBackgroundUploading ? 'Uploading...' : !isOwner ? 'Only owners can upload' : 'Upload background'}
-                          </span>
-                        </label>
+                            <input
+                              ref={roomBackgroundInputRef}
+                              type="file"
+                              accept="image/*,video/mp4,video/webm"
+                              onChange={handleRoomBackgroundUpload}
+                              disabled={roomBackgroundUploading || !isOwner}
+                              className="hidden"
+                            />
+                            {roomBackgroundUploading ? (
+                              <Loader2 className="w-5 h-5 text-blue-500 animate-spin mr-2" />
+                            ) : (
+                              <ImageIcon className={`w-5 h-5 mr-2 transition ${
+                                !isOwner ? 'text-slate-300' : 'text-slate-400 group-hover:text-blue-500'
+                              }`} />
+                            )}
+                            <span className={`text-sm font-medium transition ${
+                              !isOwner ? 'text-slate-400' : 'text-slate-600 group-hover:text-blue-600'
+                            }`}>
+                              {roomBackgroundUploading ? 'Uploading...' : !isOwner ? 'Only owners can upload' : 'Upload background'}
+                            </span>
+                          </label>
+
+                          <button
+                            type="button"
+                            className={`w-full p-3 border rounded-xl text-sm font-medium transition ${
+                              !isOwner
+                                ? 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'
+                                : 'border-slate-300 text-slate-700 hover:bg-slate-50'
+                            }`}
+                            onClick={() => setShowBackgroundGallery((v) => !v)}
+                            disabled={!isOwner || roomBackgroundUploading || applyingBackgroundPreset}
+                          >
+                            Choose from gallery
+                          </button>
+                        </div>
+
+                        {showBackgroundGallery ? (
+                          <div className="mt-3 p-3 border rounded-xl bg-slate-50/70">
+                            <div className="grid grid-cols-2 gap-2">
+                              {ROOM_BACKGROUND_PRESETS.map((preset) => {
+                                const selected = selectedBackgroundPreset?.id === preset.id;
+                                return (
+                                  <button
+                                    key={preset.id}
+                                    type="button"
+                                    onClick={() => setSelectedBackgroundPreset(preset)}
+                                    className={`text-left border rounded-lg overflow-hidden bg-white transition ${selected ? 'border-slate-900 shadow-sm' : 'border-slate-200 hover:border-slate-300'}`}
+                                  >
+                                    <div className="h-16 bg-slate-100">
+                                      {preset.type === "video" ? (
+                                        <video
+                                          src={preset.url}
+                                          className="w-full h-full object-cover"
+                                          autoPlay
+                                          loop
+                                          muted
+                                          playsInline
+                                          preload="metadata"
+                                        />
+                                      ) : (
+                                        <div
+                                          className="w-full h-full bg-cover bg-center"
+                                          style={{ backgroundImage: `url(${preset.url})` }}
+                                        />
+                                      )}
+                                    </div>
+                                    <div className="px-2 py-1.5 text-xs font-medium text-slate-700 truncate">{preset.label}</div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={applyBackgroundPreset}
+                              disabled={!selectedBackgroundPreset || applyingBackgroundPreset || !isOwner}
+                              className="mt-3 w-full py-2 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {applyingBackgroundPreset ? "Saving..." : "Use this background"}
+                            </button>
+                          </div>
+                        ) : null}
+
                         <div className="text-xs text-slate-500 mt-2">
                           Supported: all image formats including GIF
                         </div>
