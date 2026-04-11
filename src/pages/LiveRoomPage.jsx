@@ -3776,10 +3776,17 @@ console.log("MODERATORS MAP:", nextMap);
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const maxSize = 50 * 1024 * 1024; // 50MB
+    const maxSize = 10 * 1024 * 1024; // 10MB recommended
     if (file.size > maxSize) {
-      toast("File size must be less than 50MB.");
+      toast("File too large (max 10MB recommended)");
+      if (roomBackgroundInputRef.current) {
+        roomBackgroundInputRef.current.value = '';
+      }
       return;
+    }
+
+    if ((file.type || '').toLowerCase() === 'image/gif') {
+      toast("GIF backgrounds may be heavy. Consider using MP4 for better performance");
     }
 
     setRoomBackgroundUploading(true);

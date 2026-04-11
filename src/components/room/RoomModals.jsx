@@ -166,6 +166,13 @@ export default function RoomModals({
   const [lockPin, setLockPin] = React.useState("");
   const [moderatorsList, setModeratorsList] = React.useState([]);
   const [moderatorsLoading, setModeratorsLoading] = React.useState(false);
+  const [roomBackgroundPreviewFailed, setRoomBackgroundPreviewFailed] = React.useState(false);
+
+  const isVideoBackground = (url) => /\.(mp4|webm)(\?|#|$)/i.test(String(url || ""));
+
+  React.useEffect(() => {
+    setRoomBackgroundPreviewFailed(false);
+  }, [room?.background_url]);
 
   const fetchModerators = async () => {
     if (!isOwner || !room?.id) {
@@ -636,12 +643,32 @@ export default function RoomModals({
 
                       <div className="mt-3 flex items-center gap-3">
                         <div className="w-20 h-20 rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
-                          {room?.background_url ? (
-                            <div
-                              className="w-full h-full bg-cover bg-center"
-                              style={{ backgroundImage: `url(${room.background_url})` }}
-                            />
-                          ) : (
+                            {room?.background_url && !roomBackgroundPreviewFailed ? (
+                              isVideoBackground(room?.background_url) ? (
+                                <video
+                                  src={room.background_url}
+                                  className="w-full h-full object-cover"
+                                  autoPlay
+                                  loop
+                                  muted
+                                  playsInline
+                                  onError={() => setRoomBackgroundPreviewFailed(true)}
+                                />
+                              ) : (
+                                <>
+                                  <div
+                                    className="w-full h-full bg-cover bg-center"
+                                    style={{ backgroundImage: `url(${room.background_url})` }}
+                                  />
+                                  <img
+                                    src={room.background_url}
+                                    alt=""
+                                    className="hidden"
+                                    onError={() => setRoomBackgroundPreviewFailed(true)}
+                                  />
+                                </>
+                              )
+                            ) : (
                             <div className="w-full h-full flex items-center justify-center text-slate-400">
                               <ImageIcon className="w-6 h-6" />
                             </div>
@@ -650,7 +677,7 @@ export default function RoomModals({
                         <div className="flex-1">
                           <div className="text-sm text-slate-700">Current room background</div>
                           <div className="text-xs text-slate-500 mt-1">
-                            {room?.background_url ? 'Click upload to replace' : 'No background set'}
+                            {room?.background_url && !roomBackgroundPreviewFailed ? 'Click upload to replace' : 'No background set'}
                           </div>
                         </div>
                       </div>
@@ -662,7 +689,7 @@ export default function RoomModals({
                           <input
                             ref={roomBackgroundInputRef}
                             type="file"
-                            accept="image/*"
+                            accept="image/*,video/mp4,video/webm"
                             onChange={handleRoomBackgroundUpload}
                             disabled={roomBackgroundUploading || !isOwner}
                             className="hidden"
@@ -682,6 +709,9 @@ export default function RoomModals({
                         </label>
                         <div className="text-xs text-slate-500 mt-2">
                           Supported: all image formats including GIF
+                        </div>
+                        <div className="text-xs text-slate-500 mt-1">
+                          Recommended: MP4 video or compressed GIF under 10MB
                         </div>
                       </div>
                     </div>
