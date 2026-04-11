@@ -847,6 +847,32 @@ export default function RoomModals({
 
                         {showBackgroundGallery ? (
                           <div className="mt-3 p-3 border rounded-xl bg-slate-50/70">
+                            <style>{`
+                              @keyframes vipGlow {
+                                0%, 100% { box-shadow: 0 0 8px rgba(251,191,36,0.4), 0 0 20px rgba(251,191,36,0.2); }
+                                50% { box-shadow: 0 0 16px rgba(251,191,36,0.8), 0 0 40px rgba(251,191,36,0.4); }
+                              }
+                              @keyframes shimmer {
+                                0% { transform: translateX(-150%) skewX(-20deg); }
+                                100% { transform: translateX(250%) skewX(-20deg); }
+                              }
+                            `}</style>
+                            <div className="mb-2 flex items-center justify-between gap-2">
+                              <div className="text-xs font-semibold text-slate-700">Background Gallery</div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const presets = isVIP ? ROOM_BACKGROUND_PRESETS : freeBackgroundPresets;
+                                  if (!presets.length) return;
+                                  const randomPreset = presets[Math.floor(Math.random() * presets.length)];
+                                  setSelectedBackgroundPreset(randomPreset);
+                                  toast("🎲 Random background selected!", 1200);
+                                }}
+                                className={`inline-flex items-center rounded-full border border-slate-300 px-2.5 py-1 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 ${isVIP ? 'hover:shadow-[0_0_12px_rgba(251,191,36,0.35)]' : ''}`}
+                              >
+                                🎲 Random
+                              </button>
+                            </div>
                             <div className="text-xs font-semibold text-slate-700 mb-2">🖼️ Free Backgrounds</div>
                             <div className="grid grid-cols-2 gap-2">
                               {freeBackgroundPresets.map((preset) => {
@@ -889,7 +915,13 @@ export default function RoomModals({
                                       }
                                       setSelectedBackgroundPreset(preset);
                                     }}
-                                    className={`text-left border rounded-lg overflow-hidden bg-white transition relative ${selected ? 'border-amber-500 shadow-sm' : 'border-amber-300 hover:border-amber-400'}`}
+                                    className={`text-left border-2 rounded-lg overflow-hidden transition relative bg-gradient-to-br from-amber-950/10 to-transparent ${selected ? 'border-amber-400' : 'border-[rgba(251,191,36,0.8)]'}`}
+                                    style={{
+                                      animation: 'vipGlow 2s ease-in-out infinite',
+                                      boxShadow: selected
+                                        ? '0 0 22px rgba(251,191,36,0.95), 0 0 54px rgba(251,191,36,0.55)'
+                                        : undefined,
+                                    }}
                                   >
                                     <div className="h-16 bg-slate-100">
                                       <video
@@ -901,11 +933,17 @@ export default function RoomModals({
                                         playsInline
                                         preload="metadata"
                                       />
+                                      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+                                        <div
+                                          className="absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/40 to-transparent"
+                                          style={{ animation: 'shimmer 2.5s infinite' }}
+                                        />
+                                      </div>
                                       {locked ? (
-                                        <div className="absolute inset-0 bg-black/55 flex items-center justify-center text-white text-xl">🔒</div>
+                                        <div className="absolute inset-0 backdrop-blur-sm bg-black/40 flex items-center justify-center text-white text-xl">🔒</div>
                                       ) : null}
                                     </div>
-                                    <div className="px-2 py-1.5 text-xs font-medium text-slate-700 truncate">{preset.label}</div>
+                                    <div className="px-2 py-1.5 text-xs font-medium text-amber-700 bg-amber-50 truncate">👑 {preset.label}</div>
                                   </button>
                                 );
                               })}

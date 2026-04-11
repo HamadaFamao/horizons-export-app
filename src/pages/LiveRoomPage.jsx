@@ -566,6 +566,8 @@ useEffect(() => {
   const [roomAvatarUploading, setRoomAvatarUploading] = useState(false);
   const [roomBackgroundUploading, setRoomBackgroundUploading] = useState(false);
   const [roomBackgroundMediaFailed, setRoomBackgroundMediaFailed] = useState(false);
+  const [bgVisible, setBgVisible] = useState(true);
+  const bgInitializedRef = useRef(false);
   const [bannedList, setBannedList] = useState([]);
   const [loadingBans, setLoadingBans] = useState(false);
   const [seatMenuOpen, setSeatMenuOpen] = useState(false);
@@ -581,6 +583,20 @@ useEffect(() => {
 
   useEffect(() => {
     setRoomBackgroundMediaFailed(false);
+  }, [room?.background_url]);
+
+  useEffect(() => {
+    if (!bgInitializedRef.current) {
+      bgInitializedRef.current = true;
+      return;
+    }
+
+    setBgVisible(false);
+    const timer = setTimeout(() => {
+      setBgVisible(true);
+    }, 300);
+
+    return () => clearTimeout(timer);
   }, [room?.background_url]);
 
   const leaderboardRefreshTimerRef = useRef(null);
@@ -6049,13 +6065,16 @@ useEffect(() => {
            backgroundImage: room?.background_url && !isVideoBackground(room.background_url) && !roomBackgroundMediaFailed ? `url(${room.background_url})` : undefined,
            backgroundSize: 'cover',
            backgroundPosition: 'center',
-           backgroundRepeat: 'no-repeat'
+           backgroundRepeat: 'no-repeat',
+           transition: 'opacity 0.3s ease',
+           opacity: bgVisible ? 1 : 0
          }}>
       <style>{SPARKLE_CSS}</style>
       {room?.background_url && isVideoBackground(room.background_url) && !roomBackgroundMediaFailed ? (
         <video
           src={room.background_url}
-          className="fixed inset-0 w-full h-full object-cover pointer-events-none z-0"
+          className="fixed inset-0 w-full h-full object-cover pointer-events-none z-0 transition-opacity duration-300"
+          style={{ opacity: bgVisible ? 1 : 0, transition: 'opacity 0.3s ease' }}
           autoPlay
           loop
           muted
@@ -6064,7 +6083,7 @@ useEffect(() => {
           onError={() => setRoomBackgroundMediaFailed(true)}
         />
       ) : null}
-      {room?.background_url ? <div className="fixed inset-0 bg-black/40 pointer-events-none z-0" /> : null}
+      {room?.background_url ? <div className="fixed inset-0 bg-black/40 pointer-events-none z-0" style={{ opacity: bgVisible ? 1 : 0, transition: 'opacity 0.3s ease' }} /> : null}
       {roomGiftEffects.length > 0 ? (
         <div className="fixed inset-0 z-[65] pointer-events-none flex flex-col items-center justify-start pt-24 gap-4">
           {roomGiftEffects.map((effect) => {
