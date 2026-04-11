@@ -230,6 +230,10 @@ function getExt(file) {
   return parts.length > 1 ? parts.pop().toLowerCase() : "jpg";
 }
 
+function isVideoBackground(url) {
+  return /\.(mp4|webm)(\?|#|$)/i.test(String(url || ""));
+}
+
 const ENABLE_GIFT_MESSAGE_TEXT = true;
 
 const buildPkDisplaySidesFromSeats = (seatA, seatB, seats) => {
@@ -548,6 +552,7 @@ useEffect(() => {
   if (!roomId) return;
   fetchCurrentPeopleRanked(roomId);
 }, [roomId, activeParticipants, room?.owner_user_id]);
+
   const [kickMinutes, setKickMinutes] = useState(10);
   const [banOpen, setBanOpen] = useState(false);
   const [banTargetId, setBanTargetId] = useState(null);
@@ -558,6 +563,7 @@ useEffect(() => {
   const [settingsBusy, setSettingsBusy] = useState(false);
   const [roomAvatarUploading, setRoomAvatarUploading] = useState(false);
   const [roomBackgroundUploading, setRoomBackgroundUploading] = useState(false);
+  const [roomBackgroundMediaFailed, setRoomBackgroundMediaFailed] = useState(false);
   const [bannedList, setBannedList] = useState([]);
   const [loadingBans, setLoadingBans] = useState(false);
   const [seatMenuOpen, setSeatMenuOpen] = useState(false);
@@ -570,6 +576,11 @@ useEffect(() => {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [leaderboardTab, setLeaderboardTab] = useState("weekly");
   const [leaderboardData, setLeaderboardData] = useState([]);
+
+  useEffect(() => {
+    setRoomBackgroundMediaFailed(false);
+  }, [room?.background_url]);
+
   const leaderboardRefreshTimerRef = useRef(null);
   const refreshLeaderboardNow = useCallback(() => {
   if (!roomId) return;
@@ -3776,16 +3787,26 @@ console.log("MODERATORS MAP:", nextMap);
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const maxSize = 10 * 1024 * 1024; // 10MB recommended
-    if (file.size > maxSize) {
-      toast("File too large (max 10MB recommended)");
+    const fileType = String(file.type || '').toLowerCase();
+    const isAllowedType = fileType.startsWith('image/') || fileType === 'video/mp4' || fileType === 'video/webm';
+    if (!isAllowedType) {
+      toast("Unsupported file type. Please upload image, MP4, or WebM.");
       if (roomBackgroundInputRef.current) {
         roomBackgroundInputRef.current.value = '';
       }
       return;
     }
 
-    if ((file.type || '').toLowerCase() === 'image/gif') {
+    const maxSize = 10 * 1024 * 1024; // 10MB recommended
+    if (file.size > maxSize) {
+      toast("Recommended max size: 10MB");
+      if (roomBackgroundInputRef.current) {
+        roomBackgroundInputRef.current.value = '';
+      }
+      return;
+    }
+
+    if (fileType === 'image/gif') {
       toast("GIF backgrounds may be heavy. Consider using MP4 for better performance");
     }
 
@@ -5895,12 +5916,24 @@ useEffect(() => {
   return (
     <div className="fixed inset-0 w-screen h-[100dvh] max-h-[100dvh] overflow-hidden overscroll-none bg-gray-50 flex flex-col"
          style={{
-           backgroundImage: room?.background_url ? `url(${room.background_url})` : undefined,
+           backgroundImage: room?.background_url && !isVideoBackground(room.background_url) && !roomBackgroundMediaFailed ? `url(${room.background_url})` : undefined,
            backgroundSize: 'cover',
            backgroundPosition: 'center',
            backgroundRepeat: 'no-repeat'
          }}>
       <style>{SPARKLE_CSS}</style>
+      {room?.background_url && isVideoBackground(room.background_url) && !roomBackgroundMediaFailed ? (
+        <video
+          src={room.background_url}
+          className="fixed inset-0 w-full h-full object-cover pointer-events-none z-0"
+          autoPlay
+          loop
+          muted
+          playsInline
+          preload="metadata"
+          onError={() => setRoomBackgroundMediaFailed(true)}
+        />
+      ) : null}
       {room?.background_url ? <div className="fixed inset-0 bg-black/40 pointer-events-none z-0" /> : null}
       {roomGiftEffects.length > 0 ? (
         <div className="fixed inset-0 z-[65] pointer-events-none flex flex-col items-center justify-start pt-24 gap-4">

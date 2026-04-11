@@ -652,6 +652,7 @@ export default function RoomModals({
                                   loop
                                   muted
                                   playsInline
+                                  preload="metadata"
                                   onError={() => setRoomBackgroundPreviewFailed(true)}
                                 />
                               ) : (
@@ -711,7 +712,7 @@ export default function RoomModals({
                           Supported: all image formats including GIF
                         </div>
                         <div className="text-xs text-slate-500 mt-1">
-                          Recommended: MP4 video or compressed GIF under 10MB
+                          Recommended: MP4/WebM under 10MB for best performance
                         </div>
                       </div>
                     </div>
