@@ -3788,10 +3788,10 @@ console.log("MODERATORS MAP:", nextMap);
     if (!file) return;
 
     const fileType = String(file.type || '').toLowerCase();
-    const isStaticImage = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/avif"].includes(fileType);
+    const isStaticImage = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/avif", "image/gif"].includes(fileType);
 
     if (!isStaticImage) {
-      toast("Free upload supports PNG, JPG, WEBP, or AVIF only");
+      toast("Upload supports PNG, JPG, WEBP, AVIF, or GIF only");
       if (roomBackgroundInputRef.current) {
         roomBackgroundInputRef.current.value = '';
       }

@@ -742,7 +742,7 @@ export default function RoomModals({
                             <input
                               ref={roomBackgroundInputRef}
                               type="file"
-                              accept="image/png,image/jpeg,image/jpg,image/webp,image/avif"
+                              accept="image/png,image/jpeg,image/jpg,image/webp,image/avif,image/gif"
                               onChange={handleRoomBackgroundUpload}
                               disabled={roomBackgroundUploading || !isOwner}
                               className="hidden"
