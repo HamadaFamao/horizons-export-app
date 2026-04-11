@@ -354,22 +354,26 @@ export default function RoomModals({
       {showSettings ? (
   <div className="fixed inset-0 z-[75]">
     <div className="absolute inset-0 bg-black/50" onClick={closeSettings} aria-hidden="true" />
-    <div className="absolute inset-0 flex justify-end" onClick={closeSettings}>
-      <div className="w-[85vw] max-w-sm bg-white shadow-xl border-l h-full flex flex-col animate-in slide-in-from-right duration-300" onClick={(e) => e.stopPropagation()}>
-              <div className="px-4 py-3 border-b flex items-center justify-between">
-                <div className="font-semibold flex items-center gap-2">
+    <div className="absolute inset-0 flex items-end justify-center" onClick={closeSettings}>
+      <div className="mb-0 w-full max-w-md max-h-[80vh] bg-white border shadow-2xl rounded-t-3xl md:rounded-3xl overflow-hidden flex flex-col animate-in slide-in-from-bottom duration-300" onClick={(e) => e.stopPropagation()}>
+              <div className="pt-2 pb-1 flex justify-center" aria-hidden="true">
+                <div className="h-1.5 w-12 rounded-full bg-slate-300" />
+              </div>
+
+              <div className="px-3 py-2 border-b flex items-center justify-between">
+                <div className="font-semibold text-sm flex items-center gap-2">
                   <Settings className="w-4 h-4 text-slate-600" />
                   Room Settings
                 </div>
-                <button className="text-sm text-slate-600 hover:text-slate-900" onClick={closeSettings}>
+                <button className="text-xs text-slate-600 hover:text-slate-900" onClick={closeSettings}>
                   Close
                 </button>
               </div>
 
-              <div className="px-3 pt-3">
+              <div className="px-3 pt-2">
                 <div className="flex gap-2">
                   <button
-                    className={`px-3 py-2 rounded-xl text-sm border ${settingsTab === "general" ? "bg-slate-900 text-white border-slate-900" : "bg-white hover:bg-slate-50"
+                    className={`px-3 py-1.5 rounded-lg text-xs border ${settingsTab === "general" ? "bg-slate-900 text-white border-slate-900" : "bg-white hover:bg-slate-50"
                       }`}
                     onClick={() => setSettingsTab("general")}
                   >
@@ -377,7 +381,7 @@ export default function RoomModals({
                   </button>
 
                   <button
-                    className={`px-3 py-2 rounded-xl text-sm border ${settingsTab === "bans" ? "bg-slate-900 text-white border-slate-900" : "bg-white hover:bg-slate-50"
+                    className={`px-3 py-1.5 rounded-lg text-xs border ${settingsTab === "bans" ? "bg-slate-900 text-white border-slate-900" : "bg-white hover:bg-slate-50"
                       }`}
                     onClick={openBansTab}
                   >
@@ -386,7 +390,7 @@ export default function RoomModals({
                 </div>
               </div>
 
-              <div className="p-4 overflow-y-auto flex-1">
+              <div className="p-3 flex-1 overflow-y-auto">
                 {settingsTab === "general" ? (
                   <>
                     <div className="text-sm font-semibold text-slate-900">Room Avatar</div>
