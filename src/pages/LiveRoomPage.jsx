@@ -5587,6 +5587,16 @@ useEffect(() => {
         }
       });
 
+      ch.on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "live_rooms", filter: `id=eq.${roomId}` },
+        (payload) => {
+          if (payload?.new?.background_url !== undefined) {
+            setRoom(prev => prev ? { ...prev, background_url: payload.new.background_url } : prev);
+          }
+        }
+      );
+
       channelRef.current = ch;
 
       ch.subscribe((status) => {
@@ -6832,6 +6842,7 @@ useEffect(() => {
       </div>
       
       <RoomModals
+        onBackgroundChanged={handleBackgroundChanged}
         isVIP={isVipActive(currentUserProfile)}
         hasAnimatedBackgroundAccess={user?.features?.background_video === true}
         handleResetMicGiftCounters={handleResetMicGiftCounters}
