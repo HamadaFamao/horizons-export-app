@@ -291,18 +291,9 @@ export default function RoomsLobby() {
           </button>
         </div>
 
-        <div className="text-xs text-slate-500 mb-3 flex items-center gap-2">
-          <span>{room.max_mics || 6} mics</span>
-          <span>·</span>
-          <span className={`flex items-center gap-1 text-xs font-medium ${room.participant_count > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
-  <Users className="w-3.5 h-3.5" />
-  {room.participant_count || 0}
-</span>
-        </div>
-
-        <div className="p-3 flex flex-col flex-1">
-          <div className="mb-3 flex items-start justify-between gap-2">
-            <h3 className="font-semibold text-slate-900 line-clamp-2 text-sm">{room.title}</h3>
+        <div className="p-2 flex flex-col flex-1">
+          <div className="mb-1 flex items-start justify-between gap-2">
+            <h3 className="font-semibold text-slate-900 line-clamp-2 text-xs">{room.title}</h3>
             {room.is_locked ? (
               <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
                 <Lock className="w-3 h-3" />
@@ -316,9 +307,12 @@ export default function RoomsLobby() {
             )}
           </div>
 
-          <div className="text-xs text-slate-500 mb-3">{room.max_mics || 6} mics</div>
+          <div className="mb-1 flex items-center gap-1 text-xs font-medium text-slate-500">
+            <Users className="w-3.5 h-3.5" />
+            {room.participant_count || 0}
+          </div>
 
-          <div className="mt-auto flex items-center justify-between gap-2">
+          <div className="mt-auto pt-1 flex items-center justify-between gap-2">
             <Button
               size="sm"
               variant={actionVariant}
