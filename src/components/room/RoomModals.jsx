@@ -550,6 +550,53 @@ export default function RoomModals({
               <div className="p-3 flex-1 overflow-y-auto">
                 {settingsTab === "general" ? (
                   <>
+                    {isOwner ? (
+                      <div className="mb-6">
+                        <div className="text-sm font-semibold text-slate-900">Room Name</div>
+                        <div className="text-xs text-slate-500 mt-1">
+                          Change your room's display name.
+                        </div>
+                        <input
+                          id="room-name-input"
+                          type="text"
+                          maxLength={50}
+                          defaultValue={room?.title || room?.name || ""}
+                          placeholder="Enter room name..."
+                          className="mt-2 w-full border rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                        />
+                        <div className="flex items-center justify-between mt-1">
+                          <span className="text-xs text-slate-400">Max 50 characters</span>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            const el = document.getElementById("room-name-input");
+                            const newName = el?.value?.trim();
+                            if (!newName) {
+                              toast("Room name cannot be empty", 1400);
+                              return;
+                            }
+                            if (newName.length > 50) {
+                              toast("Room name too long", 1400);
+                              return;
+                            }
+                            const { error } = await supabase
+                              .from("live_rooms")
+                              .update({ title: newName, name: newName })
+                              .eq("id", room?.id);
+                            if (error) {
+                              toast(error.message || "Failed to update room name", 1400);
+                              return;
+                            }
+                            setRoom(prev => ({ ...prev, title: newName, name: newName }));
+                            toast("✅ Room name updated!", 1400);
+                          }}
+                          className="mt-2 w-full py-2 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-700 transition"
+                        >
+                          Save
+                        </button>
+                      </div>
+                    ) : null}
+
                     <div className="text-sm font-semibold text-slate-900">Room Avatar</div>
                     <div className="text-xs text-slate-500 mt-1">Upload a PNG or GIF image for your room's main picture.</div>
 

@@ -5591,8 +5591,18 @@ useEffect(() => {
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "live_rooms", filter: `id=eq.${roomId}` },
         (payload) => {
+          if (payload?.new?.title !== undefined) {
+            setRoom(prev => prev ? {
+              ...prev,
+              title: payload.new.title,
+              name: payload.new.name ?? payload.new.title,
+            } : prev);
+          }
           if (payload?.new?.background_url !== undefined) {
-            setRoom(prev => prev ? { ...prev, background_url: payload.new.background_url } : prev);
+            setRoom(prev => prev ? {
+              ...prev,
+              background_url: payload.new.background_url ?? prev.background_url,
+            } : prev);
           }
         }
       );
