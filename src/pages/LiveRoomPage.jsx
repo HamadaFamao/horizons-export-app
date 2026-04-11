@@ -349,6 +349,7 @@ export default function LiveRoomPage() {
   // ==========================================
   const [joinTime] = useState(Date.now());
   const [room, setRoom] = useState(null);
+  const [currentUserProfile, setCurrentUserProfile] = useState(null);
   const [micMode, setMicMode] = useState("request");
   const [activeSpeakers, setActiveSpeakers] = useState({});
   const [voiceStatus, setVoiceStatus] = useState("idle");
@@ -2894,6 +2895,17 @@ console.log("MODERATORS MAP:", nextMap);
     setLoading(true);
 
     try {
+      if (user?.id) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('is_vip, vip_until, vip_number')
+          .eq('id', user.id)
+          .maybeSingle();
+        setCurrentUserProfile(profileData || null);
+      } else {
+        setCurrentUserProfile(null);
+      }
+
       const roomData = await loadRoomCore();
       if (!roomData) {
         return;
@@ -6675,7 +6687,7 @@ useEffect(() => {
       </div>
       
       <RoomModals
-        isVIP={isVipActive(user)}
+        isVIP={isVipActive(currentUserProfile)}
         hasAnimatedBackgroundAccess={user?.features?.background_video === true}
         handleResetMicGiftCounters={handleResetMicGiftCounters}
         handleClearChat={handleClearChat}
