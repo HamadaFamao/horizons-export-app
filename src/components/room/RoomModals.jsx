@@ -355,7 +355,7 @@ export default function RoomModals({
   <div className="fixed inset-0 z-[75]">
     <div className="absolute inset-0 bg-black/50" onClick={closeSettings} aria-hidden="true" />
     <div className="absolute inset-0 flex justify-end">
-      <div className="w-[85vw] max-w-sm bg-white shadow-xl border-l h-full flex flex-col animate-in slide-in-from-right duration-300">
+      <div className="w-[85vw] max-w-sm bg-white shadow-xl border-l h-full flex flex-col animate-in slide-in-from-right duration-300" onClick={(e) => e.stopPropagation()}>
               <div className="px-4 py-3 border-b flex items-center justify-between">
                 <div className="font-semibold flex items-center gap-2">
                   <Settings className="w-4 h-4 text-slate-600" />
