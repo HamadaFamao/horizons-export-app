@@ -3788,13 +3788,49 @@ console.log("MODERATORS MAP:", nextMap);
     if (!file) return;
 
     const fileType = String(file.type || '').toLowerCase();
-    const isAllowedType = fileType.startsWith('image/') || fileType === 'video/mp4' || fileType === 'video/webm';
-    if (!isAllowedType) {
-      toast("Unsupported file type. Please upload image, MP4, or WebM.");
+    const isVIP = user?.vip_active;
+    const hasCoinsFeature = user?.features?.background_video === true;
+    const isGif = file.type === "image/gif";
+    const isVideo = file.type.startsWith("video/");
+    const isImage = file.type.startsWith("image/");
+
+    if (!isImage && !isVideo) {
+      toast("Unsupported file type. Please upload PNG, JPG, GIF, or MP4.");
       if (roomBackgroundInputRef.current) {
         roomBackgroundInputRef.current.value = '';
       }
       return;
+    }
+
+    if (!isVIP) {
+      if (isGif || isVideo) {
+        if (!hasCoinsFeature) {
+          toast("Upgrade to VIP or use coins to unlock this feature");
+          if (roomBackgroundInputRef.current) {
+            roomBackgroundInputRef.current.value = '';
+          }
+          return;
+        }
+      }
+
+      if (!hasCoinsFeature) {
+        const isFreeImageType = fileType === "image/png" || fileType === "image/jpeg" || fileType === "image/jpg";
+        if (!isFreeImageType) {
+          toast("Free users can upload PNG/JPG only");
+          if (roomBackgroundInputRef.current) {
+            roomBackgroundInputRef.current.value = '';
+          }
+          return;
+        }
+      }
+
+      if (isVideo && fileType !== "video/mp4") {
+        toast("Coins feature supports MP4 video upload");
+        if (roomBackgroundInputRef.current) {
+          roomBackgroundInputRef.current.value = '';
+        }
+        return;
+      }
     }
 
     const recommendedMaxSize = 10 * 1024 * 1024; // 10MB recommended
@@ -3812,7 +3848,7 @@ console.log("MODERATORS MAP:", nextMap);
       toast("Recommended max size: 10MB");
     }
 
-    if (fileType === 'image/gif') {
+    if (isGif) {
       toast("GIF backgrounds may be heavy. Consider using MP4 for better performance");
     }
 

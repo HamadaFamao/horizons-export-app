@@ -8,7 +8,6 @@ import GiftPanel from "@/components/GiftPanel";
 import { Button } from "@/components/ui/button";
 import { Loader2, MicOff, CheckCircle2, RefreshCw, Settings, ImageIcon, X, Minimize2, Power, Share2 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
-import { ROOM_FEATURES, canUseFeature, normalizeFeatureUser } from "@/utils/roomFeatureFlags";
 const FALLBACK_AVATAR =
   "data:image/svg+xml;utf8," +
   encodeURIComponent(`
@@ -19,10 +18,10 @@ const FALLBACK_AVATAR =
   </svg>`);
 
 const ROOM_BACKGROUND_PRESETS = [
-  { id: "romantic", type: "video", url: "/room-backgrounds/romantic.mp4", label: "Romantic", featureId: "animatedBackgrounds" },
-  { id: "vip", type: "video", url: "/room-backgrounds/vip.mp4", label: "VIP", featureId: "vipThemes" },
-  { id: "stars", type: "image", url: "/room-backgrounds/stars.jpg", label: "Stars", featureId: "backgroundGallery" },
-  { id: "soft", type: "image", url: "/room-backgrounds/soft.jpg", label: "Soft", featureId: "backgroundGallery" },
+  { id: "romantic", type: "video", url: "/room-backgrounds/romantic.mp4", label: "Romantic" },
+  { id: "vip", type: "video", url: "/room-backgrounds/vip.mp4", label: "VIP" },
+  { id: "stars", type: "image", url: "/room-backgrounds/stars.jpg", label: "Stars" },
+  { id: "soft", type: "image", url: "/room-backgrounds/soft.jpg", label: "Soft" },
 ];
 
 export default function RoomModals({
@@ -181,12 +180,8 @@ export default function RoomModals({
 
   const isVideoBackground = (url) => /\.(mp4|webm)(\?|#|$)/i.test(String(url || ""));
   const previewBackgroundUrl = selectedBackgroundPreset?.url || room?.background_url;
-  const featureUser = React.useMemo(() => normalizeFeatureUser(user), [user]);
-  const backgroundGalleryFeature = ROOM_FEATURES.backgroundGallery;
-  const canUseBackgroundGallery = canUseFeature(backgroundGalleryFeature, featureUser);
-  const getPresetFeature = (preset) => ROOM_FEATURES[preset?.featureId] || ROOM_FEATURES.backgroundGallery;
-  const selectedPresetFeature = selectedBackgroundPreset ? getPresetFeature(selectedBackgroundPreset) : null;
-  const canUseSelectedPreset = selectedPresetFeature ? canUseFeature(selectedPresetFeature, featureUser) : false;
+  const isVIP = user?.vip_active;
+  const hasCoinsFeature = user?.features?.background_video === true;
 
   React.useEffect(() => {
     setRoomBackgroundPreviewFailed(false);
@@ -194,8 +189,8 @@ export default function RoomModals({
 
   const applyBackgroundPreset = async () => {
     if (!isOwner || !room?.id || !selectedBackgroundPreset?.url) return;
-    if (!canUseSelectedPreset) {
-      toast("Upgrade to use this feature", 1400);
+    if (!isVIP) {
+      toast("Upgrade to VIP or use coins to unlock this feature", 1400);
       return;
     }
 
@@ -759,13 +754,13 @@ export default function RoomModals({
                           <button
                             type="button"
                             className={`w-full p-3 border rounded-xl text-sm font-medium transition ${
-                              !isOwner || !canUseBackgroundGallery
-                                ? 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'
+                              !isOwner || !isVIP
+                                ? 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed opacity-70'
                                 : 'border-slate-300 text-slate-700 hover:bg-slate-50'
                             }`}
                             onClick={() => {
-                              if (!canUseBackgroundGallery) {
-                                toast("Upgrade to use this feature", 1400);
+                              if (!isVIP) {
+                                toast("Upgrade to VIP or use coins to unlock this feature", 1400);
                                 return;
                               }
                               setShowBackgroundGallery((v) => !v);
@@ -774,37 +769,33 @@ export default function RoomModals({
                           >
                             <span className="inline-flex items-center gap-1.5">
                               Choose from gallery
-                              {backgroundGalleryFeature.isPremium ? (
-                                <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">👑 Premium</span>
-                              ) : null}
-                              {backgroundGalleryFeature.isPremium && backgroundGalleryFeature.isFreeForNow ? (
-                                <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">Free for now</span>
-                              ) : null}
-                              {!canUseBackgroundGallery ? <span className="text-sm">🔒</span> : null}
+                              <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">VIP 👑</span>
+                              {!isVIP ? <span className="text-sm">🔒</span> : null}
                             </span>
                           </button>
+                        </div>
+
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
+                            Free (PNG only)
+                          </span>
+                          <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                            Coins feature 💰
+                            {!hasCoinsFeature && !isVIP ? <span className="ml-1">🔒</span> : null}
+                          </span>
                         </div>
 
                         {showBackgroundGallery ? (
                           <div className="mt-3 p-3 border rounded-xl bg-slate-50/70">
                             <div className="grid grid-cols-2 gap-2">
                               {ROOM_BACKGROUND_PRESETS.map((preset) => {
-                                const presetFeature = getPresetFeature(preset);
-                                const canUsePreset = canUseFeature(presetFeature, featureUser);
                                 const selected = selectedBackgroundPreset?.id === preset.id;
                                 return (
                                   <button
                                     key={preset.id}
                                     type="button"
-                                    onClick={() => {
-                                      if (!canUsePreset) {
-                                        toast("Upgrade to use this feature", 1400);
-                                        return;
-                                      }
-                                      setSelectedBackgroundPreset(preset);
-                                    }}
-                                    className={`text-left border rounded-lg overflow-hidden bg-white transition relative ${selected ? 'border-slate-900 shadow-sm' : 'border-slate-200 hover:border-slate-300'} ${!canUsePreset ? 'opacity-70' : ''}`}
-                                    disabled={!canUsePreset}
+                                    onClick={() => setSelectedBackgroundPreset(preset)}
+                                    className={`text-left border rounded-lg overflow-hidden bg-white transition relative ${selected ? 'border-slate-900 shadow-sm' : 'border-slate-200 hover:border-slate-300'}`}
                                   >
                                     <div className="h-16 bg-slate-100">
                                       {preset.type === "video" ? (
@@ -824,15 +815,6 @@ export default function RoomModals({
                                         />
                                       )}
                                     </div>
-                                    <div className="absolute left-1.5 top-1.5 inline-flex items-center gap-1">
-                                      {presetFeature.isPremium ? (
-                                        <span className="inline-flex items-center rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700">👑 Premium</span>
-                                      ) : null}
-                                      {presetFeature.isPremium && presetFeature.isFreeForNow ? (
-                                        <span className="inline-flex items-center rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700">Free for now</span>
-                                      ) : null}
-                                      {!canUsePreset ? <span className="text-xs">🔒</span> : null}
-                                    </div>
                                     <div className="px-2 py-1.5 text-xs font-medium text-slate-700 truncate">{preset.label}</div>
                                   </button>
                                 );
@@ -842,7 +824,7 @@ export default function RoomModals({
                             <button
                               type="button"
                               onClick={applyBackgroundPreset}
-                              disabled={!selectedBackgroundPreset || applyingBackgroundPreset || !isOwner || !canUseSelectedPreset}
+                              disabled={!selectedBackgroundPreset || applyingBackgroundPreset || !isOwner || !isVIP}
                               className="mt-3 w-full py-2 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               {applyingBackgroundPreset ? "Saving..." : "Use this background"}
