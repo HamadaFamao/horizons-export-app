@@ -26,7 +26,7 @@ export default function RoomsLobby() {
     try {
       const { data, error } = await supabase
         .from('live_rooms')
-        .select('id,title,avatar_url,is_locked,max_mics,is_active,created_at,owner_user_id,public_room_id')
+        .select('id,title,avatar_url,is_locked,max_mics,is_active,created_at,owner_user_id,public_room_id,live_room_participants(count)')
         .eq('is_active', true)
         .order('created_at', { ascending: false })
         .limit(50);
@@ -264,6 +264,12 @@ export default function RoomsLobby() {
             <Heart className={`w-4 h-4 ${isFavorite ? 'text-rose-500' : 'text-slate-400'}`} fill={isFavorite ? 'currentColor' : 'none'} />
           </button>
         </div>
+
+        <div className="text-xs text-slate-500 mb-3 flex items-center gap-2">
+  <span>{room.max_mics || 6} mics</span>
+  <span>·</span>
+  <span>👥 {room.live_room_participants?.[0]?.count || 0}</span>
+</div>
 
         <div className="p-3 flex flex-col flex-1">
           <div className="mb-3 flex items-start justify-between gap-2">
