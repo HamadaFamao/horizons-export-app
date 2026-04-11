@@ -4090,7 +4090,7 @@ supabase.removeChannel(globalChannel);
           payload: {
             room_id: roomId,
             is_locked: false,
-            lock_expires_at: preservedLockExpiresAt,
+            lock_expires_at: room?.lock_expires_at,
             ts: Date.now(),
           },
         });
@@ -4101,7 +4101,7 @@ const globalChannel = supabase.channel('rooms_lobby_lock_rt');
 await globalChannel.send({
   type: "broadcast",
   event: "room_unlocked",
-  payload: { room_id: roomId, is_locked: false },
+  payload: { room_id: roomId, is_locked: false, lock_expires_at: room?.lock_expires_at },
 });
 supabase.removeChannel(globalChannel);
 
@@ -5384,7 +5384,11 @@ useEffect(() => {
 
       ch.on("broadcast", { event: "room_unlocked" }, ({ payload }) => {
   if (String(payload?.room_id) === String(roomId)) {
-    setRoom((prev) => ({ ...prev, is_locked: false, lock_expires_at: null }));
+    setRoom((prev) => ({
+      ...prev,
+      is_locked: false,
+      lock_expires_at: payload?.lock_expires_at ?? prev?.lock_expires_at,
+    }));
   }
 });
 
