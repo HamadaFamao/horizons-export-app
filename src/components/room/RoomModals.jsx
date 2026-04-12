@@ -97,6 +97,9 @@ export default function RoomModals({
   roomAvatarInputRef,
   handleRoomAvatarUpload,
   roomAvatarUploading,
+  roomAvatarVipInputRef,
+  handleRoomAvatarVipUpload,
+  roomAvatarVipUploading,
   roomBackgroundInputRef,
   handleRoomBackgroundUpload,
   roomBackgroundVipInputRef,
@@ -627,15 +630,14 @@ export default function RoomModals({
                         </div>
                       </div>
 
-                      {/* Upload Button */}
-                      <div className="mt-4">
+                      <div className="grid grid-cols-2 gap-2 mt-4">
                         <label className={`flex items-center justify-center w-full p-3 border-2 border-dashed rounded-xl transition cursor-pointer group ${
                           !isOwner ? 'border-slate-200 bg-slate-50 cursor-not-allowed' : 'border-slate-300 hover:border-blue-500 hover:bg-blue-50'
                         }`}>
                           <input
                             ref={roomAvatarInputRef}
                             type="file"
-                            accept="image/png,image/gif"
+                            accept="image/png,image/jpeg,image/jpg,image/webp,image/gif"
                             onChange={handleRoomAvatarUpload}
                             disabled={roomAvatarUploading || !isOwner}
                             className="hidden"
@@ -643,19 +645,49 @@ export default function RoomModals({
                           {roomAvatarUploading ? (
                             <Loader2 className="w-5 h-5 text-blue-500 animate-spin mr-2" />
                           ) : (
-                            <ImageIcon className={`w-5 h-5 mr-2 transition ${
-                              !isOwner ? 'text-slate-300' : 'text-slate-400 group-hover:text-blue-500'
-                            }`} />
+                            <ImageIcon className={`w-5 h-5 mr-2 ${!isOwner ? 'text-slate-300' : 'text-slate-400 group-hover:text-blue-500'}`} />
                           )}
-                          <span className={`text-sm font-medium transition ${
-                            !isOwner ? 'text-slate-400' : 'text-slate-600 group-hover:text-blue-600'
-                          }`}>
+                          <span className={`text-sm font-medium ${!isOwner ? 'text-slate-400' : 'text-slate-600 group-hover:text-blue-600'}`}>
                             {roomAvatarUploading ? 'Uploading...' : !isOwner ? 'Only owners can upload' : 'Upload image'}
                           </span>
                         </label>
-                        <div className="text-xs text-slate-500 mt-2">
-                          Max file size: 5MB. Supported formats: PNG, GIF.
-                        </div>
+
+                        <label className={`relative overflow-hidden flex items-center justify-center w-full p-3 rounded-xl transition cursor-pointer ${
+                          !isOwner || !isVIP
+                            ? 'border border-slate-200 bg-slate-50 cursor-not-allowed opacity-60'
+                            : 'bg-gradient-to-r from-amber-500 to-yellow-400 hover:brightness-110 shadow-[0_0_14px_rgba(251,191,36,0.4)] border border-amber-300'
+                        }`}>
+                          <input
+                            ref={roomAvatarVipInputRef}
+                            type="file"
+                            accept="image/*,video/mp4,video/webm"
+                            onChange={handleRoomAvatarVipUpload}
+                            disabled={roomAvatarVipUploading || !isOwner || !isVIP}
+                            className="hidden"
+                          />
+                          {isVIP && isOwner && (
+                            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                              <div className="absolute top-0 left-0 w-[200%] h-full bg-gradient-to-r from-transparent via-white/30 to-transparent animate-[shimmer_2.5s_ease-in-out_infinite] skew-x-[-20deg]" />
+                            </div>
+                          )}
+                          {roomAvatarVipUploading ? (
+                            <Loader2 className="w-5 h-5 text-white animate-spin mr-2" />
+                          ) : (
+                            <span className="text-sm font-bold text-white relative z-10">
+                              {!isVIP ? '🔒 VIP Upload' : !isOwner ? '🔒 VIP Upload' : '👑 VIP Upload'}
+                            </span>
+                          )}
+                        </label>
+                      </div>
+
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
+                          Free (PNG/JPG/WEBP/GIF)
+                        </span>
+                        <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                          VIP: All formats including video 👑
+                          {!isVIP ? <span className="ml-1">🔒</span> : null}
+                        </span>
                       </div>
                     </div>
 

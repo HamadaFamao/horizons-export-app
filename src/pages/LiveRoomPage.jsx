@@ -308,6 +308,7 @@ export default function LiveRoomPage() {
   const selectedPkSessionIdRef = useRef(null);
   const audioUnlockedRef = useRef(false);
   const roomAvatarInputRef = useRef(null);
+  const roomAvatarVipInputRef = useRef(null);
   const roomBackgroundInputRef = useRef(null);
   const roomBackgroundVipInputRef = useRef(null);
 
@@ -616,6 +617,7 @@ useEffect(() => {
   const [settingsTab, setSettingsTab] = useState("general");
   const [settingsBusy, setSettingsBusy] = useState(false);
   const [roomAvatarUploading, setRoomAvatarUploading] = useState(false);
+  const [roomAvatarVipUploading, setRoomAvatarVipUploading] = useState(false);
   const [roomBackgroundUploading, setRoomBackgroundUploading] = useState(false);
   const [roomBackgroundMediaFailed, setRoomBackgroundMediaFailed] = useState(false);
   const [bgVisible, setBgVisible] = useState(true);
@@ -3726,6 +3728,7 @@ console.log("MODERATORS MAP:", nextMap);
     setShowSettings(false);
     setSettingsBusy(false);
     setRoomAvatarUploading(false);
+    setRoomAvatarVipUploading(false);
   };
 
   const handleRoomAvatarUpload = async (e) => {
@@ -3862,6 +3865,85 @@ console.log("MODERATORS MAP:", nextMap);
       // Reset input
       if (roomAvatarInputRef.current) {
         roomAvatarInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleRoomAvatarVipUpload = async (e) => {
+    if (!isOwner) {
+      toast("Only room owners can change the room avatar.");
+      return;
+    }
+
+    if (!isVipActive(currentUserProfile)) {
+      toast("VIP only feature", 1400);
+      if (roomAvatarVipInputRef.current) {
+        roomAvatarVipInputRef.current.value = '';
+      }
+      return;
+    }
+
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const hardMaxSize = 50 * 1024 * 1024;
+    if (file.size > hardMaxSize) {
+      toast("File too large. Max allowed size is 50MB");
+      if (roomAvatarVipInputRef.current) {
+        roomAvatarVipInputRef.current.value = '';
+      }
+      return;
+    }
+
+    setRoomAvatarVipUploading(true);
+
+    try {
+      const ext = getExt(file);
+      const path = `${roomId}/avatar.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('room_avatars')
+        .upload(path, file, {
+          cacheControl: '3600',
+          upsert: true,
+          contentType: file.type,
+        });
+
+      if (uploadError) {
+        if (uploadError.message?.includes('not found') || uploadError.message?.includes('does not exist')) {
+          throw new Error('Storage bucket "room_avatars" does not exist. Please create it in your Supabase dashboard: Storage > Create bucket > Name: "room_avatars" > Make it public.');
+        }
+        throw new Error(`Upload failed: ${uploadError.message}`);
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from('room_avatars')
+        .getPublicUrl(path);
+
+      const avatarUrl = publicUrlData.publicUrl;
+
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError || !authData.user) {
+        throw new Error('Authentication error: ' + authError?.message);
+      }
+      const authUserId = authData.user.id;
+
+      const { error: updateError } = await supabase
+        .from('live_rooms')
+        .update({ avatar_url: avatarUrl })
+        .eq('id', roomId)
+        .eq('owner_user_id', authUserId);
+
+      if (updateError) throw updateError;
+
+      setRoom((prev) => (prev ? { ...prev, avatar_url: avatarUrl } : prev));
+      toastSuccess("Room avatar updated successfully!");
+    } catch (error) {
+      toast(`Failed to upload room avatar: ${error.message}`);
+    } finally {
+      setRoomAvatarVipUploading(false);
+      if (roomAvatarVipInputRef.current) {
+        roomAvatarVipInputRef.current.value = '';
       }
     }
   };
@@ -6962,6 +7044,9 @@ useEffect(() => {
         roomAvatarInputRef={roomAvatarInputRef}
         handleRoomAvatarUpload={handleRoomAvatarUpload}
         roomAvatarUploading={roomAvatarUploading}
+        roomAvatarVipInputRef={roomAvatarVipInputRef}
+        handleRoomAvatarVipUpload={handleRoomAvatarVipUpload}
+        roomAvatarVipUploading={roomAvatarVipUploading}
         roomBackgroundInputRef={roomBackgroundInputRef}
         handleRoomBackgroundUpload={handleRoomBackgroundUpload}
         roomBackgroundVipInputRef={roomBackgroundVipInputRef}
