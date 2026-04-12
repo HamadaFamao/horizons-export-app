@@ -1,11 +1,6 @@
 import React from "react";
 import { XCircle, MicOff } from "lucide-react";
-
-const ROOM_EMOJIS = [
-  { id: "e1", src: "/emojis/512 (1).webp", label: "reaction 1" },
-  { id: "e2", src: "/emojis/512 (2).webp", label: "reaction 2" },
-  { id: "e3", src: "/emojis/512 (3).webp", label: "reaction 3" },
-];
+import { ROOM_EMOJIS } from "@/lib/roomEmojis";
 
 const FALLBACK_AVATAR =
   "data:image/svg+xml;utf8," +
@@ -86,7 +81,10 @@ export default function RoomSeats({
               const activeEffect = (seatEmojiEffects || []).find(
                 (effect) => String(effect.userId) === String(s.user_id)
               );
-              const activeEmojiMeta = ROOM_EMOJIS.find((emoji) => emoji.src === activeEffect?.src);
+              const activeEmojiMeta = activeEffect
+                ? (ROOM_EMOJIS.find((emoji) => emoji.id === activeEffect.id) ||
+                   ROOM_EMOJIS.find((emoji) => emoji.src === activeEffect.src))
+                : null;
 
               return (
                 <div
@@ -200,6 +198,7 @@ export default function RoomSeats({
                               src={activeEffect.src}
                               alt={activeEmojiMeta?.label || "reaction"}
                               className="w-16 h-16 object-contain drop-shadow-lg animate-[seatEmojiPop_0.3s_ease-out_forwards]"
+                              style={activeEffect.flip ? { transform: 'scaleX(-1)' } : undefined}
                             />
                           </div>
                         ) : null}

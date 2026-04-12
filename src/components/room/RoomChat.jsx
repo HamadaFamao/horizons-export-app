@@ -2,6 +2,7 @@ import React from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Loader2, Send, Mic, MicOff, Gift } from "lucide-react";
+import { ROOM_EMOJIS } from "@/lib/roomEmojis";
 
 const FALLBACK_AVATAR =
   "data:image/svg+xml;utf8," +
@@ -13,11 +14,6 @@ const FALLBACK_AVATAR =
   </svg>`);
 
 const ENABLE_GIFT_MESSAGE_TEXT = true;
-const ROOM_EMOJIS = [
-  { id: "e1", src: "/emojis/512 (1).webp", label: "reaction 1" },
-  { id: "e2", src: "/emojis/512 (2).webp", label: "reaction 2" },
-  { id: "e3", src: "/emojis/512 (3).webp", label: "reaction 3" },
-];
 
 const getVipNameStyle = (vipNumber) => {
   switch (Number(vipNumber)) {
@@ -83,6 +79,13 @@ export default function RoomChat({
   const [footerHeight, setFooterHeight] = React.useState(0);
   const [userScrolledUp, setUserScrolledUp] = React.useState(false);
   const footerRef = React.useRef(null);
+  const [recentEmojiIds, setRecentEmojiIds] = React.useState(() => {
+    try {
+      const saved = localStorage.getItem('recent_room_emojis');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+  const [emojiTab, setEmojiTab] = React.useState('all');
 
   const handleScroll = () => {
     if (!chatScrollRef.current) return;
@@ -148,6 +151,17 @@ export default function RoomChat({
     };
   }, [showEmojiPanel, setShowEmojiPanel]);
 
+  const updateRecentEmojis = (emojiId) => {
+    const next = [
+      emojiId,
+      ...recentEmojiIds.filter((id) => id !== emojiId),
+    ].slice(0, 16);
+    setRecentEmojiIds(next);
+    try {
+      localStorage.setItem('recent_room_emojis', JSON.stringify(next));
+    } catch {}
+  };
+
   return (
     <div className="flex flex-col min-h-0 h-full relative lg:w-2/3 bg-black/30 backdrop-blur-sm">
       <div
@@ -160,7 +174,12 @@ export default function RoomChat({
             <div className="fixed bottom-[80px] right-4 pointer-events-none z-[60] flex flex-col-reverse items-end gap-2">
               {chatEmojiEffects.map((effect) => (
                 <div key={effect.id} className="animate-[chatEmojiRise_3s_ease-out_forwards]">
-                  <img src={effect.src} alt="reaction" className="w-14 h-14 object-contain drop-shadow-lg" />
+                  <img
+                    src={effect.src}
+                    alt="reaction"
+                    className="w-14 h-14 object-contain drop-shadow-lg"
+                    style={effect.flip ? { transform: 'scaleX(-1)' } : undefined}
+                  />
                 </div>
               ))}
             </div>
@@ -417,21 +436,82 @@ export default function RoomChat({
 >
         {showEmojiPanel ? (
           <div
-            className="absolute bottom-[70px] left-2 right-2 z-50 bg-black/80 backdrop-blur-md rounded-2xl p-3 border border-white/10 shadow-2xl"
+            className="absolute bottom-[70px] left-2 right-2 z-50 bg-black/85 backdrop-blur-md rounded-2xl border border-white/10 shadow-2xl overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="text-xs text-white/50 font-semibold mb-2 px-1">Reactions</div>
-            <div className="flex items-center gap-3 justify-center">
-              {ROOM_EMOJIS.map((emoji) => (
-                <button
-                  key={emoji.id}
-                  type="button"
-                  onClick={() => sendRoomEmoji(emoji)}
-                  className="flex flex-col items-center gap-1 hover:scale-125 transition active:scale-95 p-1"
-                >
-                  <img src={emoji.src} alt={emoji.label} className="w-14 h-14 object-contain" />
-                </button>
-              ))}
+            {/* Tabs */}
+            <div className="flex border-b border-white/10">
+              <button
+                onClick={() => setEmojiTab('recent')}
+                className={`flex-1 py-2 text-xs font-bold transition ${
+                  emojiTab === 'recent'
+                    ? 'text-white border-b-2 border-white'
+                    : 'text-white/40 hover:text-white/70'
+                }`}
+              >
+                🕐 Recent
+              </button>
+              <button
+                onClick={() => setEmojiTab('all')}
+                className={`flex-1 py-2 text-xs font-bold transition ${
+                  emojiTab === 'all'
+                    ? 'text-white border-b-2 border-white'
+                    : 'text-white/40 hover:text-white/70'
+                }`}
+              >
+                😊 All
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-2 max-h-[220px] overflow-y-auto">
+              {emojiTab === 'recent' ? (
+                recentEmojiIds.length === 0 ? (
+                  <div className="text-center text-white/30 text-xs py-6">
+                    No recent reactions yet
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-6 gap-1">
+                    {recentEmojiIds
+                      .map((id) => ROOM_EMOJIS.find((e) => e.id === id))
+                      .filter(Boolean)
+                      .map((emoji) => (
+                        <button
+                          key={emoji.id}
+                          type="button"
+                          onClick={() => { sendRoomEmoji(emoji); updateRecentEmojis(emoji.id); }}
+                          className="flex items-center justify-center p-1 hover:bg-white/10 rounded-xl transition active:scale-90"
+                        >
+                          <img
+                            src={emoji.src}
+                            alt={emoji.label}
+                            className="w-10 h-10 object-contain"
+                            style={emoji.flip ? { transform: 'scaleX(-1)' } : undefined}
+                          />
+                        </button>
+                      ))
+                    }
+                  </div>
+                )
+              ) : (
+                <div className="grid grid-cols-6 gap-1">
+                  {ROOM_EMOJIS.map((emoji) => (
+                    <button
+                      key={emoji.id}
+                      type="button"
+                      onClick={() => { sendRoomEmoji(emoji); updateRecentEmojis(emoji.id); }}
+                      className="flex items-center justify-center p-1 hover:bg-white/10 rounded-xl transition active:scale-90"
+                    >
+                      <img
+                        src={emoji.src}
+                        alt={emoji.label}
+                        className="w-10 h-10 object-contain"
+                        style={emoji.flip ? { transform: 'scaleX(-1)' } : undefined}
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         ) : null}

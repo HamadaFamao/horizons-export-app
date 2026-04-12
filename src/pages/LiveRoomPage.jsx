@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
+import { ROOM_EMOJIS } from "@/lib/roomEmojis";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMiniRoom } from "@/contexts/MiniRoomContext";
 import { Button } from "@/components/ui/button";
@@ -1105,13 +1106,14 @@ useEffect(() => {
     setTimeout(() => mountedRef.current && setSuccessMsg(""), ms);
   };
 
-  const showEmojiEffect = (userId, emojiSrc, isOnSeat) => {
+  const showEmojiEffect = (userId, emojiSrc, isOnSeat, emojiFlip) => {
     const effectId = `emoji_${Date.now()}_${Math.random()}`;
+    const flip = !!emojiFlip;
 
     if (isOnSeat) {
       setSeatEmojiEffects((prev) => [
         ...prev,
-        { id: effectId, userId, src: emojiSrc, ts: Date.now() },
+        { id: effectId, userId, src: emojiSrc, flip, ts: Date.now() },
       ]);
       setTimeout(() => {
         if (!mountedRef.current) return;
@@ -1122,7 +1124,7 @@ useEffect(() => {
 
     setChatEmojiEffects((prev) => [
       ...prev,
-      { id: effectId, src: emojiSrc, ts: Date.now() },
+      { id: effectId, src: emojiSrc, flip, ts: Date.now() },
     ]);
     setTimeout(() => {
       if (!mountedRef.current) return;
@@ -1142,11 +1144,12 @@ useEffect(() => {
       user_id: user.id,
       emoji_src: emoji.src,
       emoji_id: emoji.id,
+      emoji_flip: emoji.flip ?? false,
       is_on_seat: isOnSeat,
       ts: Date.now(),
     };
 
-    showEmojiEffect(user.id, emoji.src, isOnSeat);
+    showEmojiEffect(user.id, emoji.src, isOnSeat, emoji.flip);
 
     if (channelRef.current) {
       await channelRef.current.send({
@@ -5803,7 +5806,7 @@ useEffect(() => {
         if (payload?.room_id && String(payload.room_id) !== String(roomId)) return;
         if (payload?.user_id && String(payload.user_id) === String(user?.id)) return;
         if (payload?.emoji_src) {
-          showEmojiEffect(payload.user_id, payload.emoji_src, payload.is_on_seat);
+          showEmojiEffect(payload.user_id, payload.emoji_src, payload.is_on_seat, payload.emoji_flip);
         }
       });
 
