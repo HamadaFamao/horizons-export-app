@@ -89,8 +89,10 @@ export default function RoomChat({
   const [visibleCount, setVisibleCount] = React.useState(18);
   const loadMoreRef = React.useRef(null);
   const [lastUsedEmoji, setLastUsedEmoji] = React.useState(null);
+  const [showRepeatBtn, setShowRepeatBtn] = React.useState(false);
   const repeatPressTimer = React.useRef(null);
   const repeatIntervalRef = React.useRef(null);
+  const repeatHideTimerRef = React.useRef(null);
   const repeatLongPressActiveRef = React.useRef(false);
   const [isAutoRepeating, setIsAutoRepeating] = React.useState(false);
 
@@ -171,11 +173,22 @@ export default function RoomChat({
     });
   }, []);
 
+  const restartRepeatHideTimer = React.useCallback(() => {
+    setShowRepeatBtn(true);
+    if (repeatHideTimerRef.current) {
+      clearTimeout(repeatHideTimerRef.current);
+    }
+    repeatHideTimerRef.current = setTimeout(() => {
+      setShowRepeatBtn(false);
+    }, 2000);
+  }, []);
+
   const handleEmojiSend = React.useCallback((emoji) => {
     sendRoomEmoji(emoji);
     updateRecentEmojis(emoji.id);
     setLastUsedEmoji(emoji);
-  }, [sendRoomEmoji, updateRecentEmojis]);
+    restartRepeatHideTimer();
+  }, [sendRoomEmoji, updateRecentEmojis, restartRepeatHideTimer]);
 
   const startRepeat = () => {
     if (!lastUsedEmoji) return;
@@ -191,6 +204,7 @@ export default function RoomChat({
       repeatIntervalRef.current = setInterval(() => {
         if (lastUsedEmoji) {
           handleEmojiSend(lastUsedEmoji);
+          restartRepeatHideTimer();
         }
       }, 800);
     }, 500);
@@ -250,6 +264,7 @@ export default function RoomChat({
     return () => {
       clearTimeout(repeatPressTimer.current);
       clearInterval(repeatIntervalRef.current);
+      clearTimeout(repeatHideTimerRef.current);
     };
   }, []);
 
@@ -691,7 +706,7 @@ export default function RoomChat({
               😊
             </button>
 
-            {lastUsedEmoji ? (
+            {lastUsedEmoji && showRepeatBtn ? (
               <button
                 type="button"
                 onClick={handleRepeatClick}
