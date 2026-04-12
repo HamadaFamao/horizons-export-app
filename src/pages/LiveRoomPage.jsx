@@ -6973,6 +6973,7 @@ useEffect(() => {
             chatBottomRef={chatBottomRef}
             visibleMessages={visibleMessages}
             participantsMap={participantsMap}
+            moderatorsMap={moderatorsMap}
             openUserCard={openUserCard}
             renderRoleBadge={renderRoleBadge}
             lastSentGift={lastSentGift}

@@ -14,12 +14,41 @@ const FALLBACK_AVATAR =
 
 const ENABLE_GIFT_MESSAGE_TEXT = true;
 
+const getVipNameStyle = (vipNumber) => {
+  switch (Number(vipNumber)) {
+    case 1:
+      return "bg-gradient-to-r from-orange-400 to-amber-400 bg-clip-text text-transparent font-bold";
+    case 2:
+      return "bg-gradient-to-r from-slate-300 to-slate-100 bg-clip-text text-transparent font-bold";
+    case 3:
+      return "bg-gradient-to-r from-yellow-400 to-amber-300 bg-clip-text text-transparent font-black";
+    case 4:
+      return "bg-gradient-to-r from-cyan-300 to-blue-300 bg-clip-text text-transparent font-black";
+    case 5:
+      return "bg-gradient-to-r from-purple-400 via-pink-300 to-purple-400 bg-clip-text text-transparent font-black";
+    default:
+      return "text-white/90 font-bold";
+  }
+};
+
+const getVipPrefix = (vipNumber) => {
+  switch (Number(vipNumber)) {
+    case 1: return "🔥";
+    case 2: return "⚡";
+    case 3: return "✨";
+    case 4: return "💎";
+    case 5: return "👑";
+    default: return "";
+  }
+};
+
 export default function RoomChat({
   room,
   chatScrollRef,
   chatBottomRef,
   visibleMessages,
   participantsMap,
+  moderatorsMap,
   openUserCard,
   renderRoleBadge,
   lastSentGift,
@@ -201,9 +230,10 @@ export default function RoomChat({
                     );
                   }
 
+                  const senderUserId = m.sender_user_id || m.user_id;
                   const senderProfile =
-                    participantsMap?.[m.sender_user_id] ||
-                    participantsMap?.[m.user_id] ||
+                    participantsMap?.[senderUserId] ||
+                    participantsMap?.[String(senderUserId)] ||
                     null;
 
                   const name =
@@ -218,20 +248,31 @@ export default function RoomChat({
                     m.sender_avatar_url ||
                     FALLBACK_AVATAR;
 
-                  const isVip = Boolean(
-                    senderProfile?.raw_profile?.is_vip ||
-                    senderProfile?.is_vip ||
-                    Number(
-                      senderProfile?.raw_profile?.vip_number ||
-                      senderProfile?.vip_number ||
-                      0
-                    ) > 0
+                  const vipNumber = Number(
+                    senderProfile?.raw_profile?.vip_number ||
+                    senderProfile?.vip_number ||
+                    0
                   );
+                  const hasVipFlag = Boolean(senderProfile?.raw_profile?.is_vip || senderProfile?.is_vip);
+                  const vipUntilRaw = senderProfile?.raw_profile?.vip_until || senderProfile?.vip_until;
+                  const isVipActive = !vipUntilRaw || new Date(vipUntilRaw).getTime() > Date.now();
+                  const isVip = hasVipFlag && isVipActive;
+                  const isHost = !!(senderUserId && String(senderUserId) === String(room?.owner_user_id));
+                  const isMod = !!(senderUserId && moderatorsMap?.has?.(String(senderUserId)));
+
+                  const senderNameClass =
+                    isHost
+                      ? "text-amber-300 font-black drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]"
+                      : isMod
+                        ? "text-blue-300 font-bold drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]"
+                        : isVip
+                          ? `${getVipNameStyle(vipNumber)} drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]`
+                          : "text-white/90 font-semibold drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]";
 
                   return (
                     <div key={m.id} className="px-3 py-1 flex items-start gap-2">
                       <button
-                        onClick={() => openUserCard(m.sender_user_id)}
+                        onClick={() => openUserCard(senderUserId)}
                         className="w-7 h-7 rounded-full overflow-hidden flex items-center justify-center cursor-pointer shrink-0 mt-0.5"
                         title="Open user card"
                       >
@@ -246,17 +287,14 @@ export default function RoomChat({
                       <div className="min-w-0 flex-1">
                         <div className="min-w-0 break-words">
                           <button
-                            onClick={() => openUserCard(m.sender_user_id)}
-                            className={isVip
-                              ? "inline-flex items-center text-xs font-black mr-1.5 bg-gradient-to-r from-amber-300 to-yellow-200 bg-clip-text text-transparent hover:underline cursor-pointer text-left align-middle"
-                              : "inline-flex items-center text-xs font-bold text-white/90 mr-1.5 hover:underline cursor-pointer text-left align-middle"
-                            }
+                            onClick={() => openUserCard(senderUserId)}
+                            className={`inline-flex items-center text-xs mr-1.5 hover:underline cursor-pointer text-left align-middle ${senderNameClass}`}
                             title="Open user card"
                           >
-                            {isVip ? <span className="mr-1 text-amber-400"></span> : null}
+                            {isVip && !isHost && !isMod ? <span className="mr-1">{getVipPrefix(vipNumber)}</span> : null}
                             <span>{name}</span>
                           </button>
-                          {renderRoleBadge(m.sender_user_id)}
+                          {renderRoleBadge(senderUserId)}
                           <span
                             className={isVip
                               ? "text-xs text-white font-medium break-words whitespace-pre-wrap"
