@@ -88,6 +88,11 @@ export default function RoomChat({
   const [emojiTab, setEmojiTab] = React.useState('all');
   const [visibleCount, setVisibleCount] = React.useState(18);
   const loadMoreRef = React.useRef(null);
+  const [lastUsedEmoji, setLastUsedEmoji] = React.useState(null);
+  const repeatPressTimer = React.useRef(null);
+  const repeatIntervalRef = React.useRef(null);
+  const repeatLongPressActiveRef = React.useRef(false);
+  const [isAutoRepeating, setIsAutoRepeating] = React.useState(false);
 
   const handleScroll = () => {
     if (!chatScrollRef.current) return;
@@ -153,15 +158,60 @@ export default function RoomChat({
     };
   }, [showEmojiPanel, setShowEmojiPanel]);
 
-  const updateRecentEmojis = (emojiId) => {
-    const next = [
-      emojiId,
-      ...recentEmojiIds.filter((id) => id !== emojiId),
-    ].slice(0, 16);
-    setRecentEmojiIds(next);
-    try {
-      localStorage.setItem('recent_room_emojis', JSON.stringify(next));
-    } catch {}
+  const updateRecentEmojis = React.useCallback((emojiId) => {
+    setRecentEmojiIds((prev) => {
+      const next = [
+        emojiId,
+        ...prev.filter((id) => id !== emojiId),
+      ].slice(0, 16);
+      try {
+        localStorage.setItem('recent_room_emojis', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, []);
+
+  const handleEmojiSend = React.useCallback((emoji) => {
+    sendRoomEmoji(emoji);
+    updateRecentEmojis(emoji.id);
+    setLastUsedEmoji(emoji);
+  }, [sendRoomEmoji, updateRecentEmojis]);
+
+  const startRepeat = () => {
+    if (!lastUsedEmoji) return;
+
+    clearTimeout(repeatPressTimer.current);
+    clearInterval(repeatIntervalRef.current);
+    repeatLongPressActiveRef.current = false;
+
+    repeatPressTimer.current = setTimeout(() => {
+      repeatLongPressActiveRef.current = true;
+      setIsAutoRepeating(true);
+
+      repeatIntervalRef.current = setInterval(() => {
+        if (lastUsedEmoji) {
+          handleEmojiSend(lastUsedEmoji);
+        }
+      }, 800);
+    }, 500);
+  };
+
+  const stopRepeat = () => {
+    clearTimeout(repeatPressTimer.current);
+    clearInterval(repeatIntervalRef.current);
+    setIsAutoRepeating(false);
+  };
+
+  const handleRepeatClick = () => {
+    if (!lastUsedEmoji) return;
+
+    // Prevent extra single-send when a long press already triggered auto-repeat.
+    if (repeatLongPressActiveRef.current) {
+      repeatLongPressActiveRef.current = false;
+      return;
+    }
+
+    handleEmojiSend(lastUsedEmoji);
   };
 
   // Preload only recent emojis when panel opens
@@ -196,6 +246,13 @@ export default function RoomChat({
     return () => observer.disconnect();
   }, [visibleCount, showEmojiPanel]);
 
+  React.useEffect(() => {
+    return () => {
+      clearTimeout(repeatPressTimer.current);
+      clearInterval(repeatIntervalRef.current);
+    };
+  }, []);
+
   // Memoized All tab grid — only re-renders when visibleCount changes
   const allEmojiGrid = React.useMemo(
     () =>
@@ -203,7 +260,7 @@ export default function RoomChat({
         <button
           key={emoji.id}
           type="button"
-          onClick={() => { sendRoomEmoji(emoji); updateRecentEmojis(emoji.id); }}
+          onClick={() => handleEmojiSend(emoji)}
           className="flex items-center justify-center p-1 hover:bg-white/10 rounded-xl transition active:scale-90"
         >
           <img
@@ -218,7 +275,7 @@ export default function RoomChat({
           />
         </button>
       )),
-    [visibleCount]
+    [visibleCount, handleEmojiSend]
   );
 
   return (
@@ -538,7 +595,7 @@ export default function RoomChat({
                         <button
                           key={emoji.id}
                           type="button"
-                          onClick={() => { sendRoomEmoji(emoji); updateRecentEmojis(emoji.id); }}
+                          onClick={() => handleEmojiSend(emoji)}
                           className="flex items-center justify-center p-1 hover:bg-white/10 rounded-xl transition active:scale-90"
                         >
                           <img
@@ -627,20 +684,49 @@ export default function RoomChat({
             />
 
             <button
+              type="button"
+              onClick={() => setShowEmojiPanel((prev) => !prev)}
+              className="shrink-0 w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center text-xl hover:bg-white/20 transition active:scale-95"
+            >
+              😊
+            </button>
+
+            {lastUsedEmoji ? (
+              <button
+                type="button"
+                onClick={handleRepeatClick}
+                onMouseDown={startRepeat}
+                onMouseUp={stopRepeat}
+                onMouseLeave={stopRepeat}
+                onTouchStart={startRepeat}
+                onTouchEnd={stopRepeat}
+                onTouchCancel={stopRepeat}
+                className={`shrink-0 relative w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center hover:bg-white/20 transition active:scale-90 ${
+                  isAutoRepeating ? "animate-pulse ring-2 ring-white/40" : ""
+                }`}
+              >
+                <img
+                  src={lastUsedEmoji.src}
+                  alt={lastUsedEmoji.label}
+                  loading="lazy"
+                  width={28}
+                  height={28}
+                  className="w-7 h-7 object-contain"
+                  style={lastUsedEmoji.flip ? { transform: 'scaleX(-1)' } : undefined}
+                />
+                <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-white/90 flex items-center justify-center text-[9px] font-black text-slate-700">
+                  ↺
+                </div>
+              </button>
+            ) : null}
+
+            <button
               onClick={openGiftPanelForAll}
               disabled={!isJoinedToRoom}
               className="shrink-0 h-10 w-10 rounded-xl border bg-white/20 hover:bg-rose-50/50 backdrop-blur-sm flex items-center justify-center text-rose-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               title="Send Gift"
             >
               <Gift className="w-5 h-5" />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setShowEmojiPanel((prev) => !prev)}
-              className="shrink-0 w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center text-xl hover:bg-white/20 transition active:scale-95"
-            >
-              😊
             </button>
 
             <Button
