@@ -42,10 +42,10 @@ export default function RoomSeats({
   return (
     <div className="shrink-0 bg-transparent border-b lg:border-b-0 lg:border-r border-white/20 flex flex-col lg:w-[312px] xl:w-[336px]">
       <style>{`
-        @keyframes seatEmojiFloat {
-          0% { transform: translateX(-50%) translateY(0) scale(0.5); opacity: 1; }
-          40% { transform: translateX(-50%) translateY(-40px) scale(1.3); opacity: 1; }
-          100% { transform: translateX(-50%) translateY(-90px) scale(1); opacity: 0; }
+        @keyframes seatEmojiPop {
+          0% { transform: scale(0.3); opacity: 0; }
+          60% { transform: scale(1.2); opacity: 1; }
+          100% { transform: scale(1); opacity: 1; }
         }
       `}</style>
       <div className="min-h-0 overflow-y-auto overscroll-contain p-2.5 sm:p-3">
@@ -194,12 +194,12 @@ export default function RoomSeats({
                         {activeEffect ? (
                           <div
                             key={activeEffect.id}
-                            className="absolute -top-6 left-1/2 -translate-x-1/2 pointer-events-none z-20 animate-[seatEmojiFloat_3s_ease-out_forwards]"
+                            className="absolute inset-0 flex items-center justify-center pointer-events-none z-20"
                           >
                             <img
                               src={activeEffect.src}
                               alt={activeEmojiMeta?.label || "reaction"}
-                              className="w-16 h-16 object-contain drop-shadow-lg"
+                              className="w-16 h-16 object-contain drop-shadow-lg animate-[seatEmojiPop_0.3s_ease-out_forwards]"
                             />
                           </div>
                         ) : null}

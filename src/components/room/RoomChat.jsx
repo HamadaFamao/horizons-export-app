@@ -157,14 +157,17 @@ export default function RoomChat({
         style={{ paddingBottom: `calc(${footerHeight + 8}px + env(safe-area-inset-bottom, 0px) + env(keyboard-inset-height, 0px))` }}
       >
           {chatEmojiEffects.length > 0 ? (
-            <div className="absolute inset-0 pointer-events-none overflow-hidden z-10">
+            <div className="absolute bottom-[70px] left-2 pointer-events-none z-10">
               {chatEmojiEffects.map((effect) => (
                 <div
                   key={effect.id}
-                  className="absolute bottom-10 animate-[chatEmojiFloat_3s_ease-out_forwards]"
-                  style={{ left: `${effect.left}%` }}
+                  className="absolute animate-[chatEmojiRise_3s_ease-out_forwards]"
+                  style={{
+                    bottom: `${(effect.stackIndex || 0) * 70}px`,
+                    left: 0,
+                  }}
                 >
-                  <img src={effect.src} alt="reaction" className="w-16 h-16 object-contain" />
+                  <img src={effect.src} alt="reaction" className="w-14 h-14 object-contain drop-shadow-lg" />
                 </div>
               ))}
             </div>
@@ -213,10 +216,11 @@ export default function RoomChat({
       0%, 100% { transform: translateY(0px); }
       50% { transform: translateY(-3px); }
     }
-    @keyframes chatEmojiFloat {
+    @keyframes chatEmojiRise {
       0% { transform: translateY(0) scale(0.5); opacity: 1; }
-      50% { transform: translateY(-80px) scale(1.2); opacity: 1; }
-      100% { transform: translateY(-160px) scale(1); opacity: 0; }
+      20% { transform: translateY(-10px) scale(1.1); opacity: 1; }
+      80% { transform: translateY(-20px) scale(1); opacity: 1; }
+      100% { transform: translateY(-30px) scale(0.9); opacity: 0; }
     }
   `}</style>
 </div>
