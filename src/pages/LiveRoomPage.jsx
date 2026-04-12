@@ -5736,7 +5736,7 @@ useEffect(() => {
             setRoom(prev => prev ? {
               ...prev,
               title: payload.new.title,
-              name: payload.new.name ?? payload.new.title,
+              background_url: payload.new.background_url ?? prev.background_url,
             } : prev);
           }
           if (payload?.new?.background_url !== undefined) {

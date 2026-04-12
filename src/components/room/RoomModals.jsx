@@ -586,14 +586,14 @@ export default function RoomModals({
                             }
                             const { error } = await supabase
                               .from("live_rooms")
-                              .update({ title: newName, name: newName })
+                              .update({ title: newName })
                               .eq("id", room?.id);
                             if (error) {
                               toast(error.message || "Failed to update room name", 1400);
                               return;
                             }
-                            setRoom(prev => ({ ...prev, title: newName, name: newName }));
-                            showSuccessToast("✅ Room name updated!", 1400);
+                            setRoom(prev => ({ ...prev, title: newName }));
+                            toastSuccess("✅ Room name updated!", 1400);
                           }}
                           className="mt-2 w-full py-2 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-700 transition"
                         >
