@@ -223,6 +223,37 @@ const SPARKLE_CSS = `
 .gift-bounce {
   animation: giftBounce 0.8s ease-in-out infinite;
 }
+@keyframes emojiWiggle {
+  0%,100% { transform: rotate(-8deg) scale(1); }
+  25%     { transform: rotate(8deg) scale(1.1); }
+  50%     { transform: rotate(-5deg) scale(0.95); }
+  75%     { transform: rotate(5deg) scale(1.05); }
+}
+@keyframes emojiBounce {
+  0%,100% { transform: translateY(0) scale(1); }
+  30%     { transform: translateY(-8px) scale(1.1); }
+  60%     { transform: translateY(-4px) scale(1.05); }
+}
+@keyframes emojiPulse {
+  0%,100% { transform: scale(1); }
+  50%     { transform: scale(1.2); }
+}
+@keyframes emojiSpin {
+  0%   { transform: rotate(0deg) scale(1); }
+  50%  { transform: rotate(180deg) scale(1.1); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+@keyframes emojiShake {
+  0%,100% { transform: translateX(0); }
+  20%     { transform: translateX(-6px) rotate(-5deg); }
+  40%     { transform: translateX(6px) rotate(5deg); }
+  60%     { transform: translateX(-4px) rotate(-3deg); }
+  80%     { transform: translateX(4px) rotate(3deg); }
+}
+@keyframes emojiFloat {
+  0%,100% { transform: translateY(0) rotate(-3deg); }
+  50%     { transform: translateY(-10px) rotate(3deg); }
+}
 `;
 
 function getExt(file) {
@@ -1106,14 +1137,15 @@ useEffect(() => {
     setTimeout(() => mountedRef.current && setSuccessMsg(""), ms);
   };
 
-  const showEmojiEffect = (userId, emojiSrc, isOnSeat, emojiFlip) => {
+  const showEmojiEffect = (userId, emojiSrc, isOnSeat, emojiFlip, emojiAnimation) => {
     const effectId = `emoji_${Date.now()}_${Math.random()}`;
     const flip = !!emojiFlip;
+    const animation = emojiAnimation || "emojiBounce 0.8s ease-in-out infinite";
 
     if (isOnSeat) {
       setSeatEmojiEffects((prev) => [
         ...prev,
-        { id: effectId, userId, src: emojiSrc, flip, ts: Date.now() },
+        { id: effectId, userId, src: emojiSrc, flip, animation, ts: Date.now() },
       ]);
       setTimeout(() => {
         if (!mountedRef.current) return;
@@ -1124,7 +1156,7 @@ useEffect(() => {
 
     setChatEmojiEffects((prev) => [
       ...prev,
-      { id: effectId, src: emojiSrc, flip, ts: Date.now() },
+      { id: effectId, src: emojiSrc, flip, animation, ts: Date.now() },
     ]);
     setTimeout(() => {
       if (!mountedRef.current) return;
@@ -1145,11 +1177,12 @@ useEffect(() => {
       emoji_src: emoji.src,
       emoji_id: emoji.id,
       emoji_flip: emoji.flip ?? false,
+      emoji_animation: emoji.animation,
       is_on_seat: isOnSeat,
       ts: Date.now(),
     };
 
-    showEmojiEffect(user.id, emoji.src, isOnSeat, emoji.flip);
+    showEmojiEffect(user.id, emoji.src, isOnSeat, emoji.flip, emoji.animation);
 
     if (channelRef.current) {
       await channelRef.current.send({
@@ -5806,7 +5839,13 @@ useEffect(() => {
         if (payload?.room_id && String(payload.room_id) !== String(roomId)) return;
         if (payload?.user_id && String(payload.user_id) === String(user?.id)) return;
         if (payload?.emoji_src) {
-          showEmojiEffect(payload.user_id, payload.emoji_src, payload.is_on_seat, payload.emoji_flip);
+          showEmojiEffect(
+            payload.user_id,
+            payload.emoji_src,
+            payload.is_on_seat,
+            payload.emoji_flip,
+            payload.emoji_animation
+          );
         }
       });
 

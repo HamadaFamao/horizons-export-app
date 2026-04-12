@@ -197,8 +197,11 @@ export default function RoomSeats({
                             <img
                               src={activeEffect.src}
                               alt={activeEmojiMeta?.label || "reaction"}
-                              className="w-16 h-16 object-contain drop-shadow-lg animate-[seatEmojiPop_0.3s_ease-out_forwards]"
-                              style={activeEffect.flip ? { transform: 'scaleX(-1)' } : undefined}
+                              className="w-16 h-16 object-contain drop-shadow-lg"
+                              style={{
+                                animation: `seatEmojiPop 0.3s ease-out forwards, ${activeEffect.animation || "emojiBounce 0.8s ease-in-out infinite"}`,
+                                transform: activeEffect.flip ? "scaleX(-1)" : undefined,
+                              }}
                             />
                           </div>
                         ) : null}

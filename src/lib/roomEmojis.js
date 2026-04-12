@@ -1,4 +1,29 @@
-export const ROOM_EMOJIS = [
+const EMOJI_ANIMATION_PATTERN = [
+  "emojiWiggle 0.6s ease-in-out infinite",
+  "emojiBounce 0.8s ease-in-out infinite",
+  "emojiShake 0.5s ease-in-out infinite",
+  "emojiPulse 0.7s ease-in-out infinite",
+  "emojiFloat 1s ease-in-out infinite",
+  "emojiSpin 1.2s linear infinite",
+];
+
+function getEmojiAnimation(id) {
+  if (id === "e3f") return "emojiShake 0.5s ease-in-out infinite";
+
+  const numericId = Number(String(id).replace("e", ""));
+  if (!Number.isFinite(numericId)) return "emojiBounce 0.8s ease-in-out infinite";
+
+  if (numericId === 1) return "emojiWiggle 0.6s ease-in-out infinite";
+  if (numericId === 2) return "emojiBounce 0.8s ease-in-out infinite";
+  if (numericId === 3) return "emojiShake 0.5s ease-in-out infinite";
+  if (numericId === 4) return "emojiPulse 0.7s ease-in-out infinite";
+  if (numericId === 5) return "emojiFloat 1s ease-in-out infinite";
+
+  const cycleIndex = (numericId - 6) % EMOJI_ANIMATION_PATTERN.length;
+  return EMOJI_ANIMATION_PATTERN[cycleIndex];
+}
+
+const BASE_ROOM_EMOJIS = [
   { id: "e1",  src: "/emojis/512 (1).webp",  label: "reaction 1",  flip: false },
   { id: "e2",  src: "/emojis/512 (2).webp",  label: "reaction 2",  flip: false },
   { id: "e3",  src: "/emojis/512 (3).webp",  label: "reaction 3",  flip: false },
@@ -55,3 +80,8 @@ export const ROOM_EMOJIS = [
   { id: "e53", src: "/emojis/512 (53).webp", label: "reaction 53", flip: false },
   { id: "e54", src: "/emojis/512 (54).webp", label: "reaction 54", flip: false },
 ];
+
+export const ROOM_EMOJIS = BASE_ROOM_EMOJIS.map((emoji) => ({
+  ...emoji,
+  animation: getEmojiAnimation(emoji.id),
+}));

@@ -286,7 +286,10 @@ export default function RoomChat({
             width={40}
             height={40}
             className="w-10 h-10 object-contain"
-            style={emoji.flip ? { transform: 'scaleX(-1)' } : undefined}
+            style={{
+              animation: emoji.animation || "emojiBounce 0.8s ease-in-out infinite",
+              transform: emoji.flip ? "scaleX(-1)" : undefined,
+            }}
           />
         </button>
       )),
@@ -304,12 +307,15 @@ export default function RoomChat({
           {chatEmojiEffects.length > 0 ? (
             <div className="fixed bottom-[80px] right-4 pointer-events-none z-[60] flex flex-col-reverse items-end gap-2">
               {chatEmojiEffects.map((effect) => (
-                <div key={effect.id} className="animate-[chatEmojiRise_3s_ease-out_forwards]">
+                <div key={effect.id}>
                   <img
                     src={effect.src}
                     alt="reaction"
                     className="w-14 h-14 object-contain drop-shadow-lg"
-                    style={effect.flip ? { transform: 'scaleX(-1)' } : undefined}
+                    style={{
+                      animation: `${effect.animation || "emojiBounce 0.8s ease-in-out infinite"}, chatEmojiRise 3s ease-out forwards`,
+                      transform: effect.flip ? "scaleX(-1)" : undefined,
+                    }}
                   />
                 </div>
               ))}
@@ -621,7 +627,10 @@ export default function RoomChat({
                             width={40}
                             height={40}
                             className="w-10 h-10 object-contain"
-                            style={emoji.flip ? { transform: 'scaleX(-1)' } : undefined}
+                            style={{
+                              animation: emoji.animation || "emojiBounce 0.8s ease-in-out infinite",
+                              transform: emoji.flip ? "scaleX(-1)" : undefined,
+                            }}
                           />
                         </button>
                       ))
