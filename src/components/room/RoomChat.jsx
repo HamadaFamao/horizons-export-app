@@ -47,6 +47,7 @@ export default function RoomChat({
   chatScrollRef,
   chatBottomRef,
   visibleMessages,
+  onUserScrolledUpChange,
   participantsMap,
   moderatorsMap,
   openUserCard,
@@ -71,7 +72,20 @@ export default function RoomChat({
   canModerate,
 }) {
   const [footerHeight, setFooterHeight] = React.useState(0);
+  const [userScrolledUp, setUserScrolledUp] = React.useState(false);
   const footerRef = React.useRef(null);
+
+  const handleScroll = () => {
+    if (!chatScrollRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = chatScrollRef.current;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    const isScrolledUp = distanceFromBottom > 100;
+    setUserScrolledUp(isScrolledUp);
+  };
+
+  React.useEffect(() => {
+    onUserScrolledUpChange?.(userScrolledUp);
+  }, [userScrolledUp, onUserScrolledUpChange]);
 
   React.useEffect(() => {
     try {
@@ -112,6 +126,7 @@ export default function RoomChat({
     <div className="flex flex-col min-h-0 h-full relative lg:w-2/3 bg-black/30 backdrop-blur-sm">
       <div
         ref={chatScrollRef}
+        onScroll={handleScroll}
         className="flex-1 overflow-y-auto min-h-0"
         style={{ paddingBottom: `calc(${footerHeight + 8}px + env(safe-area-inset-bottom, 0px) + env(keyboard-inset-height, 0px))` }}
       >
@@ -312,7 +327,7 @@ export default function RoomChat({
                     </div>
                   );
                 })}
-                <div ref={chatBottomRef} />
+                <div ref={chatBottomRef} className="h-1 shrink-0" />
               </div>
             )}
           </div>

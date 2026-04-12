@@ -336,6 +336,7 @@ export default function LiveRoomPage() {
   const micSeatRefs = useRef({});
   const chatScrollRef = useRef(null);
   const chatBottomRef = useRef(null);
+  const userScrolledUpRef = useRef(false);
   const micGiftTotalsHydratedRef = useRef(false);
   const pkSessionRef = useRef(null);
   const pkParticipantsRef = useRef([]);
@@ -4857,16 +4858,24 @@ useEffect(() => {
   }, [pkParticipants]);
 
   useEffect(() => {
-    const bottom = chatBottomRef.current;
-    if (!bottom) return;
+    const scrollToBottom = () => {
+      if (chatBottomRef.current) {
+        chatBottomRef.current.scrollIntoView({
+          behavior: "smooth",
+          block: "end",
+        });
+      }
 
-    requestAnimationFrame(() => {
-      bottom.scrollIntoView({
-        behavior: "auto",
-        block: "end",
-      });
-    });
-  }, [messages, roomGiftMessages, lastSentGift, joinTime]);
+      if (chatScrollRef.current) {
+        chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+      }
+    };
+
+    if (userScrolledUpRef.current) return;
+
+    const timer = setTimeout(scrollToBottom, 50);
+    return () => clearTimeout(timer);
+  }, [visibleMessages]);
 
   useEffect(() => {
     if (!pkSession?.id) return;
@@ -6972,6 +6981,9 @@ useEffect(() => {
             chatScrollRef={chatScrollRef}
             chatBottomRef={chatBottomRef}
             visibleMessages={visibleMessages}
+            onUserScrolledUpChange={(isScrolledUp) => {
+              userScrolledUpRef.current = isScrolledUp;
+            }}
             participantsMap={participantsMap}
             moderatorsMap={moderatorsMap}
             openUserCard={openUserCard}
