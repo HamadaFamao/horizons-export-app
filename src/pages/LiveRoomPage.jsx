@@ -18,6 +18,7 @@ import UserCardModal from "@/components/room/UserCardModal";
 import { fetchUserWallet } from "@/lib/walletUtils";
 import { connectVoice } from "@/lib/livekit";
 import { VOICE_FILTERS, applyVoiceFilter, cleanupFilters, setFilterMuted } from "@/lib/voiceFilters";
+import { roomMusicPlayer } from "@/lib/roomMusic";
 import { Track } from "livekit-client";
 import {
   sendLiveRoomGift,
@@ -355,6 +356,7 @@ export default function LiveRoomPage() {
   const participantsChannelRef = useRef(null);
   const micSeatsChannelRef = useRef(null);
   const micRequestsChannelRef = useRef(null);
+  const roomSongsChannelRef = useRef(null);
   const rtNameRef = useRef(null);
   const rtAuthUnsubRef = useRef(null);
   const rtDebugBoundRef = useRef(false);
@@ -380,6 +382,8 @@ export default function LiveRoomPage() {
   const serverOffsetMsRef = useRef(0);
   const pkTimerIntervalRef = useRef(null);
   const rawMicStreamRef = useRef(null);
+  const musicProgressIntervalRef = useRef(null);
+  const songInputRef = useRef(null);
 
 
   // ==========================================
@@ -409,6 +413,13 @@ export default function LiveRoomPage() {
   const [showEmojiPanel, setShowEmojiPanel] = useState(false);
   const [activeFilter, setActiveFilter] = useState('none');
   const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [playlist, setPlaylist] = useState([]);
+  const [currentSongIndex, setCurrentSongIndex] = useState(null);
+  const [musicPlaying, setMusicPlaying] = useState(false);
+  const [musicVolume, setMusicVolume] = useState(0.8);
+  const [showMusicPanel, setShowMusicPanel] = useState(false);
+  const [uploadingSong, setUploadingSong] = useState(false);
+  const [musicProgress, setMusicProgress] = useState(0);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -1216,6 +1227,181 @@ useEffect(() => {
       toast('Failed to apply voice filter', 1400);
       setActiveFilter('none');
     }
+  };
+
+  const fetchPlaylist = async () => {
+    if (!roomId) return;
+    const { data, error } = await supabase
+      .from('room_songs')
+      .select('*')
+      .eq('room_id', roomId)
+      .order('sort_order', { ascending: true });
+    if (!error) setPlaylist(data || []);
+  };
+
+  const handleSongUpload = async (e) => {
+    if (!canModerate) return;
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const maxSize = 50 * 1024 * 1024;
+    if (file.size > maxSize) {
+      toast('File too large. Max 50MB', 1400);
+      return;
+    }
+
+    const allowedTypes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg'];
+    if (!allowedTypes.includes(file.type)) {
+      toast('Only MP3, WAV, OGG supported', 1400);
+      return;
+    }
+
+    setUploadingSong(true);
+    try {
+      const ext = file.name.split('.').pop();
+      const filePath = `${roomId}/${Date.now()}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('room-songs')
+        .upload(filePath, file, { upsert: false });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('room-songs')
+        .getPublicUrl(filePath);
+
+      const title = file.name.replace(/\.[^/.]+$/, '');
+
+      const { error: dbError } = await supabase
+        .from('room_songs')
+        .insert({
+          room_id: roomId,
+          uploaded_by: user.id,
+          title,
+          file_url: urlData.publicUrl,
+          sort_order: playlist.length,
+        });
+
+      if (dbError) throw dbError;
+
+      await fetchPlaylist();
+      toastSuccess('🎵 Song added!', 1400);
+    } catch (err) {
+      toast(err.message || 'Upload failed', 1400);
+    } finally {
+      setUploadingSong(false);
+      if (songInputRef.current) songInputRef.current.value = '';
+    }
+  };
+
+  const playSong = async (index) => {
+    if (!canModerate) return;
+    const song = playlist[index];
+    if (!song) return;
+
+    setCurrentSongIndex(index);
+    setMusicPlaying(true);
+
+    roomMusicPlayer.onEnded = () => {
+      const nextIndex = index + 1;
+      if (nextIndex < playlist.length) {
+        playSong(nextIndex);
+      } else {
+        setMusicPlaying(false);
+        setCurrentSongIndex(null);
+        setMusicProgress(0);
+        clearInterval(musicProgressIntervalRef.current);
+      }
+    };
+
+    const success = await roomMusicPlayer.playSong(
+      song.file_url,
+      livekitRoomRef.current
+    );
+
+    if (!success) {
+      toast('Failed to play song', 1400);
+      setMusicPlaying(false);
+      return;
+    }
+
+    if (channelRef.current) {
+      await channelRef.current.send({
+        type: 'broadcast',
+        event: 'music_playing',
+        payload: {
+          room_id: roomId,
+          song_title: song.title,
+          song_index: index,
+          action: 'play',
+          ts: Date.now(),
+        },
+      });
+    }
+
+    clearInterval(musicProgressIntervalRef.current);
+    musicProgressIntervalRef.current = setInterval(() => {
+      const current = roomMusicPlayer.getCurrentTime();
+      const duration = roomMusicPlayer.getDuration();
+      if (duration > 0) {
+        setMusicProgress((current / duration) * 100);
+      }
+    }, 500);
+  };
+
+  const stopMusic = async () => {
+    await roomMusicPlayer.stop();
+    setMusicPlaying(false);
+    setCurrentSongIndex(null);
+    setMusicProgress(0);
+    clearInterval(musicProgressIntervalRef.current);
+
+    if (channelRef.current) {
+      await channelRef.current.send({
+        type: 'broadcast',
+        event: 'music_playing',
+        payload: {
+          room_id: roomId,
+          action: 'stop',
+          ts: Date.now(),
+        },
+      });
+    }
+  };
+
+  const deleteSong = async (songId) => {
+    if (!canModerate) return;
+    const { error } = await supabase
+      .from('room_songs')
+      .delete()
+      .eq('id', songId);
+    if (!error) {
+      await fetchPlaylist();
+      toastSuccess('Song removed', 1200);
+    }
+  };
+
+  const moveSong = async (index, direction) => {
+    const newPlaylist = [...playlist];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= newPlaylist.length) return;
+
+    [newPlaylist[index], newPlaylist[targetIndex]] =
+      [newPlaylist[targetIndex], newPlaylist[index]];
+
+    await Promise.all(newPlaylist.map((song, i) =>
+      supabase.from('room_songs')
+        .update({ sort_order: i })
+        .eq('id', song.id)
+    ));
+
+    setPlaylist(newPlaylist);
+  };
+
+  const changeMusicVolume = (value) => {
+    setMusicVolume(value);
+    roomMusicPlayer.setVolume(value);
   };
 
   const sendRoomEmoji = async (emoji) => {
@@ -3147,6 +3333,7 @@ console.log("MODERATORS MAP:", nextMap);
       }
 
       await loadPkState();
+      await fetchPlaylist();
 
       try {
         const [req, msgs, mutes, role, mods, giftHistory] = await Promise.all([
@@ -5335,6 +5522,8 @@ useEffect(() => {
       return () => {
         mountedRef.current = false;
         if (repeatHideTimerRef.current) clearTimeout(repeatHideTimerRef.current);
+        roomMusicPlayer.cleanup();
+        clearInterval(musicProgressIntervalRef.current);
       };
     }
 
@@ -5359,6 +5548,8 @@ useEffect(() => {
     return () => {
       mountedRef.current = false;
       if (repeatHideTimerRef.current) clearTimeout(repeatHideTimerRef.current);
+      roomMusicPlayer.cleanup();
+      clearInterval(musicProgressIntervalRef.current);
       clearInterval(heartbeat);
       window.removeEventListener("beforeunload", onBeforeUnload);
       if (miniRoomActiveRef.current) return;
@@ -5664,6 +5855,11 @@ useEffect(() => {
           try { await supabase.removeChannel(micRequestsChannelRef.current); } catch { }
           micRequestsChannelRef.current = null;
         }
+        if (roomSongsChannelRef.current) {
+          try { await roomSongsChannelRef.current.unsubscribe(); } catch { }
+          try { await supabase.removeChannel(roomSongsChannelRef.current); } catch { }
+          roomSongsChannelRef.current = null;
+        }
       } catch { }
     };
 
@@ -5908,6 +6104,15 @@ useEffect(() => {
             payload.emoji_flip,
             payload.emoji_animation
           );
+        }
+      });
+
+      ch.on('broadcast', { event: 'music_playing' }, ({ payload }) => {
+        if (String(payload?.room_id) !== String(roomId)) return;
+        if (payload?.action === 'play') {
+          toast(`🎵 Now playing: ${payload.song_title}`, 2000);
+        } else if (payload?.action === 'stop') {
+          toast('🎵 Music stopped', 1200);
         }
       });
 
@@ -6166,6 +6371,26 @@ useEffect(() => {
         .subscribe();
 
       micRequestsChannelRef.current = micRequestsChannel;
+
+      const roomSongsChannel = supabase
+        .channel(`live-room-songs-${roomId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'room_songs',
+            filter: `room_id=eq.${roomId}`
+          },
+          async () => {
+            try {
+              await fetchPlaylist();
+            } catch {}
+          }
+        )
+        .subscribe();
+
+      roomSongsChannelRef.current = roomSongsChannel;
     };
 
     run();
@@ -6819,11 +7044,189 @@ useEffect(() => {
         pkBusy={pkBusy}
         setShowPkModal={setShowPkModal}
         setShowLeaderboard={setShowLeaderboard}
+        showMusicPanel={showMusicPanel}
+        setShowMusicPanel={setShowMusicPanel}
+        musicPlaying={musicPlaying}
         openSettings={openSettings}
         myIncomingInvites={myIncomingInvites}
         handleAcceptMyInvite={handleAcceptMyInvite}
         handleRejectMyInvite={handleRejectMyInvite}
       />
+
+      {showMusicPanel && (
+        <div className="fixed inset-0 z-[85]" onClick={() => setShowMusicPanel(false)}>
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+          <div
+            className="absolute inset-x-0 bottom-0 bg-slate-900 rounded-t-3xl shadow-2xl max-h-[75vh] flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-center pt-2 pb-1">
+              <div className="w-10 h-1 rounded-full bg-white/20" />
+            </div>
+
+            <div className="px-4 py-3 flex items-center justify-between border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🎵</span>
+                <span className="font-bold text-white">Room Playlist</span>
+                <span className="text-xs text-white/40">{playlist.length} songs</span>
+              </div>
+              <button
+                onClick={() => setShowMusicPanel(false)}
+                className="text-white/50 hover:text-white text-sm"
+              >
+                Close
+              </button>
+            </div>
+
+            {musicPlaying && currentSongIndex !== null && (
+              <div className="px-4 py-3 bg-emerald-900/40 border-b border-emerald-500/20">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs text-emerald-400 font-bold">🎵 Now Playing</div>
+                    <div className="text-sm text-white font-semibold truncate">
+                      {playlist[currentSongIndex]?.title}
+                    </div>
+                  </div>
+                  {canModerate && (
+                    <button
+                      onClick={stopMusic}
+                      className="shrink-0 px-3 py-1.5 rounded-full bg-red-500/80 text-white text-xs font-bold hover:bg-red-500 transition"
+                    >
+                      ⏹ Stop
+                    </button>
+                  )}
+                </div>
+                <div className="mt-2 h-1 bg-white/20 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-emerald-400 rounded-full transition-all"
+                    style={{ width: `${musicProgress}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {canModerate && (
+              <div className="px-4 py-2 flex items-center gap-3 border-b border-white/10">
+                <span className="text-sm">🔈</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={musicVolume}
+                  onChange={(e) => changeMusicVolume(Number(e.target.value))}
+                  className="flex-1 accent-emerald-400"
+                />
+                <span className="text-sm">🔊</span>
+              </div>
+            )}
+
+            {canModerate && (
+              <div className="px-4 py-2 border-b border-white/10">
+                <label className="flex items-center justify-center gap-2 w-full py-2 rounded-xl border border-dashed border-white/20 text-white/60 hover:border-white/40 hover:text-white/80 transition cursor-pointer">
+                  <input
+                    ref={songInputRef}
+                    type="file"
+                    accept="audio/mpeg,audio/mp3,audio/wav,audio/ogg"
+                    onChange={handleSongUpload}
+                    disabled={uploadingSong}
+                    className="hidden"
+                  />
+                  {uploadingSong ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span className="text-sm">Uploading...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>🎵</span>
+                      <span className="text-sm font-medium">
+                        Upload Song (MP3/WAV/OGG, max 50MB)
+                      </span>
+                    </>
+                  )}
+                </label>
+              </div>
+            )}
+
+            <div className="flex-1 overflow-y-auto">
+              {playlist.length === 0 ? (
+                <div className="text-center py-10 text-white/30 text-sm">
+                  No songs yet.
+                  {canModerate ? ' Upload your first song!' : ''}
+                </div>
+              ) : (
+                <div className="p-2 space-y-1">
+                  {playlist.map((song, index) => (
+                    <div
+                      key={song.id}
+                      className={`flex items-center gap-3 p-3 rounded-xl transition ${
+                        currentSongIndex === index
+                          ? 'bg-emerald-900/40 border border-emerald-500/30'
+                          : 'hover:bg-white/5'
+                      }`}
+                    >
+                      <div className="shrink-0 w-6 text-center">
+                        {currentSongIndex === index && musicPlaying ? (
+                          <span className="text-emerald-400 animate-pulse">♪</span>
+                        ) : (
+                          <span className="text-white/30 text-xs">{index + 1}</span>
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className={`text-sm font-medium truncate ${
+                          currentSongIndex === index
+                            ? 'text-emerald-300'
+                            : 'text-white/80'
+                        }`}>
+                          {song.title}
+                        </div>
+                      </div>
+
+                      {canModerate && (
+                        <div className="shrink-0 flex items-center gap-1">
+                          <button
+                            onClick={() => playSong(index)}
+                            className="w-8 h-8 rounded-full bg-white/10 hover:bg-emerald-500/80 flex items-center justify-center text-sm transition"
+                          >
+                            ▶
+                          </button>
+
+                          {index > 0 && (
+                            <button
+                              onClick={() => moveSong(index, 'up')}
+                              className="w-7 h-7 rounded-full bg-white/5 hover:bg-white/20 flex items-center justify-center text-xs text-white/50 hover:text-white transition"
+                            >
+                              ↑
+                            </button>
+                          )}
+
+                          {index < playlist.length - 1 && (
+                            <button
+                              onClick={() => moveSong(index, 'down')}
+                              className="w-7 h-7 rounded-full bg-white/5 hover:bg-white/20 flex items-center justify-center text-xs text-white/50 hover:text-white transition"
+                            >
+                              ↓
+                            </button>
+                          )}
+
+                          <button
+                            onClick={() => deleteSong(song.id)}
+                            className="w-7 h-7 rounded-full bg-white/5 hover:bg-red-500/80 flex items-center justify-center text-xs text-white/30 hover:text-white transition"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div
   className="relative flex-1 min-h-0 flex flex-col bg-transparent sm:border sm:rounded-xl sm:mx-4 sm:mb-4 overflow-hidden"
