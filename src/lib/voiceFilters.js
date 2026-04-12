@@ -1,7 +1,7 @@
 // Voice filter types
 export const VOICE_FILTERS = [
   { id: "none",       label: "Normal",     emoji: "🎤" },
-  { id: "robot",      label: "Robot",      emoji: "🤖" },
+  { id: "baby",       label: "Baby",       emoji: "👶" },
   { id: "chipmunk",   label: "Chipmunk",   emoji: "🐿️" },
   { id: "deep",       label: "Deep",       emoji: "👹" },
   { id: "echo",       label: "Echo",       emoji: "🌊" },
@@ -13,6 +13,7 @@ let sourceNode = null;
 let filterChain = [];
 let currentStream = null;
 let processedStream = null;
+export let masterGainNode = null;
 
 export const getAudioContext = () => {
   if (!audioContext || audioContext.state === 'closed') {
@@ -37,28 +38,28 @@ export const applyVoiceFilter = async (filterId, micStream) => {
     const destination = ctx.createMediaStreamDestination();
     filterChain = [];
 
-    if (filterId === 'robot') {
-      // Robot: ring modulator effect
-      const oscillator = ctx.createOscillator();
-      oscillator.frequency.value = 50;
-      oscillator.type = 'sawtooth';
-      
-      const gainNode = ctx.createGain();
-      gainNode.gain.value = 1;
-      
-      const distortion = ctx.createWaveShaper();
-      const curve = new Float32Array(256);
-      for (let i = 0; i < 256; i++) {
-        const x = (i * 2) / 256 - 1;
-        curve[i] = (Math.PI + 200) * x / (Math.PI + 200 * Math.abs(x));
-      }
-      distortion.curve = curve;
+    if (filterId === 'baby') {
+      // Baby/child voice: gentle pitch shift up
+      // softer than chipmunk
+      const scriptProcessor = ctx.createScriptProcessor(4096, 1, 1);
 
-      sourceNode.connect(distortion);
-      distortion.connect(gainNode);
-      gainNode.connect(destination);
-      oscillator.start();
-      filterChain = [oscillator, gainNode, distortion];
+      scriptProcessor.onaudioprocess = (e) => {
+        const input = e.inputBuffer.getChannelData(0);
+        const output = e.outputBuffer.getChannelData(0);
+        const rate = 1.4; // Slightly higher pitch (less extreme than chipmunk)
+
+        for (let i = 0; i < output.length; i++) {
+          const srcIdx = Math.floor(i * rate) % input.length;
+          output[i] = input[srcIdx] * 0.9; // Slight volume reduction
+        }
+      };
+
+      sourceNode.connect(scriptProcessor);
+      masterGainNode = ctx.createGain();
+      masterGainNode.gain.value = 1.0;
+      scriptProcessor.connect(masterGainNode);
+      masterGainNode.connect(destination);
+      filterChain = [scriptProcessor, masterGainNode];
     }
 
     else if (filterId === 'chipmunk') {
@@ -76,8 +77,11 @@ export const applyVoiceFilter = async (filterId, micStream) => {
       };
 
       sourceNode.connect(scriptProcessor);
-      scriptProcessor.connect(destination);
-      filterChain = [scriptProcessor];
+      masterGainNode = ctx.createGain();
+      masterGainNode.gain.value = 1.0;
+      scriptProcessor.connect(masterGainNode);
+      masterGainNode.connect(destination);
+      filterChain = [scriptProcessor, masterGainNode];
     }
 
     else if (filterId === 'deep') {
@@ -95,8 +99,11 @@ export const applyVoiceFilter = async (filterId, micStream) => {
       };
 
       sourceNode.connect(scriptProcessor);
-      scriptProcessor.connect(destination);
-      filterChain = [scriptProcessor];
+      masterGainNode = ctx.createGain();
+      masterGainNode.gain.value = 1.0;
+      scriptProcessor.connect(masterGainNode);
+      masterGainNode.connect(destination);
+      filterChain = [scriptProcessor, masterGainNode];
     }
 
     else if (filterId === 'echo') {
@@ -113,14 +120,21 @@ export const applyVoiceFilter = async (filterId, micStream) => {
       const wetGain = ctx.createGain();
       wetGain.gain.value = 0.5;
 
+      const mixGain = ctx.createGain();
+      mixGain.gain.value = 1.0;
+
       sourceNode.connect(dryGain);
       sourceNode.connect(delay);
       delay.connect(feedback);
       feedback.connect(delay);
       delay.connect(wetGain);
-      dryGain.connect(destination);
-      wetGain.connect(destination);
-      filterChain = [delay, feedback, dryGain, wetGain];
+      dryGain.connect(mixGain);
+      wetGain.connect(mixGain);
+      masterGainNode = ctx.createGain();
+      masterGainNode.gain.value = 1.0;
+      mixGain.connect(masterGainNode);
+      masterGainNode.connect(destination);
+      filterChain = [delay, feedback, dryGain, wetGain, mixGain, masterGainNode];
     }
 
     else if (filterId === 'radio') {
@@ -145,8 +159,11 @@ export const applyVoiceFilter = async (filterId, micStream) => {
       sourceNode.connect(bandpass);
       bandpass.connect(distortion);
       distortion.connect(gainNode);
-      gainNode.connect(destination);
-      filterChain = [bandpass, distortion, gainNode];
+      masterGainNode = ctx.createGain();
+      masterGainNode.gain.value = 1.0;
+      gainNode.connect(masterGainNode);
+      masterGainNode.connect(destination);
+      filterChain = [bandpass, distortion, gainNode, masterGainNode];
     }
 
     processedStream = destination.stream;
@@ -172,4 +189,12 @@ export const cleanupFilters = () => {
   filterChain = [];
   sourceNode = null;
   processedStream = null;
+  currentStream = null;
+  masterGainNode = null;
+};
+
+export const setFilterMuted = (muted) => {
+  if (masterGainNode) {
+    masterGainNode.gain.value = muted ? 0 : 1;
+  }
 };

@@ -17,7 +17,7 @@ import PkModal from "@/components/room/PkModal";
 import UserCardModal from "@/components/room/UserCardModal";
 import { fetchUserWallet } from "@/lib/walletUtils";
 import { connectVoice } from "@/lib/livekit";
-import { VOICE_FILTERS, applyVoiceFilter, cleanupFilters } from "@/lib/voiceFilters";
+import { VOICE_FILTERS, applyVoiceFilter, cleanupFilters, setFilterMuted } from "@/lib/voiceFilters";
 import { Track } from "livekit-client";
 import {
   sendLiveRoomGift,
@@ -1073,6 +1073,7 @@ useEffect(() => {
       lkRoom.localParticipant.setMicrophoneEnabled(!nextMuted).catch((e) => {
         console.error("[VOICE] toggle mic failed", e);
       });
+      setFilterMuted(nextMuted);
     }
   }, [isMicMuted]);
 
