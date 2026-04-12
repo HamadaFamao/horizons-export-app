@@ -1,12 +1,6 @@
 import React from "react";
 import { XCircle, MicOff } from "lucide-react";
 
-const SEAT_EMOJIS = [
-  "😂", "❤️", "🔥", "👏", "😍",
-  "🎉", "💯", "😮", "😢", "👑",
-  "🎤", "💃", "🕺", "⭐", "🌹",
-];
-
 const FALLBACK_AVATAR =
   "data:image/svg+xml;utf8," +
   encodeURIComponent(`
@@ -37,30 +31,9 @@ export default function RoomSeats({
   renderRoleBadge,
   micGiftTotals,
   micGiftTotalsReady,
-  seatEmojis,
-  sendSeatEmoji,
-  currentUserId,
 }) {
-  const [openEmojiSeatId, setOpenEmojiSeatId] = React.useState(null);
-
-  React.useEffect(() => {
-    if (!openEmojiSeatId) return;
-
-    const close = () => setOpenEmojiSeatId(null);
-    document.addEventListener("click", close);
-
-    return () => document.removeEventListener("click", close);
-  }, [openEmojiSeatId]);
-
   return (
     <div className="shrink-0 bg-transparent border-b lg:border-b-0 lg:border-r border-white/20 flex flex-col lg:w-[312px] xl:w-[336px]">
-      <style>{`
-        @keyframes floatUp {
-          0% { transform: translateX(-50%) translateY(0) scale(0.5); opacity: 1; }
-          50% { transform: translateX(-50%) translateY(-30px) scale(1.2); opacity: 1; }
-          100% { transform: translateX(-50%) translateY(-60px) scale(1); opacity: 0; }
-        }
-      `}</style>
       <div className="min-h-0 overflow-y-auto overscroll-contain p-2.5 sm:p-3">
         <div className="grid grid-cols-3 gap-2">
           {loading
@@ -83,9 +56,9 @@ export default function RoomSeats({
               }
 
               const isMySeat = !!(
-                currentUserId &&
+                user?.id &&
                 s.user_id &&
-                String(s.user_id) === String(currentUserId)
+                String(s.user_id) === String(user.id)
               );
               const isSeatMuted = !!mutedUsers?.[String(s.user_id)];
               const isLocked = !!s.locked;
@@ -96,7 +69,6 @@ export default function RoomSeats({
               const isHostUser = !!(s.user_id && String(s.user_id) === String(room?.owner_user_id));
               const hasRoleBadge = !!(s.user_id && renderRoleBadge(s.user_id));
               const isModUser = !!(s.user_id && !isHostUser && hasRoleBadge);
-              const seatEmoji = s.user_id ? seatEmojis?.[s.user_id] : null;
 
               return (
                 <div
@@ -201,15 +173,6 @@ export default function RoomSeats({
                   >
                     <div className="flex flex-col items-center text-center">
                       <div className="relative flex items-center justify-center shrink-0">
-                        {seatEmoji ? (
-                          <div
-                            key={seatEmoji.id}
-                            className="absolute -top-8 left-1/2 -translate-x-1/2 z-20 text-3xl pointer-events-none animate-[floatUp_3s_ease-out_forwards]"
-                          >
-                            {seatEmoji.emoji}
-                          </div>
-                        ) : null}
-
                         {s.user_id ? (
                           <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10">
                             {renderRoleBadge(s.user_id)}
@@ -326,43 +289,6 @@ export default function RoomSeats({
                       )}
                     </div>
                   </button>
-
-                  {isMySeat ? (
-                    <>
-                      {openEmojiSeatId === s.seat_no ? (
-                        <div
-                          className="absolute bottom-10 left-1/2 -translate-x-1/2 z-30 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl p-2 grid grid-cols-5 gap-1 w-[160px]"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {SEAT_EMOJIS.map((emoji) => (
-                            <button
-                              key={emoji}
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                sendSeatEmoji(emoji);
-                                setOpenEmojiSeatId(null);
-                              }}
-                              className="text-xl hover:scale-125 transition p-1 rounded-lg hover:bg-slate-100"
-                            >
-                              {emoji}
-                            </button>
-                          ))}
-                        </div>
-                      ) : null}
-
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setOpenEmojiSeatId((prev) => (prev === s.seat_no ? null : s.seat_no));
-                        }}
-                        className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-white/20 backdrop-blur-sm rounded-full px-2 py-0.5 text-sm hover:bg-white/30 transition z-20"
-                      >
-                        😊
-                      </button>
-                    </>
-                  ) : null}
                 </div>
               );
             })}
