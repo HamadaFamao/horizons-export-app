@@ -369,6 +369,9 @@ export default function LiveRoomPage() {
   const [messages, setMessages] = useState([]);
   const [roomGiftMessages, setRoomGiftMessages] = useState([]);
   const [roomGiftEffects, setRoomGiftEffects] = useState([]);
+  const [seatEmojiEffects, setSeatEmojiEffects] = useState([]);
+  const [chatEmojiEffects, setChatEmojiEffects] = useState([]);
+  const [showEmojiPanel, setShowEmojiPanel] = useState(false);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -1100,6 +1103,60 @@ useEffect(() => {
   const toastSuccess = (msg, ms = 1400) => {
     setSuccessMsg(msg);
     setTimeout(() => mountedRef.current && setSuccessMsg(""), ms);
+  };
+
+  const showEmojiEffect = (userId, emojiSrc, isOnSeat) => {
+    const effectId = `emoji_${Date.now()}_${Math.random()}`;
+
+    if (isOnSeat) {
+      setSeatEmojiEffects((prev) => [
+        ...prev,
+        { id: effectId, userId, src: emojiSrc, ts: Date.now() },
+      ]);
+      setTimeout(() => {
+        if (!mountedRef.current) return;
+        setSeatEmojiEffects((prev) => prev.filter((effect) => effect.id !== effectId));
+      }, 3000);
+      return;
+    }
+
+    setChatEmojiEffects((prev) => [
+      ...prev,
+      { id: effectId, src: emojiSrc, ts: Date.now(), left: 20 + Math.random() * 60 },
+    ]);
+    setTimeout(() => {
+      if (!mountedRef.current) return;
+      setChatEmojiEffects((prev) => prev.filter((effect) => effect.id !== effectId));
+    }, 3000);
+  };
+
+  const sendRoomEmoji = async (emoji) => {
+    if (!user?.id || !roomId) return;
+
+    const isOnSeat = (effectiveSeats || []).some(
+      (seat) => seat.user_id && String(seat.user_id) === String(user.id)
+    );
+
+    const payload = {
+      room_id: roomId,
+      user_id: user.id,
+      emoji_src: emoji.src,
+      emoji_id: emoji.id,
+      is_on_seat: isOnSeat,
+      ts: Date.now(),
+    };
+
+    showEmojiEffect(user.id, emoji.src, isOnSeat);
+
+    if (channelRef.current) {
+      await channelRef.current.send({
+        type: "broadcast",
+        event: "room_emoji",
+        payload,
+      });
+    }
+
+    setShowEmojiPanel(false);
   };
 
   const restartRepeatHideTimer = () => {
@@ -5742,6 +5799,14 @@ useEffect(() => {
         }
       });
 
+      ch.on("broadcast", { event: "room_emoji" }, ({ payload }) => {
+        if (payload?.room_id && String(payload.room_id) !== String(roomId)) return;
+        if (payload?.user_id && String(payload.user_id) === String(user?.id)) return;
+        if (payload?.emoji_src) {
+          showEmojiEffect(payload.user_id, payload.emoji_src, payload.is_on_seat);
+        }
+      });
+
       ch.on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "live_rooms", filter: `id=eq.${roomId}` },
@@ -6975,6 +7040,7 @@ useEffect(() => {
             renderRoleBadge={renderRoleBadge}
             micGiftTotals={micGiftTotals}
             micGiftTotalsReady={micGiftTotalsReady}
+            seatEmojiEffects={seatEmojiEffects}
           />
 
           <RoomChat
@@ -7007,6 +7073,10 @@ useEffect(() => {
             sending={sending}
             canModerate={canModerate}
             room={room}
+            showEmojiPanel={showEmojiPanel}
+            setShowEmojiPanel={setShowEmojiPanel}
+            sendRoomEmoji={sendRoomEmoji}
+            chatEmojiEffects={chatEmojiEffects}
           />
         </div>
 

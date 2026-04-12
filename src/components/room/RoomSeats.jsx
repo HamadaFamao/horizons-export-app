@@ -1,6 +1,12 @@
 import React from "react";
 import { XCircle, MicOff } from "lucide-react";
 
+const ROOM_EMOJIS = [
+  { id: "e1", src: "/emojis/512 (1).webp", label: "reaction 1" },
+  { id: "e2", src: "/emojis/512 (2).webp", label: "reaction 2" },
+  { id: "e3", src: "/emojis/512 (3).webp", label: "reaction 3" },
+];
+
 const FALLBACK_AVATAR =
   "data:image/svg+xml;utf8," +
   encodeURIComponent(`
@@ -31,9 +37,17 @@ export default function RoomSeats({
   renderRoleBadge,
   micGiftTotals,
   micGiftTotalsReady,
+  seatEmojiEffects,
 }) {
   return (
     <div className="shrink-0 bg-transparent border-b lg:border-b-0 lg:border-r border-white/20 flex flex-col lg:w-[312px] xl:w-[336px]">
+      <style>{`
+        @keyframes seatEmojiFloat {
+          0% { transform: translateX(-50%) translateY(0) scale(0.5); opacity: 1; }
+          40% { transform: translateX(-50%) translateY(-40px) scale(1.3); opacity: 1; }
+          100% { transform: translateX(-50%) translateY(-90px) scale(1); opacity: 0; }
+        }
+      `}</style>
       <div className="min-h-0 overflow-y-auto overscroll-contain p-2.5 sm:p-3">
         <div className="grid grid-cols-3 gap-2">
           {loading
@@ -69,6 +83,10 @@ export default function RoomSeats({
               const isHostUser = !!(s.user_id && String(s.user_id) === String(room?.owner_user_id));
               const hasRoleBadge = !!(s.user_id && renderRoleBadge(s.user_id));
               const isModUser = !!(s.user_id && !isHostUser && hasRoleBadge);
+              const activeEffect = (seatEmojiEffects || []).find(
+                (effect) => String(effect.userId) === String(s.user_id)
+              );
+              const activeEmojiMeta = ROOM_EMOJIS.find((emoji) => emoji.src === activeEffect?.src);
 
               return (
                 <div
@@ -173,6 +191,19 @@ export default function RoomSeats({
                   >
                     <div className="flex flex-col items-center text-center">
                       <div className="relative flex items-center justify-center shrink-0">
+                        {activeEffect ? (
+                          <div
+                            key={activeEffect.id}
+                            className="absolute -top-6 left-1/2 -translate-x-1/2 pointer-events-none z-20 animate-[seatEmojiFloat_3s_ease-out_forwards]"
+                          >
+                            <img
+                              src={activeEffect.src}
+                              alt={activeEmojiMeta?.label || "reaction"}
+                              className="w-16 h-16 object-contain drop-shadow-lg"
+                            />
+                          </div>
+                        ) : null}
+
                         {s.user_id ? (
                           <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10">
                             {renderRoleBadge(s.user_id)}

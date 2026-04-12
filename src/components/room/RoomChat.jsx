@@ -13,6 +13,11 @@ const FALLBACK_AVATAR =
   </svg>`);
 
 const ENABLE_GIFT_MESSAGE_TEXT = true;
+const ROOM_EMOJIS = [
+  { id: "e1", src: "/emojis/512 (1).webp", label: "reaction 1" },
+  { id: "e2", src: "/emojis/512 (2).webp", label: "reaction 2" },
+  { id: "e3", src: "/emojis/512 (3).webp", label: "reaction 3" },
+];
 
 const getVipNameStyle = (vipNumber) => {
   switch (Number(vipNumber)) {
@@ -70,6 +75,10 @@ export default function RoomChat({
   openGiftPanelForAll,
   sending,
   canModerate,
+  showEmojiPanel,
+  setShowEmojiPanel,
+  sendRoomEmoji,
+  chatEmojiEffects,
 }) {
   const [footerHeight, setFooterHeight] = React.useState(0);
   const [userScrolledUp, setUserScrolledUp] = React.useState(false);
@@ -122,14 +131,45 @@ export default function RoomChat({
     };
   }, []);
 
+  React.useEffect(() => {
+    if (!showEmojiPanel) return;
+
+    const close = () => {
+      setShowEmojiPanel(false);
+    };
+
+    const timer = setTimeout(() => {
+      document.addEventListener("click", close);
+    }, 100);
+
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("click", close);
+    };
+  }, [showEmojiPanel, setShowEmojiPanel]);
+
   return (
     <div className="flex flex-col min-h-0 h-full relative lg:w-2/3 bg-black/30 backdrop-blur-sm">
       <div
         ref={chatScrollRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto min-h-0"
+        className="relative flex-1 overflow-y-auto min-h-0"
         style={{ paddingBottom: `calc(${footerHeight + 8}px + env(safe-area-inset-bottom, 0px) + env(keyboard-inset-height, 0px))` }}
       >
+          {chatEmojiEffects.length > 0 ? (
+            <div className="absolute inset-0 pointer-events-none overflow-hidden z-10">
+              {chatEmojiEffects.map((effect) => (
+                <div
+                  key={effect.id}
+                  className="absolute bottom-10 animate-[chatEmojiFloat_3s_ease-out_forwards]"
+                  style={{ left: `${effect.left}%` }}
+                >
+                  <img src={effect.src} alt="reaction" className="w-16 h-16 object-contain" />
+                </div>
+              ))}
+            </div>
+          ) : null}
+
            <div className="p-3 mb-3 text-center">
   <div 
     className="text-sm font-bold tracking-wide"
@@ -172,6 +212,11 @@ export default function RoomChat({
     @keyframes float-sub {
       0%, 100% { transform: translateY(0px); }
       50% { transform: translateY(-3px); }
+    }
+    @keyframes chatEmojiFloat {
+      0% { transform: translateY(0) scale(0.5); opacity: 1; }
+      50% { transform: translateY(-80px) scale(1.2); opacity: 1; }
+      100% { transform: translateY(-160px) scale(1); opacity: 0; }
     }
   `}</style>
 </div>
@@ -373,6 +418,27 @@ export default function RoomChat({
     paddingBottom: "max(env(safe-area-inset-bottom, 0px), 8px)",
   }}
 >
+        {showEmojiPanel ? (
+          <div
+            className="absolute bottom-[70px] left-2 right-2 z-50 bg-black/80 backdrop-blur-md rounded-2xl p-3 border border-white/10 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-xs text-white/50 font-semibold mb-2 px-1">Reactions</div>
+            <div className="flex items-center gap-3 justify-center">
+              {ROOM_EMOJIS.map((emoji) => (
+                <button
+                  key={emoji.id}
+                  type="button"
+                  onClick={() => sendRoomEmoji(emoji)}
+                  className="flex flex-col items-center gap-1 hover:scale-125 transition active:scale-95 p-1"
+                >
+                  <img src={emoji.src} alt={emoji.label} className="w-14 h-14 object-contain" />
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
         {room?.chat_disabled && !canModerate ? (
           <div className="mb-2 text-sm bg-slate-100 border border-slate-200 text-slate-700 rounded-lg p-2 text-center">
             Chat is disabled by the host 🔇
@@ -436,6 +502,14 @@ export default function RoomChat({
               title="Send Gift"
             >
               <Gift className="w-5 h-5" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowEmojiPanel((prev) => !prev)}
+              className="shrink-0 w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center text-xl hover:bg-white/20 transition active:scale-95"
+            >
+              😊
             </button>
 
             <Button
