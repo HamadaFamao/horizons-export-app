@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Loader2, Send, Mic, MicOff, Gift } from "lucide-react";
 import { ROOM_EMOJIS } from "@/lib/roomEmojis";
+import { VOICE_FILTERS } from "@/lib/voiceFilters";
 
 const FALLBACK_AVATAR =
   "data:image/svg+xml;utf8," +
@@ -75,6 +76,11 @@ export default function RoomChat({
   setShowEmojiPanel,
   sendRoomEmoji,
   chatEmojiEffects,
+  activeFilter,
+  showFilterPanel,
+  setShowFilterPanel,
+  changeVoiceFilter,
+  isOnSeat,
 }) {
   const [footerHeight, setFooterHeight] = React.useState(0);
   const [userScrolledUp, setUserScrolledUp] = React.useState(false);
@@ -651,6 +657,36 @@ export default function RoomChat({
           </div>
         ) : null}
 
+        {showFilterPanel && isOnSeat ? (
+          <div
+            className="absolute bottom-[70px] left-2 right-2 z-50 bg-black/85 backdrop-blur-md rounded-2xl border border-white/10 shadow-2xl p-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-xs text-white/50 font-bold mb-2">🎙️ Voice Filters</div>
+            <div className="grid grid-cols-3 gap-2">
+              {VOICE_FILTERS.map((filter) => (
+                <button
+                  key={filter.id}
+                  type="button"
+                  onClick={() => changeVoiceFilter(filter.id)}
+                  className={`flex flex-col items-center gap-1 p-2 rounded-xl transition active:scale-95 ${
+                    activeFilter === filter.id
+                      ? 'bg-purple-500/80 border border-purple-400'
+                      : 'bg-white/10 hover:bg-white/20 border border-white/10'
+                  }`}
+                  title={filter.label}
+                >
+                  <span className="text-2xl">{filter.emoji}</span>
+                  <span className="text-[10px] font-bold text-white/80 text-center break-words">{filter.label}</span>
+                  {activeFilter === filter.id && (
+                    <span className="text-[9px] text-purple-300 font-bold">Active</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
         {room?.chat_disabled && !canModerate ? (
           <div className="mb-2 text-sm bg-slate-100 border border-slate-200 text-slate-700 rounded-lg p-2 text-center">
             Chat is disabled by the host 🔇
@@ -743,6 +779,21 @@ export default function RoomChat({
                 </div>
               </button>
             ) : null}
+
+            {isOnSeat && (
+              <button
+                type="button"
+                onClick={() => setShowFilterPanel((prev) => !prev)}
+                className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-lg transition active:scale-95 ${
+                  activeFilter !== 'none'
+                    ? 'bg-purple-500 text-white shadow-[0_0_10px_rgba(168,85,247,0.5)]'
+                    : 'bg-white/10 backdrop-blur-sm border border-white/20'
+                }`}
+                title="Voice Filters"
+              >
+                🎙️
+              </button>
+            )}
 
             <button
               onClick={openGiftPanelForAll}

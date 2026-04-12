@@ -17,6 +17,8 @@ import PkModal from "@/components/room/PkModal";
 import UserCardModal from "@/components/room/UserCardModal";
 import { fetchUserWallet } from "@/lib/walletUtils";
 import { connectVoice } from "@/lib/livekit";
+import { VOICE_FILTERS, applyVoiceFilter, cleanupFilters } from "@/lib/voiceFilters";
+import { Track } from "livekit-client";
 import {
   sendLiveRoomGift,
   fetchLiveRoomGiftEventFull,
@@ -377,6 +379,7 @@ export default function LiveRoomPage() {
   const roomGiftMessagesRef = useRef([]);
   const serverOffsetMsRef = useRef(0);
   const pkTimerIntervalRef = useRef(null);
+  const rawMicStreamRef = useRef(null);
 
 
   // ==========================================
@@ -404,6 +407,8 @@ export default function LiveRoomPage() {
   const [seatEmojiEffects, setSeatEmojiEffects] = useState([]);
   const [chatEmojiEffects, setChatEmojiEffects] = useState([]);
   const [showEmojiPanel, setShowEmojiPanel] = useState(false);
+  const [activeFilter, setActiveFilter] = useState('none');
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -1162,6 +1167,54 @@ useEffect(() => {
       if (!mountedRef.current) return;
       setChatEmojiEffects((prev) => prev.filter((effect) => effect.id !== effectId));
     }, 3000);
+  };
+
+  const changeVoiceFilter = async (filterId) => {
+    if (!livekitRoomRef.current) {
+      toast('You must be on a seat to use voice filters', 1400);
+      return;
+    }
+
+    setActiveFilter(filterId);
+    setShowFilterPanel(false);
+
+    try {
+      const lkRoom = livekitRoomRef.current;
+      
+      // Get current mic stream
+      if (!rawMicStreamRef.current) {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          audio: true 
+        });
+        rawMicStreamRef.current = stream;
+      }
+
+      // Apply filter
+      const processedStream = await applyVoiceFilter(
+        filterId, 
+        rawMicStreamRef.current
+      );
+
+      // Replace LiveKit track with filtered stream
+      const audioTrack = processedStream.getAudioTracks()[0];
+      if (audioTrack && lkRoom.localParticipant) {
+        await lkRoom.localParticipant.publishTrack(audioTrack, {
+          name: 'microphone',
+          source: Track.Source.Microphone,
+        });
+      }
+
+      if (filterId === 'none') {
+        toastSuccess('🎤 Filter removed', 1200);
+      } else {
+        const filter = VOICE_FILTERS.find(f => f.id === filterId);
+        toastSuccess(`${filter?.emoji} ${filter?.label} filter applied`, 1200);
+      }
+    } catch (err) {
+      console.error('[VOICE_FILTER_APPLY_ERROR]', err);
+      toast('Failed to apply voice filter', 1400);
+      setActiveFilter('none');
+    }
   };
 
   const sendRoomEmoji = async (emoji) => {
@@ -3529,6 +3582,14 @@ console.log("MODERATORS MAP:", nextMap);
     if (!user?.id) return;
 
     try {
+      // Cleanup voice filters
+      cleanupFilters();
+      setActiveFilter('none');
+      if (rawMicStreamRef.current) {
+        rawMicStreamRef.current.getTracks().forEach(t => t.stop());
+        rawMicStreamRef.current = null;
+      }
+
       const { data, error } = await supabase.rpc("leave_mic_seat", { p_room_id: roomId });
       if (error) throw error;
       const ok = data?.success ?? data?.success === true;
@@ -7119,6 +7180,11 @@ useEffect(() => {
             setShowEmojiPanel={setShowEmojiPanel}
             sendRoomEmoji={sendRoomEmoji}
             chatEmojiEffects={chatEmojiEffects}
+            activeFilter={activeFilter}
+            showFilterPanel={showFilterPanel}
+            setShowFilterPanel={setShowFilterPanel}
+            changeVoiceFilter={changeVoiceFilter}
+            isOnSeat={effectiveSeats.some(s => s.user_id && String(s.user_id) === String(user?.id))}
           />
         </div>
 
