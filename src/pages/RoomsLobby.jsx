@@ -302,7 +302,6 @@ export default function RoomsLobby() {
     showPinToggle = true,
     gridMode = false
   ) => {
-    const isFollowing = followedRoomIds.has(String(room.id));
     return (
       <div
         key={room.id}
@@ -329,17 +328,6 @@ export default function RoomsLobby() {
           ) : (
             <Mic className="w-8 h-8 text-slate-400" />
           )}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleFollowRoom(room.id);
-            }}
-            className="absolute top-3 right-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-slate-600 shadow-sm transition hover:bg-white"
-            aria-label={isFollowing ? 'Remove from favorites' : 'Add to favorites'}
-          >
-            <Heart className={`w-4 h-4 ${isFollowing ? 'text-rose-500' : 'text-slate-400'}`} fill={isFollowing ? 'currentColor' : 'none'} />
-          </button>
         </div>
 
         <div className="p-2 flex flex-col flex-1">
@@ -358,14 +346,15 @@ export default function RoomsLobby() {
             )}
           </div>
 
-          <div className={`mb-1 flex items-center gap-1 text-xs font-medium ${room.participant_count > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
-  <Users className="w-3.5 h-3.5" />
-  {room.participant_count || 0}
-</div>
-
-          <div className="flex items-center gap-1 text-xs font-medium text-rose-400">
-            <Heart className="w-3.5 h-3.5" fill="currentColor" />
-            {room.follows_count || 0}
+          <div className="mb-1 flex items-center gap-3 text-xs font-medium">
+            <span className={`flex items-center gap-1 ${room.participant_count > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
+              <Users className="w-3.5 h-3.5" />
+              {room.participant_count || 0}
+            </span>
+            <span className="flex items-center gap-1 text-rose-400">
+              <Heart className="w-3.5 h-3.5" fill="currentColor" />
+              {room.follows_count || 0}
+            </span>
           </div>
 
           <div className="mt-auto pt-1 flex items-center justify-between gap-2">

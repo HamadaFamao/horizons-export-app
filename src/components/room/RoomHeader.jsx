@@ -251,13 +251,16 @@ export default function RoomHeader({
             <button
               type="button"
               onClick={toggleFollowRoom}
-              className="inline-flex flex-col items-center gap-0.5"
+              className="inline-flex flex-col items-center justify-center gap-0.5 transition active:scale-95"
+              aria-label={isFollowingRoom ? 'Unfollow room' : 'Follow room'}
             >
               <Heart
-                className={`w-5 h-5 transition ${isFollowingRoom ? 'text-rose-500' : 'text-slate-400'}`}
+                className={`w-5 h-5 transition-colors duration-200 ${
+                  isFollowingRoom ? 'text-rose-500' : 'text-slate-400'
+                }`}
                 fill={isFollowingRoom ? 'currentColor' : 'none'}
               />
-              <span className="text-[10px] font-semibold text-slate-500">
+              <span className="text-[10px] font-semibold text-slate-500 tabular-nums">
                 {followsCount}
               </span>
             </button>

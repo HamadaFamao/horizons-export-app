@@ -402,9 +402,10 @@ export default function LiveRoomPage() {
     if (!user?.id || !roomId) return;
 
     const wasFollowing = isFollowingRoom;
-    const delta = wasFollowing ? -1 : 1;
+
+    // Optimistic update
     setIsFollowingRoom(!wasFollowing);
-    setFollowsCount((prev) => Math.max(0, prev + delta));
+    setFollowsCount((prev) => Math.max(0, prev + (wasFollowing ? -1 : 1)));
 
     try {
       if (wasFollowing) {
@@ -422,11 +423,12 @@ export default function LiveRoomPage() {
         if (error) throw error;
         toast('❤️ Added to favorites', 1200);
       }
-    } catch (error) {
-      console.warn('[LiveRoomPage] toggle follow failed, rolling back', error);
+    } catch (err) {
+      // Revert optimistic update on error
+      console.warn('[LiveRoomPage] toggle follow failed, rolling back', err);
       setIsFollowingRoom(wasFollowing);
-      setFollowsCount((prev) => Math.max(0, prev - delta));
-      toast('Could not update favorites. Please try again.', 1400);
+      setFollowsCount((prev) => Math.max(0, prev + (wasFollowing ? 1 : -1)));
+      toast('Failed to update follow', 1400);
     }
   };
 
