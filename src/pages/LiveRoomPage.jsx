@@ -345,7 +345,6 @@ export default function LiveRoomPage() {
   const roomGiftMessagesRef = useRef([]);
   const serverOffsetMsRef = useRef(0);
   const pkTimerIntervalRef = useRef(null);
-  const emojiColumnOffsetRef = useRef(0);
 
 
   // ==========================================
@@ -1123,16 +1122,7 @@ useEffect(() => {
 
     setChatEmojiEffects((prev) => [
       ...prev,
-      {
-        id: effectId,
-        src: emojiSrc,
-        ts: Date.now(),
-        stackIndex: (() => {
-          const offset = emojiColumnOffsetRef.current;
-          emojiColumnOffsetRef.current = (offset + 1) % 5;
-          return offset;
-        })(),
-      },
+      { id: effectId, src: emojiSrc, ts: Date.now() },
     ]);
     setTimeout(() => {
       if (!mountedRef.current) return;
