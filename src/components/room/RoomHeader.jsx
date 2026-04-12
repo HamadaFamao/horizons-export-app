@@ -163,8 +163,9 @@ export default function RoomHeader({
   setLeaveRoomOpen,
   openUserCard,
   copyRoomId,
-  toggleFavoriteRoom,
-  isFavorite,
+  isFollowingRoom,
+  followsCount,
+  toggleFollowRoom,
   currentPeopleRanked,
   setShowPeople,
   canModerate,
@@ -248,15 +249,17 @@ export default function RoomHeader({
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => toggleFavoriteRoom(room?.id)}
-              className={`inline-flex items-center justify-center w-7 h-7 rounded-lg border p-0 shrink-0 transition-all duration-300 hover:scale-110 active:scale-95 ${
-                isFavorite
-                  ? "bg-gradient-to-br from-rose-50 to-pink-50 border-rose-200 text-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.2)]"
-                  : "bg-white border-slate-200 text-slate-400 hover:text-rose-400 hover:border-rose-200 hover:bg-rose-50"
-              }`}
-              title={isFavorite ? "Remove from favorites" : "Add to favorites"}
+              type="button"
+              onClick={toggleFollowRoom}
+              className="inline-flex flex-col items-center gap-0.5"
             >
-              <Heart className={`w-3.5 h-3.5 ${isFavorite ? 'animate-pulse' : ''}`} fill={isFavorite ? "currentColor" : "none"} />
+              <Heart
+                className={`w-5 h-5 transition ${isFollowingRoom ? 'text-rose-500' : 'text-slate-400'}`}
+                fill={isFollowingRoom ? 'currentColor' : 'none'}
+              />
+              <span className="text-[10px] font-semibold text-slate-500">
+                {followsCount}
+              </span>
             </button>
           </div>
         </div>

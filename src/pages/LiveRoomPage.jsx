@@ -372,48 +372,62 @@ export default function LiveRoomPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [joinNotifs, setJoinNotifs] = useState([]);
-  const [favoriteRoomIds, setFavoriteRoomIds] = useState([]);
-  const isFavorite = useMemo(
-    () => !!room?.id && favoriteRoomIds.includes(String(room.id)),
-    [favoriteRoomIds, room?.id]
-  );
+  const [isFollowingRoom, setIsFollowingRoom] = useState(false);
+  const [followsCount, setFollowsCount] = useState(0);
 
-  useEffect(() => {
-    try {
-      const savedFavorites = window.localStorage.getItem('favorite_room_ids');
-      if (savedFavorites) {
-        const ids = JSON.parse(savedFavorites);
-        if (Array.isArray(ids)) {
-          setFavoriteRoomIds(ids.filter((id) => id));
-        }
-      }
-    } catch (error) {
-      console.warn('[LiveRoomPage] unable to read favorite_room_ids', error);
-    }
-  }, []);
+  const fetchRoomFollowState = async () => {
+    if (!roomId) return;
 
-  const saveFavoriteRoomIds = (ids) => {
-    try {
-      window.localStorage.setItem('favorite_room_ids', JSON.stringify(ids));
-    } catch (error) {
-      console.warn('[LiveRoomPage] unable to save favorite_room_ids', error);
+    const { count } = await supabase
+      .from('live_room_follows')
+      .select('*', { count: 'exact', head: true })
+      .eq('room_id', roomId);
+    setFollowsCount(count || 0);
+
+    if (user?.id) {
+      const { data } = await supabase
+        .from('live_room_follows')
+        .select('id')
+        .eq('room_id', roomId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+      setIsFollowingRoom(!!data);
+      return;
     }
+
+    setIsFollowingRoom(false);
   };
 
-  const toggleFavoriteRoom = (roomId) => {
-    if (!roomId) return;
-    const normalized = String(roomId);
-    const isCurrentlyFavorite = favoriteRoomIds.includes(normalized);
-    const next = isCurrentlyFavorite
-      ? favoriteRoomIds.filter((id) => id !== normalized)
-      : [normalized, ...favoriteRoomIds];
+  const toggleFollowRoom = async () => {
+    if (!user?.id || !roomId) return;
 
-    setFavoriteRoomIds(next);
-    saveFavoriteRoomIds(next);
-    toast(
-      isCurrentlyFavorite ? 'Removed room from favorites' : 'Added room to favorites',
-      1200
-    );
+    const wasFollowing = isFollowingRoom;
+    const delta = wasFollowing ? -1 : 1;
+    setIsFollowingRoom(!wasFollowing);
+    setFollowsCount((prev) => Math.max(0, prev + delta));
+
+    try {
+      if (wasFollowing) {
+        const { error } = await supabase
+          .from('live_room_follows')
+          .delete()
+          .eq('room_id', roomId)
+          .eq('user_id', user.id);
+        if (error) throw error;
+        toast('Removed from favorites', 1200);
+      } else {
+        const { error } = await supabase
+          .from('live_room_follows')
+          .insert({ room_id: roomId, user_id: user.id });
+        if (error) throw error;
+        toast('❤️ Added to favorites', 1200);
+      }
+    } catch (error) {
+      console.warn('[LiveRoomPage] toggle follow failed, rolling back', error);
+      setIsFollowingRoom(wasFollowing);
+      setFollowsCount((prev) => Math.max(0, prev - delta));
+      toast('Could not update favorites. Please try again.', 1400);
+    }
   };
 
   const [isUserCardOpen, setIsUserCardOpen] = useState(false);
@@ -2927,6 +2941,8 @@ console.log("MODERATORS MAP:", nextMap);
       if (!roomData) {
         return;
       }
+
+      await fetchRoomFollowState();
 
       const joined = await ensureJoinedToRoom(null, roomData);
 
@@ -6487,8 +6503,9 @@ useEffect(() => {
         setLeaveRoomOpen={setLeaveRoomOpen}
         openUserCard={openUserCard}
         copyRoomId={copyRoomId}
-        toggleFavoriteRoom={toggleFavoriteRoom}
-        isFavorite={isFavorite}
+        isFollowingRoom={isFollowingRoom}
+        followsCount={followsCount}
+        toggleFollowRoom={toggleFollowRoom}
         currentPeopleRanked={currentPeopleRanked}
         setShowPeople={setShowPeople}
         canModerate={canModerate}

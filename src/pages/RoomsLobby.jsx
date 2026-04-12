@@ -14,7 +14,7 @@ export default function RoomsLobby() {
   const [banners, setBanners] = useState([]);
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
   const [recentRoomIds, setRecentRoomIds] = useState([]);
-  const [favoriteRoomIds, setFavoriteRoomIds] = useState([]);
+  const [followedRoomIds, setFollowedRoomIds] = useState(new Set());
   const [activeTab, setActiveTab] = useState('popular');
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
@@ -47,7 +47,18 @@ export default function RoomsLobby() {
         .in('room_id', roomIds)
         .is('left_at', null);
 
+      const { data: followsCounts } = await supabase
+        .from('live_room_follows')
+        .select('room_id')
+        .in('room_id', roomIds);
+
       const countsByRoomId = (participantCounts || []).reduce((acc, row) => {
+        const roomId = String(row.room_id);
+        acc[roomId] = (acc[roomId] || 0) + 1;
+        return acc;
+      }, {});
+
+      const followsByRoomId = (followsCounts || []).reduce((acc, row) => {
         const roomId = String(row.room_id);
         acc[roomId] = (acc[roomId] || 0) + 1;
         return acc;
@@ -56,6 +67,7 @@ export default function RoomsLobby() {
       const mergedRooms = baseRooms.map((room) => ({
         ...room,
         participant_count: countsByRoomId[String(room.id)] || 0,
+        follows_count: followsByRoomId[String(room.id)] || 0,
       }));
 
       setRooms(mergedRooms);
@@ -72,6 +84,7 @@ export default function RoomsLobby() {
     window.history.replaceState(null, '', '/rooms');
     fetchRooms();
     fetchBanners();
+    fetchUserFollows();
   }, []);
 
   useEffect(() => {
@@ -122,20 +135,24 @@ export default function RoomsLobby() {
     } catch (error) {
       console.warn('[RoomsLobby] unable to read recent_room_ids', error);
     }
-
-    try {
-      const savedFavorites = window.localStorage.getItem('favorite_room_ids');
-      if (savedFavorites) {
-        const ids = JSON.parse(savedFavorites);
-        if (Array.isArray(ids)) {
-          setFavoriteRoomIds(ids.filter((id) => id));
-        }
-      }
-    } catch (error) {
-      console.warn('[RoomsLobby] unable to read favorite_room_ids', error);
-    }
-
   }, []);
+
+  const fetchUserFollows = async () => {
+    if (!user?.id) return;
+    const { data } = await supabase
+      .from('live_room_follows')
+      .select('room_id')
+      .eq('user_id', user.id);
+    setFollowedRoomIds(new Set((data || []).map((r) => String(r.room_id))));
+  };
+
+  useEffect(() => {
+    if (!user?.id) {
+      setFollowedRoomIds(new Set());
+      return;
+    }
+    fetchUserFollows();
+  }, [user?.id]);
 
   const fetchBanners = async () => {
     try {
@@ -202,14 +219,6 @@ export default function RoomsLobby() {
     }
   };
 
-  const saveFavoriteRoomIds = (ids) => {
-    try {
-      window.localStorage.setItem('favorite_room_ids', JSON.stringify(ids));
-    } catch (error) {
-      console.warn('[RoomsLobby] unable to save favorite_room_ids', error);
-    }
-  };
-
   const addRecentRoom = (roomId) => {
     const normalized = String(roomId);
     const next = [normalized, ...recentRoomIds.filter((id) => String(id) !== normalized)].slice(0, 5);
@@ -217,13 +226,55 @@ export default function RoomsLobby() {
     saveRecentRoomIds(next);
   };
 
-  const toggleFavoriteRoom = (roomId) => {
+  const toggleFollowRoom = async (roomId) => {
+    if (!user?.id) return;
     const normalized = String(roomId);
-    const next = favoriteRoomIds.includes(normalized)
-      ? favoriteRoomIds.filter((id) => String(id) !== normalized)
-      : [normalized, ...favoriteRoomIds];
-    setFavoriteRoomIds(next);
-    saveFavoriteRoomIds(next);
+    const isFollowing = followedRoomIds.has(normalized);
+    const delta = isFollowing ? -1 : 1;
+
+    setFollowedRoomIds((prev) => {
+      const next = new Set(prev);
+      if (isFollowing) next.delete(normalized);
+      else next.add(normalized);
+      return next;
+    });
+
+    setRooms((prev) => prev.map((r) =>
+      String(r.id) === normalized
+        ? { ...r, follows_count: Math.max(0, (r.follows_count || 0) + delta) }
+        : r
+    ));
+
+    try {
+      if (isFollowing) {
+        const { error } = await supabase
+          .from('live_room_follows')
+          .delete()
+          .eq('room_id', roomId)
+          .eq('user_id', user.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('live_room_follows')
+          .insert({ room_id: roomId, user_id: user.id });
+        if (error) throw error;
+      }
+    } catch (error) {
+      console.warn('[RoomsLobby] toggle follow failed, rolling back', error);
+
+      setFollowedRoomIds((prev) => {
+        const next = new Set(prev);
+        if (isFollowing) next.add(normalized);
+        else next.delete(normalized);
+        return next;
+      });
+
+      setRooms((prev) => prev.map((r) =>
+        String(r.id) === normalized
+          ? { ...r, follows_count: Math.max(0, (r.follows_count || 0) - delta) }
+          : r
+      ));
+    }
   };
 
   const openBannerLink = (linkUrl) => {
@@ -251,7 +302,7 @@ export default function RoomsLobby() {
     showPinToggle = true,
     gridMode = false
   ) => {
-    const isFavorite = favoriteRoomIds.includes(String(room.id));
+    const isFollowing = followedRoomIds.has(String(room.id));
     return (
       <div
         key={room.id}
@@ -282,12 +333,12 @@ export default function RoomsLobby() {
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              toggleFavoriteRoom(room.id);
+              toggleFollowRoom(room.id);
             }}
             className="absolute top-3 right-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-slate-600 shadow-sm transition hover:bg-white"
-            aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+            aria-label={isFollowing ? 'Remove from favorites' : 'Add to favorites'}
           >
-            <Heart className={`w-4 h-4 ${isFavorite ? 'text-rose-500' : 'text-slate-400'}`} fill={isFavorite ? 'currentColor' : 'none'} />
+            <Heart className={`w-4 h-4 ${isFollowing ? 'text-rose-500' : 'text-slate-400'}`} fill={isFollowing ? 'currentColor' : 'none'} />
           </button>
         </div>
 
@@ -311,6 +362,11 @@ export default function RoomsLobby() {
   <Users className="w-3.5 h-3.5" />
   {room.participant_count || 0}
 </div>
+
+          <div className="flex items-center gap-1 text-xs font-medium text-rose-400">
+            <Heart className="w-3.5 h-3.5" fill="currentColor" />
+            {room.follows_count || 0}
+          </div>
 
           <div className="mt-auto pt-1 flex items-center justify-between gap-2">
             <Button
@@ -357,11 +413,8 @@ export default function RoomsLobby() {
   }, [recentRoomIds, rooms]);
 
   const favoriteRooms = useMemo(() => {
-    if (!favoriteRoomIds.length) return [];
-    return favoriteRoomIds
-      .map((id) => rooms.find((room) => String(room.id) === String(id)))
-      .filter(Boolean);
-  }, [favoriteRoomIds, rooms]);
+    return rooms.filter((room) => followedRoomIds.has(String(room.id)));
+  }, [rooms, followedRoomIds]);
 
   const activeTabRooms = useMemo(() => {
     if (activeTab === 'favorites') return favoriteRooms;
