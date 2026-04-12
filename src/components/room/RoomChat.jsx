@@ -218,43 +218,57 @@ export default function RoomChat({
                     m.sender_avatar_url ||
                     FALLBACK_AVATAR;
 
+                  const isVip = Boolean(
+                    senderProfile?.raw_profile?.is_vip ||
+                    senderProfile?.is_vip ||
+                    Number(
+                      senderProfile?.raw_profile?.vip_number ||
+                      senderProfile?.vip_number ||
+                      0
+                    ) > 0
+                  );
+
                   return (
-                    <div key={m.id} className="bg-white border rounded-xl p-2">
-                      <div className="flex items-start gap-2">
-                        <button
-                          onClick={() => openUserCard(m.sender_user_id)}
-                          className="w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden border bg-slate-50 flex items-center justify-center cursor-pointer"
-                          title="Open user card"
-                        >
-                          <img
-                            src={avatar}
-                            alt={name}
-                            onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
-                            className="w-full h-full object-cover"
-                          />
-                        </button>
+                    <div key={m.id} className="px-3 py-1 flex items-start gap-2">
+                      <button
+                        onClick={() => openUserCard(m.sender_user_id)}
+                        className="w-7 h-7 rounded-full overflow-hidden flex items-center justify-center cursor-pointer shrink-0 mt-0.5"
+                        title="Open user card"
+                      >
+                        <img
+                          src={avatar}
+                          alt={name}
+                          onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
+                          className="w-full h-full rounded-full object-cover shrink-0"
+                        />
+                      </button>
 
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center min-w-0">
-                              <button
-                                onClick={() => openUserCard(m.sender_user_id)}
-                                className="text-xs sm:text-sm font-semibold text-slate-900 truncate hover:underline cursor-pointer text-left"
-                                title="Open user card"
-                              >
-                                {name}
-                              </button>
-                              {renderRoleBadge(m.sender_user_id)}
-                            </div>
-
-                            <div className="text-[10px] sm:text-[11px] text-slate-500 font-mono whitespace-nowrap">
-                              {new Date(m.created_at).toLocaleString()}
-                            </div>
-                          </div>
-
-                          <div className="text-xs sm:text-sm text-slate-900 mt-1 whitespace-pre-wrap">
+                      <div className="min-w-0 flex-1">
+                        <div className="min-w-0 break-words">
+                          <button
+                            onClick={() => openUserCard(m.sender_user_id)}
+                            className={isVip
+                              ? "inline-flex items-center text-xs font-black mr-1.5 bg-gradient-to-r from-amber-300 to-yellow-200 bg-clip-text text-transparent hover:underline cursor-pointer text-left align-middle"
+                              : "inline-flex items-center text-xs font-bold text-white/90 mr-1.5 hover:underline cursor-pointer text-left align-middle"
+                            }
+                            title="Open user card"
+                          >
+                            {isVip ? <span className="mr-1 text-amber-400">👑</span> : null}
+                            <span>{name}</span>
+                          </button>
+                          {renderRoleBadge(m.sender_user_id)}
+                          <span
+                            className={isVip
+                              ? "text-xs text-white font-medium break-words whitespace-pre-wrap"
+                              : "text-xs text-white/80 break-words whitespace-pre-wrap"
+                            }
+                          >
                             {m.content}
-                          </div>
+                          </span>
+                        </div>
+
+                        <div className="mt-0.5 text-[10px] text-white/30 font-mono">
+                          {new Date(m.created_at).toLocaleString()}
                         </div>
                       </div>
                     </div>
