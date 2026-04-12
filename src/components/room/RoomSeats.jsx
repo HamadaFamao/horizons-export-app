@@ -66,6 +66,9 @@ export default function RoomSeats({
               const isSpeakingNow = speakerLevel > 0.04;
               const waveScale = 1 + Math.min(speakerLevel, 0.5) * 0.35;
               const pkSide = s.user_id ? pkUserSideMap.get(String(s.user_id)) : null;
+              const isHostUser = !!(s.user_id && String(s.user_id) === String(room?.owner_user_id));
+              const hasRoleBadge = !!(s.user_id && renderRoleBadge(s.user_id));
+              const isModUser = !!(s.user_id && !isHostUser && hasRoleBadge);
 
               return (
                 <div
@@ -170,6 +173,12 @@ export default function RoomSeats({
                   >
                     <div className="flex flex-col items-center text-center">
                       <div className="relative flex items-center justify-center shrink-0">
+                        {s.user_id ? (
+                          <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10">
+                            {renderRoleBadge(s.user_id)}
+                          </div>
+                        ) : null}
+
                         {isSpeakingNow ? (
                           <>
                             <span
@@ -194,10 +203,12 @@ export default function RoomSeats({
                           src={avatar}
                           alt={name}
                           onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
-                          className={`w-9 h-9 sm:w-10 sm:h-10 object-cover bg-white/30 relative z-10 rounded-full border transition-all duration-150 backdrop-blur-sm ${s.user_id ? "cursor-pointer" : ""
+                          className={`object-cover bg-white/30 relative z-10 rounded-full transition-all duration-150 backdrop-blur-sm rounded-full object-cover ring-2 ring-white/60 shadow-lg ${s.user_id ? "w-16 h-16 sm:w-[72px] sm:h-[72px] cursor-pointer" : "w-9 h-9 sm:w-10 sm:h-10"
                             } ${isSpeakingNow
-                              ? "ring-4 ring-emerald-400 scale-[1.06] shadow-[0_0_24px_rgba(52,211,153,0.65)]"
-                              : ""
+                              ? "ring-2 ring-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.6)]"
+                              : isSeatMuted
+                                ? "ring-2 ring-red-400/60"
+                                : ""
                             }`}
                           style={
                             isSpeakingNow
@@ -244,7 +255,7 @@ export default function RoomSeats({
                       </div>
 
                       <div
-                        className={`mt-1 w-full text-xs sm:text-[13px] font-semibold text-slate-900 truncate flex items-center justify-center ${s.user_id ? "cursor-pointer" : ""
+                        className={`mt-1 w-full text-xs sm:text-sm truncate flex items-center justify-center ${s.user_id ? "cursor-pointer" : ""
                           }`}
                         onClick={(e) => {
                           if (!isMySeat && s.user_id) {
@@ -253,12 +264,23 @@ export default function RoomSeats({
                           }
                         }}
                       >
-                        <span className={`truncate max-w-full ${!s.user_id ? "text-white/80" : ""}`}>{s.user_id ? name : "Empty"}</span>
-                        {s.user_id ? renderRoleBadge(s.user_id) : null}
+                        <span
+                          className={`max-w-[80px] truncate drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)] ${
+                            !s.user_id
+                              ? "text-white/80 font-semibold"
+                              : isHostUser
+                                ? "text-amber-300 font-black"
+                                : isModUser
+                                  ? "text-blue-300 font-bold"
+                                  : "text-white font-semibold"
+                          }`}
+                        >
+                          {s.user_id ? name : "Empty"}
+                        </span>
                       </div>
 
                       {s.user_id && micGiftTotalsReady ? (
-                        <div className="mt-1 text-[11px] font-bold text-yellow-500 drop-shadow flex items-center justify-center gap-1">
+                        <div className="mt-1 text-[11px] font-bold text-amber-300 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] flex items-center justify-center gap-1">
                           <span>💰</span>
                           <span>{(micGiftTotals[s.user_id] || 0).toLocaleString()}</span>
                         </div>

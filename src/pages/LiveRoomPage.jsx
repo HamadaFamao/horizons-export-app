@@ -4662,10 +4662,10 @@ toastSuccess("✅ Room unlocked", 1400);
   const renderRoleBadge = (uid) => {
     if (!uid) return null;
     if (String(uid) === String(room?.owner_user_id)) {
-      return <span className="ml-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">HOST</span>;
+      return <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-400 text-white shadow-sm">HOST</span>;
     }
     if (moderatorsMap.has(uid)) {
-      return <span className="ml-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-800">MOD</span>;
+      return <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-500 text-white shadow-sm">MOD</span>;
     }
     return null;
   };
@@ -7201,7 +7201,7 @@ useEffect(() => {
                           {follower.name}
                         </div>
                         <div className="text-xs text-slate-400 mt-0.5">
-                          {follower.is_vip ? '👑 VIP Member' : 'Member'}
+                          {follower.is_vip ? '  VIP Member' : 'Member'}
                         </div>
                       </div>
 
