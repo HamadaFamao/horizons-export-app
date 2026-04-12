@@ -19,7 +19,7 @@ const SHIMMER_STYLE = `
   }
 `;
 
-function RoomCardModal({ room, hostUser, onClose, openUserCard, followsCount }) {
+function RoomCardModal({ room, hostUser, onClose, openUserCard, followsCount, onOpenFollowersModal }) {
   const roomId = room?.public_room_id
     ? `#${room.public_room_id}`
     : room?.id
@@ -106,7 +106,14 @@ function RoomCardModal({ room, hostUser, onClose, openUserCard, followsCount }) 
                 <div className="text-2xl font-black text-amber-900 drop-shadow-sm">{roomLevel}</div>
               </div>
             )}
-            <div className="rounded-2xl bg-rose-50 border border-rose-100 p-4 flex flex-col items-center justify-center gap-1">
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onOpenFollowersModal?.();
+              }}
+              className="rounded-2xl bg-rose-50 border border-rose-100 p-4 flex flex-col items-center justify-center gap-1 hover:bg-rose-100 transition active:scale-95 w-full"
+            >
               <Heart className="w-5 h-5 text-rose-500" fill="currentColor" />
               <div className="text-xs font-black uppercase tracking-widest text-rose-400">
                 Followers
@@ -114,7 +121,7 @@ function RoomCardModal({ room, hostUser, onClose, openUserCard, followsCount }) 
               <div className="text-2xl font-black text-rose-600">
                 {followsCount}
               </div>
-            </div>
+            </button>
           </div>
 
           {/* Host */}
@@ -167,6 +174,7 @@ export default function RoomHeader({
   isFollowingRoom,
   followsCount,
   toggleFollowRoom,
+  onOpenFollowersModal,
   currentPeopleRanked,
   setShowPeople,
   canModerate,
@@ -194,6 +202,7 @@ export default function RoomHeader({
           onClose={() => setShowRoomCard(false)}
           openUserCard={openUserCard}
           followsCount={followsCount}
+          onOpenFollowersModal={onOpenFollowersModal}
         />
       )}
 

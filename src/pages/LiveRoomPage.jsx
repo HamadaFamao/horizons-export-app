@@ -375,6 +375,8 @@ export default function LiveRoomPage() {
   const [joinNotifs, setJoinNotifs] = useState([]);
   const [isFollowingRoom, setIsFollowingRoom] = useState(false);
   const [followsCount, setFollowsCount] = useState(0);
+  const [followersList, setFollowersList] = useState([]);
+  const [showFollowersModal, setShowFollowersModal] = useState(false);
 
   const fetchRoomFollowState = async () => {
     if (!roomId) return;
@@ -384,6 +386,39 @@ export default function LiveRoomPage() {
       .select('*', { count: 'exact', head: true })
       .eq('room_id', roomId);
     setFollowsCount(count || 0);
+
+    const { data: followsData } = await supabase
+      .from('live_room_follows')
+      .select('user_id, created_at')
+      .eq('room_id', roomId)
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (followsData && followsData.length > 0) {
+      const userIds = followsData.map((f) => f.user_id);
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, name, avatar_url, is_vip, vip_number')
+        .in('id', userIds);
+
+      const profilesMap = new Map((profilesData || []).map((p) => [p.id, p]));
+
+      const merged = followsData.map((f) => {
+        const profile = profilesMap.get(f.user_id) || {};
+        return {
+          user_id: f.user_id,
+          name: profile.name || 'User',
+          avatar_url: profile.avatar_url || null,
+          is_vip: !!profile.is_vip,
+          vip_number: profile.vip_number || null,
+          followed_at: f.created_at,
+        };
+      });
+
+      setFollowersList(merged);
+    } else {
+      setFollowersList([]);
+    }
 
     if (user?.id) {
       const { data } = await supabase
@@ -6514,6 +6549,7 @@ useEffect(() => {
         isFollowingRoom={isFollowingRoom}
         followsCount={followsCount}
         toggleFollowRoom={toggleFollowRoom}
+        onOpenFollowersModal={() => setShowFollowersModal(true)}
         currentPeopleRanked={currentPeopleRanked}
         setShowPeople={setShowPeople}
         canModerate={canModerate}
@@ -7014,6 +7050,85 @@ useEffect(() => {
         removeModerator={removeModerator}
         setSeatMenuOpen={setSeatMenuOpen}
       />
+
+      {showFollowersModal && (
+        <div className="fixed inset-0 z-[95]" onClick={() => setShowFollowersModal(false)}>
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+          <div className="absolute inset-0 flex items-end justify-center p-3">
+            <div
+              className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[70vh]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-4 py-3 border-b flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Heart className="w-4 h-4 text-rose-500" fill="currentColor" />
+                  <span className="font-bold text-slate-900">
+                    Followers ({followsCount})
+                  </span>
+                </div>
+                <button
+                  onClick={() => setShowFollowersModal(false)}
+                  className="text-sm text-slate-500 hover:text-slate-900"
+                >
+                  Close
+                </button>
+              </div>
+
+              <div className="overflow-y-auto flex-1 p-3 space-y-2">
+                {followersList.length === 0 ? (
+                  <div className="text-center py-8 text-slate-500 text-sm">
+                    No followers yet
+                  </div>
+                ) : (
+                  followersList.map((follower) => (
+                    <button
+                      key={follower.user_id}
+                      type="button"
+                      onClick={() => {
+                        setShowFollowersModal(false);
+                        openUserCard(follower.user_id, {
+                          id: follower.user_id,
+                          name: follower.name,
+                          avatar_url: follower.avatar_url,
+                          is_vip: follower.is_vip,
+                        });
+                      }}
+                      className="w-full flex items-center gap-3 p-2.5 rounded-2xl border border-slate-100 hover:bg-slate-50 transition text-left"
+                    >
+                      <div className="relative shrink-0">
+                        <img
+                          src={follower.avatar_url || FALLBACK_AVATAR}
+                          onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
+                          alt={follower.name}
+                          className="w-11 h-11 rounded-full object-cover border-2 border-white shadow-sm"
+                        />
+                        {follower.is_vip && (
+                          <div className="absolute -top-1 -right-1 text-xs">👑</div>
+                        )}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className={`font-semibold text-sm truncate ${
+                          follower.is_vip
+                            ? 'bg-gradient-to-r from-amber-500 to-yellow-400 bg-clip-text text-transparent'
+                            : 'text-slate-900'
+                        }`}>
+                          {follower.name}
+                        </div>
+                        <div className="text-xs text-slate-400 mt-0.5">
+                          {follower.is_vip ? '👑 VIP Member' : 'Member'}
+                        </div>
+                      </div>
+
+                      <div className="text-slate-300 text-xs">›</div>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
     </div>
   );

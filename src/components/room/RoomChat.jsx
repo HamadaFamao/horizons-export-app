@@ -253,7 +253,7 @@ export default function RoomChat({
                             }
                             title="Open user card"
                           >
-                            {isVip ? <span className="mr-1 text-amber-400">👑</span> : null}
+                            {isVip ? <span className="mr-1 text-amber-400"></span> : null}
                             <span>{name}</span>
                           </button>
                           {renderRoleBadge(m.sender_user_id)}
