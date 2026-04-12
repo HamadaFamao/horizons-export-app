@@ -86,6 +86,8 @@ export default function RoomChat({
     } catch { return []; }
   });
   const [emojiTab, setEmojiTab] = React.useState('all');
+  const [visibleCount, setVisibleCount] = React.useState(18);
+  const loadMoreRef = React.useRef(null);
 
   const handleScroll = () => {
     if (!chatScrollRef.current) return;
@@ -161,6 +163,63 @@ export default function RoomChat({
       localStorage.setItem('recent_room_emojis', JSON.stringify(next));
     } catch {}
   };
+
+  // Preload only recent emojis when panel opens
+  React.useEffect(() => {
+    if (!showEmojiPanel) return;
+    recentEmojiIds.slice(0, 8).forEach((id) => {
+      const emoji = ROOM_EMOJIS.find((e) => e.id === id);
+      if (emoji?.src) {
+        const img = new Image();
+        img.src = emoji.src;
+      }
+    });
+  }, [showEmojiPanel]);
+
+  // Reset visible count when panel closes
+  React.useEffect(() => {
+    if (!showEmojiPanel) setVisibleCount(18);
+  }, [showEmojiPanel]);
+
+  // IntersectionObserver for progressive loading in All tab
+  React.useEffect(() => {
+    if (!loadMoreRef.current) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount((prev) => Math.min(prev + 18, ROOM_EMOJIS.length));
+        }
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(loadMoreRef.current);
+    return () => observer.disconnect();
+  }, [visibleCount, showEmojiPanel]);
+
+  // Memoized All tab grid — only re-renders when visibleCount changes
+  const allEmojiGrid = React.useMemo(
+    () =>
+      ROOM_EMOJIS.slice(0, visibleCount).map((emoji) => (
+        <button
+          key={emoji.id}
+          type="button"
+          onClick={() => { sendRoomEmoji(emoji); updateRecentEmojis(emoji.id); }}
+          className="flex items-center justify-center p-1 hover:bg-white/10 rounded-xl transition active:scale-90"
+        >
+          <img
+            src={emoji.src}
+            alt={emoji.label}
+            loading="lazy"
+            decoding="async"
+            width={40}
+            height={40}
+            className="w-10 h-10 object-contain"
+            style={emoji.flip ? { transform: 'scaleX(-1)' } : undefined}
+          />
+        </button>
+      )),
+    [visibleCount]
+  );
 
   return (
     <div className="flex flex-col min-h-0 h-full relative lg:w-2/3 bg-black/30 backdrop-blur-sm">
@@ -485,6 +544,10 @@ export default function RoomChat({
                           <img
                             src={emoji.src}
                             alt={emoji.label}
+                            loading="lazy"
+                            decoding="async"
+                            width={40}
+                            height={40}
                             className="w-10 h-10 object-contain"
                             style={emoji.flip ? { transform: 'scaleX(-1)' } : undefined}
                           />
@@ -494,23 +557,14 @@ export default function RoomChat({
                   </div>
                 )
               ) : (
-                <div className="grid grid-cols-6 gap-1">
-                  {ROOM_EMOJIS.map((emoji) => (
-                    <button
-                      key={emoji.id}
-                      type="button"
-                      onClick={() => { sendRoomEmoji(emoji); updateRecentEmojis(emoji.id); }}
-                      className="flex items-center justify-center p-1 hover:bg-white/10 rounded-xl transition active:scale-90"
-                    >
-                      <img
-                        src={emoji.src}
-                        alt={emoji.label}
-                        className="w-10 h-10 object-contain"
-                        style={emoji.flip ? { transform: 'scaleX(-1)' } : undefined}
-                      />
-                    </button>
-                  ))}
-                </div>
+                <>
+                  <div className="grid grid-cols-6 gap-1">
+                    {allEmojiGrid}
+                  </div>
+                  {visibleCount < ROOM_EMOJIS.length && (
+                    <div ref={loadMoreRef} className="h-4 w-full" />
+                  )}
+                </>
               )}
             </div>
           </div>
