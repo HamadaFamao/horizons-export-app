@@ -597,11 +597,68 @@ export default function RoomModals({
                       </div>
                     ) : null}
 
-                    <div className="text-sm font-semibold text-slate-900">Room Avatar</div>
-                    <div className="text-xs text-slate-500 mt-1">Upload a PNG or GIF image for your room's main picture.</div>
+                    <div className="mt-6 border-t pt-4">
+                      <div className="text-sm font-semibold text-slate-900">Room Avatar</div>
+                      <div className="text-xs text-slate-500 mt-1">Upload a PNG or GIF image for your room's main picture.</div>
+
+                      {/* Current Avatar Display */}
+                      <div className="mt-3 flex items-center gap-3">
+                        <div className="w-16 h-16 rounded-xl border-2 border-slate-200 overflow-hidden bg-slate-50">
+                          {room?.avatar_url ? (
+                            <img
+                              src={room.avatar_url}
+                              alt="Room avatar"
+                              className="w-full h-full object-cover"
+                              onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-slate-400">
+                              <ImageIcon className="w-6 h-6" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <div className="text-sm text-slate-700">Current room avatar</div>
+                          <div className="text-xs text-slate-500 mt-1">
+                            {room?.avatar_url ? "Click upload to change" : "No avatar set"}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Upload Button */}
+                      <div className="mt-4">
+                        <label className={`flex items-center justify-center w-full p-3 border-2 border-dashed rounded-xl transition cursor-pointer group ${
+                          !isOwner ? 'border-slate-200 bg-slate-50 cursor-not-allowed' : 'border-slate-300 hover:border-blue-500 hover:bg-blue-50'
+                        }`}>
+                          <input
+                            ref={roomAvatarInputRef}
+                            type="file"
+                            accept="image/png,image/gif"
+                            onChange={handleRoomAvatarUpload}
+                            disabled={roomAvatarUploading || !isOwner}
+                            className="hidden"
+                          />
+                          {roomAvatarUploading ? (
+                            <Loader2 className="w-5 h-5 text-blue-500 animate-spin mr-2" />
+                          ) : (
+                            <ImageIcon className={`w-5 h-5 mr-2 transition ${
+                              !isOwner ? 'text-slate-300' : 'text-slate-400 group-hover:text-blue-500'
+                            }`} />
+                          )}
+                          <span className={`text-sm font-medium transition ${
+                            !isOwner ? 'text-slate-400' : 'text-slate-600 group-hover:text-blue-600'
+                          }`}>
+                            {roomAvatarUploading ? 'Uploading...' : !isOwner ? 'Only owners can upload' : 'Upload image'}
+                          </span>
+                        </label>
+                        <div className="text-xs text-slate-500 mt-2">
+                          Max file size: 5MB. Supported formats: PNG, GIF.
+                        </div>
+                      </div>
+                    </div>
 
                     {/* Welcome Message */}
-<div className="mb-6">
+<div className="mt-6 border-t pt-4">
   <div className="text-sm font-semibold text-slate-900">Welcome Message</div>
   <div className="text-xs text-slate-500 mt-1">
     Shown to everyone when they join the room.
@@ -632,209 +689,7 @@ export default function RoomModals({
   </button>
 </div>
 
-{/* Reset Counters */}
-<div className="mt-6 border-t pt-4">
-  <div className="text-sm font-semibold text-slate-900">Gift Counters</div>
-  <div className="text-xs text-slate-500 mt-1">Reset all mic gift support counters.</div>
-  <button
-    onClick={async () => {
-  closeSettings();
-  await handleResetMicGiftCounters();
-}}
-    className="mt-3 w-full py-2 rounded-xl border border-rose-200 text-rose-600 text-sm font-semibold hover:bg-rose-50 transition flex items-center justify-center gap-2"
-  >
-    <RefreshCw className="w-4 h-4" />
-    Reset Counters
-  </button>
-</div>
-
-{/* Clear Chat */}
-<div className="mt-6 border-t pt-4">
-  <div className="text-sm font-semibold text-slate-900">Clear Chat</div>
-  <div className="text-xs text-slate-500 mt-1">Delete all messages in the room chat.</div>
-  <button
-    onClick={async () => {
-  const confirmed = window.confirm("Are you sure you want to clear all chat messages?");
-  if (!confirmed) return;
-  closeSettings();
-  setTimeout(() => handleClearChat(), 300);
-}}
-    className="mt-3 w-full py-2 rounded-xl border border-rose-200 text-rose-600 text-sm font-semibold hover:bg-rose-50 transition flex items-center justify-center gap-2"
-  >
-    <span>🗑️</span>
-    Clear Chat
-  </button>
-</div>
-
-{/* Lock Room */}
-<div className="mt-6 border-t pt-4">
-  <div className="text-sm font-semibold text-slate-900">Lock Room</div>
-
-  {/* لو عنده اشتراك نشط */}
-  {room?.lock_expires_at && new Date(room.lock_expires_at) > new Date() ? (
-    <>
-      <div className="mt-2 p-3 rounded-xl bg-slate-50 border border-slate-200">
-        <div className="text-xs text-slate-500">
-          Plan expires: {new Date(room.lock_expires_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
-        </div>
-      </div>
-
-      {room?.is_locked ? (
-  <button
-    onClick={async () => { await onUnlockRoom?.(); }}
-    className="mt-3 w-full py-2 rounded-xl border border-emerald-200 text-emerald-700 text-sm font-semibold hover:bg-emerald-50 transition flex items-center justify-center gap-2"
-  >
-    🔓 Unlock Room
-  </button>
-) : (
-  <>
-    <div className="mt-3">
-      <div className="text-xs text-slate-500 mb-1">PIN to lock with</div>
-      <input
-        type="text"
-        inputMode="numeric"
-        maxLength={4}
-        value={lockPin || room?.lock_pin || ""}
-        onChange={(e) => setLockPin(String(e.target.value || "").replace(/\D/g, "").slice(0, 4))}
-        placeholder="Enter 4-digit PIN"
-        className="w-full border rounded-xl px-3 py-2 text-sm"
-      />
-    </div>
-    <button
-      onClick={async () => {
-        const pinToUse = lockPin || room?.lock_pin || "";
-        if (!/^\d{4}$/.test(pinToUse)) { toast("Enter a valid 4-digit PIN", 1400); return; }
-        await onLockRoom?.(0, 0, pinToUse);
-      }}
-      className="mt-3 w-full py-2 rounded-xl border border-amber-200 text-amber-700 text-sm font-semibold hover:bg-amber-50 transition flex items-center justify-center gap-2"
-    >
-      🔒 Lock Room (free)
-    </button>
-  </>
-)}
-
-      {/* زر تجديد الاشتراك */}
-      <div className="mt-4 border-t pt-3">
-        <div className="text-xs text-slate-500 mb-2">Renew or extend plan:</div>
-        <div className="space-y-2">
-          <button onClick={async () => { if (!/^\d{4}$/.test(lockPin)) { toast("Enter PIN first", 1400); return; } const confirmed = window.confirm("Renew for 24h for 500 coins?"); if (!confirmed) return; await onLockRoom?.(24, 500, lockPin); }}
-            className="w-full py-2 rounded-xl border border-slate-200 text-slate-600 text-sm hover:bg-slate-50 transition">
-            🔒 24 hours — 500 coins
-          </button>
-          <button onClick={async () => { if (!/^\d{4}$/.test(lockPin)) { toast("Enter PIN first", 1400); return; } const confirmed = window.confirm("Renew for 7 days for 3000 coins?"); if (!confirmed) return; await onLockRoom?.(24 * 7, 3000, lockPin); }}
-            className="w-full py-2 rounded-xl border border-slate-200 text-slate-600 text-sm hover:bg-slate-50 transition">
-            🔒 7 days — 3,000 coins
-          </button>
-          <button onClick={async () => { if (!/^\d{4}$/.test(lockPin)) { toast("Enter PIN first", 1400); return; } const confirmed = window.confirm("Renew for 30 days for 10000 coins?"); if (!confirmed) return; await onLockRoom?.(24 * 30, 10000, lockPin); }}
-            className="w-full py-2 rounded-xl border border-slate-200 text-slate-600 text-sm hover:bg-slate-50 transition">
-            🔒 30 days — 10,000 coins
-          </button>
-        </div>
-      </div>
-    </>
-  ) : (
-    /* مفيش اشتراك — أزرار الشراء الأصلية */
-    <div className="mt-3 space-y-2">
-      <div>
-        <div className="text-xs text-slate-500 mb-1">Set 4-digit PIN</div>
-        <input
-          type="text"
-          inputMode="numeric"
-          maxLength={4}
-          value={lockPin}
-          onChange={(e) => setLockPin(String(e.target.value || "").replace(/\D/g, "").slice(0, 4))}
-          placeholder="Enter 4-digit PIN"
-          className="w-full border rounded-xl px-3 py-2 text-sm"
-        />
-      </div>
-      <button onClick={async () => { if (!/^\d{4}$/.test(lockPin)) { toast("Enter a valid 4-digit PIN", 1400); return; } const confirmed = window.confirm("Lock room for 24 hours for 500 coins?"); if (!confirmed) return; await onLockRoom?.(24, 500, lockPin); }}
-        className="w-full py-2 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition">
-        🔒 24 hours — 500 coins
-      </button>
-      <button onClick={async () => { if (!/^\d{4}$/.test(lockPin)) { toast("Enter a valid 4-digit PIN", 1400); return; } const confirmed = window.confirm("Lock room for 7 days for 3000 coins?"); if (!confirmed) return; await onLockRoom?.(24 * 7, 3000, lockPin); }}
-        className="w-full py-2 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition">
-        🔒 7 days — 3,000 coins
-      </button>
-      <button onClick={async () => { if (!/^\d{4}$/.test(lockPin)) { toast("Enter a valid 4-digit PIN", 1400); return; } const confirmed = window.confirm("Lock room for 30 days for 10000 coins?"); if (!confirmed) return; await onLockRoom?.(24 * 30, 10000, lockPin); }}
-        className="w-full py-2 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition">
-        🔒 30 days — 10,000 coins
-      </button>
-    </div>
-  )}
-</div>
-
-{/* Chat Toggle */}
-<div className="mt-6 border-t pt-4">
-  <div className="text-sm font-semibold text-slate-900">Chat Status</div>
-  <div className="text-xs text-slate-500 mt-1">
-    Chat is currently {room?.chat_disabled ? "disabled" : "enabled"}.
-  </div>
-  <button
-    onClick={async () => {
-      await onToggleChat?.();
-    }}
-    className="mt-3 w-full py-2 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition flex items-center justify-center gap-2"
-  >
-    {room?.chat_disabled ? "Enable Chat" : "Disable Chat"}
-  </button>
-</div>
-
-                    {/* Current Avatar Display */}
-                    <div className="mt-3 flex items-center gap-3">
-                      <div className="w-16 h-16 rounded-xl border-2 border-slate-200 overflow-hidden bg-slate-50">
-                        {room?.avatar_url ? (
-                          <img
-                            src={room.avatar_url}
-                            alt="Room avatar"
-                            className="w-full h-full object-cover"
-                            onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-slate-400">
-                            <ImageIcon className="w-6 h-6" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-sm text-slate-700">Current room avatar</div>
-                        <div className="text-xs text-slate-500 mt-1">
-                          {room?.avatar_url ? "Click upload to change" : "No avatar set"}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Upload Button */}
-                    <div className="mt-4">
-                      <label className={`flex items-center justify-center w-full p-3 border-2 border-dashed rounded-xl transition cursor-pointer group ${
-                        !isOwner ? 'border-slate-200 bg-slate-50 cursor-not-allowed' : 'border-slate-300 hover:border-blue-500 hover:bg-blue-50'
-                      }`}>
-                        <input
-                          ref={roomAvatarInputRef}
-                          type="file"
-                          accept="image/png,image/gif"
-                          onChange={handleRoomAvatarUpload}
-                          disabled={roomAvatarUploading || !isOwner}
-                          className="hidden"
-                        />
-                        {roomAvatarUploading ? (
-                          <Loader2 className="w-5 h-5 text-blue-500 animate-spin mr-2" />
-                        ) : (
-                          <ImageIcon className={`w-5 h-5 mr-2 transition ${
-                            !isOwner ? 'text-slate-300' : 'text-slate-400 group-hover:text-blue-500'
-                          }`} />
-                        )}
-                        <span className={`text-sm font-medium transition ${
-                          !isOwner ? 'text-slate-400' : 'text-slate-600 group-hover:text-blue-600'
-                        }`}>
-                          {roomAvatarUploading ? 'Uploading...' : !isOwner ? 'Only owners can upload' : 'Upload image'}
-                        </span>
-                      </label>
-                      <div className="text-xs text-slate-500 mt-2">
-                        Max file size: 5MB. Supported formats: PNG, GIF.
-                      </div>
-                    </div>
-
-                    <div className="mt-6">
+                    <div className="mt-6 border-t pt-4">
                       <div className="text-sm font-semibold text-slate-900">Room Background</div>
                       <div className="text-xs text-slate-500 mt-1">Upload a background image to display behind your room UI.</div>
 
@@ -1164,6 +1019,153 @@ export default function RoomModals({
                         </div>
                       </div>
                     </div>
+
+{/* Reset Counters */}
+<div className="mt-6 border-t pt-4">
+  <div className="text-sm font-semibold text-slate-900">Gift Counters</div>
+  <div className="text-xs text-slate-500 mt-1">Reset all mic gift support counters.</div>
+  <button
+    onClick={async () => {
+  closeSettings();
+  await handleResetMicGiftCounters();
+}}
+    className="mt-3 w-full py-2 rounded-xl border border-rose-200 text-rose-600 text-sm font-semibold hover:bg-rose-50 transition flex items-center justify-center gap-2"
+  >
+    <RefreshCw className="w-4 h-4" />
+    Reset Counters
+  </button>
+</div>
+
+{/* Clear Chat */}
+<div className="mt-6 border-t pt-4">
+  <div className="text-sm font-semibold text-slate-900">Clear Chat</div>
+  <div className="text-xs text-slate-500 mt-1">Delete all messages in the room chat.</div>
+  <button
+    onClick={async () => {
+  const confirmed = window.confirm("Are you sure you want to clear all chat messages?");
+  if (!confirmed) return;
+  closeSettings();
+  setTimeout(() => handleClearChat(), 300);
+}}
+    className="mt-3 w-full py-2 rounded-xl border border-rose-200 text-rose-600 text-sm font-semibold hover:bg-rose-50 transition flex items-center justify-center gap-2"
+  >
+    <span>🗑️</span>
+    Clear Chat
+  </button>
+</div>
+
+{/* Lock Room */}
+<div className="mt-6 border-t pt-4">
+  <div className="text-sm font-semibold text-slate-900">Lock Room</div>
+
+  {/* لو عنده اشتراك نشط */}
+  {room?.lock_expires_at && new Date(room.lock_expires_at) > new Date() ? (
+    <>
+      <div className="mt-2 p-3 rounded-xl bg-slate-50 border border-slate-200">
+        <div className="text-xs text-slate-500">
+          Plan expires: {new Date(room.lock_expires_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
+        </div>
+      </div>
+
+      {room?.is_locked ? (
+  <button
+    onClick={async () => { await onUnlockRoom?.(); }}
+    className="mt-3 w-full py-2 rounded-xl border border-emerald-200 text-emerald-700 text-sm font-semibold hover:bg-emerald-50 transition flex items-center justify-center gap-2"
+  >
+    🔓 Unlock Room
+  </button>
+) : (
+  <>
+    <div className="mt-3">
+      <div className="text-xs text-slate-500 mb-1">PIN to lock with</div>
+      <input
+        type="text"
+        inputMode="numeric"
+        maxLength={4}
+        value={lockPin || room?.lock_pin || ""}
+        onChange={(e) => setLockPin(String(e.target.value || "").replace(/\D/g, "").slice(0, 4))}
+        placeholder="Enter 4-digit PIN"
+        className="w-full border rounded-xl px-3 py-2 text-sm"
+      />
+    </div>
+    <button
+      onClick={async () => {
+        const pinToUse = lockPin || room?.lock_pin || "";
+        if (!/^\d{4}$/.test(pinToUse)) { toast("Enter a valid 4-digit PIN", 1400); return; }
+        await onLockRoom?.(0, 0, pinToUse);
+      }}
+      className="mt-3 w-full py-2 rounded-xl border border-amber-200 text-amber-700 text-sm font-semibold hover:bg-amber-50 transition flex items-center justify-center gap-2"
+    >
+      🔒 Lock Room (free)
+    </button>
+  </>
+)}
+
+      {/* زر تجديد الاشتراك */}
+      <div className="mt-4 border-t pt-3">
+        <div className="text-xs text-slate-500 mb-2">Renew or extend plan:</div>
+        <div className="space-y-2">
+          <button onClick={async () => { if (!/^\d{4}$/.test(lockPin)) { toast("Enter PIN first", 1400); return; } const confirmed = window.confirm("Renew for 24h for 500 coins?"); if (!confirmed) return; await onLockRoom?.(24, 500, lockPin); }}
+            className="w-full py-2 rounded-xl border border-slate-200 text-slate-600 text-sm hover:bg-slate-50 transition">
+            🔒 24 hours — 500 coins
+          </button>
+          <button onClick={async () => { if (!/^\d{4}$/.test(lockPin)) { toast("Enter PIN first", 1400); return; } const confirmed = window.confirm("Renew for 7 days for 3000 coins?"); if (!confirmed) return; await onLockRoom?.(24 * 7, 3000, lockPin); }}
+            className="w-full py-2 rounded-xl border border-slate-200 text-slate-600 text-sm hover:bg-slate-50 transition">
+            🔒 7 days — 3,000 coins
+          </button>
+          <button onClick={async () => { if (!/^\d{4}$/.test(lockPin)) { toast("Enter PIN first", 1400); return; } const confirmed = window.confirm("Renew for 30 days for 10000 coins?"); if (!confirmed) return; await onLockRoom?.(24 * 30, 10000, lockPin); }}
+            className="w-full py-2 rounded-xl border border-slate-200 text-slate-600 text-sm hover:bg-slate-50 transition">
+            🔒 30 days — 10,000 coins
+          </button>
+        </div>
+      </div>
+    </>
+  ) : (
+    /* مفيش اشتراك — أزرار الشراء الأصلية */
+    <div className="mt-3 space-y-2">
+      <div>
+        <div className="text-xs text-slate-500 mb-1">Set 4-digit PIN</div>
+        <input
+          type="text"
+          inputMode="numeric"
+          maxLength={4}
+          value={lockPin}
+          onChange={(e) => setLockPin(String(e.target.value || "").replace(/\D/g, "").slice(0, 4))}
+          placeholder="Enter 4-digit PIN"
+          className="w-full border rounded-xl px-3 py-2 text-sm"
+        />
+      </div>
+      <button onClick={async () => { if (!/^\d{4}$/.test(lockPin)) { toast("Enter a valid 4-digit PIN", 1400); return; } const confirmed = window.confirm("Lock room for 24 hours for 500 coins?"); if (!confirmed) return; await onLockRoom?.(24, 500, lockPin); }}
+        className="w-full py-2 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition">
+        🔒 24 hours — 500 coins
+      </button>
+      <button onClick={async () => { if (!/^\d{4}$/.test(lockPin)) { toast("Enter a valid 4-digit PIN", 1400); return; } const confirmed = window.confirm("Lock room for 7 days for 3000 coins?"); if (!confirmed) return; await onLockRoom?.(24 * 7, 3000, lockPin); }}
+        className="w-full py-2 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition">
+        🔒 7 days — 3,000 coins
+      </button>
+      <button onClick={async () => { if (!/^\d{4}$/.test(lockPin)) { toast("Enter a valid 4-digit PIN", 1400); return; } const confirmed = window.confirm("Lock room for 30 days for 10000 coins?"); if (!confirmed) return; await onLockRoom?.(24 * 30, 10000, lockPin); }}
+        className="w-full py-2 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition">
+        🔒 30 days — 10,000 coins
+      </button>
+    </div>
+  )}
+</div>
+
+{/* Chat Toggle */}
+<div className="mt-6 border-t pt-4">
+  <div className="text-sm font-semibold text-slate-900">Chat Status</div>
+  <div className="text-xs text-slate-500 mt-1">
+    Chat is currently {room?.chat_disabled ? "disabled" : "enabled"}.
+  </div>
+  <button
+    onClick={async () => {
+      await onToggleChat?.();
+    }}
+    className="mt-3 w-full py-2 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition flex items-center justify-center gap-2"
+  >
+    {room?.chat_disabled ? "Enable Chat" : "Disable Chat"}
+  </button>
+</div>
 
                     {isOwner ? (
                       <div className="mt-6 border-t pt-4">
