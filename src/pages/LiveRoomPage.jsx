@@ -4858,26 +4858,6 @@ useEffect(() => {
   }, [pkParticipants]);
 
   useEffect(() => {
-    const scrollToBottom = () => {
-      if (chatBottomRef.current) {
-        chatBottomRef.current.scrollIntoView({
-          behavior: "smooth",
-          block: "end",
-        });
-      }
-
-      if (chatScrollRef.current) {
-        chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
-      }
-    };
-
-    if (userScrolledUpRef.current) return;
-
-    const timer = setTimeout(scrollToBottom, 50);
-    return () => clearTimeout(timer);
-  }, [visibleMessages]);
-
-  useEffect(() => {
     if (!pkSession?.id) return;
     if (!(pkParticipants || []).length) return;
     if (!(effectiveSeats || []).length) return;
@@ -6127,6 +6107,26 @@ useEffect(() => {
     .sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
 
   const visibleMessages = combinedMessages.filter(m => new Date(m.created_at).getTime() >= joinTime);
+
+  useEffect(() => {
+    const scrollToBottom = () => {
+      if (chatBottomRef.current) {
+        chatBottomRef.current.scrollIntoView({
+          behavior: "smooth",
+          block: "end",
+        });
+      }
+
+      if (chatScrollRef.current) {
+        chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+      }
+    };
+
+    if (userScrolledUpRef.current) return;
+
+    const timer = setTimeout(scrollToBottom, 50);
+    return () => clearTimeout(timer);
+  }, [visibleMessages]);
 
   const myIncomingInvites = (myMicInvites || []).filter(invite =>
     String(invite.user_id) === String(user?.id) &&
