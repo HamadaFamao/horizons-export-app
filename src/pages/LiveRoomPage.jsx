@@ -4857,6 +4857,31 @@ useEffect(() => {
     pkParticipantsRef.current = pkParticipants;
   }, [pkParticipants]);
 
+  const combinedMessages = [...messages, ...roomGiftMessages]
+    .sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
+
+  const visibleMessages = combinedMessages.filter(m => new Date(m.created_at).getTime() >= joinTime);
+
+  useEffect(() => {
+    const scrollToBottom = () => {
+      if (chatBottomRef.current) {
+        chatBottomRef.current.scrollIntoView({
+          behavior: "smooth",
+          block: "end",
+        });
+      }
+
+      if (chatScrollRef.current) {
+        chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+      }
+    };
+
+    if (userScrolledUpRef.current) return;
+
+    const timer = setTimeout(scrollToBottom, 50);
+    return () => clearTimeout(timer);
+  }, [visibleMessages]);
+
   useEffect(() => {
     if (!pkSession?.id) return;
     if (!(pkParticipants || []).length) return;
@@ -6102,31 +6127,6 @@ useEffect(() => {
     !!myMute?.is_active && (!myMute?.muted_until || new Date(myMute.muted_until).getTime() > Date.now());
 
   const seatMenuSeatLocked = !!effectiveSeats.find(s => s.seat_no === seatMenuSeatNo)?.locked;
-
-  const combinedMessages = [...messages, ...roomGiftMessages]
-    .sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
-
-  const visibleMessages = combinedMessages.filter(m => new Date(m.created_at).getTime() >= joinTime);
-
-  useEffect(() => {
-    const scrollToBottom = () => {
-      if (chatBottomRef.current) {
-        chatBottomRef.current.scrollIntoView({
-          behavior: "smooth",
-          block: "end",
-        });
-      }
-
-      if (chatScrollRef.current) {
-        chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
-      }
-    };
-
-    if (userScrolledUpRef.current) return;
-
-    const timer = setTimeout(scrollToBottom, 50);
-    return () => clearTimeout(timer);
-  }, [visibleMessages]);
 
   const myIncomingInvites = (myMicInvites || []).filter(invite =>
     String(invite.user_id) === String(user?.id) &&
