@@ -369,6 +369,7 @@ export default function LiveRoomPage() {
   const [messages, setMessages] = useState([]);
   const [roomGiftMessages, setRoomGiftMessages] = useState([]);
   const [roomGiftEffects, setRoomGiftEffects] = useState([]);
+  const [seatEmojis, setSeatEmojis] = useState({});
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -1100,6 +1101,57 @@ useEffect(() => {
   const toastSuccess = (msg, ms = 1400) => {
     setSuccessMsg(msg);
     setTimeout(() => mountedRef.current && setSuccessMsg(""), ms);
+  };
+
+  const showSeatEmoji = (userId, emoji) => {
+    if (!userId || !emoji) return;
+
+    const id = `${userId}_${Date.now()}`;
+    setSeatEmojis((prev) => ({
+      ...prev,
+      [userId]: { emoji, id, ts: Date.now() },
+    }));
+
+    setTimeout(() => {
+      if (!mountedRef.current) return;
+      setSeatEmojis((prev) => {
+        const next = { ...prev };
+        if (next[userId]?.id === id) {
+          delete next[userId];
+        }
+        return next;
+      });
+    }, 3000);
+  };
+
+  const sendSeatEmoji = async (emoji) => {
+    if (!user?.id || !roomId) return;
+
+    const mySeat = (effectiveSeats || []).find(
+      (seat) => String(seat.user_id) === String(user.id)
+    );
+
+    if (!mySeat) {
+      toast("You must be on a seat to send reactions", 1200);
+      return;
+    }
+
+    const payload = {
+      room_id: roomId,
+      user_id: user.id,
+      emoji,
+      ts: Date.now(),
+    };
+
+    showSeatEmoji(user.id, emoji);
+
+    if (channelRef.current) {
+      await channelRef.current.send({
+        type: "broadcast",
+        event: "seat_emoji",
+        payload,
+      });
+    }
   };
 
   const restartRepeatHideTimer = () => {
@@ -5742,6 +5794,13 @@ useEffect(() => {
         }
       });
 
+      ch.on("broadcast", { event: "seat_emoji" }, ({ payload }) => {
+        if (payload?.room_id && String(payload.room_id) !== String(roomId)) return;
+        if (payload?.user_id && payload?.emoji) {
+          showSeatEmoji(payload.user_id, payload.emoji);
+        }
+      });
+
       ch.on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "live_rooms", filter: `id=eq.${roomId}` },
@@ -6975,6 +7034,9 @@ useEffect(() => {
             renderRoleBadge={renderRoleBadge}
             micGiftTotals={micGiftTotals}
             micGiftTotalsReady={micGiftTotalsReady}
+            seatEmojis={seatEmojis}
+            sendSeatEmoji={sendSeatEmoji}
+            currentUserId={user?.id}
           />
 
           <RoomChat
