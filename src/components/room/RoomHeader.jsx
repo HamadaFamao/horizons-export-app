@@ -19,7 +19,7 @@ const SHIMMER_STYLE = `
   }
 `;
 
-function RoomCardModal({ room, hostUser, onClose, openUserCard }) {
+function RoomCardModal({ room, hostUser, onClose, openUserCard, followsCount }) {
   const roomId = room?.public_room_id
     ? `#${room.public_room_id}`
     : room?.id
@@ -85,6 +85,14 @@ function RoomCardModal({ room, hostUser, onClose, openUserCard }) {
             <div className="min-w-0 flex flex-col items-center gap-1 w-full">
               <div className="font-extrabold text-slate-900 text-xl truncate w-full px-4">{room?.title}</div>
               {roomIdDisplay}
+              <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${
+                room?.is_locked
+                  ? 'bg-amber-50 border-amber-200 text-amber-700'
+                  : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+              }`}>
+                {room?.is_locked ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
+                {room?.is_locked ? 'Locked' : 'Open'}
+              </div>
             </div>
           </div>
 
@@ -98,21 +106,14 @@ function RoomCardModal({ room, hostUser, onClose, openUserCard }) {
                 <div className="text-2xl font-black text-amber-900 drop-shadow-sm">{roomLevel}</div>
               </div>
             )}
-            <div className={`border rounded-2xl p-4 flex flex-col items-center justify-center gap-1 shadow-sm hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group ${room?.is_locked ? 'bg-gradient-to-br from-slate-100 to-slate-200 border-slate-300/50 hover:shadow-md' : 'bg-gradient-to-br from-emerald-100 to-teal-50 border-emerald-300/50 hover:shadow-[0_8px_25px_-5px_rgba(16,185,129,0.4)]'}`}>
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent -translate-x-full group-hover:animate-shimmer"></div>
-              {room?.is_locked ? (
-                <>
-                  <Lock className="w-7 h-7 text-slate-600 drop-shadow-md group-hover:scale-110 transition-transform" />
-                  <div className="text-[11px] text-slate-600 font-extrabold uppercase tracking-wider mt-1">Status</div>
-                  <div className="text-2xl font-black text-slate-800 drop-shadow-sm">Locked</div>
-                </>
-              ) : (
-                <>
-                  <Unlock className="w-7 h-7 text-emerald-500 drop-shadow-md group-hover:scale-110 transition-transform" />
-                  <div className="text-[11px] text-emerald-800 font-extrabold uppercase tracking-wider mt-1">Status</div>
-                  <div className="text-2xl font-black text-emerald-900 drop-shadow-sm">Open</div>
-                </>
-              )}
+            <div className="rounded-2xl bg-rose-50 border border-rose-100 p-4 flex flex-col items-center justify-center gap-1">
+              <Heart className="w-5 h-5 text-rose-500" fill="currentColor" />
+              <div className="text-xs font-black uppercase tracking-widest text-rose-400">
+                Followers
+              </div>
+              <div className="text-2xl font-black text-rose-600">
+                {followsCount}
+              </div>
             </div>
           </div>
 
@@ -192,6 +193,7 @@ export default function RoomHeader({
           hostUser={hostUser}
           onClose={() => setShowRoomCard(false)}
           openUserCard={openUserCard}
+          followsCount={followsCount}
         />
       )}
 

@@ -371,6 +371,7 @@ export default function LiveRoomPage() {
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
   const [joinNotifs, setJoinNotifs] = useState([]);
   const [isFollowingRoom, setIsFollowingRoom] = useState(false);
   const [followsCount, setFollowsCount] = useState(0);
@@ -415,13 +416,13 @@ export default function LiveRoomPage() {
           .eq('room_id', roomId)
           .eq('user_id', user.id);
         if (error) throw error;
-        toast('Removed from favorites', 1200);
+        toastSuccess('Removed from favorites', 1200);
       } else {
         const { error } = await supabase
           .from('live_room_follows')
           .insert({ room_id: roomId, user_id: user.id });
         if (error) throw error;
-        toast('❤️ Added to favorites', 1200);
+        toastSuccess('❤️ Added to favorites', 1200);
       }
     } catch (err) {
       // Revert optimistic update on error
@@ -1056,6 +1057,11 @@ useEffect(() => {
   const toast = (msg, ms = 1400) => {
     setErr(msg);
     setTimeout(() => mountedRef.current && setErr(""), ms);
+  };
+
+  const toastSuccess = (msg, ms = 1400) => {
+    setSuccessMsg(msg);
+    setTimeout(() => mountedRef.current && setSuccessMsg(""), ms);
   };
 
   const restartRepeatHideTimer = () => {
@@ -2186,7 +2192,7 @@ useEffect(() => {
       const list = await fetchBans();
       if (mountedRef.current) setBannedList(list);
 
-      toast("✅ Unbanned", 1200);
+      toastSuccess("✅ Unbanned", 1200);
     } catch (e) {
       console.error(e);
       setErr(e?.message || "Failed to unban user");
@@ -2699,7 +2705,7 @@ console.log("MODERATORS MAP:", nextMap);
       console.log('[MIC_INVITE_ACCEPT_RESULT]', { data, error });
       if (error) throw error;
 
-      toast("Invite accepted", 1200);
+      toastSuccess("Invite accepted", 1200);
       await loadMyMicInvites();
       await loadMicSeats();
       await loadMicRequests();
@@ -3360,7 +3366,7 @@ console.log("MODERATORS MAP:", nextMap);
         throw new Error(data?.error || "Failed to request mic");
       }
 
-      toast("Mic request sent successfully", 1400);
+      toastSuccess("Mic request sent successfully", 1400);
     } catch (e) {
       setErr(e?.message || "Failed to request mic");
     }
@@ -3461,7 +3467,7 @@ console.log("MODERATORS MAP:", nextMap);
 
       const mods = await fetchModerators();
       if (mountedRef.current) setModeratorsMap(mods);
-      toast("✅ Moderator assigned", 1200);
+      toastSuccess("✅ Moderator assigned", 1200);
     } catch (e) {
       setErr(e?.message || "Failed to assign moderator");
     }
@@ -3478,7 +3484,7 @@ console.log("MODERATORS MAP:", nextMap);
       if (error) throw error;
       const mods = await fetchModerators();
       if (mountedRef.current) setModeratorsMap(mods);
-      toast("✅ Moderator removed", 1200);
+      toastSuccess("✅ Moderator removed", 1200);
     } catch (e) {
       setErr(e?.message || "Failed to remove moderator");
     }
@@ -3598,7 +3604,7 @@ console.log("MODERATORS MAP:", nextMap);
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || "Failed to accept invite");
 
-      toast("Invite accepted", 1200);
+      toastSuccess("Invite accepted", 1200);
       await loadMyMicInvites();
       await loadMicSeats();
     } catch (e) {
@@ -3812,7 +3818,7 @@ console.log("MODERATORS MAP:", nextMap);
       // Update local room state
       setRoom(prev => prev ? { ...prev, avatar_url: avatarUrl } : prev);
 
-      toast("Room avatar updated successfully!");
+      toastSuccess("Room avatar updated successfully!");
     } catch (error) {
       console.error('[ROOM_AVATAR_UPLOAD] Error:', error);
       toast(`Failed to upload room avatar: ${error.message}`);
@@ -3922,7 +3928,7 @@ console.log("MODERATORS MAP:", nextMap);
 
       setRoom(prev => prev ? { ...prev, background_url: newUrl } : prev);
       await handleBackgroundChanged(newUrl);
-      toast("Room background updated successfully!");
+      toastSuccess("Room background updated successfully!");
     } catch (error) {
       console.error('[ROOM_BACKGROUND_UPLOAD] Error:', error);
       toast(`Failed to upload room background: ${error.message}`);
@@ -4039,7 +4045,7 @@ console.log("MODERATORS MAP:", nextMap);
       }
 
       setRoom(prev => prev ? { ...prev, background_url: newUrl } : prev);
-      toast("Room background updated successfully!");
+      toastSuccess("Room background updated successfully!");
     } catch (error) {
       console.error('[ROOM_BACKGROUND_VIP_UPLOAD] Error:', error);
       toast(`Failed to upload room background: ${error.message}`);
@@ -4154,7 +4160,7 @@ if (!confirmed) return;
         });
       }
 
-      toast("✅ Chat cleared", 1400);
+      toastSuccess("✅ Chat cleared", 1400);
     } catch (err) {
       toast(err?.message || "❌ Failed to clear chat", 1400);
     }
@@ -4266,7 +4272,7 @@ supabase.removeChannel(globalChannel);
       if (cost > 0) {
         fetchUserWallet(user.id).catch(() => { });
       }
-      toast("🔒 Room locked successfully", 1400);
+      toastSuccess("🔒 Room locked successfully", 1400);
     } catch (err) {
       toast(err?.message || "❌ Failed to lock room", 1400);
     }
@@ -4311,9 +4317,9 @@ await globalChannel.send({
 });
 supabase.removeChannel(globalChannel);
 
-toast("✅ Room unlocked", 1400);
+toastSuccess("✅ Room unlocked", 1400);
 
-      toast("✅ Room unlocked", 1400);
+      toastSuccess("✅ Room unlocked", 1400);
     } catch (err) {
       toast(err?.message || "❌ Failed to unlock room", 1400);
     }
@@ -4512,7 +4518,7 @@ toast("✅ Room unlocked", 1400);
       setPkMode("1v1");
       setPkScores({ A: 0, B: 0 });
 
-      toast("PK Started!", 1400);
+      toastSuccess("PK Started!", 1400);
 
       await loadPkState();
 
@@ -6528,6 +6534,11 @@ useEffect(() => {
 >
 
         {err ? <div className="shrink-0 px-4 py-2 text-sm border-b bg-rose-50 text-rose-700">{err}</div> : null}
+        {successMsg ? (
+          <div className="shrink-0 px-4 py-2 text-sm border-b bg-emerald-50 text-emerald-700">
+            {successMsg}
+          </div>
+        ) : null}
 
         {pkSession ? (
           <div className="fixed top-2 left-1/2 -translate-x-1/2 w-[96%] max-w-md z-50 rounded-[32px] p-1.5 sm:p-2.5 bg-white/40 backdrop-blur-2xl border border-white/60 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.15)] transition-all duration-300">
@@ -6903,6 +6914,7 @@ useEffect(() => {
         activeParticipants={activeParticipants}
         inviteUserToMic={inviteUserToMic}
         toast={toast}
+        toastSuccess={toastSuccess}
         showSettings={showSettings}
         closeSettings={closeSettings}
         settingsTab={settingsTab}

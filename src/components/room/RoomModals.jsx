@@ -76,6 +76,7 @@ export default function RoomModals({
   activeParticipants,
   inviteUserToMic,
   toast,
+  toastSuccess,
   handleClearChat,
   onLockRoom,
   onUnlockRoom,
@@ -198,6 +199,7 @@ export default function RoomModals({
   removeModerator,
   setSeatMenuOpen,
 }) {
+  const showSuccessToast = toastSuccess || toast;
   const [lockPin, setLockPin] = React.useState("");
   const [moderatorsList, setModeratorsList] = React.useState([]);
   const [moderatorsLoading, setModeratorsLoading] = React.useState(false);
@@ -261,7 +263,7 @@ export default function RoomModals({
       await onBackgroundChanged?.(newUrl);
       setSelectedBackgroundPreset(null);
       setShowBackgroundGallery(false);
-      toast("Room background updated successfully!");
+      showSuccessToast("Room background updated successfully!");
     } catch (e) {
       toast(e?.message || "Failed to update room background", 1400);
     } finally {
@@ -443,7 +445,7 @@ export default function RoomModals({
                         <Button className="w-full" onClick={async () => {
                           try {
                             await takeMicSeat(seatMenuSeatNo);
-                            toast("Mic taken", 1200);
+                            showSuccessToast("Mic taken", 1200);
                             closeSeatMenu();
                           } catch (e) { toast(e?.message || "Failed", 1400); }
                         }}>
@@ -455,7 +457,7 @@ export default function RoomModals({
                         <Button className="w-full" onClick={async () => {
                           try {
                             await moveMicSeat(seatMenuSeatNo);
-                            toast("Mic moved", 1200);
+                            showSuccessToast("Mic moved", 1200);
                             closeSeatMenu();
                           } catch (e) { toast(e?.message || "Failed", 1400); }
                         }}>
@@ -588,7 +590,7 @@ export default function RoomModals({
                               return;
                             }
                             setRoom(prev => ({ ...prev, title: newName, name: newName }));
-                            toast("✅ Room name updated!", 1400);
+                            showSuccessToast("✅ Room name updated!", 1400);
                           }}
                           className="mt-2 w-full py-2 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-700 transition"
                         >
@@ -681,7 +683,7 @@ export default function RoomModals({
     .update({ welcome_message: newMsg })
     .eq("id", room?.id);
   setRoom(prev => ({ ...prev, welcome_message: newMsg }));
-  toast("✅ Welcome message updated", 1400);
+  showSuccessToast("✅ Welcome message updated", 1400);
 }}
     className="mt-2 w-full py-2 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-700 transition"
   >
