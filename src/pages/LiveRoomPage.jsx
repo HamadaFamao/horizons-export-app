@@ -443,6 +443,13 @@ export default function LiveRoomPage() {
   const [inRoomChatSending, setInRoomChatSending] = useState(false);
   const [inRoomChatLoading, setInRoomChatLoading] = useState(false);
 
+  useEffect(() => {
+    console.log('[MINI_CHAT_STATE_CHANGE]', {
+      inRoomChatOpen,
+      inRoomChatThreadId,
+    });
+  }, [inRoomChatOpen, inRoomChatThreadId]);
+
   const fetchRoomFollowState = async () => {
     if (!roomId) return;
 
@@ -6743,9 +6750,6 @@ useEffect(() => {
           sender_id: user.id,
           body: savedText,
           topic: 'text',
-          extension: 'text',
-          deleted_for_user_a: false,
-          deleted_for_user_b: false,
         })
         .select()
         .single();
