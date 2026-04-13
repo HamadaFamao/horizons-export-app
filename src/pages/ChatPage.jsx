@@ -316,6 +316,9 @@ export default function ChatPage() {
   const [openUntil, setOpenUntil] = useState(null);
   const [timeRemaining, setTimeRemaining] = useState(null);
   const [openUntilLabel, setOpenUntilLabel] = useState(null);
+  const [showMenu, setShowMenu] = useState(false);
+  const [clearingChat, setClearingChat] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   // Refs
   const messagesEndRef = useRef(null);
@@ -923,11 +926,52 @@ export default function ChatPage() {
     }
   };
 
+  const handleClearChat = () => {
+    setShowClearConfirm(true);
+  };
+
+  const confirmClearChat = async () => {
+    if (!thread?.id || !userRole || clearingChat) return;
+    
+    setClearingChat(true);
+    try {
+      const deleteFlag = userRole === 'user_a' 
+        ? 'deleted_for_user_a' 
+        : 'deleted_for_user_b';
+
+      const { error } = await supabase
+        .from('messages')
+        .update({ [deleteFlag]: true })
+        .eq('thread_id', thread.id);
+
+      if (error) throw error;
+
+      setMessages([]);
+      setShowClearConfirm(false);
+      
+      toast({
+        title: 'Chat cleared',
+        description: 'Your chat history has been cleared.',
+      });
+    } catch (err) {
+      console.error('[CLEAR_CHAT_ERROR]', err);
+      toast({
+        title: 'Error',
+        description: 'Failed to clear chat',
+        variant: 'destructive',
+      });
+    } finally {
+      setClearingChat(false);
+    }
+  };
+
   // Handle emoji selection
   const handleEmojiSelect = (emoji) => {
     setInputValue((prev) => prev + emoji);
     inputRef.current?.focus();
   };
+
+  // Close menu on outside click
 
   if (loading) {
     return (
@@ -952,6 +996,13 @@ export default function ChatPage() {
   }
 
   const vipInfo = getVipInfo(otherUser);
+  useEffect(() => {
+    if (!showMenu) return;
+    const close = () => setShowMenu(false);
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [showMenu]);
+
   const isVip = vipInfo.isVip;
 
   return (
@@ -989,9 +1040,75 @@ export default function ChatPage() {
             </div>
           </div>
         </div>
+        <div className="relative">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowMenu(prev => !prev);
+            }}
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+          >
+            <MoreVertical className="w-5 h-5 text-gray-600" />
+          </button>
+
+          {showMenu && (
+            <div className="absolute right-0 top-10 bg-white border border-gray-200 rounded-xl shadow-xl z-30 min-w-[160px] overflow-hidden">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowMenu(false);
+                  handleClearChat();
+                }}
+                className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                Clear Chat
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Messages list */}
+      {/* Clear Chat Confirmation Modal */}
+      {showClearConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div 
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowClearConfirm(false)}
+          />
+          <div className="relative bg-white rounded-2xl shadow-2xl p-6 mx-4 max-w-sm w-full">
+            <div className="text-center">
+              <div className="text-4xl mb-3">🗑️</div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">
+                Clear Chat?
+              </h3>
+              <p className="text-sm text-gray-500 mb-6">
+                This will clear the chat for you only. 
+                The other person will still see all messages.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowClearConfirm(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmClearChat}
+                  disabled={clearingChat}
+                  className="flex-1 py-2.5 rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600 transition disabled:opacity-50 flex items-center justify-center"
+                >
+                  {clearingChat ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    'Clear'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <div
         className="flex-1 overflow-y-auto p-4 space-y-2 bg-slate-100/50"
         onClick={() => setShowEmojiPicker(false)}
