@@ -433,6 +433,9 @@ export default function LiveRoomPage() {
   const [followersList, setFollowersList] = useState([]);
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [inRoomMsgNotif, setInRoomMsgNotif] = useState(null);
+  const [inRoomChatOpen, setInRoomChatOpen] = useState(false);
+  const [inRoomChatThreadId, setInRoomChatThreadId] = useState(null);
+  const [inRoomChatUser, setInRoomChatUser] = useState(null);
 
   const fetchRoomFollowState = async () => {
     if (!roomId) return;
@@ -6873,8 +6876,14 @@ useEffect(() => {
             <div className="flex items-center gap-1 shrink-0">
               <button
                 onClick={() => {
+                  setInRoomChatThreadId(inRoomMsgNotif.threadId);
+                  setInRoomChatUser({
+                    id: inRoomMsgNotif.senderId,
+                    name: inRoomMsgNotif.senderName,
+                    avatar: inRoomMsgNotif.senderAvatar,
+                  });
+                  setInRoomChatOpen(true);
                   setInRoomMsgNotif(null);
-                  navigate(`/messages/${inRoomMsgNotif.threadId}`);
                 }}
                 className="px-2 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-bold"
               >
@@ -6886,6 +6895,50 @@ useEffect(() => {
               >
                 <X className="w-3 h-3" />
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {inRoomChatOpen && inRoomChatThreadId && (
+        <div className="fixed inset-0 z-[95]">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setInRoomChatOpen(false)}
+          />
+          <div className="absolute inset-x-0 bottom-0 top-16 bg-white rounded-t-3xl shadow-2xl flex flex-col overflow-hidden">
+            <div className="px-4 py-3 border-b flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <img
+                  src={inRoomChatUser?.avatar || FALLBACK_AVATAR}
+                  onError={(e) => {
+                    e.currentTarget.src = FALLBACK_AVATAR;
+                  }}
+                  alt={inRoomChatUser?.name}
+                  className="w-9 h-9 rounded-full object-cover border"
+                />
+                <div>
+                  <div className="font-bold text-slate-900 text-sm">
+                    {inRoomChatUser?.name}
+                  </div>
+                  <div className="text-[10px] text-slate-400">
+                    Private Message
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setInRoomChatOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-hidden">
+              <iframe
+                src={`/messages/${inRoomChatThreadId}`}
+                className="w-full h-full border-0"
+                title="Private Chat"
+              />
             </div>
           </div>
         </div>
