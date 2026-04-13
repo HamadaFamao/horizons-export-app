@@ -6628,7 +6628,9 @@ useEffect(() => {
       .from('messages')
       .select('id, thread_id, sender_id, body, created_at')
       .eq('thread_id', inRoomChatThreadId)
-      .order('id', { ascending: true })
+      .eq('deleted_for_user_a', false)
+      .eq('deleted_for_user_b', false)
+      .order('created_at', { ascending: true })
       .limit(50)
       .then(({ data, error }) => {
         console.log('[MINI_CHAT_FETCH]', data?.length, error);
@@ -6704,6 +6706,7 @@ useEffect(() => {
           thread_id: inRoomChatThreadId,
           sender_id: user.id,
           body: savedText,
+          created_at: new Date().toISOString(),
         })
         .select()
         .single();
