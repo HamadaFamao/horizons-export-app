@@ -34,6 +34,8 @@ export default function UserProfilePage() {
   const [creatingThread, setCreatingThread] = useState(false);
   const [isSendingGift, setIsSendingGift] = useState(false);
   const [profileRefreshTrigger, setProfileRefreshTrigger] = useState(0);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [blocking, setBlocking] = useState(false);
 
   // Scroll to top when page opens
   useEffect(() => {
@@ -130,6 +132,25 @@ export default function UserProfilePage() {
     fetchProfile();
   }, [profileId, profileRefreshTrigger]);
 
+  useEffect(() => {
+    const checkBlockStatus = async () => {
+      if (!currentUser?.id || !profile?.id) return;
+      try {
+        const { data } = await supabase
+          .from('blocks')
+          .select('id')
+          .eq('blocker', currentUser.id)
+          .eq('blocked', profile.id)
+          .maybeSingle();
+        setIsBlocked(!!data);
+      } catch (err) {
+        console.error('Error checking block status:', err);
+      }
+    };
+
+    checkBlockStatus();
+  }, [currentUser?.id, profile?.id]);
+
   const handleMessageClick = async () => {
       if (!currentUser || !profile) {
         toast({ title: "Error", description: "You must be logged in to send messages.", variant: "destructive" });
@@ -203,6 +224,55 @@ export default function UserProfilePage() {
       });
     } finally {
       setIsSendingGift(false);
+    }
+  };
+
+  const handleBlock = async () => {
+    if (!currentUser?.id || !profile?.id) return;
+    setBlocking(true);
+    try {
+      const { error } = await supabase
+        .from('blocks')
+        .insert({ blocker: currentUser.id, blocked: profile.id });
+      if (error) throw error;
+      setIsBlocked(true);
+      toast({
+        title: '🚫 User Blocked',
+        description: `${profile?.name} has been blocked.`,
+      });
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: err.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setBlocking(false);
+    }
+  };
+
+  const handleUnblock = async () => {
+    if (!currentUser?.id || !profile?.id) return;
+    setBlocking(true);
+    try {
+      await supabase
+        .from('blocks')
+        .delete()
+        .eq('blocker', currentUser.id)
+        .eq('blocked', profile.id);
+      setIsBlocked(false);
+      toast({
+        title: '✅ Unblocked',
+        description: `${profile?.name} has been unblocked.`,
+      });
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: err.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setBlocking(false);
     }
   };
 
@@ -384,6 +454,14 @@ export default function UserProfilePage() {
                             >
                                 {isSendingGift ? <Loader2 className="w-4 h-4 animate-spin" /> : <Gift className="w-5 h-5" />}
                                 {language === 'ar' ? 'إرسال هدية' : 'Send Gift'}
+                            </Button>
+
+                            <Button
+                              onClick={isBlocked ? handleUnblock : handleBlock}
+                              disabled={blocking}
+                              className={`${isBlocked ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-red-500 hover:bg-red-600'} text-white rounded-xl px-6 h-12 shadow-md flex items-center gap-2`}
+                            >
+                              {blocking ? <Loader2 className="w-4 h-4 animate-spin" /> : (isBlocked ? '✅ Unblock' : '🚫 Block')}
                             </Button>
                         </div>
                     )}

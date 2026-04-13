@@ -8,15 +8,19 @@ import { Button } from '@/components/ui/button';
 import AppHeader from '@/components/AppHeader';
 import { DEFAULT_AVATAR } from '@/lib/constants';
 import { useUnread } from '@/context/UnreadContext';
+import { useToast } from '@/components/ui/use-toast';
 
 export default function MessagesPage() {
   const navigate = useNavigate();
   const { getThreadUnread } = useUnread();
+  const { toast } = useToast();
 
   const [threads, setThreads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
   const [error, setError] = useState(null);
+  const [doNotDisturb, setDoNotDisturb] = useState(false);
+  const [togglingDND, setTogglingDND] = useState(false);
 
   // Agency pinned chat state
   const [agencyLoading, setAgencyLoading] = useState(true);
@@ -36,6 +40,13 @@ export default function MessagesPage() {
         }
 
         setCurrentUser(user);
+
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('do_not_disturb')
+          .eq('id', user.id)
+          .maybeSingle();
+        setDoNotDisturb(!!profile?.do_not_disturb);
 
         const userThreads = await fetchUserThreads(user.id);
         setThreads(userThreads);
@@ -120,6 +131,31 @@ export default function MessagesPage() {
     navigate(`/messages/${threadId}`);
   };
 
+  const toggleDND = async () => {
+    if (!currentUser?.id) return;
+    setTogglingDND(true);
+    try {
+      const newDND = !doNotDisturb;
+      const { error } = await supabase
+        .from('profiles')
+        .update({ do_not_disturb: newDND })
+        .eq('id', currentUser.id);
+
+      if (error) throw error;
+      setDoNotDisturb(newDND);
+      toast({
+        title: newDND ? '🔕 Do Not Disturb ON' : '🔔 Do Not Disturb OFF',
+        description: newDND
+          ? 'No one can send you messages now'
+          : 'You can receive messages again',
+      });
+    } catch (err) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setTogglingDND(false);
+    }
+  };
+
   const pinnedTitle = useMemo(() => {
     if (agencyName) return agencyName;
     return 'Agency Chat';
@@ -154,6 +190,20 @@ export default function MessagesPage() {
                 </Button>
                 <h1 className="text-2xl font-bold gradient-text">Messages</h1>
               </div>
+              <button
+                onClick={toggleDND}
+                disabled={togglingDND}
+                className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold transition ${
+                  doNotDisturb
+                    ? 'bg-red-100 text-red-600 border border-red-200'
+                    : 'bg-gray-100 text-gray-600 border border-gray-200'
+                }`}
+              >
+                {togglingDND
+                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : doNotDisturb ? '🔕 DND ON' : '🔔 DND OFF'
+                }
+              </button>
             </div>
 
             {/* Threads List */}

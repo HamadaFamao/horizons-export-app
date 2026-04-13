@@ -344,9 +344,11 @@ export default function ChatPage() {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem(`muted_thread_${thread?.id}`) === 'true';
   });
+  const [blockedByOther, setBlockedByOther] = useState(false);
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
   const [blocking, setBlocking] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
+  const [otherUserDND, setOtherUserDND] = useState(false);
 
   // Refs
   const messagesEndRef = useRef(null);
@@ -558,6 +560,37 @@ export default function ChatPage() {
           setOtherUserLastSeen(userData.last_seen);
         }
 
+        const { data: otherProfile } = await supabase
+          .from('profiles')
+          .select('do_not_disturb')
+          .eq('id', targetUserId)
+          .maybeSingle();
+
+        const otherUserDndValue = !!otherProfile?.do_not_disturb;
+        setOtherUserDND(otherUserDndValue);
+
+        const checkBlockStatus = async () => {
+          if (!currentUser?.id || !targetUserId) return;
+
+          const { data: iBlockedThem } = await supabase
+            .from('blocks')
+            .select('id')
+            .eq('blocker', currentUser.id)
+            .eq('blocked', targetUserId)
+            .maybeSingle();
+          setIsBlocked(!!iBlockedThem);
+
+          const { data: theyBlockedMe } = await supabase
+            .from('blocks')
+            .select('id')
+            .eq('blocker', targetUserId)
+            .eq('blocked', currentUser.id)
+            .maybeSingle();
+          setBlockedByOther(!!theyBlockedMe);
+        };
+
+        await checkBlockStatus();
+
         const { data: walletData } = await supabase
           .from('wallets')
           .select('coins, gems, level, xp')
@@ -716,7 +749,7 @@ export default function ChatPage() {
         realtimeChannelRef.current = null;
       }
     };
-  }, [thread?.id, currentUser?.id, userRole]);
+  }, [thread?.id, currentUser?.id, userRole, isMuted]);
 
   // Realtime Subscription (Typing)
   useEffect(() => {
@@ -758,14 +791,6 @@ export default function ChatPage() {
     const muted = localStorage.getItem(`muted_thread_${thread.id}`) === 'true';
     setIsMuted(muted);
   }, [thread?.id]);
-
-  useEffect(() => {
-    if (!recipientId) return;
-    const blocked = localStorage.getItem(
-      `blocked_user_${recipientId}`
-    ) === 'true';
-    setIsBlocked(blocked);
-  }, [recipientId]);
 
   // Handle typing indicator broadcast
   const broadcastTypingStatus = (isTyping) => {
@@ -989,26 +1014,59 @@ export default function ChatPage() {
     setIsMuted(newMuted);
     localStorage.setItem(`muted_thread_${thread?.id}`, String(newMuted));
     toast({
-      title: newMuted ? '🔕 Muted' : '🔔 Unmuted',
+      title: newMuted ? '🔕 Chat Muted' : '🔔 Chat Unmuted',
       description: newMuted
-        ? 'Notifications muted for this chat'
+        ? 'You will no longer receive notifications from this chat inside rooms'
         : 'Notifications enabled for this chat',
     });
   };
 
   const handleBlock = async () => {
+    if (!currentUser?.id || !recipientId) return;
     setBlocking(true);
     try {
-      localStorage.setItem(`blocked_user_${recipientId}`, 'true');
+      const { error } = await supabase
+        .from('blocks')
+        .insert({ blocker: currentUser.id, blocked: recipientId });
+
+      if (error) throw error;
       setIsBlocked(true);
+      setBlockedByOther(false);
       setShowBlockConfirm(false);
       toast({
         title: '🚫 User Blocked',
         description: `${otherUser?.name} has been blocked.`,
       });
-      navigate('/messages');
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: err.message,
+        variant: 'destructive',
+      });
     } finally {
       setBlocking(false);
+    }
+  };
+
+  const handleUnblock = async () => {
+    if (!currentUser?.id || !recipientId) return;
+    try {
+      await supabase
+        .from('blocks')
+        .delete()
+        .eq('blocker', currentUser.id)
+        .eq('blocked', recipientId);
+      setIsBlocked(false);
+      toast({
+        title: '✅ Unblocked',
+        description: `${otherUser?.name} has been unblocked.`,
+      });
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: err.message,
+        variant: 'destructive',
+      });
     }
   };
 
@@ -1148,17 +1206,21 @@ export default function ChatPage() {
                 }}
                 className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
               >
-                {isMuted ? '🔔 Unmute' : '🔕 Mute Notifications'}
+                {isMuted ? '🔔 Unmute Chat' : '🔕 Mute Chat'}
               </button>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   setShowMenu(false);
+                  if (isBlocked) {
+                    handleUnblock();
+                    return;
+                  }
                   setShowBlockConfirm(true);
                 }}
                 className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
               >
-                🚫 Block User
+                {isBlocked ? '✅ Unblock User' : '🚫 Block User'}
               </button>
             </div>
           )}
@@ -1220,7 +1282,6 @@ export default function ChatPage() {
               </h3>
               <p className="text-sm text-gray-500 mb-6">
                 They won't be able to send you messages anymore.
-                You can unblock them from your settings.
               </p>
               <div className="flex gap-3">
                 <button
@@ -1319,15 +1380,29 @@ export default function ChatPage() {
               🚫 You blocked {otherUser?.name}
             </span>
             <button
-              onClick={() => {
-                localStorage.removeItem(`blocked_user_${recipientId}`);
-                setIsBlocked(false);
-                toast({ title: '✅ Unblocked' });
-              }}
+              onClick={handleUnblock}
               className="text-xs text-red-500 underline hover:text-red-700"
             >
               Unblock
             </button>
+          </div>
+        )}
+
+        {blockedByOther && (
+          <div className="px-4 py-3 bg-red-50 border-t border-red-100 flex items-center justify-between">
+            <span className="text-sm text-red-600 font-medium">
+              🚫 You can't message this person
+            </span>
+          </div>
+        )}
+
+        {otherUserDND && (
+          <div className="px-4 py-3 bg-amber-50 border-t border-amber-100 flex items-center gap-2">
+            <span className="text-lg">🔕</span>
+            <span className="text-sm text-amber-700 font-medium">
+              {otherUser?.name} has Do Not Disturb enabled.
+              You cannot send messages right now.
+            </span>
           </div>
         )}
 
@@ -1376,8 +1451,8 @@ export default function ChatPage() {
                 handleSendMessage();
               }
             }}
-            disabled={!isChatUnlocked || isBlocked}
-            placeholder={isBlocked ? 'You blocked this user...' : (isChatUnlocked ? 'Type a message...' : 'Chat is locked...')}
+            disabled={!isChatUnlocked || isBlocked || blockedByOther || otherUserDND}
+            placeholder={blockedByOther ? 'You cannot message this person...' : (otherUserDND ? 'This user has Do Not Disturb enabled...' : (isBlocked ? 'You blocked this user...' : (isChatUnlocked ? 'Type a message...' : 'Chat is locked...')))}
             className={`flex-1 px-4 py-3 border rounded-2xl resize-none focus:outline-none focus:ring-2 transition-all text-sm md:text-base min-h-[48px] max-h-[120px] ${isChatUnlocked
               ? 'bg-gray-50 border-gray-200 focus:ring-blue-100 focus:border-blue-300 focus:bg-white'
               : 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed placeholder:text-gray-400'
@@ -1397,7 +1472,7 @@ export default function ChatPage() {
           {/* Send button - disabled when locked */}
           <button
             onClick={handleSendMessage}
-            disabled={!inputValue.trim() || isSending || !isChatUnlocked || isBlocked}
+            disabled={!inputValue.trim() || isSending || !isChatUnlocked || isBlocked || blockedByOther || otherUserDND}
             className={`flex-shrink-0 w-12 h-12 flex items-center justify-center text-white rounded-xl font-bold transition-all shadow-sm ${!isChatUnlocked
               ? 'bg-gray-300 cursor-not-allowed'
               : 'bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400'
