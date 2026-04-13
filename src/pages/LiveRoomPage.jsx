@@ -6629,7 +6629,7 @@ useEffect(() => {
         .from('messages')
         .select('*')
         .eq('thread_id', inRoomChatThreadId)
-        .order('created_at', { ascending: true })
+        .order('inserted_at', { ascending: true })
         .limit(50);
 
       if (!error && data) {
@@ -6659,7 +6659,9 @@ useEffect(() => {
         (payload) => {
           if (payload?.new) {
             setInRoomChatMessages((prev) => {
-              const exists = prev.some((m) => m.id === payload.new.id);
+              const exists = prev.some((m) =>
+                String(m.id) === String(payload.new.id)
+              );
               if (exists) return prev;
               return [...prev, payload.new];
             });
@@ -6689,28 +6691,45 @@ useEffect(() => {
     if (!text || !inRoomChatThreadId || !user?.id) return;
 
     setInRoomChatSending(true);
+    const savedText = text;
     setInRoomChatText('');
 
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('messages')
         .insert({
           thread_id: inRoomChatThreadId,
           sender_id: user.id,
-          body: text,
+          body: savedText,
           topic: 'text',
           extension: 'text',
           deleted_for_user_a: false,
           deleted_for_user_b: false,
-        });
+        })
+        .select()
+        .single();
 
       if (error) {
         console.error('[MINI_CHAT_SEND_ERROR]', error);
         throw error;
       }
+
+      if (data) {
+        setInRoomChatMessages((prev) => {
+          const exists = prev.some((m) => m.id === data.id);
+          if (exists) return prev;
+          return [...prev, data];
+        });
+        setTimeout(() => {
+          inRoomChatBottomRef.current?.scrollIntoView({
+            behavior: 'smooth'
+          });
+        }, 50);
+      }
     } catch (err) {
-      toast(err.message || 'Failed to send', 1400);
-      setInRoomChatText(text);
+      console.error('[MINI_CHAT_SEND_EXCEPTION]', err);
+      toast(err.message || 'Failed to send message', 1400);
+      setInRoomChatText(savedText);
     } finally {
       setInRoomChatSending(false);
     }
