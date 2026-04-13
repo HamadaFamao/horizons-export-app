@@ -7058,7 +7058,7 @@ useEffect(() => {
         handleRejectMyInvite={handleRejectMyInvite}
       />
 
-      {showMusicPanel && (
+      {showMusicPanel && canModerate && (
         <div className="fixed inset-0 z-[85]" onClick={() => setShowMusicPanel(false)}>
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
           <div

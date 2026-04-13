@@ -325,23 +325,25 @@ export default function RoomHeader({
           <span className="text-xl relative z-10 group-hover:animate-bounce drop-shadow-md">🏆</span>
         </Button>
 
-        <button
-          type="button"
-          onClick={() => setShowMusicPanel((prev) => !prev)}
-          className={`relative inline-flex flex-col items-center justify-center gap-0.5 transition active:scale-95 ${
-            musicPlaying
-              ? 'text-emerald-400'
-              : 'text-slate-400 hover:text-white'
-          }`}
-          title={showMusicPanel ? "Close music panel" : "Open music panel"}
-        >
-          <span className="text-lg">🎵</span>
-          {musicPlaying && (
-            <span className="text-[9px] font-bold text-emerald-400 animate-pulse">
-              LIVE
-            </span>
-          )}
-        </button>
+        {canModerate && (
+          <button
+            type="button"
+            onClick={() => setShowMusicPanel((prev) => !prev)}
+            className={`relative inline-flex flex-col items-center justify-center gap-0.5 transition active:scale-95 ${
+              musicPlaying
+                ? 'text-emerald-400'
+                : 'text-slate-400 hover:text-white'
+            }`}
+            title={showMusicPanel ? "Close music panel" : "Open music panel"}
+          >
+            <span className="text-lg">🎵</span>
+            {musicPlaying && (
+              <span className="text-[9px] font-bold text-emerald-400 animate-pulse">
+                LIVE
+              </span>
+            )}
+          </button>
+        )}
 
         {canModerate ? (
           <Button
