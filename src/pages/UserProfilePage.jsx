@@ -437,32 +437,71 @@ export default function UserProfilePage() {
                     )}
 
                     {!isOwnProfile && currentUser && (
-                        <div className="flex justify-center gap-3 mt-2 mb-6">
-                            <Button 
-                                onClick={handleMessageClick} 
-                                disabled={creatingThread}
-                                className="bg-blue-500 hover:bg-blue-600 text-white rounded-xl px-6 h-12 shadow-md flex items-center gap-2"
-                            >
-                                {creatingThread ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageCircle className="w-5 h-5" />}
-                                {language === 'ar' ? 'مراسلة' : 'Message'}
-                            </Button>
-                            
-                            <Button 
-                                onClick={() => setShowGiftPanel(true)}
-                                className="bg-rose-500 hover:bg-rose-600 text-white rounded-xl px-6 h-12 shadow-md flex items-center gap-2"
-                                disabled={isSendingGift}
-                            >
-                                {isSendingGift ? <Loader2 className="w-4 h-4 animate-spin" /> : <Gift className="w-5 h-5" />}
-                                {language === 'ar' ? 'إرسال هدية' : 'Send Gift'}
-                            </Button>
+                        <div className="flex justify-center gap-4 mt-2 mb-6">
 
-                            <Button
-                              onClick={isBlocked ? handleUnblock : handleBlock}
-                              disabled={blocking}
-                              className={`${isBlocked ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-red-500 hover:bg-red-600'} text-white rounded-xl px-6 h-12 shadow-md flex items-center gap-2`}
-                            >
-                              {blocking ? <Loader2 className="w-4 h-4 animate-spin" /> : (isBlocked ? '✅ Unblock' : '🚫 Block')}
-                            </Button>
+                            {/* Message Button */}
+                            <div className="flex flex-col items-center gap-1">
+                              <button
+                                onClick={handleMessageClick}
+                                disabled={creatingThread}
+                                className="w-14 h-14 rounded-full bg-blue-500 hover:bg-blue-600 text-white shadow-lg flex items-center justify-center transition active:scale-95 disabled:opacity-60"
+                                title="Message"
+                              >
+                                {creatingThread
+                                  ? <Loader2 className="w-6 h-6 animate-spin" />
+                                  : <MessageCircle className="w-6 h-6" />
+                                }
+                              </button>
+                              <span className="text-xs font-medium text-gray-500">
+                                {language === 'ar' ? 'مراسلة' : 'Message'}
+                              </span>
+                            </div>
+
+                            {/* Send Gift Button */}
+                            <div className="flex flex-col items-center gap-1">
+                              <button
+                                onClick={() => setShowGiftPanel(true)}
+                                disabled={isSendingGift}
+                                className="w-14 h-14 rounded-full bg-rose-500 hover:bg-rose-600 text-white shadow-lg flex items-center justify-center transition active:scale-95 disabled:opacity-60"
+                                title="Send Gift"
+                              >
+                                {isSendingGift
+                                  ? <Loader2 className="w-6 h-6 animate-spin" />
+                                  : <Gift className="w-6 h-6" />
+                                }
+                              </button>
+                              <span className="text-xs font-medium text-gray-500">
+                                {language === 'ar' ? 'هدية' : 'Gift'}
+                              </span>
+                            </div>
+
+                            {/* Block/Unblock Button */}
+                            <div className="flex flex-col items-center gap-1">
+                              <button
+                                onClick={isBlocked ? handleUnblock : handleBlock}
+                                disabled={blocking}
+                                className={`w-14 h-14 rounded-full text-white shadow-lg flex items-center justify-center transition active:scale-95 disabled:opacity-60 ${
+                                  isBlocked
+                                    ? 'bg-emerald-500 hover:bg-emerald-600'
+                                    : 'bg-slate-400 hover:bg-slate-500'
+                                }`}
+                                title={isBlocked ? 'Unblock' : 'Block'}
+                              >
+                                {blocking
+                                  ? <Loader2 className="w-6 h-6 animate-spin" />
+                                  : isBlocked
+                                    ? <ShieldCheck className="w-6 h-6" />
+                                    : <Shield className="w-6 h-6" />
+                                }
+                              </button>
+                              <span className="text-xs font-medium text-gray-500">
+                                {isBlocked
+                                  ? (language === 'ar' ? 'إلغاء الحظر' : 'Unblock')
+                                  : (language === 'ar' ? 'حظر' : 'Block')
+                                }
+                              </span>
+                            </div>
+
                         </div>
                     )}
                     {!currentUser && (
