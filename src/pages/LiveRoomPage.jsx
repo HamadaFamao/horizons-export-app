@@ -6648,7 +6648,7 @@ useEffect(() => {
           .from('messages')
           .select('*')
           .eq('thread_id', inRoomChatThreadId)
-          .order('created_at', { ascending: true })
+          .order('id', { ascending: true })
           .limit(50);
 
         console.log('[MINI_CHAT_MESSAGES]', data, error);
@@ -6689,7 +6689,9 @@ useEffect(() => {
                 String(m.id) === String(payload.new.id)
               );
               if (exists) return prev;
-              return [...prev, payload.new];
+              return [...prev, payload.new].sort((a, b) =>
+                Number(a.id) - Number(b.id)
+              );
             });
             setTimeout(() => {
               inRoomChatBottomRef.current?.scrollIntoView({
@@ -6748,7 +6750,9 @@ useEffect(() => {
             String(m.id) === String(data.id)
           );
           if (exists) return prev;
-          return [...prev, data];
+          return [...prev, data].sort((a, b) =>
+            Number(a.id) - Number(b.id)
+          );
         });
         setTimeout(() => {
           inRoomChatBottomRef.current?.scrollIntoView({
