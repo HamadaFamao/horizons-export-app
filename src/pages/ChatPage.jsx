@@ -31,6 +31,36 @@ import OnlineStatus from '@/components/OnlineStatus';
 import { Loader2, ArrowLeft, Send, MoreVertical, Trash2 } from 'lucide-react';
 import { getVipInfo } from '@/utils/vip';
 
+const formatMessageTimestamp = (dateString) => {
+  if (!dateString) return '';
+
+  const date = new Date(dateString);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const msgDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+  const timeStr = date.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  if (msgDate.getTime() === today.getTime()) {
+    return timeStr;
+  } else if (msgDate.getTime() === yesterday.getTime()) {
+    return `Yesterday ${timeStr}`;
+  } else {
+    return date.toLocaleDateString([], {
+      day: 'numeric',
+      month: 'short',
+      year: msgDate.getFullYear() !== now.getFullYear()
+        ? 'numeric'
+        : undefined,
+    }) + ` ${timeStr}`;
+  }
+};
+
 // Sub-component for individual messages to allow Hooks usage
 const MessageItem = ({
   message,
@@ -133,10 +163,7 @@ const MessageItem = ({
             </div>
           )}
           <p className="mt-2 text-xs text-pink-400">
-            {new Date(message.created_at).toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
+            {formatMessageTimestamp(message.created_at)}
           </p>
 
           {/* Message actions menu */}
@@ -188,10 +215,7 @@ const MessageItem = ({
             <span className="text-6xl select-none">{emoji}</span>
           </div>
           <p className="text-xs text-gray-400">
-            {new Date(message.created_at).toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
+            {formatMessageTimestamp(message.created_at)}
           </p>
 
           {/* Message actions menu - Floating outside for big emoji */}
@@ -237,10 +261,7 @@ const MessageItem = ({
         <p className="text-sm break-words whitespace-pre-wrap leading-relaxed">{message.body}</p>
         <div className={`flex items-center justify-between mt-1 gap-2 ${isOwn ? 'text-blue-100' : 'text-gray-400'}`}>
           <p className="text-[10px]">
-            {new Date(message.created_at).toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
+            {formatMessageTimestamp(message.created_at)}
           </p>
           {isOwn && message.seen_at && (
             <span className="text-[10px]">✓ Seen</span>
@@ -1124,18 +1145,42 @@ export default function ChatPage() {
             <p className="text-sm text-gray-500 mt-1">Start the conversation with {otherUser.name}!</p>
           </div>
         ) : (
-          messages.map((message) => (
-            <MessageItem
-              key={message.id}
-              message={message}
-              currentUser={currentUser}
-              userRole={userRole}
-              onDelete={handleDeleteMessage}
-              setContextMenu={setContextMenu}
-              contextMenu={contextMenu}
-              setEmojiBurst={setEmojiBurst}
-            />
-          ))
+          messages.map((message, index) => {
+            const msgDate = new Date(message.created_at).toLocaleDateString();
+            const prevMsgDate = index > 0
+              ? new Date(messages[index - 1].created_at).toLocaleDateString()
+              : null;
+            const showDateSeparator = msgDate !== prevMsgDate;
+
+            return (
+              <React.Fragment key={message.id}>
+                {showDateSeparator && (
+                  <div className="flex items-center gap-3 my-4">
+                    <div className="flex-1 h-px bg-gray-200" />
+                    <span className="text-xs text-gray-400 font-medium px-2">
+                      {new Date(message.created_at).toLocaleDateString([], {
+                        weekday: 'short',
+                        day: 'numeric',
+                        month: 'short',
+                        year: new Date(message.created_at).getFullYear() !==
+                          new Date().getFullYear() ? 'numeric' : undefined,
+                      })}
+                    </span>
+                    <div className="flex-1 h-px bg-gray-200" />
+                  </div>
+                )}
+                <MessageItem
+                  message={message}
+                  currentUser={currentUser}
+                  userRole={userRole}
+                  onDelete={handleDeleteMessage}
+                  setContextMenu={setContextMenu}
+                  contextMenu={contextMenu}
+                  setEmojiBurst={setEmojiBurst}
+                />
+              </React.Fragment>
+            );
+          })
         )}
 
         {/* Typing indicator */}
