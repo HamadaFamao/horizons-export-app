@@ -72,6 +72,10 @@ const MessageItem = ({
   setEmojiBurst
 }) => {
   const isOwn = message.sender_id === currentUser?.id;
+  const isVoiceMessage = message.body?.startsWith('VOICE_MESSAGE:');
+  const voiceUrl = isVoiceMessage
+    ? message.body.replace('VOICE_MESSAGE:', '')
+    : null;
   const isGift =
     message.body?.startsWith('🎁') ||
     message.body?.includes('SENT_GIFT:') ||
@@ -101,6 +105,37 @@ const MessageItem = ({
   // Check if deleted for me
   const deleteFlag = userRole === 'user_a' ? 'deleted_for_user_a' : 'deleted_for_user_b';
   if (message[deleteFlag]) return null;
+
+  if (isVoiceMessage) {
+    return (
+      <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-3`}>
+        <div className={`max-w-[75%] px-3 py-2 rounded-2xl ${
+          isOwn
+            ? 'bg-blue-500 rounded-br-none'
+            : 'bg-white border rounded-bl-none shadow-sm'
+        }`}>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-lg">🎙️</span>
+            <span className={`text-xs font-medium ${
+              isOwn ? 'text-blue-100' : 'text-gray-500'
+            }`}>
+              Voice Message
+            </span>
+          </div>
+          <audio
+            src={voiceUrl}
+            controls
+            className="max-w-[200px] h-8"
+          />
+          <div className={`text-[10px] mt-1 ${
+            isOwn ? 'text-blue-100' : 'text-gray-400'
+          }`}>
+            {formatMessageTimestamp(message.created_at)}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (isGift) {
     let displayBody = message.body;
@@ -349,6 +384,10 @@ export default function ChatPage() {
   const [blocking, setBlocking] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
   const [otherUserDND, setOtherUserDND] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [voiceBlob, setVoiceBlob] = useState(null);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [sendingVoice, setSendingVoice] = useState(false);
 
   // Refs
   const messagesEndRef = useRef(null);
@@ -360,6 +399,9 @@ export default function ChatPage() {
   const lastSeenRefreshIntervalRef = useRef(null);
   const threadRefreshIntervalRef = useRef(null);
   const countdownIntervalRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const recordingTimerRef = useRef(null);
 
   // Helper: Play notification sound
   const playNotificationSound = () => {
@@ -792,6 +834,12 @@ export default function ChatPage() {
     setIsMuted(muted);
   }, [thread?.id]);
 
+  useEffect(() => {
+    return () => {
+      clearInterval(recordingTimerRef.current);
+    };
+  }, []);
+
   // Handle typing indicator broadcast
   const broadcastTypingStatus = (isTyping) => {
     if (!typingChannelRef.current || !thread?.id || !currentUser?.id) return;
@@ -833,6 +881,116 @@ export default function ChatPage() {
     broadcastTypingStatus(false);
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      clearInterval(recordingTimerRef.current);
+    }
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        if (audioChunksRef.current.length > 0) {
+          const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+          setVoiceBlob(blob);
+        }
+        stream.getTracks().forEach((t) => t.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingSeconds(0);
+
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingSeconds((prev) => {
+          if (prev >= 120) {
+            stopRecording();
+            return prev;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+    } catch (err) {
+      toast({
+        title: 'Microphone Error',
+        description: 'Could not access microphone',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const cancelRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      audioChunksRef.current = [];
+      mediaRecorderRef.current.stop();
+    }
+    setIsRecording(false);
+    setVoiceBlob(null);
+    setRecordingSeconds(0);
+    clearInterval(recordingTimerRef.current);
+  };
+
+  const sendVoiceMessage = async () => {
+    if (!voiceBlob || !thread?.id || !currentUser?.id) return;
+
+    setSendingVoice(true);
+    try {
+      const fileName = `voice_${currentUser.id}_${Date.now()}.webm`;
+      const filePath = `voice-messages/${thread.id}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('profile-photos')
+        .upload(filePath, voiceBlob, {
+          contentType: 'audio/webm',
+          upsert: false,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('profile-photos')
+        .getPublicUrl(filePath);
+
+      const voiceUrl = urlData.publicUrl;
+
+      const { data, error } = await supabase
+        .from('messages')
+        .insert({
+          thread_id: thread.id,
+          sender_id: currentUser.id,
+          body: `VOICE_MESSAGE:${voiceUrl}`,
+          created_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setMessages((prev) => [...prev, data]);
+      setVoiceBlob(null);
+      setRecordingSeconds(0);
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: 'Failed to send voice message',
+        variant: 'destructive',
+      });
+    } finally {
+      setSendingVoice(false);
     }
   };
 
@@ -1406,6 +1564,55 @@ export default function ChatPage() {
           </div>
         )}
 
+        {/* Voice Recording State */}
+        {isRecording && (
+          <div className="flex items-center gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-2xl mb-2">
+            <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
+            <span className="text-sm font-medium text-red-600 flex-1">
+              Recording... {Math.floor(recordingSeconds / 60)}:{String(recordingSeconds % 60).padStart(2, '0')}
+            </span>
+            <button
+              onClick={cancelRecording}
+              className="text-gray-500 hover:text-gray-700 text-sm"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={stopRecording}
+              className="bg-red-500 text-white px-3 py-1.5 rounded-full text-sm font-semibold hover:bg-red-600"
+            >
+              Stop
+            </button>
+          </div>
+        )}
+
+        {/* Voice Preview State */}
+        {voiceBlob && !isRecording && (
+          <div className="flex items-center gap-3 px-4 py-3 bg-blue-50 border border-blue-200 rounded-2xl mb-2">
+            <audio
+              src={URL.createObjectURL(voiceBlob)}
+              controls
+              className="flex-1 h-8"
+            />
+            <button
+              onClick={() => setVoiceBlob(null)}
+              className="text-gray-500 hover:text-gray-700 text-sm"
+            >
+              ✕
+            </button>
+            <button
+              onClick={sendVoiceMessage}
+              disabled={sendingVoice}
+              className="bg-blue-500 text-white px-3 py-1.5 rounded-full text-sm font-semibold hover:bg-blue-600 disabled:opacity-50"
+            >
+              {sendingVoice
+                ? <Loader2 className="w-4 h-4 animate-spin" />
+                : 'Send'
+              }
+            </button>
+          </div>
+        )}
+
         {/* Chat unlock countdown banner - show only if unlocked by time and not VIP */}
         {isChatUnlocked && !userIsVIP && openUntil && timeRemaining && (
           <ChatUnlockCountdownBanner
@@ -1439,6 +1646,26 @@ export default function ChatPage() {
           >
             <span className="text-xl leading-none">😀</span>
           </button>
+
+          {!isRecording && !voiceBlob && (
+            <button
+              onClick={startRecording}
+              disabled={!isChatUnlocked || isBlocked || blockedByOther || otherUserDND}
+              className="flex-shrink-0 p-2.5 hover:bg-gray-100 text-gray-500 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Record voice message"
+            >
+              <span className="text-xl">🎙️</span>
+            </button>
+          )}
+
+          {isRecording && (
+            <button
+              onClick={stopRecording}
+              className="flex-shrink-0 p-2.5 bg-red-100 text-red-500 rounded-xl animate-pulse"
+            >
+              <span className="text-xl">⏹️</span>
+            </button>
+          )}
 
           {/* Text input - disabled when locked */}
           <textarea
