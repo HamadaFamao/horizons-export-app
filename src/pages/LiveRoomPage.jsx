@@ -6607,6 +6607,7 @@ useEffect(() => {
           };
 
           setInRoomMsgNotif(notif);
+          console.log('[MINI_CHAT_NOTIF_SET]', notif);
 
           if (inRoomMsgTimerRef.current) {
             clearTimeout(inRoomMsgTimerRef.current);
@@ -6627,6 +6628,12 @@ useEffect(() => {
   }, [user?.id]);
 
   useEffect(() => {
+    console.log('[MINI_CHAT_EFFECT]', {
+      inRoomChatOpen,
+      inRoomChatThreadId,
+      userId: user?.id
+    });
+
     if (!inRoomChatOpen || !inRoomChatThreadId) return;
 
     const fetchThreadMessages = async () => {
@@ -7027,6 +7034,10 @@ useEffect(() => {
             <div className="flex items-center gap-1 shrink-0">
               <button
                 onClick={() => {
+                  console.log('[MINI_CHAT_OPEN]', {
+                    threadId: inRoomMsgNotif.threadId,
+                    senderId: inRoomMsgNotif.senderId,
+                  });
                   setInRoomChatThreadId(inRoomMsgNotif.threadId);
                   setInRoomChatUser({
                     id: inRoomMsgNotif.senderId,
