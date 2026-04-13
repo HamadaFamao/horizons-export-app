@@ -6616,61 +6616,30 @@ useEffect(() => {
   }, [user?.id]);
 
   useEffect(() => {
-    console.log('[MINI_CHAT_EFFECT_TRIGGERED]', {
-      inRoomChatOpen,
-      inRoomChatThreadId,
-      userId: user?.id
-    });
-
-    if (!inRoomChatOpen || !inRoomChatThreadId) return;
-
+    // Reset immediately and synchronously
     setInRoomChatMessages([]);
+    setInRoomChatLoading(false);
+    
+    if (!inRoomChatOpen || !inRoomChatThreadId) return;
+    
     setInRoomChatLoading(true);
-
-    const fetchThreadMessages = async () => {
-      setInRoomChatLoading(true);
-      try {
-        const { data: threadData, error: threadError } = await supabase
-          .from('threads')
-          .select('id, user_a, user_b')
-          .eq('id', inRoomChatThreadId)
-          .maybeSingle();
-
-        console.log('[MINI_CHAT_THREAD]', threadData, threadError);
-
-        if (threadError || !threadData) {
-          console.error('[MINI_CHAT_NO_THREAD]', threadError);
-          setInRoomChatLoading(false);
-          return;
-        }
-
-        const { data, error } = await supabase
-          .from('messages')
-          .select('*')
-          .eq('thread_id', inRoomChatThreadId)
-          .order('id', { ascending: true })
-          .limit(50);
-
-        console.log('[MINI_CHAT_MESSAGES]', data, error);
-
-        if (!error && data) {
-          setInRoomChatMessages(data);
-        }
-
-        setTimeout(() => {
-          inRoomChatBottomRef.current?.scrollIntoView({
-            behavior: 'smooth'
-          });
-        }, 100);
-
-      } catch (err) {
-        console.error('[MINI_CHAT_FETCH_ERROR]', err);
-      } finally {
+    
+    supabase
+      .from('messages')
+      .select('id, thread_id, sender_id, body, created_at')
+      .eq('thread_id', inRoomChatThreadId)
+      .order('id', { ascending: true })
+      .limit(50)
+      .then(({ data, error }) => {
+        console.log('[MINI_CHAT_FETCH]', data?.length, error);
+        setInRoomChatMessages(data || []);
         setInRoomChatLoading(false);
-      }
-    };
-
-    fetchThreadMessages();
+        setTimeout(() => {
+          inRoomChatBottomRef.current?.scrollIntoView({ 
+            behavior: 'auto' 
+          });
+        }, 150);
+      });
 
     const channel = supabase
       .channel(`mini_chat_${inRoomChatThreadId}`)
@@ -6711,9 +6680,8 @@ useEffect(() => {
         inRoomChatChannelRef.current = null;
       }
       setInRoomChatMessages([]);
-      setInRoomChatLoading(false);
     };
-  }, [inRoomChatOpen, inRoomChatThreadId, user?.id]);
+  }, [inRoomChatOpen, inRoomChatThreadId]);
 
   const sendInRoomChatMessage = async () => {
     const text = inRoomChatText.trim();
@@ -7021,15 +6989,20 @@ useEffect(() => {
                     threadId: inRoomMsgNotif.threadId,
                     senderId: inRoomMsgNotif.senderId,
                   });
+                  setInRoomChatOpen(false);
                   setInRoomChatMessages([]);
-                  setInRoomChatThreadId(inRoomMsgNotif.threadId);
-                  setInRoomChatUser({
-                    id: inRoomMsgNotif.senderId,
-                    name: inRoomMsgNotif.senderName,
-                    avatar: inRoomMsgNotif.senderAvatar,
-                  });
-                  setInRoomChatOpen(true);
-                  setInRoomMsgNotif(null);
+                  setInRoomChatThreadId(null);
+                  
+                  setTimeout(() => {
+                    setInRoomChatThreadId(inRoomMsgNotif.threadId);
+                    setInRoomChatUser({
+                      id: inRoomMsgNotif.senderId,
+                      name: inRoomMsgNotif.senderName,
+                      avatar: inRoomMsgNotif.senderAvatar,
+                    });
+                    setInRoomChatOpen(true);
+                    setInRoomMsgNotif(null);
+                  }, 50);
                 }}
                 className="px-2 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-bold"
               >
@@ -7046,7 +7019,7 @@ useEffect(() => {
         </div>
       )}
       {inRoomChatOpen && inRoomChatThreadId && (
-        <div className="fixed inset-0 z-[95]">
+        <div key={inRoomChatThreadId} className="fixed inset-0 z-[95]">
           <div
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             onClick={() => {
