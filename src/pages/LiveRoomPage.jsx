@@ -505,12 +505,47 @@ export default function LiveRoomPage() {
           .eq('room_id', roomId)
           .eq('user_id', user.id);
         if (error) throw error;
+
+        if (channelRef.current) {
+          await channelRef.current.send({
+            type: 'broadcast',
+            event: 'room_follow_changed',
+            payload: {
+              room_id: roomId,
+              user_id: user.id,
+              action: 'unfollow',
+              ts: Date.now(),
+            },
+          });
+        }
+
         toastSuccess('Removed from favorites', 1200);
       } else {
         const { error } = await supabase
           .from('live_room_follows')
           .insert({ room_id: roomId, user_id: user.id });
         if (error) throw error;
+
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('id, name, avatar_url, is_vip, vip_number')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (channelRef.current) {
+          await channelRef.current.send({
+            type: 'broadcast',
+            event: 'room_follow_changed',
+            payload: {
+              room_id: roomId,
+              user_id: user.id,
+              action: 'follow',
+              profile: profileData || null,
+              ts: Date.now(),
+            },
+          });
+        }
+
         toastSuccess('❤️ Added to favorites', 1200);
       }
     } catch (err) {
@@ -6069,71 +6104,6 @@ useEffect(() => {
         }
       );
 
-      ch.on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "live_room_follows",
-        },
-        async (payload) => {
-          const payloadRoomId =
-            payload?.new?.room_id || payload?.old?.room_id;
-
-          if (!payloadRoomId || String(payloadRoomId) !== String(roomId)) return;
-
-          if (payload?.eventType === "INSERT") {
-            setFollowsCount((prev) => prev + 1);
-
-            if (payload?.new?.user_id) {
-              if (String(payload.new.user_id) === String(user?.id)) {
-                setIsFollowingRoom(true);
-              }
-
-              const { data: profileData } = await supabase
-                .from('profiles')
-                .select('id, name, avatar_url, is_vip, vip_number')
-                .eq('id', payload.new.user_id)
-                .maybeSingle();
-
-              if (profileData) {
-                setFollowersList((prev) => {
-                  const exists = prev.some(
-                    (f) => String(f.user_id) === String(payload.new.user_id)
-                  );
-                  if (exists) return prev;
-                  return [
-                    {
-                      user_id: payload.new.user_id,
-                      name: profileData.name || 'User',
-                      avatar_url: profileData.avatar_url || null,
-                      is_vip: !!profileData.is_vip,
-                      vip_number: profileData.vip_number || null,
-                      followed_at: payload.new.created_at,
-                    },
-                    ...prev,
-                  ];
-                });
-              }
-            }
-          }
-
-          if (payload?.eventType === "DELETE") {
-            setFollowsCount((prev) => Math.max(0, prev - 1));
-
-            if (payload?.old?.user_id) {
-              if (String(payload.old.user_id) === String(user?.id)) {
-                setIsFollowingRoom(false);
-              }
-
-              setFollowersList((prev) =>
-                prev.filter((f) => String(f.user_id) !== String(payload.old.user_id))
-              );
-            }
-          }
-        }
-      );
-
       ch.on("broadcast", { event: "chat_cleared" }, ({ payload }) => {
   if (payload?.room_id === roomId) {
     setMessages([]);
@@ -6185,6 +6155,49 @@ useEffect(() => {
             payload.emoji_flip,
             payload.emoji_animation
           );
+        }
+      });
+
+      ch.on("broadcast", { event: "room_follow_changed" }, ({ payload }) => {
+        if (payload?.room_id && String(payload.room_id) !== String(roomId)) return;
+
+        if (payload?.action === 'follow') {
+          setFollowsCount((prev) => prev + 1);
+
+          if (payload?.profile) {
+            setFollowersList((prev) => {
+              const exists = prev.some(
+                (f) => String(f.user_id) === String(payload.user_id)
+              );
+              if (exists) return prev;
+              return [{
+                user_id: payload.user_id,
+                name: payload.profile.name || 'User',
+                avatar_url: payload.profile.avatar_url || null,
+                is_vip: !!payload.profile.is_vip,
+                vip_number: payload.profile.vip_number || null,
+                followed_at: new Date().toISOString(),
+              }, ...prev];
+            });
+          }
+
+          if (String(payload.user_id) === String(user?.id)) {
+            setIsFollowingRoom(true);
+          }
+        }
+
+        if (payload?.action === 'unfollow') {
+          setFollowsCount((prev) => Math.max(0, prev - 1));
+
+          setFollowersList((prev) =>
+            prev.filter((f) =>
+              String(f.user_id) !== String(payload.user_id)
+            )
+          );
+
+          if (String(payload.user_id) === String(user?.id)) {
+            setIsFollowingRoom(false);
+          }
         }
       });
 
