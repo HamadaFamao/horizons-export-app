@@ -385,6 +385,8 @@ export default function LiveRoomPage() {
   const musicProgressIntervalRef = useRef(null);
   const songInputRef = useRef(null);
   const inRoomMsgTimerRef = useRef(null);
+  const inRoomChatChannelRef = useRef(null);
+  const inRoomChatBottomRef = useRef(null);
 
 
   // ==========================================
@@ -436,6 +438,10 @@ export default function LiveRoomPage() {
   const [inRoomChatOpen, setInRoomChatOpen] = useState(false);
   const [inRoomChatThreadId, setInRoomChatThreadId] = useState(null);
   const [inRoomChatUser, setInRoomChatUser] = useState(null);
+  const [inRoomChatMessages, setInRoomChatMessages] = useState([]);
+  const [inRoomChatText, setInRoomChatText] = useState('');
+  const [inRoomChatSending, setInRoomChatSending] = useState(false);
+  const [inRoomChatLoading, setInRoomChatLoading] = useState(false);
 
   const fetchRoomFollowState = async () => {
     if (!roomId) return;
@@ -6615,6 +6621,96 @@ useEffect(() => {
   }, [user?.id]);
 
   useEffect(() => {
+    if (!inRoomChatOpen || !inRoomChatThreadId) return;
+
+    const fetchThreadMessages = async () => {
+      setInRoomChatLoading(true);
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('thread_id', inRoomChatThreadId)
+        .order('created_at', { ascending: true })
+        .limit(50);
+
+      if (!error && data) {
+        setInRoomChatMessages(data || []);
+      }
+      setInRoomChatLoading(false);
+
+      setTimeout(() => {
+        inRoomChatBottomRef.current?.scrollIntoView({
+          behavior: 'smooth'
+        });
+      }, 100);
+    };
+
+    fetchThreadMessages();
+
+    const channel = supabase
+      .channel(`mini_chat_${inRoomChatThreadId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `thread_id=eq.${inRoomChatThreadId}`,
+        },
+        (payload) => {
+          if (payload?.new) {
+            setInRoomChatMessages((prev) => {
+              const exists = prev.some((m) => m.id === payload.new.id);
+              if (exists) return prev;
+              return [...prev, payload.new];
+            });
+            setTimeout(() => {
+              inRoomChatBottomRef.current?.scrollIntoView({
+                behavior: 'smooth'
+              });
+            }, 50);
+          }
+        }
+      )
+      .subscribe();
+
+    inRoomChatChannelRef.current = channel;
+
+    return () => {
+      if (inRoomChatChannelRef.current) {
+        supabase.removeChannel(inRoomChatChannelRef.current);
+        inRoomChatChannelRef.current = null;
+      }
+      setInRoomChatMessages([]);
+    };
+  }, [inRoomChatOpen, inRoomChatThreadId]);
+
+  const sendInRoomChatMessage = async () => {
+    const text = inRoomChatText.trim();
+    if (!text || !inRoomChatThreadId || !user?.id) return;
+
+    setInRoomChatSending(true);
+    setInRoomChatText('');
+
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .insert({
+          thread_id: inRoomChatThreadId,
+          sender_id: user.id,
+          body: text,
+          topic: 'text',
+        });
+
+      if (error) throw error;
+    } catch (err) {
+      toast(err.message || 'Failed to send', 1400);
+      setInRoomChatText(text);
+    } finally {
+      setInRoomChatSending(false);
+    }
+  };
+
+  useEffect(() => {
     const handleBack = (e) => {
       e.preventDefault();
 
@@ -6905,8 +7001,11 @@ useEffect(() => {
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             onClick={() => setInRoomChatOpen(false)}
           />
-          <div className="absolute inset-x-0 bottom-0 top-16 bg-white rounded-t-3xl shadow-2xl flex flex-col overflow-hidden">
-            <div className="px-4 py-3 border-b flex items-center justify-between shrink-0">
+          <div
+            className="absolute inset-x-0 bottom-0 top-20 bg-white rounded-t-3xl shadow-2xl flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-4 py-3 border-b flex items-center justify-between shrink-0 bg-white">
               <div className="flex items-center gap-3">
                 <img
                   src={inRoomChatUser?.avatar || FALLBACK_AVATAR}
@@ -6920,25 +7019,82 @@ useEffect(() => {
                   <div className="font-bold text-slate-900 text-sm">
                     {inRoomChatUser?.name}
                   </div>
-                  <div className="text-[10px] text-slate-400">
-                    Private Message
+                  <div className="text-[10px] text-emerald-500 font-medium">
+                    🔒 Private Message
                   </div>
                 </div>
               </div>
               <button
                 onClick={() => setInRoomChatOpen(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200"
+                className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-hidden">
-              <iframe
-                src={`/messages/${inRoomChatThreadId}`}
-                className="w-full h-full border-0"
-                title="Private Chat"
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
+              {inRoomChatLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
+                </div>
+              ) : inRoomChatMessages.length === 0 ? (
+                <div className="text-center text-slate-400 text-sm py-8">
+                  No messages yet. Say hi! 👋
+                </div>
+              ) : (
+                inRoomChatMessages.map((msg) => {
+                  const isMe = String(msg.sender_id) === String(user?.id);
+                  return (
+                    <div
+                      key={msg.id}
+                      className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div className={`max-w-[75%] px-3 py-2 rounded-2xl text-sm ${
+                        isMe
+                          ? 'bg-slate-900 text-white rounded-br-sm'
+                          : 'bg-white text-slate-900 border rounded-bl-sm shadow-sm'
+                      }`}>
+                        {msg.body}
+                        <div className={`text-[10px] mt-1 ${
+                          isMe ? 'text-white/50' : 'text-slate-400'
+                        }`}>
+                          {new Date(msg.created_at).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+              <div ref={inRoomChatBottomRef} />
+            </div>
+
+            <div className="px-3 py-3 border-t bg-white flex items-center gap-2 shrink-0">
+              <input
+                type="text"
+                value={inRoomChatText}
+                onChange={(e) => setInRoomChatText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendInRoomChatMessage();
+                  }
+                }}
+                placeholder="Type a message..."
+                className="flex-1 bg-slate-100 rounded-full px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
               />
+              <button
+                onClick={sendInRoomChatMessage}
+                disabled={!inRoomChatText.trim() || inRoomChatSending}
+                className="w-9 h-9 rounded-full bg-slate-900 text-white flex items-center justify-center shrink-0 disabled:opacity-40 transition active:scale-95"
+              >
+                {inRoomChatSending
+                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : <Send className="w-4 h-4" />
+                }
+              </button>
             </div>
           </div>
         </div>
