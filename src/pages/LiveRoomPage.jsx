@@ -6699,9 +6699,15 @@ useEffect(() => {
           sender_id: user.id,
           body: text,
           topic: 'text',
+          extension: 'text',
+          deleted_for_user_a: false,
+          deleted_for_user_b: false,
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('[MINI_CHAT_SEND_ERROR]', error);
+        throw error;
+      }
     } catch (err) {
       toast(err.message || 'Failed to send', 1400);
       setInRoomChatText(text);
