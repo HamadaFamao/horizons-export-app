@@ -61,7 +61,9 @@ export const fetchUserThreads = async (userId) => {
           id,
           content:body,
           created_at,
-          sender_id
+          sender_id,
+          deleted_for_user_a,
+          deleted_for_user_b
         )
       `
       )
@@ -81,9 +83,14 @@ export const fetchUserThreads = async (userId) => {
           .eq('id', otherUserId)
           .single();
 
-        const sortedMessages = (thread.messages || []).sort(
-          (a, b) => new Date(b.created_at) - new Date(a.created_at)
-        );
+        const sortedMessages = (thread.messages || [])
+          .filter((msg) => {
+            if (thread.user_a === userId) {
+              return !msg.deleted_for_user_a;
+            }
+            return !msg.deleted_for_user_b;
+          })
+          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         const lastMessage = sortedMessages[0] || null;
 
         return {
