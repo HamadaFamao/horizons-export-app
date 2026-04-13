@@ -384,6 +384,7 @@ export default function LiveRoomPage() {
   const rawMicStreamRef = useRef(null);
   const musicProgressIntervalRef = useRef(null);
   const songInputRef = useRef(null);
+  const inRoomMsgTimerRef = useRef(null);
 
 
   // ==========================================
@@ -431,6 +432,7 @@ export default function LiveRoomPage() {
   const [followsCount, setFollowsCount] = useState(0);
   const [followersList, setFollowersList] = useState([]);
   const [showFollowersModal, setShowFollowersModal] = useState(false);
+  const [inRoomMsgNotif, setInRoomMsgNotif] = useState(null);
 
   const fetchRoomFollowState = async () => {
     if (!roomId) return;
@@ -6529,6 +6531,86 @@ useEffect(() => {
       clearInterval(id);
     };
   }, [roomId, user?.id, canModerate]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    let isActive = true;
+
+    const msgChannel = supabase
+      .channel(`private_msgs_${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "unread_messages",
+          filter: `user_id=eq.${user.id}`,
+        },
+        async (payload) => {
+          if (!isActive || !payload?.new) return;
+
+          const unreadNew = Number(payload.new.unread_count || 0);
+          const unreadOld = Number(payload.old?.unread_count || 0);
+          const isUnreadIncrease =
+            payload.eventType === "INSERT"
+              ? unreadNew > 0
+              : unreadNew > unreadOld;
+
+          if (!isUnreadIncrease) return;
+
+          const threadId = payload.new.thread_id;
+          if (!threadId) return;
+
+          const { data: latestMsg } = await supabase
+            .from("messages")
+            .select("thread_id, sender_id, body, created_at")
+            .eq("thread_id", threadId)
+            .neq("sender_id", user.id)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (!latestMsg?.sender_id) return;
+
+          const senderId = latestMsg.sender_id;
+          if (!senderId || String(senderId) === String(user.id)) return;
+
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("id, name, avatar_url")
+            .eq("id", senderId)
+            .maybeSingle();
+
+          const notif = {
+            senderId,
+            senderName: profile?.name || "User",
+            senderAvatar: profile?.avatar_url || null,
+            threadId: latestMsg.thread_id,
+            preview: String(latestMsg.body || "").slice(0, 50),
+          };
+
+          setInRoomMsgNotif(notif);
+
+          if (inRoomMsgTimerRef.current) {
+            clearTimeout(inRoomMsgTimerRef.current);
+          }
+          inRoomMsgTimerRef.current = setTimeout(() => {
+            setInRoomMsgNotif(null);
+          }, 5000);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      isActive = false;
+      supabase.removeChannel(msgChannel);
+      if (inRoomMsgTimerRef.current) {
+        clearTimeout(inRoomMsgTimerRef.current);
+      }
+    };
+  }, [user?.id]);
+
   useEffect(() => {
     const handleBack = (e) => {
       e.preventDefault();
@@ -6762,6 +6844,52 @@ useEffect(() => {
            opacity: bgVisible ? 1 : 0
          }}>
       <style>{SPARKLE_CSS}</style>
+      {inRoomMsgNotif && (
+        <div className="fixed top-16 left-2 right-2 z-[95] animate-in slide-in-from-top duration-300">
+          <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-white/20 p-3 flex items-center gap-3 max-w-sm mx-auto">
+            <img
+              src={inRoomMsgNotif.senderAvatar || FALLBACK_AVATAR}
+              onError={(e) => {
+                e.currentTarget.src = FALLBACK_AVATAR;
+              }}
+              alt={inRoomMsgNotif.senderName}
+              className="w-10 h-10 rounded-full object-cover border-2 border-slate-200 shrink-0"
+            />
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1">
+                <span className="text-xs font-black text-slate-900 truncate">
+                  {inRoomMsgNotif.senderName}
+                </span>
+                <span className="text-[10px] text-slate-400 shrink-0">
+                  • Private Message
+                </span>
+              </div>
+              <div className="text-xs text-slate-600 truncate mt-0.5">
+                {inRoomMsgNotif.preview || "Sent you a message"}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                onClick={() => {
+                  setInRoomMsgNotif(null);
+                  navigate(`/messages/${inRoomMsgNotif.threadId}`);
+                }}
+                className="px-2 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-bold"
+              >
+                Reply
+              </button>
+              <button
+                onClick={() => setInRoomMsgNotif(null)}
+                className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {room?.background_url && isVideoBackground(room.background_url) && !roomBackgroundMediaFailed ? (
         <video
           src={room.background_url}
