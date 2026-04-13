@@ -9,6 +9,7 @@ export default function MobileBottomNav() {
   const isRoomPage = location.pathname.startsWith("/rooms/");
   const { user } = useAuth();
   const { totalUnread } = useUnreadMessages(user?.id);
+  console.log('[UNREAD] Hook userId:', user?.id);
 
   // ✅ helper: allow nested routes like /rooms/:id
   const isPathVisible = (pathname) => {

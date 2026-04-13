@@ -6,18 +6,26 @@ export function useUnreadMessages(userId) {
   const channelRef = useRef(null);
 
   const fetchUnreadCount = async () => {
-    if (!userId) return;
+    if (!userId) {
+      console.log('[UNREAD] No userId');
+      return;
+    }
+
+    console.log('[UNREAD] Fetching for userId:', userId);
 
     const { data, error } = await supabase
       .from('unread_messages')
       .select('unread_count')
       .eq('user_id', userId);
 
+    console.log('[UNREAD] Data:', data, 'Error:', error);
+
     if (!error && data) {
       const total = data.reduce(
         (sum, row) => sum + (Number(row.unread_count) || 0),
         0
       );
+      console.log('[UNREAD] Total:', total);
       setTotalUnread(total);
     }
   };
