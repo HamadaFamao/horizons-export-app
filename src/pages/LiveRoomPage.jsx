@@ -420,6 +420,7 @@ export default function LiveRoomPage() {
   const [showMusicPanel, setShowMusicPanel] = useState(false);
   const [uploadingSong, setUploadingSong] = useState(false);
   const [musicProgress, setMusicProgress] = useState(0);
+  const [musicStartedBy, setMusicStartedBy] = useState(null);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -1331,12 +1332,15 @@ useEffect(() => {
       return;
     }
 
+    setMusicStartedBy(user.id);
+
     if (channelRef.current) {
       await channelRef.current.send({
         type: 'broadcast',
         event: 'music_playing',
         payload: {
           room_id: roomId,
+          started_by: user.id,
           song_title: song.title,
           song_index: index,
           action: 'play',
@@ -1360,6 +1364,7 @@ useEffect(() => {
     setMusicPlaying(false);
     setCurrentSongIndex(null);
     setMusicProgress(0);
+    setMusicStartedBy(null);
     clearInterval(musicProgressIntervalRef.current);
 
     if (channelRef.current) {
@@ -6115,8 +6120,16 @@ useEffect(() => {
       ch.on('broadcast', { event: 'music_playing' }, ({ payload }) => {
         if (String(payload?.room_id) !== String(roomId)) return;
         if (payload?.action === 'play') {
+          setMusicPlaying(true);
+          setMusicStartedBy(payload?.started_by ?? null);
+          setCurrentSongIndex(payload?.song_index ?? null);
           toast(`🎵 Now playing: ${payload.song_title}`, 2000);
         } else if (payload?.action === 'stop') {
+          setMusicPlaying(false);
+          setMusicStartedBy(null);
+          setCurrentSongIndex(null);
+          setMusicProgress(0);
+          clearInterval(musicProgressIntervalRef.current);
           toast('🎵 Music stopped', 1200);
         }
       });
@@ -7192,8 +7205,24 @@ useEffect(() => {
                       {canModerate && (
                         <div className="shrink-0 flex items-center gap-1">
                           <button
-                            onClick={() => playSong(index)}
-                            className="w-8 h-8 rounded-full bg-white/10 hover:bg-emerald-500/80 flex items-center justify-center text-sm transition"
+                            onClick={() => {
+                              if (musicPlaying && currentSongIndex !== index) {
+                                toast('Stop current song first ⏹', 1400);
+                                return;
+                              }
+                              playSong(index);
+                            }}
+                            disabled={musicPlaying && currentSongIndex !== index}
+                            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm transition ${
+                              musicPlaying && currentSongIndex !== index
+                                ? 'bg-white/5 text-white/20 cursor-not-allowed'
+                                : 'bg-white/10 hover:bg-emerald-500/80 text-white'
+                            }`}
+                            title={
+                              musicPlaying && currentSongIndex !== index
+                                ? 'Stop current song first'
+                                : 'Play'
+                            }
                           >
                             ▶
                           </button>
