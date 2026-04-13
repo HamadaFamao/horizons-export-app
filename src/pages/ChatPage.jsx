@@ -713,6 +713,14 @@ export default function ChatPage() {
     };
   }, [thread?.id, currentUser?.id]);
 
+  // Close menu on outside click
+  useEffect(() => {
+    if (!showMenu) return;
+    const close = () => setShowMenu(false);
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [showMenu]);
+
   // Handle typing indicator broadcast
   const broadcastTypingStatus = (isTyping) => {
     if (!typingChannelRef.current || !thread?.id || !currentUser?.id) return;
@@ -996,12 +1004,6 @@ export default function ChatPage() {
   }
 
   const vipInfo = getVipInfo(otherUser);
-  useEffect(() => {
-    if (!showMenu) return;
-    const close = () => setShowMenu(false);
-    document.addEventListener('click', close);
-    return () => document.removeEventListener('click', close);
-  }, [showMenu]);
 
   const isVip = vipInfo.isVip;
 
