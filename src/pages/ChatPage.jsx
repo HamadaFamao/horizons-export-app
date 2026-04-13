@@ -598,15 +598,12 @@ export default function ChatPage() {
 
           // Add to messages state
           setMessages((prev) => {
+            if (!Array.isArray(prev)) return [newMessage];
             const messageExists = prev.some((msg) => msg.id === newMessage.id);
             if (messageExists) {
-              // console.log('⚠️ Message already in state, skipping duplicate');
               return prev;
             }
-
-            // console.log('✨ Adding new message to state');
             playNotificationSound();
-            // Clear typing indicator when message received
             setOtherUserTyping(false);
             return [...prev, newMessage];
           });
@@ -699,8 +696,12 @@ export default function ChatPage() {
           const targetUserId = threadData.user_a === currentUser.id ? threadData.user_b : threadData.user_a;
           setRecipientId(targetUserId);
           // Load messages
-          const msgs = await loadThreadMessages(threadData.id);
-          setMessages(msgs || []);
+          const messagesResult = await loadThreadMessages(threadData.id, currentUser.id);
+          if (messagesResult && messagesResult.status === 'ok') {
+            setMessages(Array.isArray(messagesResult.messages) ? messagesResult.messages : []);
+          } else {
+            setMessages([]);
+          }
           // Load other user profile
           const { data: otherUserProfile } = await supabase
             .from('profiles')
@@ -916,7 +917,7 @@ export default function ChatPage() {
     if (!thread?.id || !userRole) return;
     try {
       await deleteMessageForUser(thread.id, messageId, userRole);
-      setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+      setMessages((prev) => Array.isArray(prev) ? prev.filter((msg) => msg.id !== messageId) : []);
     } catch (err) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     }
@@ -1107,7 +1108,7 @@ export default function ChatPage() {
         </div>
       )}
       <div className="flex-1 overflow-y-auto p-4 space-y-2 bg-slate-100/50" onClick={() => setShowEmojiPicker(false)}>
-        {messages.length === 0 ? (
+        {Array.isArray(messages) && messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center mt-[-40px]">
             <div className="bg-white p-4 rounded-full shadow-sm mb-3">
               <span className="text-4xl">👋</span>
@@ -1116,7 +1117,7 @@ export default function ChatPage() {
             <p className="text-sm text-gray-500 mt-1">Start the conversation with {otherUser?.name}!</p>
           </div>
         ) : (
-          messages.map((message, index) => {
+          Array.isArray(messages) && messages.map((message, index) => {
             const msgDate = new Date(message.created_at).toLocaleDateString();
             const prevMsgDate = index > 0 ? new Date(messages[index - 1].created_at).toLocaleDateString() : null;
             const showDateSeparator = msgDate !== prevMsgDate;
