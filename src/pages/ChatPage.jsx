@@ -340,6 +340,13 @@ export default function ChatPage() {
   const [showMenu, setShowMenu] = useState(false);
   const [clearingChat, setClearingChat] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [isMuted, setIsMuted] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem(`muted_thread_${thread?.id}`) === 'true';
+  });
+  const [showBlockConfirm, setShowBlockConfirm] = useState(false);
+  const [blocking, setBlocking] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
 
   // Refs
   const messagesEndRef = useRef(null);
@@ -354,6 +361,7 @@ export default function ChatPage() {
 
   // Helper: Play notification sound
   const playNotificationSound = () => {
+    if (isMuted) return;
     try {
       const audioContext = new (window.AudioContext || window.webkitAudioContext)();
       const oscillator = audioContext.createOscillator();
@@ -742,6 +750,23 @@ export default function ChatPage() {
     return () => document.removeEventListener('click', close);
   }, [showMenu]);
 
+  useEffect(() => {
+    if (!thread?.id) {
+      setIsMuted(false);
+      return;
+    }
+    const muted = localStorage.getItem(`muted_thread_${thread.id}`) === 'true';
+    setIsMuted(muted);
+  }, [thread?.id]);
+
+  useEffect(() => {
+    if (!recipientId) return;
+    const blocked = localStorage.getItem(
+      `blocked_user_${recipientId}`
+    ) === 'true';
+    setIsBlocked(blocked);
+  }, [recipientId]);
+
   // Handle typing indicator broadcast
   const broadcastTypingStatus = (isTyping) => {
     if (!typingChannelRef.current || !thread?.id || !currentUser?.id) return;
@@ -959,6 +984,34 @@ export default function ChatPage() {
     setShowClearConfirm(true);
   };
 
+  const toggleMute = () => {
+    const newMuted = !isMuted;
+    setIsMuted(newMuted);
+    localStorage.setItem(`muted_thread_${thread?.id}`, String(newMuted));
+    toast({
+      title: newMuted ? '🔕 Muted' : '🔔 Unmuted',
+      description: newMuted
+        ? 'Notifications muted for this chat'
+        : 'Notifications enabled for this chat',
+    });
+  };
+
+  const handleBlock = async () => {
+    setBlocking(true);
+    try {
+      localStorage.setItem(`blocked_user_${recipientId}`, 'true');
+      setIsBlocked(true);
+      setShowBlockConfirm(false);
+      toast({
+        title: '🚫 User Blocked',
+        description: `${otherUser?.name} has been blocked.`,
+      });
+      navigate('/messages');
+    } finally {
+      setBlocking(false);
+    }
+  };
+
   const confirmClearChat = async () => {
     if (!thread?.id || !userRole || clearingChat) return;
     
@@ -1087,6 +1140,26 @@ export default function ChatPage() {
                 <Trash2 className="w-4 h-4" />
                 Clear Chat
               </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowMenu(false);
+                  toggleMute();
+                }}
+                className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+              >
+                {isMuted ? '🔔 Unmute' : '🔕 Mute Notifications'}
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowMenu(false);
+                  setShowBlockConfirm(true);
+                }}
+                className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+              >
+                🚫 Block User
+              </button>
             </div>
           )}
         </div>
@@ -1125,6 +1198,46 @@ export default function ChatPage() {
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
                     'Clear'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showBlockConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowBlockConfirm(false)}
+          />
+          <div className="relative bg-white rounded-2xl shadow-2xl p-6 mx-4 max-w-sm w-full">
+            <div className="text-center">
+              <div className="text-4xl mb-3">🚫</div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">
+                Block {otherUser?.name}?
+              </h3>
+              <p className="text-sm text-gray-500 mb-6">
+                They won't be able to send you messages anymore.
+                You can unblock them from your settings.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowBlockConfirm(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleBlock}
+                  disabled={blocking}
+                  className="flex-1 py-2.5 rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600 transition disabled:opacity-50"
+                >
+                  {blocking ? (
+                    <Loader2 className="w-4 h-4 animate-spin mx-auto" />
+                  ) : (
+                    'Block'
                   )}
                 </button>
               </div>
@@ -1200,6 +1313,24 @@ export default function ChatPage() {
       <div
         className="border-t border-gray-200 bg-white p-3 safe-area-bottom z-20"
       >
+        {isBlocked && (
+          <div className="px-4 py-3 bg-red-50 border-t border-red-100 flex items-center justify-between">
+            <span className="text-sm text-red-600 font-medium">
+              🚫 You blocked {otherUser?.name}
+            </span>
+            <button
+              onClick={() => {
+                localStorage.removeItem(`blocked_user_${recipientId}`);
+                setIsBlocked(false);
+                toast({ title: '✅ Unblocked' });
+              }}
+              className="text-xs text-red-500 underline hover:text-red-700"
+            >
+              Unblock
+            </button>
+          </div>
+        )}
+
         {/* Chat unlock countdown banner - show only if unlocked by time and not VIP */}
         {isChatUnlocked && !userIsVIP && openUntil && timeRemaining && (
           <ChatUnlockCountdownBanner
@@ -1245,8 +1376,8 @@ export default function ChatPage() {
                 handleSendMessage();
               }
             }}
-            disabled={!isChatUnlocked}
-            placeholder={isChatUnlocked ? 'Type a message...' : 'Chat is locked...'}
+            disabled={!isChatUnlocked || isBlocked}
+            placeholder={isBlocked ? 'You blocked this user...' : (isChatUnlocked ? 'Type a message...' : 'Chat is locked...')}
             className={`flex-1 px-4 py-3 border rounded-2xl resize-none focus:outline-none focus:ring-2 transition-all text-sm md:text-base min-h-[48px] max-h-[120px] ${isChatUnlocked
               ? 'bg-gray-50 border-gray-200 focus:ring-blue-100 focus:border-blue-300 focus:bg-white'
               : 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed placeholder:text-gray-400'
@@ -1266,7 +1397,7 @@ export default function ChatPage() {
           {/* Send button - disabled when locked */}
           <button
             onClick={handleSendMessage}
-            disabled={!inputValue.trim() || isSending || !isChatUnlocked}
+            disabled={!inputValue.trim() || isSending || !isChatUnlocked || isBlocked}
             className={`flex-shrink-0 w-12 h-12 flex items-center justify-center text-white rounded-xl font-bold transition-all shadow-sm ${!isChatUnlocked
               ? 'bg-gray-300 cursor-not-allowed'
               : 'bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400'
