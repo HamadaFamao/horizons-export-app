@@ -1261,11 +1261,16 @@ useEffect(() => {
       const ext = file.name.split('.').pop();
       const filePath = `${roomId}/${Date.now()}.${ext}`;
 
-      const { error: uploadError } = await supabase.storage
+      const { error: uploadError, data: uploadData } = await supabase.storage
         .from('room-songs')
         .upload(filePath, file, { upsert: false });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('[SONG_UPLOAD_ERROR]', uploadError);
+        throw new Error(uploadError.message);
+      }
+
+      console.log('[SONG_UPLOAD_SUCCESS]', uploadData);
 
       const { data: urlData } = supabase.storage
         .from('room-songs')
