@@ -679,34 +679,7 @@ export default function ChatPage() {
   }, []);
 
   // Handle typing indicator broadcast
-    // Add missing confirmClearChat function
-    const confirmClearChat = async () => {
-      if (!thread?.id || !userRole || clearingChat) return;
-      setClearingChat(true);
-      try {
-        const deleteFlag = userRole === 'user_a'
-          ? 'deleted_for_user_a'
-          : 'deleted_for_user_b';
-        const { error } = await supabase
-          .from('messages')
-          .update({ [deleteFlag]: true })
-          .eq('thread_id', thread.id);
-        if (error) throw error;
-        setMessages([]);
-        setShowClearConfirm(false);
-        toast({ title: 'Chat cleared' });
-      } catch (err) {
-        toast({ title: 'Error', description: err.message, variant: 'destructive' });
-      } finally {
-        setClearingChat(false);
-      }
-    };
 
-    // Add missing handleEmojiSelect function
-    const handleEmojiSelect = (emoji) => {
-      setInputValue((prev) => prev + emoji);
-      inputRef.current?.focus();
-    };
 
     // Add missing initializeChat useEffect
     useEffect(() => {
@@ -856,6 +829,170 @@ export default function ChatPage() {
         variant: 'destructive',
       });
     }
+  };
+
+  // 6. stopRecording (already present)
+
+  // 7. cancelRecording
+  const cancelRecording = () => {
+    if (isRecording) {
+      stopRecording();
+      setVoiceBlob(null);
+      setRecordingSeconds(0);
+    }
+  };
+
+  // 8. sendVoiceMessage
+  const sendVoiceMessage = async () => {
+    if (!voiceBlob || sendingVoice || !thread?.id) return;
+    setSendingVoice(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', voiceBlob, 'voice-message.webm');
+      // Replace with your upload logic or API endpoint
+      // For now, just simulate upload and message send
+      const url = URL.createObjectURL(voiceBlob);
+      const { error } = await supabase.from('messages').insert([
+        {
+          thread_id: thread.id,
+          sender_id: currentUser.id,
+          body: `VOICE_MESSAGE:${url}`,
+        },
+      ]);
+      if (error) throw error;
+      setVoiceBlob(null);
+      setRecordingSeconds(0);
+    } catch (err) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setSendingVoice(false);
+    }
+  };
+
+  // 9. handleSendMessage
+  const handleSendMessage = async () => {
+    if (!inputValue.trim() || isSending || !thread?.id) return;
+    setIsSending(true);
+    try {
+      const { error } = await supabase.from('messages').insert([
+        {
+          thread_id: thread.id,
+          sender_id: currentUser.id,
+          body: inputValue.trim(),
+        },
+      ]);
+      if (error) throw error;
+      setInputValue('');
+      broadcastTypingStatus(false);
+    } catch (err) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  // 10. handleSendGift
+  const handleSendGift = async (gift) => {
+    if (!thread?.id || !currentUser?.id || isSendingGift) return;
+    setIsSendingGift(true);
+    try {
+      await sendGiftSecure({
+        threadId: thread.id,
+        senderId: currentUser.id,
+        recipientId,
+        gift,
+      });
+      handleGiftSendSuccess();
+      setShowGiftModal(false);
+    } catch (err) {
+      handleGiftSendError(err);
+    } finally {
+      setIsSendingGift(false);
+    }
+  };
+
+  // 11. handleDeleteMessage
+  const handleDeleteMessage = async (messageId) => {
+    if (!thread?.id || !userRole) return;
+    try {
+      await deleteMessageForUser(thread.id, messageId, userRole);
+      setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+    } catch (err) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    }
+  };
+
+  // 12. handleClearChat
+  const handleClearChat = () => {
+    setShowClearConfirm(true);
+  };
+
+  // 13. confirmClearChat
+  const confirmClearChat = async () => {
+    if (!thread?.id || !userRole || clearingChat) return;
+    setClearingChat(true);
+    try {
+      const deleteFlag = userRole === 'user_a' ? 'deleted_for_user_a' : 'deleted_for_user_b';
+      const { error } = await supabase.from('messages').update({ [deleteFlag]: true }).eq('thread_id', thread.id);
+      if (error) throw error;
+      setMessages([]);
+      setShowClearConfirm(false);
+      toast({ title: 'Chat cleared' });
+    } catch (err) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setClearingChat(false);
+    }
+  };
+
+  // 14. toggleMute
+  const toggleMute = () => {
+    if (!thread?.id) return;
+    const newMuted = !isMuted;
+    setIsMuted(newMuted);
+    localStorage.setItem(`muted_thread_${thread.id}`, newMuted ? 'true' : 'false');
+    toast({ title: newMuted ? 'Muted' : 'Unmuted', description: newMuted ? 'Notifications muted' : 'Notifications enabled' });
+  };
+
+  // 15. handleBlock
+  const handleBlock = async () => {
+    if (!currentUser?.id || !recipientId || blocking) return;
+    setBlocking(true);
+    try {
+      const { error } = await supabase.from('blocks').insert([
+        { blocker: currentUser.id, blocked: recipientId },
+      ]);
+      if (error) throw error;
+      setIsBlocked(true);
+      setShowBlockConfirm(false);
+      toast({ title: 'Blocked', description: `${otherUser?.name} has been blocked.` });
+    } catch (err) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setBlocking(false);
+    }
+  };
+
+  // 16. handleUnblock
+  const handleUnblock = async () => {
+    if (!currentUser?.id || !recipientId || blocking) return;
+    setBlocking(true);
+    try {
+      const { error } = await supabase.from('blocks').delete().eq('blocker', currentUser.id).eq('blocked', recipientId);
+      if (error) throw error;
+      setIsBlocked(false);
+      toast({ title: '✅ Unblocked', description: `${otherUser?.name} has been unblocked.` });
+    } catch (err) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setBlocking(false);
+    }
+  };
+
+  // 17. handleEmojiSelect
+  const handleEmojiSelect = (emoji) => {
+    setInputValue((prev) => prev + emoji);
+    inputRef.current?.focus();
   };
 
   const stopRecording = () => {
@@ -1111,34 +1248,6 @@ export default function ChatPage() {
     </div>
   );
 
-  const handleUnblock = async () => {
-    if (!currentUser?.id || !recipientId || blocking) return;
-    setBlocking(true);
-    try {
-      const { error } = await supabase
-        .from('blocks')
-        .delete()
-        .eq('blocker', currentUser.id)
-        .eq('blocked', recipientId);
-      if (error) {
-        console.error('[UNBLOCK_ERROR]', error);
-        throw error;
-      }
-      setIsBlocked(false);
-      toast({
-        title: '✅ Unblocked',
-        description: `${otherUser?.name} has been unblocked.`,
-      });
-    } catch (err) {
-      toast({
-        title: 'Error',
-        description: err.message,
-        variant: 'destructive',
-      });
-    } finally {
-      setBlocking(false);
-    }
-  };
 
   // (Removed duplicate and misplaced confirmClearChat and modal JSX)
 }
