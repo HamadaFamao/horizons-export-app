@@ -1,12 +1,14 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Home, Search, Heart, MessageCircle, User, Mic } from 'lucide-react';
-import { useUnread } from '@/context/UnreadContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 
 export default function MobileBottomNav() {
   const location = useLocation();
   const isRoomPage = location.pathname.startsWith("/rooms/");
-  const { totalUnread, hasAgencyUnread } = useUnread();
+  const { user } = useAuth();
+  const { totalUnread } = useUnreadMessages(user?.id);
 
   // ✅ helper: allow nested routes like /rooms/:id
   const isPathVisible = (pathname) => {
@@ -31,9 +33,6 @@ export default function MobileBottomNav() {
 
   const isVisible = isPathVisible(location.pathname);
   if (!isVisible) return null;
-
-  // ✅ badge logic unchanged
-  const effectiveBadge = totalUnread + (hasAgencyUnread ? 1 : 0);
 
   const navItems = [
     {
@@ -65,7 +64,7 @@ export default function MobileBottomNav() {
       icon: MessageCircle,
       label: 'Messages',
       match: (path) => path === '/messages',
-      badge: effectiveBadge,
+      badge: totalUnread,
     },
     {
       path: '/profile',
@@ -95,7 +94,7 @@ export default function MobileBottomNav() {
 
               {/* Unread badge for Messages */}
               {badge && badge > 0 && (
-                <div className="absolute top-2 right-4 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center shadow-sm border border-white">
+                <div className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center px-1 shadow-sm animate-pulse">
                   {badge > 99 ? '99+' : badge}
                 </div>
               )}
