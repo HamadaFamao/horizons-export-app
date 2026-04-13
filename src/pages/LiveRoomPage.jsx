@@ -1303,21 +1303,49 @@ useEffect(() => {
 
   const playSong = async (index) => {
     if (!canModerate) return;
+    if (musicPlaying) {
+      toast('⏹ Stop current song first', 1400);
+      return;
+    }
+
     const song = playlist[index];
     if (!song) return;
 
+    if (channelRef.current) {
+      await channelRef.current.send({
+        type: 'broadcast',
+        event: 'music_playing',
+        payload: {
+          room_id: roomId,
+          action: 'play',
+          song_title: song.title,
+          song_index: index,
+          started_by: user?.id,
+          ts: Date.now(),
+        },
+      });
+    }
+
     setCurrentSongIndex(index);
     setMusicPlaying(true);
+    setMusicStartedBy(user?.id);
 
     roomMusicPlayer.onEnded = () => {
       const nextIndex = index + 1;
       if (nextIndex < playlist.length) {
         playSong(nextIndex);
       } else {
-        setMusicPlaying(false);
-        setCurrentSongIndex(null);
-        setMusicProgress(0);
-        clearInterval(musicProgressIntervalRef.current);
+        if (channelRef.current) {
+          channelRef.current.send({
+            type: 'broadcast',
+            event: 'music_playing',
+            payload: {
+              room_id: roomId,
+              action: 'stop',
+              ts: Date.now(),
+            },
+          });
+        }
       }
     };
 
@@ -1329,24 +1357,9 @@ useEffect(() => {
     if (!success) {
       toast('Failed to play song', 1400);
       setMusicPlaying(false);
+      setCurrentSongIndex(null);
+      setMusicStartedBy(null);
       return;
-    }
-
-    setMusicStartedBy(user.id);
-
-    if (channelRef.current) {
-      await channelRef.current.send({
-        type: 'broadcast',
-        event: 'music_playing',
-        payload: {
-          room_id: roomId,
-          started_by: user.id,
-          song_title: song.title,
-          song_index: index,
-          action: 'play',
-          ts: Date.now(),
-        },
-      });
     }
 
     clearInterval(musicProgressIntervalRef.current);
@@ -1360,13 +1373,6 @@ useEffect(() => {
   };
 
   const stopMusic = async () => {
-    await roomMusicPlayer.stop();
-    setMusicPlaying(false);
-    setCurrentSongIndex(null);
-    setMusicProgress(0);
-    setMusicStartedBy(null);
-    clearInterval(musicProgressIntervalRef.current);
-
     if (channelRef.current) {
       await channelRef.current.send({
         type: 'broadcast',
@@ -6118,19 +6124,24 @@ useEffect(() => {
       });
 
       ch.on('broadcast', { event: 'music_playing' }, ({ payload }) => {
-        if (String(payload?.room_id) !== String(roomId)) return;
-        if (payload?.action === 'play') {
-          setMusicPlaying(true);
-          setMusicStartedBy(payload?.started_by ?? null);
-          setCurrentSongIndex(payload?.song_index ?? null);
-          toast(`🎵 Now playing: ${payload.song_title}`, 2000);
-        } else if (payload?.action === 'stop') {
+        if (payload?.room_id && String(payload.room_id) !== String(roomId)) return;
+        if (payload?.action === 'stop') {
+          roomMusicPlayer.stop();
           setMusicPlaying(false);
           setMusicStartedBy(null);
           setCurrentSongIndex(null);
           setMusicProgress(0);
           clearInterval(musicProgressIntervalRef.current);
           toast('🎵 Music stopped', 1200);
+        }
+
+        if (payload?.action === 'play') {
+          setMusicPlaying(true);
+          setCurrentSongIndex(payload?.song_index ?? null);
+          setMusicStartedBy(payload?.started_by ?? null);
+          if (String(payload?.started_by) !== String(user?.id)) {
+            toast(`🎵 Now playing: ${payload?.song_title}`, 2000);
+          }
         }
       });
 
@@ -7205,26 +7216,15 @@ useEffect(() => {
                       {canModerate && (
                         <div className="shrink-0 flex items-center gap-1">
                           <button
-                            onClick={() => {
-                              if (musicPlaying && currentSongIndex !== index) {
-                                toast('Stop current song first ⏹', 1400);
-                                return;
-                              }
-                              playSong(index);
-                            }}
+                            onClick={() => playSong(index)}
                             disabled={musicPlaying && currentSongIndex !== index}
                             className={`w-8 h-8 rounded-full flex items-center justify-center text-sm transition ${
                               musicPlaying && currentSongIndex !== index
                                 ? 'bg-white/5 text-white/20 cursor-not-allowed'
-                                : 'bg-white/10 hover:bg-emerald-500/80 text-white'
+                                : 'bg-white/10 hover:bg-emerald-500/80 text-white cursor-pointer'
                             }`}
-                            title={
-                              musicPlaying && currentSongIndex !== index
-                                ? 'Stop current song first'
-                                : 'Play'
-                            }
                           >
-                            ▶
+                            {currentSongIndex === index && musicPlaying ? '⏸' : '▶'}
                           </button>
 
                           {index > 0 && (
