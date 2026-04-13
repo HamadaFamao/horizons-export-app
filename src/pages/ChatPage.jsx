@@ -127,11 +127,6 @@ const MessageItem = ({
             controls
             className="max-w-[200px] h-8"
           />
-          <div className={`text-[10px] mt-1 ${
-            isOwn ? 'text-blue-100' : 'text-gray-400'
-          }`}>
-            {formatMessageTimestamp(message.created_at)}
-          </div>
         </div>
       </div>
     );
@@ -333,8 +328,7 @@ const MessageItem = ({
       </div>
     </div>
   );
-
-
+}
 
 export default function ChatPage() {
   const { threadId: routeParamId } = useParams();
@@ -511,17 +505,9 @@ export default function ChatPage() {
   // Auto-refresh thread unlock state every 30 seconds
   useEffect(() => {
     if (!thread?.id) return;
-
-    // console.log('🔄 Setting up thread refresh interval');
-
-    // Refresh immediately
-    // fetchThreadData(); // Already fetched in init
-
-    // Refresh every 30 seconds
     threadRefreshIntervalRef.current = setInterval(() => {
       fetchThreadData();
     }, 30000);
-
     return () => {
       if (threadRefreshIntervalRef.current) {
         clearInterval(threadRefreshIntervalRef.current);
@@ -693,6 +679,100 @@ export default function ChatPage() {
   }, []);
 
   // Handle typing indicator broadcast
+    // Add missing confirmClearChat function
+    const confirmClearChat = async () => {
+      if (!thread?.id || !userRole || clearingChat) return;
+      setClearingChat(true);
+      try {
+        const deleteFlag = userRole === 'user_a'
+          ? 'deleted_for_user_a'
+          : 'deleted_for_user_b';
+        const { error } = await supabase
+          .from('messages')
+          .update({ [deleteFlag]: true })
+          .eq('thread_id', thread.id);
+        if (error) throw error;
+        setMessages([]);
+        setShowClearConfirm(false);
+        toast({ title: 'Chat cleared' });
+      } catch (err) {
+        toast({ title: 'Error', description: err.message, variant: 'destructive' });
+      } finally {
+        setClearingChat(false);
+      }
+    };
+
+    // Add missing handleEmojiSelect function
+    const handleEmojiSelect = (emoji) => {
+      setInputValue((prev) => prev + emoji);
+      inputRef.current?.focus();
+    };
+
+    // Add missing initializeChat useEffect
+    useEffect(() => {
+      if (!currentUser?.id || !routeParamId) return;
+      const initializeChat = async () => {
+        try {
+          setLoading(true);
+          // Load thread
+          const { data: threadData, error: threadError } = await supabase
+            .from('threads')
+            .select('*')
+            .eq('id', routeParamId)
+            .maybeSingle();
+          if (threadError || !threadData) return;
+          setThread(threadData);
+          // Set recipientId
+          const targetUserId = threadData.user_a === currentUser.id ? threadData.user_b : threadData.user_a;
+          setRecipientId(targetUserId);
+          // Load messages
+          const msgs = await loadThreadMessages(threadData.id);
+          setMessages(msgs || []);
+          // Load other user profile
+          const { data: otherUserProfile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', targetUserId)
+            .maybeSingle();
+          setOtherUser(otherUserProfile);
+          // Load wallet
+          const { data: walletData } = await supabase
+            .from('wallets')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .maybeSingle();
+          setWallet(walletData);
+          // Get user role
+          setUserRole(getUserRole(threadData, currentUser.id));
+          // Check block status for current user → blocked recipient
+          const { data: blockData } = await supabase
+            .from('blocks')
+            .select('id')
+            .eq('blocker', currentUser.id)
+            .eq('blocked', targetUserId)
+            .maybeSingle();
+          setIsBlocked(!!blockData);
+          // Check block status for recipient → blocked current user
+          const { data: blockedByData } = await supabase
+            .from('blocks')
+            .select('id')
+            .eq('blocker', targetUserId)
+            .eq('blocked', currentUser.id)
+            .maybeSingle();
+          setBlockedByOther(!!blockedByData);
+          // Check DND
+          const { data: otherProfileDND } = await supabase
+            .from('profiles')
+            .select('do_not_disturb')
+            .eq('id', targetUserId)
+            .maybeSingle();
+          setOtherUserDND(!!otherProfileDND?.do_not_disturb);
+        } finally {
+          setLoading(false);
+        }
+      };
+      initializeChat();
+    }, [currentUser?.id, routeParamId]);
   const broadcastTypingStatus = (isTyping) => {
     if (!typingChannelRef.current || !thread?.id || !currentUser?.id) return;
 
@@ -743,325 +823,251 @@ export default function ChatPage() {
       clearInterval(recordingTimerRef.current);
     }
   };
-
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) audioChunksRef.current.push(e.data);
-      };
-
-      mediaRecorder.onstop = () => {
-        if (audioChunksRef.current.length > 0) {
-          const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-          setVoiceBlob(blob);
-        }
-        stream.getTracks().forEach((t) => t.stop());
-      };
-
-      mediaRecorder.start();
-      setIsRecording(true);
-      setRecordingSeconds(0);
-
-      recordingTimerRef.current = setInterval(() => {
-        setRecordingSeconds((prev) => {
-          if (prev >= 120) {
-            stopRecording();
-            return prev;
-          }
-          return prev + 1;
-        });
-      }, 1000);
-    } catch (err) {
-      toast({
-        title: 'Microphone Error',
-        description: 'Could not access microphone',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const cancelRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      audioChunksRef.current = [];
-      mediaRecorderRef.current.stop();
-    }
-    setIsRecording(false);
-    setVoiceBlob(null);
-    setRecordingSeconds(0);
-    clearInterval(recordingTimerRef.current);
-  };
-
-  const sendVoiceMessage = async () => {
-    if (!voiceBlob || !thread?.id || !currentUser?.id) return;
-
-    setSendingVoice(true);
-    try {
-      const fileName = `voice_${currentUser.id}_${Date.now()}.webm`;
-      const filePath = `voice-messages/${thread.id}/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('profile-photos')
-        .upload(filePath, voiceBlob, {
-          contentType: 'audio/webm',
-          upsert: false,
-        });
-
-      if (uploadError) throw uploadError;
-
-      const { data: urlData } = supabase.storage
-        .from('profile-photos')
-        .getPublicUrl(filePath);
-
-      const voiceUrl = urlData.publicUrl;
-
-      const { data, error } = await supabase
-        .from('messages')
-        .insert({
-          thread_id: thread.id,
-          sender_id: currentUser.id,
-          body: `VOICE_MESSAGE:${voiceUrl}`,
-          created_at: new Date().toISOString(),
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      setMessages((prev) => [...prev, data]);
-      setVoiceBlob(null);
-      setRecordingSeconds(0);
-    } catch (err) {
-      toast({
-        title: 'Error',
-        description: 'Failed to send voice message',
-        variant: 'destructive',
-      });
-    } finally {
-      setSendingVoice(false);
-    }
-  };
-
-
-  // Handle send text message
-  const handleSendMessage = async () => {
-    const trimmedInput = inputValue.trim();
-    if (!trimmedInput || !thread?.id || !currentUser?.id) return;
-
-    // Check if chat is unlocked
-    if (!isChatUnlocked) {
-      toast({
-        title: 'Chat locked',
-        description: 'Chat is locked. Send a gift to unlock.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    try {
-      setIsSending(true);
-
-      const { data, error } = await supabase
-        .from('messages')
-        .insert({
-          thread_id: thread.id,
-          sender_id: currentUser.id,
-          body: trimmedInput,
-          created_at: new Date().toISOString(),
-        })
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error sending message:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to send message',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      console.log('✅ Message sent:', data);
-      setMessages((prev) => [...prev, data]);
-      handleInputClear(); // Clear input and typing status
-      setShowEmojiPicker(false);
-      inputRef.current?.focus();
-    } catch (err) {
-      console.error('Exception sending message:', err);
-      toast({
-        title: 'Error',
-        description: 'Failed to send message',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSending(false);
-    }
-  };
-
-  // Handle send gift
-  const handleSendGift = async (giftData) => {
-    if (isSendingGift || !giftData?.gift_id || !currentUser?.id || !recipientId) {
-      return;
-    }
-
-    try {
-      setIsSendingGift(true);
-
-      const result = await sendGiftSecure({
-        senderId: currentUser.id,
-        recipientId: recipientId,
-        giftId: giftData.gift_id,
-        message: giftData.message || '',
-      });
-
-      if (result.status === 'error') {
-        handleGiftSendError({
-          result,
-          showToast: toast,
-          navigate,
-          language,
-        });
-        return;
-      }
-
-      giftData.giftName = giftData?.giftName || giftData?.gift?.name_en || giftData?.name_en || 'Gift';
-      giftData.iconUrl = giftData?.iconUrl || giftData?.gift?.icon_url || giftData?.icon_url || '';
-
-      console.log('[CHAT_GIFT_GIFTDATA]', giftData);
-
-      await handleGiftSendSuccess({
-        result,
-        giftData,
-        setWallet,
-        showToast: toast,
-        setShowGiftModal,
-        language,
-        senderId: currentUser.id,
-        recipientId: recipientId,
-        onGiftMessageCreated: (newMessage) => {
-          console.log('[CHAT_GIFT_LOCAL_APPEND]', newMessage);
-
-          setMessages((prevMessages) => {
-            const exists = prevMessages.some(
-              (msg) => String(msg.id) === String(newMessage.id)
+  return (
+    <div className="flex flex-col h-screen bg-gray-50">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-100 shadow-sm z-10">
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-gray-100 rounded-full">
+            <ArrowLeft className="w-5 h-5 text-gray-600" />
+          </button>
+          <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate(`/user/${otherUser?.id}`)}>
+            <UserAvatar user={otherUser} size="md" />
+            <div>
+              <div className="flex items-center gap-1.5">
+                <p className="font-bold text-gray-900">{otherUser?.name}</p>
+              </div>
+              {otherUserTyping ? (
+                <p className="text-xs text-blue-500 animate-pulse">typing...</p>
+              ) : (
+                <OnlineStatus lastSeen={otherUserLastSeen} />
+              )}
+            </div>
+          </div>
+        </div>
+        {/* Header right side - menu */}
+        <div className="relative flex items-center gap-2">
+          <button
+            onClick={(e) => { e.stopPropagation(); setShowMenu(prev => !prev); }}
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+          >
+            <MoreVertical className="w-5 h-5 text-gray-600" />
+          </button>
+          {showMenu && (
+            <div className="absolute right-0 top-10 bg-white border border-gray-200 rounded-xl shadow-xl z-30 min-w-[180px] overflow-hidden">
+              <button
+                onClick={() => { setShowMenu(false); handleClearChat(); }}
+                className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+              >
+                <Trash2 className="w-3 h-4" />
+                Clear Chat
+              </button>
+              <button
+                onClick={() => { setShowMenu(false); toggleMute(); }}
+                className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+              >
+                {isMuted ? '🔔 Unmute Chat' : '🔕 Mute Chat'}
+              </button>
+              <button
+                onClick={() => { setShowMenu(false); if (isBlocked) handleUnblock(); else setShowBlockConfirm(true); }}
+                className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+              >
+                {isBlocked ? '✅ Unblock User' : '🚫 Block User'}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+      {/* Clear Chat Confirmation Modal */}
+      {showClearConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowClearConfirm(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl p-6 mx-4 max-w-sm w-full">
+            <div className="text-center">
+              <div className="text-4xl mb-3">🗑️</div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Clear Chat?</h3>
+              <p className="text-sm text-gray-500 mb-6">This will clear the chat for you only.</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowClearConfirm(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-700 font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmClearChat}
+                  disabled={clearingChat}
+                  className="flex-1 py-2.5 rounded-xl bg-red-500 text-white font-semibold disabled:opacity-50"
+                >
+                  {clearingChat ? (
+                    <Loader2 className="w-4 h-4 animate-spin mx-auto" />
+                  ) : 'Clear'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* EXISTING JSX: Block confirm modal, messages list, input area */}
+      {showBlockConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowBlockConfirm(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl p-6 mx-4 max-w-sm w-full">
+            <div className="text-center">
+              <div className="text-4xl mb-3">🚫</div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Block {otherUser?.name}?</h3>
+              <p className="text-sm text-gray-500 mb-6">They won't be able to send you messages anymore.</p>
+              <div className="flex gap-3">
+                <button onClick={() => setShowBlockConfirm(false)} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 transition">Cancel</button>
+                <button onClick={handleBlock} disabled={blocking} className="flex-1 py-2.5 rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600 transition disabled:opacity-50">
+                  {blocking ? (<Loader2 className="w-4 h-4 animate-spin mx-auto" />) : ('Block')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      <div className="flex-1 overflow-y-auto p-4 space-y-2 bg-slate-100/50" onClick={() => setShowEmojiPicker(false)}>
+        {messages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-center mt-[-40px]">
+            <div className="bg-white p-4 rounded-full shadow-sm mb-3">
+              <span className="text-4xl">👋</span>
+            </div>
+            <p className="text-gray-900 font-medium">No messages yet</p>
+            <p className="text-sm text-gray-500 mt-1">Start the conversation with {otherUser?.name}!</p>
+          </div>
+        ) : (
+          messages.map((message, index) => {
+            const msgDate = new Date(message.created_at).toLocaleDateString();
+            const prevMsgDate = index > 0 ? new Date(messages[index - 1].created_at).toLocaleDateString() : null;
+            const showDateSeparator = msgDate !== prevMsgDate;
+            return (
+              <React.Fragment key={message.id}>
+                {showDateSeparator && (
+                  <div className="flex items-center gap-3 my-4">
+                    <div className="flex-1 h-px bg-gray-200" />
+                    <span className="text-xs text-gray-400 font-medium px-2">
+                      {new Date(message.created_at).toLocaleDateString([], {
+                        weekday: 'short',
+                        day: 'numeric',
+                        month: 'short',
+                        year: new Date(message.created_at).getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined,
+                      })}
+                    </span>
+                    <div className="flex-1 h-px bg-gray-200" />
+                  </div>
+                )}
+                <MessageItem
+                  message={message}
+                  currentUser={currentUser}
+                  userRole={userRole}
+                  onDelete={handleDeleteMessage}
+                  setContextMenu={setContextMenu}
+                  contextMenu={contextMenu}
+                  setEmojiBurst={setEmojiBurst}
+                />
+              </React.Fragment>
             );
-            if (exists) return prevMessages;
-            return [...prevMessages, newMessage];
-          });
-        },
-      });
-
-      const freshMessages = await loadThreadMessages(thread.id);
-      if (Array.isArray(freshMessages)) {
-        setMessages(freshMessages);
-        console.log('[CHAT_GIFT_MESSAGES_REFRESHED]', freshMessages.length);
-      }
-
-      // Refetch thread data to update open_until after gift sent
-      await fetchThreadData();
-
-      // Show success message
-      toast({
-        title: 'Unlocked',
-        description: 'Chat unlocked! You can now send messages.',
-      });
-
-      setShowGiftModal(false);
-
-    } catch (error) {
-      console.error('❌ Exception in handleSendGift:', error);
-      toast({
-        title: 'Error',
-        description: 'An error occurred',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSendingGift(false);
-    }
-  };
-
-  // Handle delete message for me
-  const handleDeleteMessage = async (messageId) => {
-    if (!userRole) return;
-
-    try {
-      const result = await deleteMessageForUser(messageId, userRole);
-      if (result.status === 'ok') {
-        setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
-        setContextMenu(null);
-        toast({
-          title: 'Deleted',
-          description: 'Message deleted',
-        });
-      } else {
-        toast({
-          title: 'Error',
-          description: 'Failed to delete message',
-          variant: 'destructive',
-        });
-      }
-    } catch (err) {
-      console.error('Error deleting message:', err);
-      toast({
-        title: 'Error',
-        description: 'Failed to delete message',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleClearChat = () => {
-    setShowClearConfirm(true);
-  };
-
-  const toggleMute = () => {
-    if (!thread?.id) return;
-    const newMuted = !isMuted;
-    setIsMuted(newMuted);
-    localStorage.setItem(`muted_thread_${thread.id}`, String(newMuted));
-    console.log('[MUTE]', { threadId: thread.id, newMuted });
-    toast({
-      title: newMuted ? '🔕 Chat Muted' : '🔔 Chat Unmuted',
-      description: newMuted
-        ? 'In-room notifications muted for this chat'
-        : 'Notifications enabled',
-    });
-  };
-
-  const handleBlock = async () => {
-    if (!currentUser?.id || !recipientId || blocking) return;
-    setBlocking(true);
-    try {
-      console.log('[BLOCK]', { blocker: currentUser.id, blocked: recipientId });
-      const { error } = await supabase
-        .from('blocks')
-        .insert({ blocker: currentUser.id, blocked: recipientId });
-      if (error) {
-        console.error('[BLOCK_ERROR]', error);
-        throw error;
-      }
-      setIsBlocked(true);
-      setBlockedByOther(false);
-      setShowBlockConfirm(false);
-      toast({
-        title: '🚫 User Blocked',
-        description: `${otherUser?.name} has been blocked.`,
-      });
-    } catch (err) {
-      toast({
-        title: 'Error',
-        description: err.message,
-        variant: 'destructive',
-      });
-    } finally {
-      setBlocking(false);
-    }
-  };
+          })
+        )}
+        {/* Typing indicator */}
+        {otherUserTyping && (<TypingIndicator userName={otherUser?.name} />)}
+        <div ref={messagesEndRef} />
+        {/* Emoji burst effect - Rendered at ChatPage level to be over everything */}
+        {emojiBurst && (<EmojiBurst x={emojiBurst.x} y={emojiBurst.y} key={emojiBurst.key} />)}
+      </div>
+      {/* Input area */}
+      <div className="border-t border-gray-200 bg-white p-3 safe-area-bottom z-20">
+        {isBlocked && (
+          <div className="px-4 py-3 bg-red-50 border-t border-red-100 flex items-center justify-between">
+            <span className="text-sm text-red-600 font-medium">🚫 You blocked {otherUser?.name}</span>
+            <button onClick={handleUnblock} className="text-xs text-red-500 underline hover:text-red-700">Unblock</button>
+          </div>
+        )}
+        {blockedByOther && (
+          <div className="px-4 py-3 bg-red-50 border-t border-red-100 flex items-center justify-between">
+            <span className="text-sm text-red-600 font-medium">🚫 You can't message this person</span>
+          </div>
+        )}
+        {otherUserDND && (
+          <div className="px-4 py-3 bg-amber-50 border-t border-amber-100 flex items-center gap-2">
+            <span className="text-lg">🔕</span>
+            <span className="text-sm text-amber-700 font-medium">{otherUser?.name} has Do Not Disturb enabled. You cannot send messages right now.</span>
+          </div>
+        )}
+        {/* Voice Recording State */}
+        {isRecording && (
+          <div className="flex items-center gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-2xl mb-2">
+            <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
+            <span className="text-sm font-medium text-red-600 flex-1">Recording... {Math.floor(recordingSeconds / 60)}:{String(recordingSeconds % 60).padStart(2, '0')}</span>
+            <button onClick={cancelRecording} className="text-gray-500 hover:text-gray-700 text-sm">Cancel</button>
+            <button onClick={stopRecording} className="bg-red-500 text-white px-3 py-1.5 rounded-full text-sm font-semibold hover:bg-red-600">Stop</button>
+          </div>
+        )}
+        {/* Voice Preview State */}
+        {voiceBlob && !isRecording && (
+          <div className="flex items-center gap-3 px-4 py-3 bg-blue-50 border border-blue-200 rounded-2xl mb-2">
+            <audio src={URL.createObjectURL(voiceBlob)} controls className="flex-1 h-8" />
+            <button onClick={() => setVoiceBlob(null)} className="text-gray-500 hover:text-gray-700 text-sm">✕</button>
+            <button onClick={sendVoiceMessage} disabled={sendingVoice} className="bg-blue-500 text-white px-3 py-1.5 rounded-full text-sm font-semibold hover:bg-blue-600 disabled:opacity-50">{sendingVoice ? (<Loader2 className="w-4 h-4 animate-spin" />) : 'Send'}</button>
+          </div>
+        )}
+        {/* Chat unlock countdown banner - show only if unlocked by time and not VIP */}
+        {isChatUnlocked && !userIsVIP && openUntil && timeRemaining && (
+          <ChatUnlockCountdownBanner timeRemaining={timeRemaining} openUntilLabel={openUntilLabel} />
+        )}
+        {/* Chat locked banner */}
+        {!isChatUnlocked && (<ChatLockedBanner timeRemaining={timeUntilLock} userIsVIP={userIsVIP} />)}
+        {/* Improved emoji picker */}
+        <ImprovedEmojiPicker isOpen={showEmojiPicker} onClose={() => setShowEmojiPicker(false)} onEmojiSelect={handleEmojiSelect} />
+        {/* Input controls */}
+        <div className="flex gap-2 items-end max-w-4xl mx-auto">
+          {/* Emoji button - disabled when locked */}
+          <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} disabled={!isChatUnlocked} className={`flex-shrink-0 p-2.5 rounded-xl transition-colors ${showEmojiPicker ? 'bg-gray-100 text-gray-800' : 'text-gray-500'} ${!isChatUnlocked ? 'opacity-50 cursor-not-allowed hover:bg-transparent' : 'hover:bg-gray-50'}`} title={isChatUnlocked ? 'Add emoji' : 'Chat is locked'}>
+            <span className="text-xl leading-none">😀</span>
+          </button>
+          {!isRecording && !voiceBlob && (
+            <button onClick={startRecording} disabled={!isChatUnlocked || isBlocked || blockedByOther || otherUserDND} className="flex-shrink-0 p-2.5 hover:bg-gray-100 text-gray-500 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed" title="Record voice message">
+              <span className="text-xl">🎙️</span>
+            </button>
+          )}
+          {isRecording && (
+            <button onClick={stopRecording} className="flex-shrink-0 p-2.5 bg-red-100 text-red-500 rounded-xl animate-pulse">
+              <span className="text-xl">⏹️</span>
+            </button>
+          )}
+          {/* Text input - disabled when locked */}
+          <textarea ref={inputRef} value={inputValue} onChange={handleInputChange} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }} disabled={!isChatUnlocked || isBlocked || blockedByOther || otherUserDND} placeholder={blockedByOther ? 'You cannot message this person...' : (otherUserDND ? 'This user has Do Not Disturb enabled...' : (isBlocked ? 'You blocked this user...' : (isChatUnlocked ? 'Type a message...' : 'Chat is locked...')))} className={`flex-1 px-4 py-3 border rounded-2xl resize-none focus:outline-none focus:ring-2 transition-all text-sm md:text-base min-h-[48px] max-h-[120px] ${isChatUnlocked ? 'bg-gray-50 border-gray-200 focus:ring-blue-100 focus:border-blue-300 focus:bg-white' : 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed placeholder:text-gray-400'}`} rows={1} />
+          {/* Gift button - always enabled */}
+          <button onClick={() => setShowGiftModal(true)} className="flex-shrink-0 p-2.5 hover:bg-pink-50 text-pink-500 rounded-xl transition-colors" title="Send a gift">
+            <span className="text-xl leading-none">🎁</span>
+          </button>
+          {/* Send button - disabled when locked */}
+          <button onClick={handleSendMessage} disabled={!inputValue.trim() || isSending || !isChatUnlocked || isBlocked || blockedByOther || otherUserDND} className={`flex-shrink-0 w-12 h-12 flex items-center justify-center text-white rounded-xl font-bold transition-all shadow-sm ${!isChatUnlocked ? 'bg-gray-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400'}`}>
+            {isSending ? (<Loader2 className="w-5 h-5 animate-spin" />) : (<Send className="w-5 h-5 ml-0.5" />)}
+          </button>
+        </div>
+      </div>
+      {/* Gift modal */}
+      <ChatGiftModal isOpen={showGiftModal} onClose={() => setShowGiftModal(false)} recipientId={recipientId} recipientName={otherUser?.name} onGiftSelected={handleSendGift} isLoading={isSendingGift} />
+      {/* Global styles for emoji animations */}
+      <style>{`
+        @keyframes emoji-pop {
+          0% {
+            transform: scale(0.3) rotate(-10deg);
+            opacity: 0;
+          }
+          50% {
+            transform: scale(1.1) rotate(5deg);
+          }
+          100% {
+            transform: scale(1) rotate(0deg);
+            opacity: 1;
+          }
+        }
+      `}</style>
+    </div>
+  );
 
   const handleUnblock = async () => {
     if (!currentUser?.id || !recipientId || blocking) return;
@@ -1093,317 +1099,5 @@ export default function ChatPage() {
   };
 
   // (Removed duplicate and misplaced confirmClearChat and modal JSX)
-
-      {showBlockConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={() => setShowBlockConfirm(false)}
-          />
-          <div className="relative bg-white rounded-2xl shadow-2xl p-6 mx-4 max-w-sm w-full">
-            <div className="text-center">
-              <div className="text-4xl mb-3">🚫</div>
-              <h3 className="text-lg font-bold text-gray-900 mb-2">
-                Block {otherUser?.name}?
-              </h3>
-              <p className="text-sm text-gray-500 mb-6">
-                They won't be able to send you messages anymore.
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowBlockConfirm(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleBlock}
-                  disabled={blocking}
-                  className="flex-1 py-2.5 rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600 transition disabled:opacity-50"
-                >
-                  {blocking ? (
-                    <Loader2 className="w-4 h-4 animate-spin mx-auto" />
-                  ) : (
-                    'Block'
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      <div
-        className="flex-1 overflow-y-auto p-4 space-y-2 bg-slate-100/50"
-        onClick={() => setShowEmojiPicker(false)}
-      >
-        {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center mt-[-40px]">
-            <div className="bg-white p-4 rounded-full shadow-sm mb-3">
-              <span className="text-4xl">👋</span>
-            </div>
-            <p className="text-gray-900 font-medium">No messages yet</p>
-            <p className="text-sm text-gray-500 mt-1">Start the conversation with {otherUser.name}!</p>
-          </div>
-        ) : (
-          messages.map((message, index) => {
-            const msgDate = new Date(message.created_at).toLocaleDateString();
-            const prevMsgDate = index > 0
-              ? new Date(messages[index - 1].created_at).toLocaleDateString()
-              : null;
-            const showDateSeparator = msgDate !== prevMsgDate;
-
-            return (
-              <React.Fragment key={message.id}>
-                {showDateSeparator && (
-                  <div className="flex items-center gap-3 my-4">
-                    <div className="flex-1 h-px bg-gray-200" />
-                    <span className="text-xs text-gray-400 font-medium px-2">
-                      {new Date(message.created_at).toLocaleDateString([], {
-                        weekday: 'short',
-                        day: 'numeric',
-                        month: 'short',
-                        year: new Date(message.created_at).getFullYear() !==
-                          new Date().getFullYear() ? 'numeric' : undefined,
-                      })}
-                    </span>
-                    <div className="flex-1 h-px bg-gray-200" />
-                  </div>
-                )}
-                <MessageItem
-                  message={message}
-                  currentUser={currentUser}
-                  userRole={userRole}
-                  onDelete={handleDeleteMessage}
-                  setContextMenu={setContextMenu}
-                  contextMenu={contextMenu}
-                  setEmojiBurst={setEmojiBurst}
-                />
-              </React.Fragment>
-            );
-          })
-        )}
-
-        {/* Typing indicator */}
-        {otherUserTyping && (
-          <TypingIndicator userName={otherUser.name} />
-        )}
-
-        <div ref={messagesEndRef} />
-
-        {/* Emoji burst effect - Rendered at ChatPage level to be over everything */}
-        {emojiBurst && (
-          <EmojiBurst x={emojiBurst.x} y={emojiBurst.y} key={emojiBurst.key} />
-        )}
-      </div>
-
-      {/* Input area */}
-      <div
-        className="border-t border-gray-200 bg-white p-3 safe-area-bottom z-20"
-      >
-        {isBlocked && (
-          <div className="px-4 py-3 bg-red-50 border-t border-red-100 flex items-center justify-between">
-            <span className="text-sm text-red-600 font-medium">
-              🚫 You blocked {otherUser?.name}
-            </span>
-            <button
-              onClick={handleUnblock}
-              className="text-xs text-red-500 underline hover:text-red-700"
-            >
-              Unblock
-            </button>
-          </div>
-        )}
-
-        {blockedByOther && (
-          <div className="px-4 py-3 bg-red-50 border-t border-red-100 flex items-center justify-between">
-            <span className="text-sm text-red-600 font-medium">
-              🚫 You can't message this person
-            </span>
-          </div>
-        )}
-
-        {otherUserDND && (
-          <div className="px-4 py-3 bg-amber-50 border-t border-amber-100 flex items-center gap-2">
-            <span className="text-lg">🔕</span>
-            <span className="text-sm text-amber-700 font-medium">
-              {otherUser?.name} has Do Not Disturb enabled.
-              You cannot send messages right now.
-            </span>
-          </div>
-        )}
-
-        {/* Voice Recording State */}
-        {isRecording && (
-          <div className="flex items-center gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-2xl mb-2">
-            <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
-            <span className="text-sm font-medium text-red-600 flex-1">
-              Recording... {Math.floor(recordingSeconds / 60)}:{String(recordingSeconds % 60).padStart(2, '0')}
-            </span>
-            <button
-              onClick={cancelRecording}
-              className="text-gray-500 hover:text-gray-700 text-sm"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={stopRecording}
-              className="bg-red-500 text-white px-3 py-1.5 rounded-full text-sm font-semibold hover:bg-red-600"
-            >
-              Stop
-            </button>
-          </div>
-        )}
-
-        {/* Voice Preview State */}
-        {voiceBlob && !isRecording && (
-          <div className="flex items-center gap-3 px-4 py-3 bg-blue-50 border border-blue-200 rounded-2xl mb-2">
-            <audio
-              src={URL.createObjectURL(voiceBlob)}
-              controls
-              className="flex-1 h-8"
-            />
-            <button
-              onClick={() => setVoiceBlob(null)}
-              className="text-gray-500 hover:text-gray-700 text-sm"
-            >
-              ✕
-            </button>
-            <button
-              onClick={sendVoiceMessage}
-              disabled={sendingVoice}
-              className="bg-blue-500 text-white px-3 py-1.5 rounded-full text-sm font-semibold hover:bg-blue-600 disabled:opacity-50"
-            >
-              {sendingVoice
-                ? <Loader2 className="w-4 h-4 animate-spin" />
-                : 'Send'
-              }
-            </button>
-          </div>
-        )}
-
-        {/* Chat unlock countdown banner - show only if unlocked by time and not VIP */}
-        {isChatUnlocked && !userIsVIP && openUntil && timeRemaining && (
-          <ChatUnlockCountdownBanner
-            timeRemaining={timeRemaining}
-            openUntilLabel={openUntilLabel}
-          />
-        )}
-
-        {/* Chat locked banner */}
-        {!isChatUnlocked && (
-          <ChatLockedBanner timeRemaining={timeUntilLock} userIsVIP={userIsVIP} />
-        )}
-
-        {/* Improved emoji picker */}
-        <ImprovedEmojiPicker
-          isOpen={showEmojiPicker}
-          onClose={() => setShowEmojiPicker(false)}
-          onEmojiSelect={handleEmojiSelect}
-        />
-
-        {/* Input controls */}
-        <div className="flex gap-2 items-end max-w-4xl mx-auto">
-          {/* Emoji button - disabled when locked */}
-          <button
-            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            disabled={!isChatUnlocked}
-            className={`flex-shrink-0 p-2.5 rounded-xl transition-colors ${showEmojiPicker ? 'bg-gray-100 text-gray-800' : 'text-gray-500'
-              } ${!isChatUnlocked ? 'opacity-50 cursor-not-allowed hover:bg-transparent' : 'hover:bg-gray-50'
-              }`}
-            title={isChatUnlocked ? 'Add emoji' : 'Chat is locked'}
-          >
-            <span className="text-xl leading-none">😀</span>
-          </button>
-
-          {!isRecording && !voiceBlob && (
-            <button
-              onClick={startRecording}
-              disabled={!isChatUnlocked || isBlocked || blockedByOther || otherUserDND}
-              className="flex-shrink-0 p-2.5 hover:bg-gray-100 text-gray-500 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Record voice message"
-            >
-              <span className="text-xl">🎙️</span>
-            </button>
-          )}
-
-          {isRecording && (
-            <button
-              onClick={stopRecording}
-              className="flex-shrink-0 p-2.5 bg-red-100 text-red-500 rounded-xl animate-pulse"
-            >
-              <span className="text-xl">⏹️</span>
-            </button>
-          )}
-
-          {/* Text input - disabled when locked */}
-          <textarea
-            ref={inputRef}
-            value={inputValue}
-            onChange={handleInputChange}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSendMessage();
-              }
-            }}
-            disabled={!isChatUnlocked || isBlocked || blockedByOther || otherUserDND}
-            placeholder={blockedByOther ? 'You cannot message this person...' : (otherUserDND ? 'This user has Do Not Disturb enabled...' : (isBlocked ? 'You blocked this user...' : (isChatUnlocked ? 'Type a message...' : 'Chat is locked...')))}
-            className={`flex-1 px-4 py-3 border rounded-2xl resize-none focus:outline-none focus:ring-2 transition-all text-sm md:text-base min-h-[48px] max-h-[120px] ${isChatUnlocked
-              ? 'bg-gray-50 border-gray-200 focus:ring-blue-100 focus:border-blue-300 focus:bg-white'
-              : 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed placeholder:text-gray-400'
-              }`}
-            rows={1}
-          />
-
-          {/* Gift button - always enabled */}
-          <button
-            onClick={() => setShowGiftModal(true)}
-            className="flex-shrink-0 p-2.5 hover:bg-pink-50 text-pink-500 rounded-xl transition-colors"
-            title="Send a gift"
-          >
-            <span className="text-xl leading-none">🎁</span>
-          </button>
-
-          {/* Send button - disabled when locked */}
-          <button
-            onClick={handleSendMessage}
-            disabled={!inputValue.trim() || isSending || !isChatUnlocked || isBlocked || blockedByOther || otherUserDND}
-            className={`flex-shrink-0 w-12 h-12 flex items-center justify-center text-white rounded-xl font-bold transition-all shadow-sm ${!isChatUnlocked
-              ? 'bg-gray-300 cursor-not-allowed'
-              : 'bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400'
-              }`}
-          >
-            {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5 ml-0.5" />}
-          </button>
-        </div>
-      </div>
-
-      {/* Gift modal */}
-      <ChatGiftModal
-        isOpen={showGiftModal}
-        onClose={() => setShowGiftModal(false)}
-        recipientId={recipientId}
-        recipientName={otherUser.name}
-        onGiftSelected={handleSendGift}
-        isLoading={isSendingGift}
-      />
-
-      {/* Global styles for emoji animations */}
-      <style>{`
-        @keyframes emoji-pop {
-          0% {
-            transform: scale(0.3) rotate(-10deg);
-            opacity: 0;
-          }
-          50% {
-            transform: scale(1.1) rotate(5deg);
-          }
-          100% {
-            transform: scale(1) rotate(0deg);
-            opacity: 1;
-          }
-        }
-      `}</style>
-    </div>
-  );
 }
+
