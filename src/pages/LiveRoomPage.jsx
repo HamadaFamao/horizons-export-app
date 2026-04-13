@@ -6075,13 +6075,21 @@ useEffect(() => {
           event: "*",
           schema: "public",
           table: "live_room_follows",
-          filter: `room_id=eq.${roomId}`
         },
         async (payload) => {
+          const payloadRoomId =
+            payload?.new?.room_id || payload?.old?.room_id;
+
+          if (!payloadRoomId || String(payloadRoomId) !== String(roomId)) return;
+
           if (payload?.eventType === "INSERT") {
             setFollowsCount((prev) => prev + 1);
 
             if (payload?.new?.user_id) {
+              if (String(payload.new.user_id) === String(user?.id)) {
+                setIsFollowingRoom(true);
+              }
+
               const { data: profileData } = await supabase
                 .from('profiles')
                 .select('id, name, avatar_url, is_vip, vip_number')
@@ -6089,22 +6097,24 @@ useEffect(() => {
                 .maybeSingle();
 
               if (profileData) {
-                setFollowersList((prev) => [
-                  {
-                    user_id: payload.new.user_id,
-                    name: profileData.name || 'User',
-                    avatar_url: profileData.avatar_url || null,
-                    is_vip: !!profileData.is_vip,
-                    vip_number: profileData.vip_number || null,
-                    followed_at: payload.new.created_at,
-                  },
-                  ...prev,
-                ]);
+                setFollowersList((prev) => {
+                  const exists = prev.some(
+                    (f) => String(f.user_id) === String(payload.new.user_id)
+                  );
+                  if (exists) return prev;
+                  return [
+                    {
+                      user_id: payload.new.user_id,
+                      name: profileData.name || 'User',
+                      avatar_url: profileData.avatar_url || null,
+                      is_vip: !!profileData.is_vip,
+                      vip_number: profileData.vip_number || null,
+                      followed_at: payload.new.created_at,
+                    },
+                    ...prev,
+                  ];
+                });
               }
-            }
-
-            if (user?.id && String(payload?.new?.user_id) === String(user.id)) {
-              setIsFollowingRoom(true);
             }
           }
 
@@ -6112,13 +6122,13 @@ useEffect(() => {
             setFollowsCount((prev) => Math.max(0, prev - 1));
 
             if (payload?.old?.user_id) {
+              if (String(payload.old.user_id) === String(user?.id)) {
+                setIsFollowingRoom(false);
+              }
+
               setFollowersList((prev) =>
                 prev.filter((f) => String(f.user_id) !== String(payload.old.user_id))
               );
-            }
-
-            if (user?.id && String(payload?.old?.user_id) === String(user.id)) {
-              setIsFollowingRoom(false);
             }
           }
         }
