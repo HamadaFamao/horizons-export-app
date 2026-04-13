@@ -6628,7 +6628,7 @@ useEffect(() => {
   }, [user?.id]);
 
   useEffect(() => {
-    console.log('[MINI_CHAT_EFFECT]', {
+    console.log('[MINI_CHAT_EFFECT_TRIGGERED]', {
       inRoomChatOpen,
       inRoomChatThreadId,
       userId: user?.id
@@ -6719,7 +6719,7 @@ useEffect(() => {
       }
       setInRoomChatMessages([]);
     };
-  }, [inRoomChatOpen, inRoomChatThreadId]);
+  }, [inRoomChatOpen, inRoomChatThreadId, user?.id]);
 
   const sendInRoomChatMessage = async () => {
     const text = inRoomChatText.trim();
@@ -6730,6 +6730,12 @@ useEffect(() => {
     setInRoomChatText('');
 
     try {
+      console.log('[MINI_CHAT_SENDING]', {
+        threadId: inRoomChatThreadId,
+        userId: user?.id,
+        text: savedText
+      });
+
       const { data, error } = await supabase
         .from('messages')
         .insert({
