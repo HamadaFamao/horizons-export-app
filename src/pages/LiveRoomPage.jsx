@@ -6624,6 +6624,9 @@ useEffect(() => {
 
     if (!inRoomChatOpen || !inRoomChatThreadId) return;
 
+    setInRoomChatMessages([]);
+    setInRoomChatLoading(true);
+
     const fetchThreadMessages = async () => {
       setInRoomChatLoading(true);
       try {
@@ -6706,6 +6709,7 @@ useEffect(() => {
         inRoomChatChannelRef.current = null;
       }
       setInRoomChatMessages([]);
+      setInRoomChatLoading(false);
     };
   }, [inRoomChatOpen, inRoomChatThreadId, user?.id]);
 
@@ -7013,6 +7017,7 @@ useEffect(() => {
                     threadId: inRoomMsgNotif.threadId,
                     senderId: inRoomMsgNotif.senderId,
                   });
+                  setInRoomChatMessages([]);
                   setInRoomChatThreadId(inRoomMsgNotif.threadId);
                   setInRoomChatUser({
                     id: inRoomMsgNotif.senderId,
@@ -7040,7 +7045,12 @@ useEffect(() => {
         <div className="fixed inset-0 z-[95]">
           <div
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={() => setInRoomChatOpen(false)}
+            onClick={() => {
+              setInRoomChatOpen(false);
+              setInRoomChatMessages([]);
+              setInRoomChatThreadId(null);
+              setInRoomChatUser(null);
+            }}
           />
           <div
             className="absolute inset-x-0 bottom-0 top-20 bg-white rounded-t-3xl shadow-2xl flex flex-col overflow-hidden"
@@ -7066,7 +7076,12 @@ useEffect(() => {
                 </div>
               </div>
               <button
-                onClick={() => setInRoomChatOpen(false)}
+                onClick={() => {
+                  setInRoomChatOpen(false);
+                  setInRoomChatMessages([]);
+                  setInRoomChatThreadId(null);
+                  setInRoomChatUser(null);
+                }}
                 className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500"
               >
                 <X className="w-4 h-4" />
