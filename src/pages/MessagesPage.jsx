@@ -41,12 +41,13 @@ export default function MessagesPage() {
 
         setCurrentUser(user);
 
-        const { data: profile } = await supabase
+        // Load DND status from Supabase
+        const { data } = await supabase
           .from('profiles')
           .select('do_not_disturb')
           .eq('id', user.id)
           .maybeSingle();
-        setDoNotDisturb(!!profile?.do_not_disturb);
+        setDoNotDisturb(!!data?.do_not_disturb);
 
         const userThreads = await fetchUserThreads(user.id);
         setThreads(userThreads);
@@ -136,6 +137,7 @@ export default function MessagesPage() {
     setTogglingDND(true);
     try {
       const newDND = !doNotDisturb;
+      console.log('[DND]', { userId: currentUser?.id, newDND });
       const { error } = await supabase
         .from('profiles')
         .update({ do_not_disturb: newDND })

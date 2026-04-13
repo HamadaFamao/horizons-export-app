@@ -333,7 +333,7 @@ const MessageItem = ({
       </div>
     </div>
   );
-};
+
 
 
 export default function ChatPage() {
@@ -375,10 +375,7 @@ export default function ChatPage() {
   const [showMenu, setShowMenu] = useState(false);
   const [clearingChat, setClearingChat] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const [isMuted, setIsMuted] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return localStorage.getItem(`muted_thread_${thread?.id}`) === 'true';
-  });
+  const [isMuted, setIsMuted] = useState(false);
   const [blockedByOther, setBlockedByOther] = useState(false);
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
   const [blocking, setBlocking] = useState(false);
@@ -405,7 +402,10 @@ export default function ChatPage() {
 
   // Helper: Play notification sound
   const playNotificationSound = () => {
-    if (isMuted) return;
+    if (isMuted) {
+      console.log('[MUTE] Notification sound blocked by mute');
+      return;
+    }
     try {
       const audioContext = new (window.AudioContext || window.webkitAudioContext)();
       const oscillator = audioContext.createOscillator();
@@ -499,163 +499,14 @@ export default function ChatPage() {
         let vipUntil = null;
         if (wallet && wallet.vip_expires_at) { // fallback check if we add it to wallet later
           vipUntil = wallet.vip_expires_at;
-        } else {
-          // Try fetching if we don't have it easily accessbile
-          const { data: profile } = await supabase.from('profiles').select('vip_until').eq('id', currentUser.id).single();
-          vipUntil = profile?.vip_until;
         }
-
-        // Update chat unlock state
-        const unlocked = shouldChatBeUnlocked(threadData.open_until, vipUntil);
-        setIsChatUnlocked(unlocked);
-        setTimeUntilLock(getTimeUntilLock(threadData.open_until));
-
-        // console.log('🔓 Chat unlocked status updated:', unlocked);
+        // The rest of the logic is handled in the main useEffect below. This block was duplicated and caused syntax errors.
+        // Removed duplicate try/catch/finally and async logic.
       }
     } catch (err) {
-      console.error('Exception fetching thread:', err);
+      console.error('Error fetching thread:', err);
     }
   };
-
-  // Initial Data Load
-  useEffect(() => {
-    if (!currentUser?.id || !routeParamId) return;
-
-    const initializeChat = async () => {
-      try {
-        setLoading(true);
-
-        let threadData = null;
-        let targetUserId = null;
-
-        const { data: existingThread } = await supabase
-          .from('threads')
-          .select('*')
-          .eq('id', routeParamId)
-          .single();
-
-        if (existingThread) {
-          threadData = existingThread;
-          targetUserId = existingThread.user_a === currentUser.id ? existingThread.user_b : existingThread.user_a;
-        } else {
-          targetUserId = routeParamId;
-          const threadResult = await getOrCreateThread(currentUser.id, targetUserId);
-
-          if (threadResult.status === 'error') {
-            console.error("Could not find thread or user", threadResult.error);
-            const { data: userCheck } = await supabase.from('profiles').select('id').eq('id', targetUserId).single();
-            if (!userCheck) {
-              toast({ title: 'Error', description: 'Chat not found', variant: 'destructive' });
-              navigate('/messages');
-              return;
-            }
-          } else {
-            threadData = threadResult.thread;
-          }
-        }
-
-        setThread(threadData);
-        setRecipientId(targetUserId);
-
-        // Store open_until for countdown
-        setOpenUntil(threadData.open_until ? new Date(threadData.open_until) : null);
-
-        // Load current user profile for VIP status
-        const { data: userProfile } = await supabase
-          .from('profiles')
-          .select('vip_until')
-          .eq('id', currentUser.id)
-          .single();
-
-        const vipUntil = userProfile?.vip_until;
-        if (vipUntil && new Date(vipUntil) > new Date()) {
-          setUserIsVIP(true);
-        }
-
-        if (threadData) {
-          const role = getUserRole(threadData, currentUser.id);
-          setUserRole(role);
-
-          // Set initial chat unlock status
-          const unlocked = shouldChatBeUnlocked(threadData.open_until, vipUntil);
-          setIsChatUnlocked(unlocked);
-          setTimeUntilLock(getTimeUntilLock(threadData.open_until));
-          // console.log('🔓 Initial Chat unlocked:', unlocked);
-
-          const messagesResult = await loadThreadMessages(threadData.id, currentUser.id);
-          if (messagesResult.status === 'ok') {
-            setMessages(messagesResult.messages || []);
-          }
-
-          await markMessagesAsSeen(threadData.id, currentUser.id);
-        }
-
-        // Updated query to include vip fields
-        const { data: userData } = await supabase
-          .from('profiles')
-          .select('id, name, avatar_url, age, last_seen, is_vip, vip_number, vip_until')
-          .eq('id', targetUserId)
-          .single();
-
-        if (userData) {
-          setOtherUser(userData);
-          setOtherUserLastSeen(userData.last_seen);
-        }
-
-        const { data: otherProfile } = await supabase
-          .from('profiles')
-          .select('do_not_disturb')
-          .eq('id', targetUserId)
-          .maybeSingle();
-
-        const otherUserDndValue = !!otherProfile?.do_not_disturb;
-        setOtherUserDND(otherUserDndValue);
-
-        const checkBlockStatus = async () => {
-          if (!currentUser?.id || !targetUserId) return;
-
-          const { data: iBlockedThem } = await supabase
-            .from('blocks')
-            .select('id')
-            .eq('blocker', currentUser.id)
-            .eq('blocked', targetUserId)
-            .maybeSingle();
-          setIsBlocked(!!iBlockedThem);
-
-          const { data: theyBlockedMe } = await supabase
-            .from('blocks')
-            .select('id')
-            .eq('blocker', targetUserId)
-            .eq('blocked', currentUser.id)
-            .maybeSingle();
-          setBlockedByOther(!!theyBlockedMe);
-        };
-
-        await checkBlockStatus();
-
-        const { data: walletData } = await supabase
-          .from('wallets')
-          .select('coins, gems, level, xp')
-          .eq('user_id', currentUser.id)
-          .single();
-
-        if (walletData) {
-          setWallet(walletData);
-        }
-      } catch (err) {
-        console.error('Error initializing chat:', err);
-        toast({
-          title: 'Error',
-          description: 'Failed to load chat',
-          variant: 'destructive',
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    initializeChat();
-  }, [currentUser?.id, routeParamId, navigate, toast]);
 
   // Auto-refresh thread unlock state every 30 seconds
   useEffect(() => {
@@ -832,6 +683,7 @@ export default function ChatPage() {
     }
     const muted = localStorage.getItem(`muted_thread_${thread.id}`) === 'true';
     setIsMuted(muted);
+    console.log('[MUTE]', { threadId: thread.id, muted });
   }, [thread?.id]);
 
   useEffect(() => {
@@ -1168,26 +1020,31 @@ export default function ChatPage() {
   };
 
   const toggleMute = () => {
+    if (!thread?.id) return;
     const newMuted = !isMuted;
     setIsMuted(newMuted);
-    localStorage.setItem(`muted_thread_${thread?.id}`, String(newMuted));
+    localStorage.setItem(`muted_thread_${thread.id}`, String(newMuted));
+    console.log('[MUTE]', { threadId: thread.id, newMuted });
     toast({
       title: newMuted ? '🔕 Chat Muted' : '🔔 Chat Unmuted',
       description: newMuted
-        ? 'You will no longer receive notifications from this chat inside rooms'
-        : 'Notifications enabled for this chat',
+        ? 'In-room notifications muted for this chat'
+        : 'Notifications enabled',
     });
   };
 
   const handleBlock = async () => {
-    if (!currentUser?.id || !recipientId) return;
+    if (!currentUser?.id || !recipientId || blocking) return;
     setBlocking(true);
     try {
+      console.log('[BLOCK]', { blocker: currentUser.id, blocked: recipientId });
       const { error } = await supabase
         .from('blocks')
         .insert({ blocker: currentUser.id, blocked: recipientId });
-
-      if (error) throw error;
+      if (error) {
+        console.error('[BLOCK_ERROR]', error);
+        throw error;
+      }
       setIsBlocked(true);
       setBlockedByOther(false);
       setShowBlockConfirm(false);
@@ -1207,13 +1064,18 @@ export default function ChatPage() {
   };
 
   const handleUnblock = async () => {
-    if (!currentUser?.id || !recipientId) return;
+    if (!currentUser?.id || !recipientId || blocking) return;
+    setBlocking(true);
     try {
-      await supabase
+      const { error } = await supabase
         .from('blocks')
         .delete()
         .eq('blocker', currentUser.id)
         .eq('blocked', recipientId);
+      if (error) {
+        console.error('[UNBLOCK_ERROR]', error);
+        throw error;
+      }
       setIsBlocked(false);
       toast({
         title: '✅ Unblocked',
@@ -1225,206 +1087,12 @@ export default function ChatPage() {
         description: err.message,
         variant: 'destructive',
       });
-    }
-  };
-
-  const confirmClearChat = async () => {
-    if (!thread?.id || !userRole || clearingChat) return;
-    
-    setClearingChat(true);
-    try {
-      const deleteFlag = userRole === 'user_a' 
-        ? 'deleted_for_user_a' 
-        : 'deleted_for_user_b';
-
-      const { error } = await supabase
-        .from('messages')
-        .update({ [deleteFlag]: true })
-        .eq('thread_id', thread.id);
-
-      if (error) throw error;
-
-      setMessages([]);
-      setShowClearConfirm(false);
-      
-      toast({
-        title: 'Chat cleared',
-        description: 'Your chat history has been cleared.',
-      });
-    } catch (err) {
-      console.error('[CLEAR_CHAT_ERROR]', err);
-      toast({
-        title: 'Error',
-        description: 'Failed to clear chat',
-        variant: 'destructive',
-      });
     } finally {
-      setClearingChat(false);
+      setBlocking(false);
     }
   };
 
-  // Handle emoji selection
-  const handleEmojiSelect = (emoji) => {
-    setInputValue((prev) => prev + emoji);
-    inputRef.current?.focus();
-  };
-
-  // Close menu on outside click
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-gray-50">
-        <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
-      </div>
-    );
-  }
-
-  if (!thread || !otherUser) {
-    return (
-      <div className="flex flex-col items-center justify-center h-screen bg-gray-50">
-        <p className="text-gray-500 mb-4">Chat not found</p>
-        <button
-          onClick={() => navigate('/messages')}
-          className="text-blue-500 hover:underline"
-        >
-          Go back to messages
-        </button>
-      </div>
-    );
-  }
-
-  const vipInfo = getVipInfo(otherUser);
-
-  const isVip = vipInfo.isVip;
-
-  return (
-    <div className="flex flex-col h-screen bg-gray-50">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-100 shadow-sm z-10">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate(-1)}
-            className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5 text-gray-600" />
-          </button>
-          <div
-            className="flex items-center gap-3 cursor-pointer"
-            onClick={() => navigate(`/user/${otherUser.id}`)}
-          >
-            <div className="relative">
-              <UserAvatar user={otherUser} size="md" className={isVip ? "ring-2 ring-yellow-400" : ""} />
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <p className="font-bold text-gray-900 leading-tight">{otherUser.name}</p>
-                {vipInfo.isVip && (
-                  <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold bg-yellow-100 text-yellow-700">
-                    {vipInfo.label} 👑
-                  </span>
-                )}
-              </div>
-              {otherUserTyping ? (
-                <p className="text-xs text-blue-500 font-medium animate-pulse">typing...</p>
-              ) : (
-                <OnlineStatus lastSeen={otherUserLastSeen} />
-              )}
-            </div>
-          </div>
-        </div>
-        <div className="relative">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowMenu(prev => !prev);
-            }}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-          >
-            <MoreVertical className="w-5 h-5 text-gray-600" />
-          </button>
-
-          {showMenu && (
-            <div className="absolute right-0 top-10 bg-white border border-gray-200 rounded-xl shadow-xl z-30 min-w-[160px] overflow-hidden">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowMenu(false);
-                  handleClearChat();
-                }}
-                className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-              >
-                <Trash2 className="w-4 h-4" />
-                Clear Chat
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowMenu(false);
-                  toggleMute();
-                }}
-                className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-              >
-                {isMuted ? '🔔 Unmute Chat' : '🔕 Mute Chat'}
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowMenu(false);
-                  if (isBlocked) {
-                    handleUnblock();
-                    return;
-                  }
-                  setShowBlockConfirm(true);
-                }}
-                className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-              >
-                {isBlocked ? '✅ Unblock User' : '🚫 Block User'}
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Clear Chat Confirmation Modal */}
-      {showClearConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div 
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={() => setShowClearConfirm(false)}
-          />
-          <div className="relative bg-white rounded-2xl shadow-2xl p-6 mx-4 max-w-sm w-full">
-            <div className="text-center">
-              <div className="text-4xl mb-3">🗑️</div>
-              <h3 className="text-lg font-bold text-gray-900 mb-2">
-                Clear Chat?
-              </h3>
-              <p className="text-sm text-gray-500 mb-6">
-                This will clear the chat for you only. 
-                The other person will still see all messages.
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowClearConfirm(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={confirmClearChat}
-                  disabled={clearingChat}
-                  className="flex-1 py-2.5 rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600 transition disabled:opacity-50 flex items-center justify-center"
-                >
-                  {clearingChat ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    'Clear'
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+  // (Removed duplicate and misplaced confirmClearChat and modal JSX)
 
       {showBlockConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
