@@ -6543,60 +6543,67 @@ useEffect(() => {
 
   useEffect(() => {
     if (!user?.id) return;
-
-    let isActive = true;
-
     const msgChannel = supabase
-      .channel(`private_msgs_${user.id}`)
+      .channel(`private_msgs_notif_${user.id}`)
       .on(
-        "postgres_changes",
+        'postgres_changes',
         {
-          event: "*",
-          schema: "public",
-          table: "unread_messages",
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'unread_messages',
           filter: `user_id=eq.${user.id}`,
         },
         async (payload) => {
-          if (!isActive || !payload?.new) return;
+          console.log('[MINI_CHAT_NOTIF_PAYLOAD]', payload);
+          if (!payload?.new) return;
 
-          const unreadNew = Number(payload.new.unread_count || 0);
-          const unreadOld = Number(payload.old?.unread_count || 0);
-          const isUnreadIncrease =
-            payload.eventType === "INSERT"
-              ? unreadNew > 0
-              : unreadNew > unreadOld;
-
-          if (!isUnreadIncrease) return;
+          if ((payload.new.unread_count || 0) <=
+            (payload.old?.unread_count || 0)) return;
 
           const threadId = payload.new.thread_id;
           if (!threadId) return;
 
-          const { data: latestMsg } = await supabase
-            .from("messages")
-            .select("thread_id, sender_id, body, created_at")
-            .eq("thread_id", threadId)
-            .neq("sender_id", user.id)
-            .order("created_at", { ascending: false })
-            .limit(1)
+          const { data: threadData } = await supabase
+            .from('threads')
+            .select('user_a, user_b')
+            .eq('id', threadId)
             .maybeSingle();
 
-          if (!latestMsg?.sender_id) return;
+          console.log('[MINI_CHAT_NOTIF_THREAD]', threadData);
 
-          const senderId = latestMsg.sender_id;
-          if (!senderId || String(senderId) === String(user.id)) return;
+          if (!threadData) return;
+
+          const senderId =
+            String(threadData.user_a) === String(user.id)
+              ? threadData.user_b
+              : threadData.user_a;
+
+          if (!senderId) return;
 
           const { data: profile } = await supabase
-            .from("profiles")
-            .select("id, name, avatar_url")
+            .from('profiles')
+            .select('id, name, avatar_url')
             .eq("id", senderId)
             .maybeSingle();
 
+          console.log('[MINI_CHAT_NOTIF_PROFILE]', profile);
+
+          const { data: lastMsg } = await supabase
+            .from('messages')
+            .select('body')
+            .eq('thread_id', threadId)
+            .order('inserted_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          console.log('[MINI_CHAT_NOTIF_LAST_MSG]', lastMsg);
+
           const notif = {
             senderId,
-            senderName: profile?.name || "User",
+            senderName: profile?.name || 'User',
             senderAvatar: profile?.avatar_url || null,
-            threadId: latestMsg.thread_id,
-            preview: String(latestMsg.body || "").slice(0, 50),
+            threadId,
+            preview: String(lastMsg?.body || '').slice(0, 50),
           };
 
           setInRoomMsgNotif(notif);
@@ -6612,7 +6619,6 @@ useEffect(() => {
       .subscribe();
 
     return () => {
-      isActive = false;
       supabase.removeChannel(msgChannel);
       if (inRoomMsgTimerRef.current) {
         clearTimeout(inRoomMsgTimerRef.current);
@@ -6625,23 +6631,45 @@ useEffect(() => {
 
     const fetchThreadMessages = async () => {
       setInRoomChatLoading(true);
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('thread_id', inRoomChatThreadId)
-        .order('inserted_at', { ascending: true })
-        .limit(50);
+      try {
+        const { data: threadData, error: threadError } = await supabase
+          .from('threads')
+          .select('id, user_a, user_b')
+          .eq('id', inRoomChatThreadId)
+          .maybeSingle();
 
-      if (!error && data) {
-        setInRoomChatMessages(data || []);
+        console.log('[MINI_CHAT_THREAD]', threadData, threadError);
+
+        if (threadError || !threadData) {
+          console.error('[MINI_CHAT_NO_THREAD]', threadError);
+          setInRoomChatLoading(false);
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from('messages')
+          .select('*')
+          .eq('thread_id', inRoomChatThreadId)
+          .order('inserted_at', { ascending: true })
+          .limit(50);
+
+        console.log('[MINI_CHAT_MESSAGES]', data, error);
+
+        if (!error && data) {
+          setInRoomChatMessages(data);
+        }
+
+        setTimeout(() => {
+          inRoomChatBottomRef.current?.scrollIntoView({
+            behavior: 'smooth'
+          });
+        }, 100);
+
+      } catch (err) {
+        console.error('[MINI_CHAT_FETCH_ERROR]', err);
+      } finally {
+        setInRoomChatLoading(false);
       }
-      setInRoomChatLoading(false);
-
-      setTimeout(() => {
-        inRoomChatBottomRef.current?.scrollIntoView({
-          behavior: 'smooth'
-        });
-      }, 100);
     };
 
     fetchThreadMessages();
@@ -6709,14 +6737,15 @@ useEffect(() => {
         .select()
         .single();
 
-      if (error) {
-        console.error('[MINI_CHAT_SEND_ERROR]', error);
-        throw error;
-      }
+      console.log('[MINI_CHAT_SEND]', data, error);
+
+      if (error) throw error;
 
       if (data) {
         setInRoomChatMessages((prev) => {
-          const exists = prev.some((m) => m.id === data.id);
+          const exists = prev.some((m) =>
+            String(m.id) === String(data.id)
+          );
           if (exists) return prev;
           return [...prev, data];
         });
@@ -6726,9 +6755,10 @@ useEffect(() => {
           });
         }, 50);
       }
+
     } catch (err) {
-      console.error('[MINI_CHAT_SEND_EXCEPTION]', err);
-      toast(err.message || 'Failed to send message', 1400);
+      console.error('[MINI_CHAT_SEND_ERROR]', err);
+      toast(err?.message || 'Failed to send', 1400);
       setInRoomChatText(savedText);
     } finally {
       setInRoomChatSending(false);
