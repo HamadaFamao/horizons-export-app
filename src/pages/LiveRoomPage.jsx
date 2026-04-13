@@ -1073,25 +1073,6 @@ useEffect(() => {
     return hasRealParticipantData ? fromParticipants : fromDisplaySides;
   }, [pkParticipants, pkDisplaySides]);
 
-  console.log("[PK_DISPLAY_SIDES]", {
-    fromParticipantsA: (pkParticipants || []).filter(p => p.side === "A").length,
-    fromParticipantsB: (pkParticipants || []).filter(p => p.side === "B").length,
-    displaySides: pkDisplaySides
-  });
-
-  console.log("[PK_DEBUG]", {
-    pkParticipants,
-    pkSeatA,
-    pkSeatB,
-    effectiveSeats
-  });
-
-  console.log("[PK_SCORE_REBUILT]", {
-    sessionId: pkSession?.id || null,
-    scoreA: pkScores?.A || 0,
-    scoreB: pkScores?.B || 0
-  });
-
   const pkRemainingLabel = useMemo(() => {
   const totalSec = Math.floor(pkRemainingMs / 1000);
   const mm = String(Math.floor(totalSec / 60)).padStart(2, "0");
@@ -6888,9 +6869,6 @@ useEffect(() => {
     String(invite.note || '').startsWith('invite|')
   );
 
-  console.log('[MY_MIC_INVITES_CURRENT_USER_ID]', user?.id);
-  console.log('[MY_MIC_INVITES_FILTERED_FOR_CURRENT_USER]', myIncomingInvites);
-
   if (miniRoomMode) {
     return (
       <div className="fixed inset-0 w-screen h-[100dvh] max-h-[100dvh] overflow-hidden overscroll-none bg-gray-50 flex flex-col p-4">
@@ -6929,19 +6907,7 @@ useEffect(() => {
   // ==========================================
   // 10. Return JSX
   // ==========================================
-  if (pkSession) {
-    console.log("[PK_PANEL_RENDER]", {
-      sideA: pkSideA?.map(p => ({ name: p.display_name, seat: p.seat_no })),
-      sideB: pkSideB?.map(p => ({ name: p.display_name, seat: p.seat_no }))
-    });
-  }
 
-  console.log("[PK_RESULT_MODAL_STATE]", {
-    pkSessionId: pkSession?.id || null,
-    pkSessionStatus: pkSession?.status || null,
-    pkResultOpen,
-    hasResultData: !!pkResultData,
-  });
 
   if (showJoinPinModal && room?.is_locked && !canModerate) {
     return (
