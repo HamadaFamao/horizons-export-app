@@ -6645,7 +6645,7 @@ useEffect(() => {
           .from('messages')
           .select('*')
           .eq('thread_id', inRoomChatThreadId)
-          .order('inserted_at', { ascending: true })
+          .order('created_at', { ascending: true })
           .limit(50);
 
         console.log('[MINI_CHAT_MESSAGES]', data, error);
@@ -6730,7 +6730,6 @@ useEffect(() => {
           thread_id: inRoomChatThreadId,
           sender_id: user.id,
           body: savedText,
-          topic: 'text',
         })
         .select()
         .single();
