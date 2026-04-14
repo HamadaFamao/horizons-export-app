@@ -79,6 +79,61 @@ export default function GiftPanel({
   }, [bagGifts]);
 
 
+  const sendRepeat = async () => {
+    if (!lastSentGift || sending) return;
+
+    const giftToSend = lastSentGift.gift;
+    const qtyToSend = lastSentGift.qty;
+
+    const totalCost = giftToSend.cost * qtyToSend;
+    if (userCoins < totalCost) {
+      alert(`Not enough coins. Need ${totalCost} coins.`);
+      return;
+    }
+
+    let recipientId = null;
+    if (recipientMode === 'all') {
+      recipientId = roomOwnerId || targetUserId;
+    } else if (recipientMode === 'mic') {
+      recipientId = micRecipient || seatedUsers?.[0]?.user_id || roomOwnerId;
+    } else {
+      recipientId = specificRecipient || targetUserId || roomOwnerId;
+    }
+
+    if (!recipientId) return;
+
+    setSending(true);
+    try {
+      const { data, error } = await supabase.rpc(
+        'frontend_send_live_room_gift',
+        {
+          p_room_id: room?.id,
+          p_receiver_id: recipientId,
+          p_gift_id: giftToSend.id,
+          p_message: null,
+          p_quantity: qtyToSend,
+        }
+      );
+
+      if (error) throw error;
+
+      onGiftSent?.({
+        gift: giftToSend,
+        quantity: qtyToSend,
+        recipientId,
+        recipientMode,
+        result: data,
+      });
+
+      if (repeatHideTimerRef.current) clearTimeout(repeatHideTimerRef.current);
+      repeatHideTimerRef.current = setTimeout(() => setShowRepeatBtn(false), 5000);
+    } catch (err) {
+      alert(err.message || 'Failed to send gift');
+    } finally {
+      setSending(false);
+    }
+  };
+
   const handleSend = async () => {
     if (!selectedGift || !user?.id || sending) return;
 
@@ -384,28 +439,6 @@ export default function GiftPanel({
       <div className="shrink-0 px-3 py-3 border-t border-white/10
         bg-black/40 flex items-center gap-2 min-h-[64px]">
 
-        {/* Repeat button — appears after a successful send */}
-        {showRepeatBtn && lastSentGift && (
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedGift(lastSentGift.gift);
-              setQuantity(lastSentGift.qty);
-            }}
-            className="shrink-0 relative w-10 h-10 rounded-full bg-white/10 border border-amber-500/40 flex items-center justify-center hover:bg-white/20 transition active:scale-95"
-            title="Send again"
-          >
-            <img
-              src={lastSentGift.gift.animation_asset_url || lastSentGift.gift.icon_url}
-              alt="repeat"
-              className="w-6 h-6 object-contain"
-            />
-            <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-500 flex items-center justify-center text-[9px] font-black text-white">
-              ↺
-            </div>
-          </button>
-        )}
-
         {/* Selected gift info OR placeholder */}
         {selectedGift ? (
           <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -423,7 +456,7 @@ export default function GiftPanel({
           </div>
         ) : (
           <p className="flex-1 text-white/30 text-xs text-center">
-            {showRepeatBtn ? '' : 'Select a gift to send'}
+            Select a gift to send
           </p>
         )}
 
@@ -502,6 +535,26 @@ export default function GiftPanel({
             >
               {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Send 🎁'}
             </button>
+
+            {/* Repeat button — right next to Send */}
+            {showRepeatBtn && lastSentGift && (
+              <button
+                type="button"
+                onClick={sendRepeat}
+                disabled={sending}
+                className="shrink-0 relative w-10 h-10 rounded-full bg-amber-500/20 border border-amber-500/60 flex items-center justify-center hover:bg-amber-500/40 transition active:scale-95"
+                title="Send again"
+              >
+                <img
+                  src={lastSentGift.gift.animation_asset_url || lastSentGift.gift.icon_url}
+                  alt="repeat"
+                  className="w-6 h-6 object-contain"
+                />
+                <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-500 flex items-center justify-center text-[9px] font-black text-white">
+                  ↺
+                </div>
+              </button>
+            )}
           </div>
         )}
       </div>
