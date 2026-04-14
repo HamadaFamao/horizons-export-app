@@ -331,6 +331,65 @@ const MessageItem = ({
 }
 
 export default function ChatPage() {
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 1. REAL-TIME BLOCK SYNC
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    useEffect(() => {
+      if (!currentUser?.id || !recipientId) return;
+      const channel = supabase
+        .channel(`blocks_rt_${currentUser.id}_${recipientId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'blocks',
+          },
+          (payload) => {
+            const row = payload.new || payload.old;
+            if (!row) return;
+            const isMyBlock = 
+              String(row.blocker) === String(currentUser.id) &&
+              String(row.blocked) === String(recipientId);
+            const isTheirBlock = 
+              String(row.blocker) === String(recipientId) &&
+              String(row.blocked) === String(currentUser.id);
+            if (isMyBlock) {
+              setIsBlocked(payload.eventType === 'INSERT');
+            }
+            if (isTheirBlock) {
+              setBlockedByOther(payload.eventType === 'INSERT');
+            }
+          }
+        )
+        .subscribe();
+      return () => supabase.removeChannel(channel);
+    }, [currentUser?.id, recipientId]);
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 2. REAL-TIME DND SYNC
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    useEffect(() => {
+      if (!recipientId) return;
+      const channel = supabase
+        .channel(`dnd_rt_${recipientId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'profiles',
+            filter: `id=eq.${recipientId}`,
+          },
+          (payload) => {
+            if (payload?.new?.do_not_disturb !== undefined) {
+              setOtherUserDND(!!payload.new.do_not_disturb);
+            }
+          }
+        )
+        .subscribe();
+      return () => supabase.removeChannel(channel);
+    }, [recipientId]);
   const { threadId: routeParamId } = useParams();
 
   const navigate = useNavigate();
@@ -702,6 +761,15 @@ export default function ChatPage() {
           } else {
             setMessages([]);
           }
+          // Clear unread count for this thread
+          if (threadData?.id && currentUser?.id) {
+            await supabase
+              .from('unread_messages')
+              .update({ unread_count: 0 })
+              .eq('user_id', currentUser.id)
+              .eq('thread_id', threadData.id);
+            await markMessagesAsSeen(threadData.id, currentUser.id);
+          }
           // Load other user profile
           const { data: otherUserProfile } = await supabase
             .from('profiles')
@@ -872,14 +940,49 @@ export default function ChatPage() {
 
   // 9. handleSendMessage
   const handleSendMessage = async () => {
-    if (!inputValue.trim() || isSending || !thread?.id) return;
+    const trimmedInput = inputValue.trim();
+    if (!trimmedInput || isSending || !thread?.id || !currentUser?.id) return;
+    // Block checks
+    if (isBlocked) {
+      toast({
+        title: 'Cannot send',
+        description: 'You have blocked this user.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (blockedByOther) {
+      toast({
+        title: 'Cannot send',
+        description: 'You cannot message this person right now.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (otherUserDND) {
+      toast({
+        title: 'Cannot send',
+        description: `${otherUser?.name} is not accepting messages right now.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+    // existing locked check...
+    if (!isChatUnlocked) {
+      toast({
+        title: 'Chat is locked',
+        description: 'You cannot send messages while the chat is locked.',
+        variant: 'destructive',
+      });
+      return;
+    }
     setIsSending(true);
     try {
       const { error } = await supabase.from('messages').insert([
         {
           thread_id: thread.id,
           sender_id: currentUser.id,
-          body: inputValue.trim(),
+          body: trimmedInput,
         },
       ]);
       if (error) throw error;
@@ -1165,8 +1268,11 @@ export default function ChatPage() {
           </div>
         )}
         {blockedByOther && (
-          <div className="px-4 py-3 bg-red-50 border-t border-red-100 flex items-center justify-between">
-            <span className="text-sm text-red-600 font-medium">🚫 You can't message this person</span>
+          <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 flex items-center gap-2">
+            <span className="text-lg">💬</span>
+            <span className="text-sm text-slate-500 font-medium">
+              You cannot send messages to this person right now.
+            </span>
           </div>
         )}
         {otherUserDND && (
