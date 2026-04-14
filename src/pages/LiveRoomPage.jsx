@@ -6267,6 +6267,30 @@ useEffect(() => {
         }
       });
 
+      ch.on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'live_room_gift_events',
+          filter: `room_id=eq.${roomId}`,
+        },
+        async (payload) => {
+          try {
+            if (!payload?.new) return;
+            const event = payload.new;
+            console.log('[GIFT_EVENT_RT]', event);
+            // handleIncomingRoomGiftEvent updates mic/seat coin totals and PK scores.
+            // Pass shouldAffectPkDb=false here because the gift broadcast (event: "gift")
+            // already handled the DB write; this listener only fills the gap for gifts
+            // sent via the new GiftPanel that don't emit that broadcast.
+            await handleIncomingRoomGiftEvent(event.id, 0, null, false);
+          } catch (err) {
+            console.error('[GIFT_EVENT_RT_ERROR]', err);
+          }
+        }
+      );
+
       ch.on("broadcast", { event: "pk_score_updated" }, async ({ payload }) => {
         try {
           if (payload?.room_id && String(payload.room_id) === String(roomId)) {
