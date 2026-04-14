@@ -58,6 +58,7 @@ import {
   Power
 } from "lucide-react";
 
+import { GLOBAL_MESSAGE_TEMPLATES, GLOBAL_MESSAGE_COST } from "@/lib/globalMessageTemplates";
 import LeaderboardModal from "@/components/LeaderboardModal";
 import RoomHeader from "@/components/room/RoomHeader";
 import RoomSeats from "@/components/room/RoomSeats";
@@ -257,6 +258,10 @@ const SPARKLE_CSS = `
   0%,100% { transform: translateY(0) rotate(-3deg); }
   50%     { transform: translateY(-10px) rotate(3deg); }
 }
+@keyframes marquee {
+  0%   { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
 `;
 
 function getExt(file) {
@@ -443,12 +448,58 @@ export default function LiveRoomPage() {
   const [inRoomChatSending, setInRoomChatSending] = useState(false);
   const [inRoomChatLoading, setInRoomChatLoading] = useState(false);
 
+  const [isGlobalMsgMode, setIsGlobalMsgMode] = useState(false);
+  const [globalMsgText, setGlobalMsgText] = useState('');
+  const [sendingGlobalMsg, setSendingGlobalMsg] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [activeGlobalMsg, setActiveGlobalMsg] = useState(null);
+  const [showRoomJoinConfirm, setShowRoomJoinConfirm] = useState(false);
+  const [globalMsgCooldown, setGlobalMsgCooldown] = useState(false);
+
   useEffect(() => {
     console.log('[MINI_CHAT_STATE_CHANGE]', {
       inRoomChatOpen,
       inRoomChatThreadId,
     });
   }, [inRoomChatOpen, inRoomChatThreadId]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('global_messages_rt')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'global_messages' },
+        async (payload) => {
+          if (!payload?.new) return;
+          const msg = payload.new;
+
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('name, avatar_url')
+            .eq('id', msg.user_id)
+            .maybeSingle();
+
+          setActiveGlobalMsg({
+            id: msg.id,
+            message: msg.message,
+            user_id: msg.user_id,
+            room_id: msg.room_id,
+            senderName: profile?.name || 'User',
+            senderAvatar: profile?.avatar_url || null,
+            created_at: msg.created_at,
+          });
+
+          setTimeout(() => {
+            setActiveGlobalMsg(prev =>
+              prev?.id === msg.id ? null : prev
+            );
+          }, 60000);
+        }
+      )
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
+  }, []);
 
   const fetchRoomFollowState = async () => {
     if (!roomId) return;
@@ -1187,6 +1238,63 @@ useEffect(() => {
   const toastSuccess = (msg, ms = 1400) => {
     setSuccessMsg(msg);
     setTimeout(() => mountedRef.current && setSuccessMsg(""), ms);
+  };
+
+  const sendGlobalMessage = async () => {
+    if (!globalMsgText.trim() || !user?.id || !roomId) return;
+    if (globalMsgText.trim().length > 100) {
+      toast('Message too long. Max 100 characters', 1400);
+      return;
+    }
+    if (globalMsgCooldown) {
+      toast('Please wait before sending another global message', 1400);
+      return;
+    }
+
+    setSendingGlobalMsg(true);
+    try {
+      const { data: wallet } = await supabase
+        .from('wallets')
+        .select('coins')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (!wallet || wallet.coins < GLOBAL_MESSAGE_COST) {
+        toast('Not enough coins. Need 100 coins.', 1400);
+        return;
+      }
+
+      const { error: deductError } = await supabase
+        .from('wallets')
+        .update({ coins: wallet.coins - GLOBAL_MESSAGE_COST })
+        .eq('user_id', user.id);
+
+      if (deductError) throw deductError;
+
+      const { error: insertError } = await supabase
+        .from('global_messages')
+        .insert({
+          user_id: user.id,
+          room_id: roomId,
+          message: globalMsgText.trim(),
+          coins_spent: GLOBAL_MESSAGE_COST,
+        });
+
+      if (insertError) throw insertError;
+
+      setGlobalMsgText('');
+      setIsGlobalMsgMode(false);
+      setShowTemplates(false);
+      toastSuccess('🌍 Global message sent!', 1400);
+
+      setGlobalMsgCooldown(true);
+      setTimeout(() => setGlobalMsgCooldown(false), 5 * 60 * 1000);
+
+    } catch (err) {
+      toast(err.message || 'Failed to send global message', 1400);
+    } finally {
+      setSendingGlobalMsg(false);
+    }
   };
 
   const showEmojiEffect = (userId, emojiSrc, isOnSeat, emojiFlip, emojiAnimation) => {
@@ -7536,6 +7644,8 @@ useEffect(() => {
         myIncomingInvites={myIncomingInvites}
         handleAcceptMyInvite={handleAcceptMyInvite}
         handleRejectMyInvite={handleRejectMyInvite}
+        activeGlobalMsg={activeGlobalMsg}
+        onGlobalMsgClick={() => setShowRoomJoinConfirm(true)}
       />
 
       {showMusicPanel && canModerate && (
@@ -8079,6 +8189,15 @@ useEffect(() => {
             setShowFilterPanel={setShowFilterPanel}
             changeVoiceFilter={changeVoiceFilter}
             isOnSeat={effectiveSeats.some(s => s.user_id && String(s.user_id) === String(user?.id))}
+            isGlobalMsgMode={isGlobalMsgMode}
+            setIsGlobalMsgMode={setIsGlobalMsgMode}
+            globalMsgText={globalMsgText}
+            setGlobalMsgText={setGlobalMsgText}
+            sendingGlobalMsg={sendingGlobalMsg}
+            sendGlobalMessage={sendGlobalMessage}
+            showTemplates={showTemplates}
+            setShowTemplates={setShowTemplates}
+            globalMsgCooldown={globalMsgCooldown}
           />
         </div>
 
@@ -8300,6 +8419,52 @@ useEffect(() => {
         </div>
       )}
       </div>
+
+      {showRoomJoinConfirm && activeGlobalMsg && (
+        <div className="fixed inset-0 z-[95] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowRoomJoinConfirm(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl
+            p-6 mx-4 max-w-sm w-full">
+            <div className="text-center">
+              <img
+                src={activeGlobalMsg.senderAvatar || FALLBACK_AVATAR}
+                alt={activeGlobalMsg.senderName}
+                className="w-16 h-16 rounded-full object-cover
+                  mx-auto mb-3 border-2 border-amber-400"
+              />
+              <h3 className="text-lg font-bold text-gray-900 mb-1">
+                {activeGlobalMsg.senderName}
+              </h3>
+              <p className="text-sm text-gray-600 mb-4 italic">
+                "{activeGlobalMsg.message}"
+              </p>
+              <p className="text-sm text-gray-500 mb-6">
+                Would you like to visit their room?
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowRoomJoinConfirm(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-gray-200
+                    text-gray-700 font-semibold hover:bg-gray-50 transition"
+                >
+                  Stay Here
+                </button>
+                <button
+                  onClick={() => {
+                    setShowRoomJoinConfirm(false);
+                    navigate(`/rooms/${activeGlobalMsg.room_id}`);
+                  }}
+                  className="flex-1 py-2.5 rounded-xl bg-amber-500
+                    text-white font-semibold hover:bg-amber-600 transition"
+                >
+                  Visit Room 🚀
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

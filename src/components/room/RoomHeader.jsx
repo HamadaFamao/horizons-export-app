@@ -192,6 +192,8 @@ export default function RoomHeader({
   myIncomingInvites,
   handleAcceptMyInvite,
   handleRejectMyInvite,
+  activeGlobalMsg,
+  onGlobalMsgClick,
 }) {
   const [showRoomCard, setShowRoomCard] = useState(false);
 
@@ -392,6 +394,39 @@ export default function RoomHeader({
           </div>
         ) : null}
       </div>
+
+      {activeGlobalMsg && (
+        <button
+          type="button"
+          onClick={onGlobalMsgClick}
+          className="w-full flex items-center gap-2 px-3 py-1.5
+            bg-gradient-to-r from-amber-500/20 to-yellow-500/10
+            border-b border-amber-500/20 overflow-hidden"
+        >
+          <img
+            src={activeGlobalMsg.senderAvatar || FALLBACK_AVATAR}
+            alt={activeGlobalMsg.senderName}
+            className="w-6 h-6 rounded-full object-cover shrink-0
+              border border-amber-400/40"
+          />
+
+          <span className="text-sm shrink-0">🌍</span>
+
+          <div className="flex-1 overflow-hidden">
+            <p className="text-xs text-amber-200 font-medium
+              whitespace-nowrap animate-[marquee_15s_linear_infinite]">
+              <span className="text-amber-400 font-bold mr-1">
+                {activeGlobalMsg.senderName}:
+              </span>
+              {activeGlobalMsg.message}
+            </p>
+          </div>
+
+          <span className="text-[10px] text-amber-400/60 shrink-0">
+            Tap →
+          </span>
+        </button>
+      )}
     </>
   );
 }

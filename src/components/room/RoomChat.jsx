@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Send, Mic, MicOff, Gift } from "lucide-react";
 import { ROOM_EMOJIS } from "@/lib/roomEmojis";
 import { VOICE_FILTERS } from "@/lib/voiceFilters";
+import { GLOBAL_MESSAGE_TEMPLATES } from "@/lib/globalMessageTemplates";
 
 const FALLBACK_AVATAR =
   "data:image/svg+xml;utf8," +
@@ -81,6 +82,15 @@ export default function RoomChat({
   setShowFilterPanel,
   changeVoiceFilter,
   isOnSeat,
+  isGlobalMsgMode,
+  setIsGlobalMsgMode,
+  globalMsgText,
+  setGlobalMsgText,
+  sendingGlobalMsg,
+  sendGlobalMessage,
+  showTemplates,
+  setShowTemplates,
+  globalMsgCooldown,
 }) {
   const [footerHeight, setFooterHeight] = React.useState(0);
   const [userScrolledUp, setUserScrolledUp] = React.useState(false);
@@ -698,6 +708,112 @@ export default function RoomChat({
             🔇 You are muted by room moderation.
           </div>
         ) : null}
+          {isGlobalMsgMode ? (
+            <div className="relative">
+              {showTemplates && (
+                <div className="absolute bottom-full left-0 right-0 mb-2 z-50
+                  bg-slate-900/95 backdrop-blur-md rounded-2xl shadow-2xl
+                  border border-amber-500/20 overflow-hidden">
+                  <div className="px-3 py-2 border-b border-white/10">
+                    <span className="text-xs text-amber-400 font-bold">
+                      💡 Quick Templates
+                    </span>
+                  </div>
+                  <div className="p-2 space-y-1 max-h-[200px] overflow-y-auto">
+                    {GLOBAL_MESSAGE_TEMPLATES.map(template => (
+                      <button
+                        key={template.id}
+                        type="button"
+                        onClick={() => {
+                          setGlobalMsgText(template.text);
+                          setShowTemplates(false);
+                        }}
+                        className="w-full text-left px-3 py-2 rounded-xl
+                          hover:bg-white/10 transition text-sm text-white/80"
+                      >
+                        {template.text}
+                        <span className="text-white/40 text-xs ml-1">
+                          {template.hint}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 px-3 py-2
+                bg-amber-500/10 border border-amber-500/30 rounded-2xl">
+
+                <div className="shrink-0 flex items-center gap-1
+                  bg-amber-500/20 rounded-full px-2 py-1">
+                  <span className="text-xs font-bold text-amber-300">
+                    🪙 100
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowTemplates(prev => !prev)}
+                  className="shrink-0 text-amber-400 hover:text-amber-300
+                    transition text-lg"
+                  title="Templates"
+                >
+                  📝
+                </button>
+
+                <input
+                  type="text"
+                  value={globalMsgText}
+                  onChange={e => {
+                    if (e.target.value.length <= 100)
+                      setGlobalMsgText(e.target.value);
+                  }}
+                  placeholder="Write your global message..."
+                  className="flex-1 bg-transparent text-white text-sm
+                    outline-none placeholder:text-amber-300/50"
+                  maxLength={100}
+                />
+
+                <span className="shrink-0 text-[10px] text-amber-400/60">
+                  {globalMsgText.length}/100
+                </span>
+
+                <button
+                  type="button"
+                  onClick={sendGlobalMessage}
+                  disabled={!globalMsgText.trim() || sendingGlobalMsg || globalMsgCooldown}
+                  className="shrink-0 w-8 h-8 rounded-full bg-amber-500
+                    text-white flex items-center justify-center
+                    disabled:opacity-40 transition active:scale-95
+                    hover:bg-amber-400"
+                >
+                  {sendingGlobalMsg
+                    ? <Loader2 className="w-3 h-3 animate-spin" />
+                    : '→'
+                  }
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsGlobalMsgMode(false);
+                    setGlobalMsgText('');
+                    setShowTemplates(false);
+                  }}
+                  className="shrink-0 text-white/40 hover:text-white/70
+                    text-sm transition"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {globalMsgCooldown && (
+                <p className="text-[10px] text-amber-400/60 text-center mt-1">
+                  ⏳ Please wait 5 minutes before sending another global message
+                </p>
+              )}
+            </div>
+          ) : (
           <div className="flex items-center gap-2">
             {((effectiveSeats || []).some((s) => s.user_id && String(s.user_id) === String(user?.id))) ? (
               <button
@@ -804,6 +920,24 @@ export default function RoomChat({
               <Gift className="w-5 h-5" />
             </button>
 
+            <button
+              type="button"
+              onClick={() => {
+                setIsGlobalMsgMode(true);
+                setShowTemplates(false);
+                setGlobalMsgText('');
+              }}
+              className={`shrink-0 w-10 h-10 rounded-full flex items-center
+                justify-center text-lg transition active:scale-95 ${
+                globalMsgCooldown
+                  ? 'bg-white/10 backdrop-blur-sm border border-white/20 opacity-50'
+                  : 'bg-white/10 backdrop-blur-sm border border-white/20'
+              }`}
+              title="Global Message"
+            >
+              🌍
+            </button>
+
             <Button
               onClick={sendText}
               disabled={!isJoinedToRoom || sending || !text.trim() || myMutedActive}
@@ -817,6 +951,7 @@ export default function RoomChat({
               <span className="hidden sm:inline">Send</span>
             </Button>
           </div>
+          )}
           </>
         )}
         </div>
