@@ -6151,6 +6151,7 @@ useEffect(() => {
 
       await cleanupChannel();
 
+      console.log('[CHANNEL_SETUP]', roomId);
       const ch = supabase.channel(`lr_${roomId}`, {
         config: {
           broadcast: { self: true },
