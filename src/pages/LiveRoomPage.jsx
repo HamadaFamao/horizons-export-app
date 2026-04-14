@@ -6232,9 +6232,9 @@ useEffect(() => {
           setGiftOverlay({
             senderName: payload.sender_name,
             senderAvatar: payload.sender_avatar,
-            receiverId: payload.receiver_id,
             receiverName: payload.receiver_name || 'Everyone',
-            isToAll: payload.is_to_all,
+            receiverAvatar: payload.receiver_avatar || null,
+            isToAll: !!payload.is_to_all,
             giftName: payload.gift_name,
             giftIcon: payload.gift_icon,
             quantity: payload.quantity,
@@ -8566,37 +8566,96 @@ useEffect(() => {
       </div>
 
       {giftOverlay && (
-        <div className="absolute top-1/3 left-0 right-0 flex items-center justify-center z-[70] pointer-events-none">
-          <div className="flex flex-col items-center gap-2 gift-pop">
-            <div className="w-24 h-24 drop-shadow-2xl">
-              <img
-                src={giftOverlay.giftIcon}
-                alt={giftOverlay.giftName}
-                className="w-full h-full object-contain"
-              />
-            </div>
-            <div className="bg-black/60 backdrop-blur-sm rounded-full px-4 py-1.5 flex items-center gap-2">
-              <img
-                src={giftOverlay.senderAvatar || FALLBACK_AVATAR}
-                alt={giftOverlay.senderName}
-                className="w-5 h-5 rounded-full object-cover"
-              />
-              <span className="text-white text-xs font-bold">{giftOverlay.senderName}</span>
-              <span className="text-white/60 text-xs">sent</span>
-              <span className="text-amber-300 text-xs font-bold">{giftOverlay.giftName}</span>
-              {giftOverlay.quantity > 1 && (
-                <span className="text-yellow-400 text-xs font-black">×{giftOverlay.quantity}</span>
-              )}
-            </div>
-            <div className="text-yellow-400 text-xs font-bold">
-              🪙 {giftOverlay.coinsSpent?.toLocaleString()}
-            </div>
-            <div className="bg-black/60 backdrop-blur-sm
-     rounded-full px-4 py-1.5 flex items-center gap-2 mt-1">
-              <span className="text-white/60 text-xs">to</span>
-              <span className="text-white text-xs font-bold">
-                {giftOverlay.isToAll ? '🌍 Everyone' : giftOverlay.receiverName}
-              </span>
+        <div className="absolute top-1/3 left-0 right-0
+          flex items-center justify-center z-[70]
+          pointer-events-none px-4">
+          <div className="flex flex-col items-center gap-3
+            animate-[giftPop_0.4s_ease-out_forwards]">
+
+            {/* Sender → Gift → Receiver */}
+            <div className="flex items-center gap-3">
+
+              {/* Sender */}
+              <div className="flex flex-col items-center gap-1">
+                <div className="relative">
+                  <img
+                    src={giftOverlay.senderAvatar || FALLBACK_AVATAR}
+                    alt={giftOverlay.senderName}
+                    className="w-12 h-12 rounded-full object-cover
+                      border-2 border-amber-400 shadow-lg
+                      shadow-amber-500/30"
+                  />
+                </div>
+                <span className="text-white text-[11px] font-bold
+                  drop-shadow-lg max-w-[60px] truncate text-center">
+                  {giftOverlay.senderName}
+                </span>
+              </div>
+
+              {/* Arrow + Gift */}
+              <div className="flex flex-col items-center gap-1">
+                {/* Gift image */}
+                <div className="w-20 h-20 drop-shadow-2xl
+                  filter drop-shadow-[0_0_12px_rgba(245,158,11,0.6)]">
+                  <img
+                    src={giftOverlay.giftIcon}
+                    alt={giftOverlay.giftName}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                {/* Gift name + quantity */}
+                <div className="bg-black/70 backdrop-blur-sm
+                  rounded-full px-3 py-1 flex items-center gap-1.5">
+                  <span className="text-amber-300 text-xs font-black">
+                    {giftOverlay.giftName}
+                  </span>
+                  {giftOverlay.quantity > 1 && (
+                    <span className="text-yellow-400 text-xs font-black">
+                      ×{giftOverlay.quantity}
+                    </span>
+                  )}
+                </div>
+                {/* Coins */}
+                <span className="text-yellow-400 text-[10px] font-bold">
+                  🪙 {giftOverlay.coinsSpent?.toLocaleString()}
+                </span>
+              </div>
+
+              {/* Arrow */}
+              <div className="text-amber-400 text-2xl font-black
+                drop-shadow-lg">
+                →
+              </div>
+
+              {/* Receiver */}
+              <div className="flex flex-col items-center gap-1">
+                <div className="relative">
+                  <img
+                    src={giftOverlay.isToAll
+                      ? null
+                      : (giftOverlay.receiverAvatar || FALLBACK_AVATAR)}
+                    alt={giftOverlay.receiverName}
+                    className="w-12 h-12 rounded-full object-cover
+                      border-2 border-rose-400 shadow-lg
+                      shadow-rose-500/30"
+                    onError={e => e.currentTarget.src = FALLBACK_AVATAR}
+                  />
+                  {giftOverlay.isToAll && (
+                    <div className="w-12 h-12 rounded-full
+                      bg-gradient-to-br from-rose-500 to-pink-600
+                      border-2 border-rose-400 shadow-lg
+                      flex items-center justify-center text-xl
+                      absolute inset-0">
+                      🌍
+                    </div>
+                  )}
+                </div>
+                <span className="text-white text-[11px] font-bold
+                  drop-shadow-lg max-w-[60px] truncate text-center">
+                  {giftOverlay.isToAll ? 'Everyone' : giftOverlay.receiverName}
+                </span>
+              </div>
+
             </div>
           </div>
         </div>
@@ -8633,10 +8692,11 @@ useEffect(() => {
                   const myParticipant = participantsMap[user.id] ||
                     activeParticipants.find(p => String(p.user_id) === String(user.id));
                   const isToAll = recipientMode === 'all';
+                  const receiverProfile = participantsMap?.[recipientId];
                   const receiverName = isToAll
                     ? 'Everyone'
-                    : participantsMap?.[recipientId]?.name ||
-                      participantsMap?.[recipientId]?.display_name ||
+                    : receiverProfile?.name ||
+                      receiverProfile?.display_name ||
                       'User';
                   await channelRef.current.send({
                     type: 'broadcast',
@@ -8648,6 +8708,7 @@ useEffect(() => {
                       sender_avatar: myParticipant?.avatar_url || null,
                       receiver_id: recipientId,
                       receiver_name: receiverName,
+                      receiver_avatar: receiverProfile?.avatar_url || null,
                       is_to_all: isToAll,
                       gift_id: gift.id,
                       gift_name: gift.name_en,
