@@ -392,6 +392,7 @@ export default function LiveRoomPage() {
   const inRoomMsgTimerRef = useRef(null);
   const inRoomChatChannelRef = useRef(null);
   const inRoomChatBottomRef = useRef(null);
+  const globalMsgTimerRef = useRef(null);
 
 
   // ==========================================
@@ -452,6 +453,7 @@ export default function LiveRoomPage() {
   const [globalMsgText, setGlobalMsgText] = useState('');
   const [sendingGlobalMsg, setSendingGlobalMsg] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [globalMsgQueue, setGlobalMsgQueue] = useState([]);
   const [activeGlobalMsg, setActiveGlobalMsg] = useState(null);
   const [showRoomJoinConfirm, setShowRoomJoinConfirm] = useState(false);
   const [globalMsgCooldown, setGlobalMsgCooldown] = useState(false);
@@ -462,6 +464,63 @@ export default function LiveRoomPage() {
       inRoomChatThreadId,
     });
   }, [inRoomChatOpen, inRoomChatThreadId]);
+
+  const processGlobalMsgQueue = useCallback(() => {
+    setGlobalMsgQueue(prev => {
+      if (prev.length === 0) {
+        setActiveGlobalMsg(null);
+        return prev;
+      }
+      const [next, ...rest] = prev;
+      setActiveGlobalMsg(next);
+
+      clearTimeout(globalMsgTimerRef.current);
+      globalMsgTimerRef.current = setTimeout(() => {
+        processGlobalMsgQueue();
+      }, 8000);
+
+      return rest;
+    });
+  }, []);
+
+  const fetchActiveGlobalMessage = useCallback(async () => {
+    const sixtySecsAgo = new Date(Date.now() - 60000).toISOString();
+
+    const { data } = await supabase
+      .from('global_messages')
+      .select('*')
+      .gte('created_at', sixtySecsAgo)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!data) return;
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('name, avatar_url')
+      .eq('id', data.user_id)
+      .maybeSingle();
+
+    const timeLeft = 60000 - (Date.now() - new Date(data.created_at).getTime());
+    if (timeLeft <= 0) return;
+
+    const notif = {
+      id: data.id,
+      message: data.message,
+      user_id: data.user_id,
+      room_id: data.room_id,
+      senderName: profile?.name || 'User',
+      senderAvatar: profile?.avatar_url || null,
+      created_at: data.created_at,
+    };
+
+    const repeatsLeft = Math.max(1, Math.floor(timeLeft / 8000));
+    const repeated = Array(repeatsLeft).fill(notif);
+
+    setGlobalMsgQueue(repeated);
+    setTimeout(() => processGlobalMsgQueue(), 100);
+  }, [processGlobalMsgQueue]);
 
   useEffect(() => {
     const channel = supabase
@@ -479,7 +538,7 @@ export default function LiveRoomPage() {
             .eq('id', msg.user_id)
             .maybeSingle();
 
-          setActiveGlobalMsg({
+          const notif = {
             id: msg.id,
             message: msg.message,
             user_id: msg.user_id,
@@ -487,19 +546,32 @@ export default function LiveRoomPage() {
             senderName: profile?.name || 'User',
             senderAvatar: profile?.avatar_url || null,
             created_at: msg.created_at,
-          });
+          };
 
-          setTimeout(() => {
-            setActiveGlobalMsg(prev =>
-              prev?.id === msg.id ? null : prev
-            );
-          }, 60000);
+          setGlobalMsgQueue(prev => {
+            const newRepeated = Array(10).fill(notif);
+            if (prev.length === 0) {
+              setTimeout(() => processGlobalMsgQueue(), 100);
+              return newRepeated;
+            }
+            // Interleave new message with existing queue
+            const merged = [];
+            const maxLen = Math.max(prev.length, newRepeated.length);
+            for (let i = 0; i < maxLen; i++) {
+              if (i < prev.length) merged.push(prev[i]);
+              if (i < newRepeated.length) merged.push(newRepeated[i]);
+            }
+            return merged;
+          });
         }
       )
       .subscribe();
 
-    return () => supabase.removeChannel(channel);
-  }, []);
+    return () => {
+      supabase.removeChannel(channel);
+      clearTimeout(globalMsgTimerRef.current);
+    };
+  }, [processGlobalMsgQueue]);
 
   const fetchRoomFollowState = async () => {
     if (!roomId) return;
@@ -3566,6 +3638,8 @@ console.log("MODERATORS MAP:", nextMap);
         processedRoomGiftIdsRef.current.clear();
 
         await refreshMicRequestsState();
+
+        fetchActiveGlobalMessage();
 
       } catch (innerErr) {
         console.error('[ROOM_NON_CORE_LOAD_ERROR]', innerErr);
