@@ -6594,6 +6594,11 @@ useEffect(() => {
             preview: String(lastMsg?.body || '').slice(0, 50),
           };
 
+
+          // Check if this thread is muted
+          const isMuted = localStorage.getItem(`muted_thread_${threadId}`) === 'true';
+          if (isMuted) return; // Don't show notification if muted
+
           setInRoomMsgNotif(notif);
           console.log('[MINI_CHAT_NOTIF_SET]', notif);
 
