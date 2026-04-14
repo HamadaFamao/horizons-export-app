@@ -1288,7 +1288,7 @@ useEffect(() => {
       toastSuccess('🌍 Global message sent!', 1400);
 
       setGlobalMsgCooldown(true);
-      setTimeout(() => setGlobalMsgCooldown(false), 5 * 60 * 1000);
+      setTimeout(() => setGlobalMsgCooldown(false), 60 * 1000);
 
     } catch (err) {
       toast(err.message || 'Failed to send global message', 1400);

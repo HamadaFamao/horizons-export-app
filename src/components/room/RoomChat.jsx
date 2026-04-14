@@ -744,18 +744,17 @@ export default function RoomChat({
               <div className="flex items-center gap-2 px-3 py-2
                 bg-amber-500/10 border border-amber-500/30 rounded-2xl">
 
-                <div className="shrink-0 flex items-center gap-1
-                  bg-amber-500/20 rounded-full px-2 py-1">
-                  <span className="text-xs font-bold text-amber-300">
-                    🪙 100
+                <div className="shrink-0 flex items-center gap-0.5
+                  bg-amber-500/20 rounded-full px-1.5 py-0.5">
+                  <span className="text-[10px] font-bold text-amber-300">
+                    🪙100
                   </span>
                 </div>
 
                 <button
                   type="button"
                   onClick={() => setShowTemplates(prev => !prev)}
-                  className="shrink-0 text-amber-400 hover:text-amber-300
-                    transition text-lg"
+                  className="shrink-0 text-amber-400 text-base"
                   title="Templates"
                 >
                   📝
@@ -768,21 +767,17 @@ export default function RoomChat({
                     if (e.target.value.length <= 100)
                       setGlobalMsgText(e.target.value);
                   }}
-                  placeholder="Write your global message..."
+                  placeholder="Global message (max 100 chars)..."
                   className="flex-1 bg-transparent text-white text-sm
                     outline-none placeholder:text-amber-300/50"
                   maxLength={100}
                 />
 
-                <span className="shrink-0 text-[10px] text-amber-400/60">
-                  {globalMsgText.length}/100
-                </span>
-
                 <button
                   type="button"
                   onClick={sendGlobalMessage}
                   disabled={!globalMsgText.trim() || sendingGlobalMsg || globalMsgCooldown}
-                  className="shrink-0 w-8 h-8 rounded-full bg-amber-500
+                  className="shrink-0 w-7 h-7 rounded-full bg-amber-500
                     text-white flex items-center justify-center
                     disabled:opacity-40 transition active:scale-95
                     hover:bg-amber-400"
@@ -800,8 +795,8 @@ export default function RoomChat({
                     setGlobalMsgText('');
                     setShowTemplates(false);
                   }}
-                  className="shrink-0 text-white/40 hover:text-white/70
-                    text-sm transition"
+                  className="shrink-0 text-white/50 hover:text-white/80
+                    text-xs font-bold px-1"
                 >
                   ✕
                 </button>
@@ -809,7 +804,7 @@ export default function RoomChat({
 
               {globalMsgCooldown && (
                 <p className="text-[10px] text-amber-400/60 text-center mt-1">
-                  ⏳ Please wait 5 minutes before sending another global message
+                  ⏳ Please wait until current message expires before sending again
                 </p>
               )}
             </div>

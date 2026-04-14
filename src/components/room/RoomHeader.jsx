@@ -413,9 +413,9 @@ export default function RoomHeader({
           <span className="text-sm shrink-0">🌍</span>
 
           <div className="flex-1 overflow-hidden">
-            <p className="text-xs text-amber-200 font-medium
+            <p className="text-sm text-amber-200 font-medium
               whitespace-nowrap animate-[marquee_15s_linear_infinite]">
-              <span className="text-amber-400 font-bold mr-1">
+              <span className="text-sm text-amber-400 font-bold mr-1">
                 {activeGlobalMsg.senderName}:
               </span>
               {activeGlobalMsg.message}
