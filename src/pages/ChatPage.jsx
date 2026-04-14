@@ -401,9 +401,14 @@ export default function ChatPage() {
   useLastSeenUpdate(currentUser?.id);
 
   // State
+  // --- Declare critical state first for hoisting safety ---
   const [thread, setThread] = useState(null);
   const [messages, setMessages] = useState([]);
   const [otherUser, setOtherUser] = useState(null);
+  const [recipientId, setRecipientId] = useState(null);
+  const [userRole, setUserRole] = useState(null);
+  const [loading, setLoading] = useState(true);
+  // --- Other state ---
   const [otherUserLastSeen, setOtherUserLastSeen] = useState(null);
   const [inputValue, setInputValue] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -411,10 +416,7 @@ export default function ChatPage() {
   const [showGiftModal, setShowGiftModal] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [wallet, setWallet] = useState(null);
-  const [userRole, setUserRole] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [recipientId, setRecipientId] = useState(null);
   const [emojiBurst, setEmojiBurst] = useState(null);
   const [otherUserTyping, setOtherUserTyping] = useState(false);
 
