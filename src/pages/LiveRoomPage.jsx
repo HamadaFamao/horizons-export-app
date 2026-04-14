@@ -6233,6 +6233,8 @@ useEffect(() => {
             senderName: payload.sender_name,
             senderAvatar: payload.sender_avatar,
             receiverId: payload.receiver_id,
+            receiverName: payload.receiver_name || 'Everyone',
+            isToAll: payload.is_to_all,
             giftName: payload.gift_name,
             giftIcon: payload.gift_icon,
             quantity: payload.quantity,
@@ -8588,6 +8590,13 @@ useEffect(() => {
             </div>
             <div className="text-yellow-400 text-xs font-bold">
               🪙 {giftOverlay.coinsSpent?.toLocaleString()}
+            </div>
+            <div className="bg-black/60 backdrop-blur-sm
+     rounded-full px-4 py-1.5 flex items-center gap-2 mt-1">
+              <span className="text-white/60 text-xs">to</span>
+              <span className="text-white text-xs font-bold">
+                {giftOverlay.isToAll ? '🌍 Everyone' : giftOverlay.receiverName}
+              </span>
             </div>
           </div>
         </div>
