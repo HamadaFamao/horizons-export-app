@@ -33,6 +33,17 @@ export default function GiftPanel({
   const [showQuantityPicker, setShowQuantityPicker] = useState(false);
   const [customQty, setCustomQty] = useState('');
 
+  // Repeat last gift
+  const [lastSentGift, setLastSentGift] = useState(null);
+  const [showRepeatBtn, setShowRepeatBtn] = useState(false);
+  const repeatHideTimerRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (repeatHideTimerRef.current) clearTimeout(repeatHideTimerRef.current);
+    };
+  }, []);
+
   useEffect(() => {
     const fetchGifts = async () => {
       setLoading(true);
@@ -125,7 +136,24 @@ export default function GiftPanel({
 
       if (error) throw error;
 
-      onGiftSent?.(selectedGift, quantity);
+      console.log('[GIFT_SEND_SUCCESS]', data);
+
+      // Pass full gift data to parent for broadcast + display
+      onGiftSent?.({
+        gift: selectedGift,
+        quantity,
+        recipientId,
+        result: data,
+      });
+
+      // Save for repeat
+      const sentGift = selectedGift;
+      const sentQty = quantity;
+      setLastSentGift({ gift: sentGift, quantity: sentQty });
+      setShowRepeatBtn(true);
+      if (repeatHideTimerRef.current) clearTimeout(repeatHideTimerRef.current);
+      repeatHideTimerRef.current = setTimeout(() => setShowRepeatBtn(false), 5000);
+
       setSelectedGift(null);
       setQuantity(1);
       setShowQuantityPicker(false);
@@ -424,6 +452,33 @@ export default function GiftPanel({
               'Send 🎁'
             )}
           </button>
+        </div>
+      )}
+
+      {/* Repeat last gift button (shown briefly after a successful send) */}
+      {showRepeatBtn && lastSentGift && !selectedGift && (
+        <div className="shrink-0 px-3 py-2 border-t border-white/10 bg-black/40 flex items-center gap-2">
+          <span className="text-[10px] text-white/40">Send again:</span>
+          <button
+            onClick={() => {
+              setSelectedGift(lastSentGift.gift);
+              setQuantity(lastSentGift.quantity);
+            }}
+            className="shrink-0 relative w-10 h-10 rounded-full bg-white/10 border border-white/20 flex items-center justify-center hover:bg-white/20 transition active:scale-95"
+          >
+            <img
+              src={lastSentGift.gift.animation_asset_url || lastSentGift.gift.icon_url}
+              alt="repeat"
+              className="w-6 h-6 object-contain"
+            />
+            <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-500 flex items-center justify-center text-[9px] font-black text-white">
+              ↺
+            </div>
+          </button>
+          <span className="text-[10px] text-white/50 truncate">
+            {lastSentGift.gift.name_en}
+            {lastSentGift.quantity > 1 && ` ×${lastSentGift.quantity}`}
+          </span>
         </div>
       )}
     </div>

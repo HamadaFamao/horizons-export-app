@@ -227,6 +227,14 @@ const SPARKLE_CSS = `
 .gift-bounce {
   animation: giftBounce 0.8s ease-in-out infinite;
 }
+@keyframes giftPop {
+  0%   { transform: scale(0.3) translateY(20px); opacity: 0; }
+  60%  { transform: scale(1.15) translateY(-5px); opacity: 1; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+.gift-pop {
+  animation: giftPop 0.4s ease-out forwards;
+}
 @keyframes emojiWiggle {
   0%,100% { transform: rotate(-8deg) scale(1); }
   25%     { transform: rotate(8deg) scale(1.1); }
@@ -997,6 +1005,8 @@ useEffect(() => {
   const [giftPanelOpen, setGiftPanelOpen] = useState(false);
   const [giftPanelTarget, setGiftPanelTarget] = useState(null);
   const [userWalletCoins, setUserWalletCoins] = useState(0);
+  const [giftOverlay, setGiftOverlay] = useState(null);
+  const giftOverlayTimerRef = useRef(null);
   const [giftTarget, setGiftTarget] = useState(null);
   const [giftTargetMode, setGiftTargetMode] = useState("all");
   const [giftQuantity, setGiftQuantity] = useState(1);
@@ -6214,6 +6224,29 @@ useEffect(() => {
         }
       });
 
+      ch.on("broadcast", { event: "gift_sent" }, ({ payload }) => {
+        try {
+          if (payload?.room_id && String(payload.room_id) !== String(roomId)) return;
+
+          const overlay = {
+            senderName: payload.sender_name,
+            senderAvatar: payload.sender_avatar,
+            receiverId: payload.receiver_id,
+            giftName: payload.gift_name,
+            giftIcon: payload.gift_icon,
+            quantity: payload.quantity,
+            coinsSpent: payload.coins_spent,
+          };
+
+          setGiftOverlay(overlay);
+
+          if (giftOverlayTimerRef.current) clearTimeout(giftOverlayTimerRef.current);
+          giftOverlayTimerRef.current = setTimeout(() => setGiftOverlay(null), 4000);
+        } catch (err) {
+          console.error("[GIFT_SENT_BROADCAST_ERROR]", err);
+        }
+      });
+
       ch.on("broadcast", { event: "pk_score_updated" }, async ({ payload }) => {
         try {
           if (payload?.room_id && String(payload.room_id) === String(roomId)) {
@@ -8512,6 +8545,36 @@ useEffect(() => {
       )}
       </div>
 
+      {giftOverlay && (
+        <div className="absolute top-1/3 left-0 right-0 flex items-center justify-center z-[70] pointer-events-none">
+          <div className="flex flex-col items-center gap-2 gift-pop">
+            <div className="w-24 h-24 drop-shadow-2xl">
+              <img
+                src={giftOverlay.giftIcon}
+                alt={giftOverlay.giftName}
+                className="w-full h-full object-contain"
+              />
+            </div>
+            <div className="bg-black/60 backdrop-blur-sm rounded-full px-4 py-1.5 flex items-center gap-2">
+              <img
+                src={giftOverlay.senderAvatar || FALLBACK_AVATAR}
+                alt={giftOverlay.senderName}
+                className="w-5 h-5 rounded-full object-cover"
+              />
+              <span className="text-white text-xs font-bold">{giftOverlay.senderName}</span>
+              <span className="text-white/60 text-xs">sent</span>
+              <span className="text-amber-300 text-xs font-bold">{giftOverlay.giftName}</span>
+              {giftOverlay.quantity > 1 && (
+                <span className="text-yellow-400 text-xs font-black">×{giftOverlay.quantity}</span>
+              )}
+            </div>
+            <div className="text-yellow-400 text-xs font-bold">
+              🪙 {giftOverlay.coinsSpent?.toLocaleString()}
+            </div>
+          </div>
+        </div>
+      )}
+
       {giftPanelOpen && (
         <div
           className="fixed inset-0 z-[80]"
@@ -8526,15 +8589,41 @@ useEffect(() => {
               room={room}
               targetUserId={giftPanelTarget || room?.owner_user_id}
               onClose={() => setGiftPanelOpen(false)}
-              onGiftSent={async (gift, qty) => {
+              onGiftSent={async ({ gift, quantity, recipientId, result }) => {
                 setGiftPanelOpen(false);
                 toastSuccess(`🎁 ${gift.name_en} sent!`, 1400);
-                const { data } = await supabase
+
+                // Refresh coins
+                const { data: walletData } = await supabase
                   .from('wallets')
                   .select('coins')
                   .eq('user_id', user.id)
                   .maybeSingle();
-                if (data) setUserWalletCoins(data.coins || 0);
+                if (walletData) setUserWalletCoins(walletData.coins || 0);
+
+                // Broadcast to room channel so all members see the gift overlay
+                if (channelRef.current) {
+                  const myParticipant = participantsMap[user.id] ||
+                    activeParticipants.find(p => String(p.user_id) === String(user.id));
+                  await channelRef.current.send({
+                    type: 'broadcast',
+                    event: 'gift_sent',
+                    payload: {
+                      room_id: roomId,
+                      sender_id: user.id,
+                      sender_name: myParticipant?.name || myParticipant?.display_name || 'User',
+                      sender_avatar: myParticipant?.avatar_url || null,
+                      receiver_id: recipientId,
+                      gift_id: gift.id,
+                      gift_name: gift.name_en,
+                      gift_icon: gift.animation_asset_url || gift.icon_url,
+                      gift_animation_type: gift.animation_type || null,
+                      quantity,
+                      coins_spent: gift.cost * quantity,
+                      ts: Date.now(),
+                    },
+                  });
+                }
               }}
               isVIP={isVipActive(currentUserProfile)}
               userCoins={userWalletCoins}
