@@ -61,21 +61,9 @@ export default function GiftPanel({
     fetchGifts();
   }, [bagGifts]);
 
-  // Resolve the actual recipient user_id from mode
-  const resolvedRecipientId = (() => {
-    if (recipientMode === 'specific') return specificRecipient;
-    if (recipientMode === 'mic') return seatedUsers?.[0]?.user_id || roomOwnerId || targetUserId;
-    // 'all' → room owner
-    return roomOwnerId || targetUserId;
-  })();
-
-  const canSend =
-    !!selectedGift &&
-    !!resolvedRecipientId &&
-    (recipientMode !== 'specific' || !!specificRecipient);
 
   const handleSend = async () => {
-    if (!selectedGift || !user?.id || sending || !resolvedRecipientId) return;
+    if (!selectedGift || !user?.id || sending) return;
 
     if (selectedGift.is_vip_only && !isVIP) {
       alert('This gift is for VIP members only');
@@ -88,22 +76,62 @@ export default function GiftPanel({
       return;
     }
 
+    // Determine recipient
+    let recipientId = null;
+    if (recipientMode === 'specific') {
+      if (!specificRecipient) {
+        alert('Please select a recipient');
+        return;
+      }
+      recipientId = specificRecipient;
+    } else if (recipientMode === 'mic') {
+      const firstSeated = seatedUsers?.[0];
+      if (!firstSeated) {
+        alert('No one is on mic');
+        return;
+      }
+      recipientId = firstSeated.user_id;
+    } else {
+      // 'all' — send to room owner as default
+      recipientId = roomOwnerId || targetUserId;
+    }
+
+    if (!recipientId) {
+      alert('No recipient found');
+      return;
+    }
+
     setSending(true);
     try {
-      const { data, error } = await supabase.rpc('send_gift_secure', {
-        p_sender_id: user.id,
-        p_recipient_id: resolvedRecipientId,
+      console.log('[GIFT_SEND]', {
+        p_room_id: room?.id,
+        p_receiver_id: recipientId,
         p_gift_id: selectedGift.id,
         p_quantity: quantity,
       });
+
+      const { data, error } = await supabase.rpc(
+        'frontend_send_live_room_gift',
+        {
+          p_room_id: room?.id,
+          p_receiver_id: recipientId,
+          p_gift_id: selectedGift.id,
+          p_message: null,
+          p_quantity: quantity,
+        }
+      );
+
+      console.log('[GIFT_SEND_RESULT]', data, error);
 
       if (error) throw error;
 
       onGiftSent?.(selectedGift, quantity);
       setSelectedGift(null);
       setQuantity(1);
+      setShowQuantityPicker(false);
     } catch (err) {
       console.error('[GIFT_SEND_ERROR]', err);
+      alert(err.message || 'Failed to send gift');
     } finally {
       setSending(false);
     }
@@ -387,7 +415,7 @@ export default function GiftPanel({
           {/* Send button */}
           <button
             onClick={handleSend}
-            disabled={sending || !canSend || userCoins < selectedGift.cost * quantity}
+            disabled={sending || userCoins < selectedGift.cost * quantity}
             className="shrink-0 px-5 py-2.5 rounded-full bg-gradient-to-r from-amber-500 to-yellow-400 text-white font-black text-sm shadow-lg disabled:opacity-40 transition active:scale-95 hover:shadow-[0_0_15px_rgba(245,158,11,0.5)]"
           >
             {sending ? (
