@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useMiniRoom } from "@/contexts/MiniRoomContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import GiftPanel from "@/components/GiftPanel";
+import GiftPanel from "@/components/room/GiftPanel";
 import { getLevelFromXp } from "@/lib/xpLevelUtils";
 import PeopleInRoomButton from "@/components/room/PeopleInRoomButton";
 import PeopleInRoomModal from "@/components/room/PeopleInRoomModal";
@@ -995,6 +995,7 @@ useEffect(() => {
 }, [roomId, leaderboardTab]);
   const [miniRoomMode, setMiniRoomMode] = useState(false);
   const [giftPanelOpen, setGiftPanelOpen] = useState(false);
+  const [giftPanelTarget, setGiftPanelTarget] = useState(null);
   const [giftTarget, setGiftTarget] = useState(null);
   const [giftTargetMode, setGiftTargetMode] = useState("all");
   const [giftQuantity, setGiftQuantity] = useState(1);
@@ -1700,6 +1701,7 @@ useEffect(() => {
   const openGiftPanelForUser = (targetUser) => {
     if (!targetUser?.id) return;
     setGiftTarget(targetUser);
+    setGiftPanelTarget(targetUser.id);
     setGiftSelectedRecipient({
       id: targetUser.id,
       name: targetUser.name || targetUser.username || targetUser.display_name || targetUser.full_name || "User",
@@ -1712,6 +1714,7 @@ useEffect(() => {
 
   const openGiftPanelForAll = () => {
     setGiftTarget(null);
+    setGiftPanelTarget(room?.owner_user_id || null);
     setGiftSelectedRecipient({
       id: 'all_users_virtual',
       user_id: 'all_users_virtual',
@@ -8386,20 +8389,6 @@ useEffect(() => {
         pkResultData={pkResultData}
         setPkResultOpen={setPkResultOpen}
         setPkResultData={setPkResultData}
-        giftPanelOpen={giftPanelOpen}
-        setGiftPanelOpen={setGiftPanelOpen}
-        giftTargetMode={giftTargetMode}
-        giftSelectedRecipient={giftSelectedRecipient}
-        giftTarget={giftTarget}
-        handleRoomGiftSend={handleRoomGiftSend}
-        giftQuantity={giftQuantity}
-        setGiftQuantity={setGiftQuantity}
-        giftPanelUsers={giftPanelUsers}
-        hostUser={hostUser}
-        resolveGiftTargetMode={resolveGiftTargetMode}
-        setGiftTargetMode={setGiftTargetMode}
-        setGiftSelectedRecipient={setGiftSelectedRecipient}
-        setGiftTarget={setGiftTarget}
         isUserCardOpen={isUserCardOpen}
         closeUserCard={closeUserCard}
         cardLoading={cardLoading}
@@ -8501,6 +8490,31 @@ useEffect(() => {
         </div>
       )}
       </div>
+
+      {giftPanelOpen && (
+        <div
+          className="fixed inset-0 z-[80]"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setGiftPanelOpen(false);
+          }}
+        >
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+          <div className="absolute inset-x-0 bottom-0">
+            <GiftPanel
+              user={user}
+              room={room}
+              targetUserId={giftPanelTarget || room?.owner_user_id}
+              onClose={() => setGiftPanelOpen(false)}
+              onGiftSent={(gift, qty) => {
+                setGiftPanelOpen(false);
+                toastSuccess(`🎁 ${gift.name_en} sent!`, 1400);
+              }}
+              isVIP={isVipActive(currentUserProfile)}
+              userCoins={currentUserProfile?.coins || 0}
+            />
+          </div>
+        </div>
+      )}
 
       {showRoomJoinConfirm && activeGlobalMsg && (
         <div className="fixed inset-0 z-[95] flex items-center justify-center">

@@ -4,7 +4,6 @@ import MicRequestsModal from "@/components/room/MicRequestsModal";
 import PkModal from "@/components/room/PkModal";
 import UserCardModal from "@/components/room/UserCardModal";
 import LeaderboardModal from "@/components/LeaderboardModal";
-import GiftPanel from "@/components/GiftPanel";
 import { Button } from "@/components/ui/button";
 import { Loader2, MicOff, CheckCircle2, RefreshCw, Settings, ImageIcon, X, Minimize2, Power, Share2 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
@@ -164,23 +163,8 @@ export default function RoomModals({
   setPkResultOpen,
   setPkResultData,
 
-  // GiftPanel
-  giftPanelOpen,
-  setGiftPanelOpen,
-  giftTargetMode,
-  giftSelectedRecipient,
-  giftTarget,
-  handleRoomGiftSend,
-  giftQuantity,
-  setGiftQuantity,
-  giftPanelUsers,
-  hostUser,
-  resolveGiftTargetMode,
-  setGiftTargetMode,
-  setGiftSelectedRecipient,
-  setGiftTarget,
-
   // UserCardModal
+  hostUser,
   isUserCardOpen,
   closeUserCard,
   cardLoading,
@@ -1722,59 +1706,6 @@ export default function RoomModals({
         );
       })()}
 
-      {giftPanelOpen && (
-        <div className="fixed inset-0 z-[100]">
-          <div
-            className="absolute inset-0 bg-black/30"
-            onClick={() => setGiftPanelOpen(false)}
-            aria-hidden="true"
-          />
-
-          <div className="absolute left-0 right-0 bottom-0 z-[101] bg-white rounded-t-3xl shadow-2xl border-t max-h-[85vh] sm:max-h-[80vh] overflow-hidden max-w-2xl mx-auto flex flex-col">
-            <div className="mx-auto mt-2 mb-2 h-1.5 w-12 rounded-full bg-gray-300 shrink-0" />
-
-            <div className="h-full flex flex-col overflow-hidden">
-              <GiftPanel
-                recipientId={
-                  giftTargetMode === "single"
-                    ? (giftSelectedRecipient?.id || null)
-                    : null
-                }
-                recipientName={
-                  giftSelectedRecipient?.name ||
-                  giftTarget?.name ||
-                  giftTarget?.username
-                }
-                onClose={() => setGiftPanelOpen(false)}
-                onGiftSent={handleRoomGiftSend}
-                targetMode={giftTargetMode}
-                quantity={giftQuantity}
-                setQuantity={setGiftQuantity}
-                roomUsers={giftPanelUsers}
-                hostUser={hostUser}
-                selectedRecipient={giftSelectedRecipient}
-                onRecipientChange={({ mode, user }) => {
-                  const nextMode = resolveGiftTargetMode(mode, user);
-                  setGiftTargetMode(nextMode);
-                  setGiftSelectedRecipient(user || null);
-                  setGiftTarget(nextMode === "single" ? user || null : null);
-                }}
-                onOpenUserCard={(userId, user) => {
-                  if (
-                    userId === "mic_users_virtual" ||
-                    userId === "all_users_virtual"
-                  ) {
-                    return;
-                  }
-
-                  setGiftPanelOpen(false);
-                  openUserCard(userId, user);
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      )}
 
       <UserCardModal
         open={isUserCardOpen}
