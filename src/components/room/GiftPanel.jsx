@@ -437,125 +437,137 @@ export default function GiftPanel({
 
       {/* Footer — always visible */}
       <div className="shrink-0 px-3 py-3 border-t border-white/10
-        bg-black/40 flex items-center gap-2 min-h-[64px]">
+        bg-black/40 min-h-[64px]">
 
-        {/* Selected gift info OR placeholder */}
-        {selectedGift ? (
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <img
-              src={selectedGift.animation_asset_url || selectedGift.icon_url}
-              alt={selectedGift.name_en}
-              className="w-10 h-10 object-contain shrink-0"
-            />
-            <div className="min-w-0 flex-1">
-              <p className="text-white text-xs font-bold truncate">{selectedGift.name_en}</p>
-              <p className="text-yellow-400 text-xs">
-                🪙 {(selectedGift.cost * quantity).toLocaleString()}
-              </p>
+        {/* Gift selected, no repeat pending — show gift info + quantity + send */}
+        {selectedGift && !showRepeatBtn && (
+          <div className="flex items-center gap-2">
+            {/* Gift info */}
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <img
+                src={selectedGift.animation_asset_url || selectedGift.icon_url}
+                alt={selectedGift.name_en}
+                className="w-10 h-10 object-contain shrink-0"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="text-white text-xs font-bold truncate">{selectedGift.name_en}</p>
+                <p className="text-yellow-400 text-xs">
+                  🪙 {(selectedGift.cost * quantity).toLocaleString()}
+                </p>
+              </div>
+            </div>
+
+            {/* Quantity + Send */}
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Quantity selector with preset popup */}
+              <div className="relative flex items-center gap-1">
+                <button
+                  onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                  className="w-7 h-7 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20"
+                >−</button>
+
+                <button
+                  onClick={() => setShowQuantityPicker(prev => !prev)}
+                  className="min-w-[40px] text-center text-white font-bold text-sm bg-white/10 rounded-lg px-2 py-1 hover:bg-white/20"
+                >
+                  {quantity}
+                  <span className="text-[9px] text-white/40 ml-0.5">▲</span>
+                </button>
+
+                <button
+                  onClick={() => setQuantity(q => Math.min(9999, q + 1))}
+                  className="w-7 h-7 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20"
+                >+</button>
+
+                {/* Quantity picker popup */}
+                {showQuantityPicker && (
+                  <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-slate-900 border border-white/10 rounded-2xl shadow-2xl p-3 z-50 w-[220px]">
+                    <div className="grid grid-cols-5 gap-1.5 mb-2">
+                      {QUANTITY_PRESETS.map(preset => (
+                        <button
+                          key={preset}
+                          onClick={() => { setQuantity(preset); setShowQuantityPicker(false); }}
+                          className={`py-1.5 rounded-lg text-[11px] font-bold transition ${
+                            quantity === preset
+                              ? 'bg-amber-500 text-white'
+                              : 'bg-white/10 text-white/70 hover:bg-white/20'
+                          }`}
+                        >
+                          {preset}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        value={customQty}
+                        onChange={e => setCustomQty(e.target.value)}
+                        placeholder="Custom..."
+                        min={1}
+                        max={9999}
+                        className="flex-1 bg-white/10 text-white text-xs rounded-lg px-2 py-1.5 outline-none placeholder:text-white/30"
+                      />
+                      <button
+                        onClick={() => {
+                          const val = parseInt(customQty);
+                          if (val > 0 && val <= 9999) {
+                            setQuantity(val);
+                            setCustomQty('');
+                            setShowQuantityPicker(false);
+                          }
+                        }}
+                        className="px-3 py-1.5 bg-amber-500 text-white text-xs font-bold rounded-lg hover:bg-amber-400"
+                      >OK</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Send button */}
+              <button
+                onClick={handleSend}
+                disabled={sending || userCoins < selectedGift.cost * quantity}
+                className="shrink-0 px-5 py-2.5 rounded-full bg-gradient-to-r from-amber-500 to-yellow-400 text-white font-black text-sm shadow-lg disabled:opacity-40 transition active:scale-95 hover:shadow-[0_0_15px_rgba(245,158,11,0.5)]"
+              >
+                {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Send 🎁'}
+              </button>
             </div>
           </div>
-        ) : (
-          <p className="flex-1 text-white/30 text-xs text-center">
-            Select a gift to send
-          </p>
         )}
 
-        {/* Quantity + Send — only when gift selected */}
-        {selectedGift && (
-          <div className="flex items-center gap-2 shrink-0">
-            {/* Quantity selector with preset popup */}
-            <div className="relative flex items-center gap-1">
-              <button
-                onClick={() => setQuantity(q => Math.max(1, q - 1))}
-                className="w-7 h-7 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20"
-              >−</button>
-
-              <button
-                onClick={() => setShowQuantityPicker(prev => !prev)}
-                className="min-w-[40px] text-center text-white font-bold text-sm bg-white/10 rounded-lg px-2 py-1 hover:bg-white/20"
-              >
-                {quantity}
-                <span className="text-[9px] text-white/40 ml-0.5">▲</span>
-              </button>
-
-              <button
-                onClick={() => setQuantity(q => Math.min(9999, q + 1))}
-                className="w-7 h-7 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20"
-              >+</button>
-
-              {/* Quantity picker popup */}
-              {showQuantityPicker && (
-                <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-slate-900 border border-white/10 rounded-2xl shadow-2xl p-3 z-50 w-[220px]">
-                  <div className="grid grid-cols-5 gap-1.5 mb-2">
-                    {QUANTITY_PRESETS.map(preset => (
-                      <button
-                        key={preset}
-                        onClick={() => { setQuantity(preset); setShowQuantityPicker(false); }}
-                        className={`py-1.5 rounded-lg text-[11px] font-bold transition ${
-                          quantity === preset
-                            ? 'bg-amber-500 text-white'
-                            : 'bg-white/10 text-white/70 hover:bg-white/20'
-                        }`}
-                      >
-                        {preset}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="flex gap-2">
-                    <input
-                      type="number"
-                      value={customQty}
-                      onChange={e => setCustomQty(e.target.value)}
-                      placeholder="Custom..."
-                      min={1}
-                      max={9999}
-                      className="flex-1 bg-white/10 text-white text-xs rounded-lg px-2 py-1.5 outline-none placeholder:text-white/30"
-                    />
-                    <button
-                      onClick={() => {
-                        const val = parseInt(customQty);
-                        if (val > 0 && val <= 9999) {
-                          setQuantity(val);
-                          setCustomQty('');
-                          setShowQuantityPicker(false);
-                        }
-                      }}
-                      className="px-3 py-1.5 bg-amber-500 text-white text-xs font-bold rounded-lg hover:bg-amber-400"
-                    >OK</button>
-                  </div>
-                </div>
-              )}
+        {/* After sending — show repeat UI prominently */}
+        {showRepeatBtn && lastSentGift && (
+          <div className="flex items-center gap-3">
+            <img
+              src={lastSentGift.gift.animation_asset_url || lastSentGift.gift.icon_url}
+              alt={lastSentGift.gift.name_en}
+              className="w-12 h-12 object-contain shrink-0"
+            />
+            <div className="flex-1 min-w-0">
+              <p className="text-white text-xs font-bold truncate">
+                {lastSentGift.gift.name_en}
+              </p>
+              <p className="text-white/40 text-[10px]">Tap to send again</p>
             </div>
-
-            {/* Send button */}
             <button
-              onClick={handleSend}
-              disabled={sending || userCoins < selectedGift.cost * quantity}
-              className="shrink-0 px-5 py-2.5 rounded-full bg-gradient-to-r from-amber-500 to-yellow-400 text-white font-black text-sm shadow-lg disabled:opacity-40 transition active:scale-95 hover:shadow-[0_0_15px_rgba(245,158,11,0.5)]"
+              type="button"
+              onClick={sendRepeat}
+              disabled={sending}
+              className="shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-r from-amber-500 to-yellow-400 text-white font-black text-sm shadow-lg hover:shadow-[0_0_15px_rgba(245,158,11,0.5)] transition active:scale-95 disabled:opacity-50"
             >
-              {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Send 🎁'}
+              {sending
+                ? <Loader2 className="w-4 h-4 animate-spin" />
+                : <>↺ Repeat ×{lastSentGift.qty}</>
+              }
             </button>
-
-            {/* Repeat button — right next to Send */}
-            {showRepeatBtn && lastSentGift && (
-              <button
-                type="button"
-                onClick={sendRepeat}
-                disabled={sending}
-                className="shrink-0 relative w-10 h-10 rounded-full bg-amber-500/20 border border-amber-500/60 flex items-center justify-center hover:bg-amber-500/40 transition active:scale-95"
-                title="Send again"
-              >
-                <img
-                  src={lastSentGift.gift.animation_asset_url || lastSentGift.gift.icon_url}
-                  alt="repeat"
-                  className="w-6 h-6 object-contain"
-                />
-                <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-500 flex items-center justify-center text-[9px] font-black text-white">
-                  ↺
-                </div>
-              </button>
-            )}
           </div>
+        )}
+
+        {/* No gift selected, no repeat — placeholder */}
+        {!selectedGift && !showRepeatBtn && (
+          <p className="text-white/30 text-xs text-center py-2">
+            Select a gift to send
+          </p>
         )}
       </div>
     </div>
