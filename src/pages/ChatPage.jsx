@@ -492,7 +492,8 @@ export default function ChatPage() {
     if (!currentUser?.id || !recipientId) return;
     const channel = supabase.channel(`blocks_rt_${currentUser.id}_${recipientId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'blocks' }, (payload) => {
-        const row = payload.new || payload.old;
+        // For DELETE, payload.new is empty — use payload.old
+        const row = payload.eventType === 'DELETE' ? payload.old : payload.new;
         if (!row) return;
         const isMyBlock = String(row.blocker) === String(currentUser.id) && String(row.blocked) === String(recipientId);
         const isTheirBlock = String(row.blocker) === String(recipientId) && String(row.blocked) === String(currentUser.id);
