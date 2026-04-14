@@ -794,7 +794,10 @@ export default function ChatPage() {
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <p className="font-bold text-gray-900 leading-tight">{otherUser.name}</p>
+                <p className="font-bold text-gray-900 leading-tight">
+                  {otherUser.name}
+                  {isMuted && <span className="ml-1 text-xs" title="Chat muted">🔕</span>}
+                </p>
                 {vipInfo.isVip && (
                   <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold bg-yellow-100 text-yellow-700">
                     {vipInfo.label} 👑
