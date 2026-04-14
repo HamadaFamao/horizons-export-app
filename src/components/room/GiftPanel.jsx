@@ -381,7 +381,8 @@ export default function GiftPanel({
       </div>
 
       {/* Footer — always visible */}
-      <div className="shrink-0 px-3 py-3 border-t border-white/10 bg-black/40 flex items-center gap-2">
+      <div className="shrink-0 px-3 py-3 border-t border-white/10
+        bg-black/40 flex items-center gap-2 min-h-[64px]">
 
         {/* Repeat button — appears after a successful send */}
         {showRepeatBtn && lastSentGift && (
@@ -405,26 +406,32 @@ export default function GiftPanel({
           </button>
         )}
 
-        {/* Selected gift info + quantity + send, or placeholder */}
+        {/* Selected gift info OR placeholder */}
         {selectedGift ? (
           <div className="flex items-center gap-2 flex-1 min-w-0">
-            {/* Gift preview */}
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              <img
-                src={selectedGift.animation_asset_url || selectedGift.icon_url}
-                alt={selectedGift.name_en}
-                className="w-10 h-10 object-contain shrink-0"
-              />
-              <div className="min-w-0">
-                <p className="text-white text-xs font-bold truncate">{selectedGift.name_en}</p>
-                <p className="text-yellow-400 text-xs">
-                  🪙 {(selectedGift.cost * quantity).toLocaleString()}
-                </p>
-              </div>
+            <img
+              src={selectedGift.animation_asset_url || selectedGift.icon_url}
+              alt={selectedGift.name_en}
+              className="w-10 h-10 object-contain shrink-0"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="text-white text-xs font-bold truncate">{selectedGift.name_en}</p>
+              <p className="text-yellow-400 text-xs">
+                🪙 {(selectedGift.cost * quantity).toLocaleString()}
+              </p>
             </div>
+          </div>
+        ) : (
+          <p className="flex-1 text-white/30 text-xs text-center">
+            {showRepeatBtn ? '' : 'Select a gift to send'}
+          </p>
+        )}
 
+        {/* Quantity + Send — only when gift selected */}
+        {selectedGift && (
+          <div className="flex items-center gap-2 shrink-0">
             {/* Quantity selector with preset popup */}
-            <div className="relative flex items-center gap-1 shrink-0">
+            <div className="relative flex items-center gap-1">
               <button
                 onClick={() => setQuantity(q => Math.max(1, q - 1))}
                 className="w-7 h-7 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20"
@@ -496,10 +503,6 @@ export default function GiftPanel({
               {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Send 🎁'}
             </button>
           </div>
-        ) : (
-          <p className="flex-1 text-white/30 text-xs text-center">
-            Select a gift to send
-          </p>
         )}
       </div>
     </div>
