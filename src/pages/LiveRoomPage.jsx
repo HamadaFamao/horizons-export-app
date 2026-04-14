@@ -484,6 +484,7 @@ export default function LiveRoomPage() {
   }, []);
 
   const fetchActiveGlobalMessage = useCallback(async () => {
+    console.log('[GLOBAL_MSG_FETCH]', { roomId });
     const sixtySecsAgo = new Date(Date.now() - 60000).toISOString();
 
     const { data } = await supabase
@@ -493,6 +494,8 @@ export default function LiveRoomPage() {
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
+
+    console.log('[GLOBAL_MSG_FETCH_RESULT]', data);
 
     if (!data) return;
 
@@ -3639,8 +3642,6 @@ console.log("MODERATORS MAP:", nextMap);
 
         await refreshMicRequestsState();
 
-        fetchActiveGlobalMessage();
-
       } catch (innerErr) {
         console.error('[ROOM_NON_CORE_LOAD_ERROR]', innerErr);
       }
@@ -5762,7 +5763,8 @@ useEffect(() => {
     mountedRef.current = true;
 
     const init = async () => {
-      fetchAll();
+      await fetchAll();
+      await fetchActiveGlobalMessage();
     };
 
     init();
