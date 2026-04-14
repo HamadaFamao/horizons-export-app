@@ -469,12 +469,13 @@ export default function LiveRoomPage() {
     setGlobalMsgQueue(prev => {
       if (prev.length === 0) {
         setActiveGlobalMsg(null);
+        globalMsgTimerRef.current = null;
         return prev;
       }
+
       const [next, ...rest] = prev;
       setActiveGlobalMsg(next);
 
-      clearTimeout(globalMsgTimerRef.current);
       globalMsgTimerRef.current = setTimeout(() => {
         processGlobalMsgQueue();
       }, 8000);
@@ -482,6 +483,26 @@ export default function LiveRoomPage() {
       return rest;
     });
   }, []);
+
+  const addToGlobalMsgQueue = useCallback((notif) => {
+    setGlobalMsgQueue(prev => {
+      const newRepeated = Array(10).fill({ ...notif });
+
+      if (prev.length === 0) {
+        setTimeout(() => processGlobalMsgQueue(), 100);
+        return newRepeated;
+      }
+
+      // Interleave new message with existing queue
+      const merged = [];
+      const maxLen = Math.max(prev.length, newRepeated.length);
+      for (let i = 0; i < maxLen; i++) {
+        if (i < prev.length) merged.push(prev[i]);
+        if (i < newRepeated.length) merged.push(newRepeated[i]);
+      }
+      return merged;
+    });
+  }, [processGlobalMsgQueue]);
 
   const fetchActiveGlobalMessage = useCallback(async () => {
     console.log('[GLOBAL_MSG_FETCH]', { roomId });
@@ -519,11 +540,10 @@ export default function LiveRoomPage() {
     };
 
     const repeatsLeft = Math.max(1, Math.floor(timeLeft / 8000));
-    const repeated = Array(repeatsLeft).fill(notif);
-
-    setGlobalMsgQueue(repeated);
-    setTimeout(() => processGlobalMsgQueue(), 100);
-  }, [processGlobalMsgQueue]);
+    for (let i = 0; i < repeatsLeft; i++) {
+      addToGlobalMsgQueue(notif);
+    }
+  }, [addToGlobalMsgQueue]);
 
   useEffect(() => {
     const channel = supabase
@@ -551,21 +571,7 @@ export default function LiveRoomPage() {
             created_at: msg.created_at,
           };
 
-          setGlobalMsgQueue(prev => {
-            const newRepeated = Array(10).fill(notif);
-            if (prev.length === 0) {
-              setTimeout(() => processGlobalMsgQueue(), 100);
-              return newRepeated;
-            }
-            // Interleave new message with existing queue
-            const merged = [];
-            const maxLen = Math.max(prev.length, newRepeated.length);
-            for (let i = 0; i < maxLen; i++) {
-              if (i < prev.length) merged.push(prev[i]);
-              if (i < newRepeated.length) merged.push(newRepeated[i]);
-            }
-            return merged;
-          });
+          addToGlobalMsgQueue(notif);
         }
       )
       .subscribe();
@@ -574,7 +580,7 @@ export default function LiveRoomPage() {
       supabase.removeChannel(channel);
       clearTimeout(globalMsgTimerRef.current);
     };
-  }, [processGlobalMsgQueue]);
+  }, [addToGlobalMsgQueue]);
 
   const fetchRoomFollowState = async () => {
     if (!roomId) return;
