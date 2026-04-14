@@ -996,6 +996,7 @@ useEffect(() => {
   const [miniRoomMode, setMiniRoomMode] = useState(false);
   const [giftPanelOpen, setGiftPanelOpen] = useState(false);
   const [giftPanelTarget, setGiftPanelTarget] = useState(null);
+  const [userWalletCoins, setUserWalletCoins] = useState(0);
   const [giftTarget, setGiftTarget] = useState(null);
   const [giftTargetMode, setGiftTargetMode] = useState("all");
   const [giftQuantity, setGiftQuantity] = useState(1);
@@ -1119,6 +1120,19 @@ useEffect(() => {
   const occupiedPkEligibleSeats = useMemo(() => {
     return (effectiveSeats || []).filter((s) => !!s.user_id && !!s.occupant);
   }, [effectiveSeats]);
+
+  const seatedUsers = useMemo(() => {
+    return (effectiveSeats || [])
+      .filter(s => s.user_id)
+      .map(s => {
+        const participant = participantsMap?.[s.user_id];
+        return {
+          user_id: s.user_id,
+          name: participant?.name || participant?.display_name || 'User',
+          avatar_url: participant?.avatar_url || null,
+        };
+      });
+  }, [effectiveSeats, participantsMap]);
 
   const micUsersForGift = useMemo(() => {
     const users = [];
@@ -3554,6 +3568,13 @@ console.log("MODERATORS MAP:", nextMap);
           .eq('id', user.id)
           .maybeSingle();
         setCurrentUserProfile(profileData || null);
+
+        const { data: walletData } = await supabase
+          .from('wallets')
+          .select('coins')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        if (walletData) setUserWalletCoins(walletData.coins || 0);
       } else {
         setCurrentUserProfile(null);
       }
@@ -8505,12 +8526,20 @@ useEffect(() => {
               room={room}
               targetUserId={giftPanelTarget || room?.owner_user_id}
               onClose={() => setGiftPanelOpen(false)}
-              onGiftSent={(gift, qty) => {
+              onGiftSent={async (gift, qty) => {
                 setGiftPanelOpen(false);
                 toastSuccess(`🎁 ${gift.name_en} sent!`, 1400);
+                const { data } = await supabase
+                  .from('wallets')
+                  .select('coins')
+                  .eq('user_id', user.id)
+                  .maybeSingle();
+                if (data) setUserWalletCoins(data.coins || 0);
               }}
               isVIP={isVipActive(currentUserProfile)}
-              userCoins={currentUserProfile?.coins || 0}
+              userCoins={userWalletCoins}
+              seatedUsers={seatedUsers}
+              roomOwnerId={room?.owner_user_id}
             />
           </div>
         </div>

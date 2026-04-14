@@ -3,6 +3,8 @@ import { supabase } from '@/lib/supabaseClient';
 import { GIFT_CATEGORIES } from '@/lib/giftCategories';
 import { Loader2 } from 'lucide-react';
 
+const QUANTITY_PRESETS = [5, 10, 15, 20, 50, 100, 150, 250, 500, 1000];
+
 export default function GiftPanel({
   user,
   room,
@@ -11,6 +13,8 @@ export default function GiftPanel({
   onGiftSent,
   isVIP,
   userCoins,
+  seatedUsers,
+  roomOwnerId,
 }) {
   const [activeCategory, setActiveCategory] = useState('general');
   const [gifts, setGifts] = useState({});
@@ -20,6 +24,14 @@ export default function GiftPanel({
   const [sending, setSending] = useState(false);
   const [bagGifts, setBagGifts] = useState([]);
   const scrollRef = useRef(null);
+
+  // Recipient
+  const [recipientMode, setRecipientMode] = useState('all');
+  const [specificRecipient, setSpecificRecipient] = useState(null);
+
+  // Quantity picker
+  const [showQuantityPicker, setShowQuantityPicker] = useState(false);
+  const [customQty, setCustomQty] = useState('');
 
   useEffect(() => {
     const fetchGifts = async () => {
@@ -49,8 +61,21 @@ export default function GiftPanel({
     fetchGifts();
   }, [bagGifts]);
 
+  // Resolve the actual recipient user_id from mode
+  const resolvedRecipientId = (() => {
+    if (recipientMode === 'specific') return specificRecipient;
+    if (recipientMode === 'mic') return seatedUsers?.[0]?.user_id || roomOwnerId || targetUserId;
+    // 'all' → room owner
+    return roomOwnerId || targetUserId;
+  })();
+
+  const canSend =
+    !!selectedGift &&
+    !!resolvedRecipientId &&
+    (recipientMode !== 'specific' || !!specificRecipient);
+
   const handleSend = async () => {
-    if (!selectedGift || !user?.id || sending) return;
+    if (!selectedGift || !user?.id || sending || !resolvedRecipientId) return;
 
     if (selectedGift.is_vip_only && !isVIP) {
       alert('This gift is for VIP members only');
@@ -67,7 +92,7 @@ export default function GiftPanel({
     try {
       const { data, error } = await supabase.rpc('send_gift_secure', {
         p_sender_id: user.id,
-        p_recipient_id: targetUserId,
+        p_recipient_id: resolvedRecipientId,
         p_gift_id: selectedGift.id,
         p_quantity: quantity,
       });
@@ -94,7 +119,7 @@ export default function GiftPanel({
         <div className="flex items-center gap-1.5 bg-white/10 rounded-full px-3 py-1">
           <span className="text-yellow-400 text-sm">🪙</span>
           <span className="text-white text-sm font-bold">
-            {userCoins?.toLocaleString() || 0}
+            {(userCoins ?? 0).toLocaleString()}
           </span>
         </div>
         <div className="w-8 h-1 bg-white/20 rounded-full mx-auto" />
@@ -124,6 +149,63 @@ export default function GiftPanel({
           </button>
         ))}
       </div>
+
+      {/* Recipient Selector */}
+      <div className="flex items-center gap-2 px-3 pb-2 shrink-0">
+        <span className="text-[10px] text-white/40 shrink-0">Send to:</span>
+        <div className="flex gap-1 overflow-x-auto scrollbar-none">
+          {[
+            { id: 'all',      label: '👥 All' },
+            { id: 'mic',      label: '🎤 On Mic' },
+            { id: 'specific', label: '👤 Specific' },
+          ].map(mode => (
+            <button
+              key={mode.id}
+              onClick={() => {
+                setRecipientMode(mode.id);
+                if (mode.id !== 'specific') setSpecificRecipient(null);
+              }}
+              className={`shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold transition ${
+                recipientMode === mode.id
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-white/10 text-white/50 hover:bg-white/20'
+              }`}
+            >
+              {mode.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Specific user list */}
+      {recipientMode === 'specific' && (
+        <div className="flex gap-2 px-3 pb-2 overflow-x-auto scrollbar-none shrink-0">
+          {(seatedUsers || []).length === 0 ? (
+            <p className="text-[10px] text-white/30 py-2">No one on mic</p>
+          ) : (
+            (seatedUsers || []).map(su => (
+              <button
+                key={su.user_id}
+                onClick={() => setSpecificRecipient(su.user_id)}
+                className={`shrink-0 flex flex-col items-center gap-1 p-1.5 rounded-xl transition ${
+                  specificRecipient === su.user_id
+                    ? 'bg-blue-500/30 border border-blue-400/60'
+                    : 'bg-white/5 hover:bg-white/10'
+                }`}
+              >
+                <img
+                  src={su.avatar_url || '/default-avatar.svg'}
+                  alt={su.name}
+                  className="w-8 h-8 rounded-full object-cover"
+                />
+                <span className="text-[9px] text-white/70 truncate w-12 text-center">
+                  {su.name}
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
 
       {/* Gift Grid */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 pb-2">
@@ -160,7 +242,6 @@ export default function GiftPanel({
                     : 'bg-white/5 hover:bg-white/10 border border-transparent'
                 }`}
               >
-                {/* Gift image */}
                 <div className="w-14 h-14 flex items-center justify-center">
                   {gift.animation_asset_url ? (
                     <img
@@ -181,12 +262,10 @@ export default function GiftPanel({
                   )}
                 </div>
 
-                {/* Gift name */}
                 <p className="text-[10px] text-white/70 font-medium truncate w-full text-center leading-tight">
                   {gift.name_en}
                 </p>
 
-                {/* Cost */}
                 <div className="flex items-center gap-0.5">
                   <span className="text-[10px] text-yellow-400">🪙</span>
                   <span className="text-[10px] text-yellow-300 font-bold">
@@ -194,14 +273,12 @@ export default function GiftPanel({
                   </span>
                 </div>
 
-                {/* Lucky badge */}
                 {gift.is_lucky && (
                   <div className="text-[9px] bg-purple-500/40 text-purple-300 rounded-full px-1.5 py-0.5 font-bold">
                     🎲 Lucky
                   </div>
                 )}
 
-                {/* VIP badge */}
                 {gift.is_vip_only && (
                   <div className="text-[9px] bg-amber-500/40 text-amber-300 rounded-full px-1.5 py-0.5 font-bold">
                     👑 VIP
@@ -213,7 +290,7 @@ export default function GiftPanel({
         )}
       </div>
 
-      {/* Footer: selected gift + quantity + send */}
+      {/* Footer: selected gift + quantity picker + send */}
       {selectedGift && (
         <div className="shrink-0 px-3 py-3 border-t border-white/10 bg-black/40 flex items-center gap-3">
           {/* Selected gift preview */}
@@ -233,29 +310,84 @@ export default function GiftPanel({
             </div>
           </div>
 
-          {/* Quantity selector */}
-          <div className="flex items-center gap-2 shrink-0">
+          {/* Quantity selector with preset popup */}
+          <div className="relative flex items-center gap-1 shrink-0">
             <button
               onClick={() => setQuantity(q => Math.max(1, q - 1))}
-              className="w-7 h-7 rounded-full bg-white/10 text-white flex items-center justify-center text-lg hover:bg-white/20"
+              className="w-7 h-7 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20"
             >
               −
             </button>
-            <span className="text-white font-bold text-sm w-6 text-center">
-              {quantity}
-            </span>
+
             <button
-              onClick={() => setQuantity(q => Math.min(99, q + 1))}
-              className="w-7 h-7 rounded-full bg-white/10 text-white flex items-center justify-center text-lg hover:bg-white/20"
+              onClick={() => setShowQuantityPicker(prev => !prev)}
+              className="min-w-[40px] text-center text-white font-bold text-sm bg-white/10 rounded-lg px-2 py-1 hover:bg-white/20"
+            >
+              {quantity}
+              <span className="text-[9px] text-white/40 ml-0.5">▲</span>
+            </button>
+
+            <button
+              onClick={() => setQuantity(q => Math.min(9999, q + 1))}
+              className="w-7 h-7 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20"
             >
               +
             </button>
+
+            {/* Quantity picker popup */}
+            {showQuantityPicker && (
+              <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-slate-900 border border-white/10 rounded-2xl shadow-2xl p-3 z-50 w-[220px]">
+                <div className="grid grid-cols-5 gap-1.5 mb-2">
+                  {QUANTITY_PRESETS.map(preset => (
+                    <button
+                      key={preset}
+                      onClick={() => {
+                        setQuantity(preset);
+                        setShowQuantityPicker(false);
+                      }}
+                      className={`py-1.5 rounded-lg text-[11px] font-bold transition ${
+                        quantity === preset
+                          ? 'bg-amber-500 text-white'
+                          : 'bg-white/10 text-white/70 hover:bg-white/20'
+                      }`}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    value={customQty}
+                    onChange={e => setCustomQty(e.target.value)}
+                    placeholder="Custom..."
+                    min={1}
+                    max={9999}
+                    className="flex-1 bg-white/10 text-white text-xs rounded-lg px-2 py-1.5 outline-none placeholder:text-white/30"
+                  />
+                  <button
+                    onClick={() => {
+                      const val = parseInt(customQty);
+                      if (val > 0 && val <= 9999) {
+                        setQuantity(val);
+                        setCustomQty('');
+                        setShowQuantityPicker(false);
+                      }
+                    }}
+                    className="px-3 py-1.5 bg-amber-500 text-white text-xs font-bold rounded-lg hover:bg-amber-400"
+                  >
+                    OK
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Send button */}
           <button
             onClick={handleSend}
-            disabled={sending || userCoins < selectedGift.cost * quantity}
+            disabled={sending || !canSend || userCoins < selectedGift.cost * quantity}
             className="shrink-0 px-5 py-2.5 rounded-full bg-gradient-to-r from-amber-500 to-yellow-400 text-white font-black text-sm shadow-lg disabled:opacity-40 transition active:scale-95 hover:shadow-[0_0_15px_rgba(245,158,11,0.5)]"
           >
             {sending ? (
