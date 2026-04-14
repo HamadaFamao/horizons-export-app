@@ -8676,8 +8676,7 @@ useEffect(() => {
               targetUserId={giftPanelTarget || room?.owner_user_id}
               onClose={() => setGiftPanelOpen(false)}
               onGiftSent={async ({ gift, quantity, recipientId, recipientMode, result }) => {
-                setGiftPanelOpen(false);
-                toastSuccess(`🎁 ${gift.name_en} sent!`, 1400);
+                // DON'T close panel immediately — let repeat button show for 5 seconds
 
                 // Refresh coins
                 const { data: walletData } = await supabase
@@ -8720,6 +8719,13 @@ useEffect(() => {
                     },
                   });
                 }
+
+                toastSuccess(`🎁 ${gift.name_en} sent!`, 1400);
+
+                // Close panel after 5 seconds (matches repeat button timeout)
+                setTimeout(() => {
+                  setGiftPanelOpen(false);
+                }, 5000);
               }}
               isVIP={isVipActive(currentUserProfile)}
               userCoins={userWalletCoins}
