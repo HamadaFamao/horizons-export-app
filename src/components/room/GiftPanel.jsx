@@ -15,6 +15,7 @@ export default function GiftPanel({
   userCoins,
   seatedUsers,
   roomOwnerId,
+  allParticipants,
   initialRecipientId = null,
   initialRecipientMode = 'all',
 }) {
@@ -32,6 +33,7 @@ export default function GiftPanel({
     initialRecipientId ? 'specific' : initialRecipientMode
   );
   const [specificRecipient, setSpecificRecipient] = useState(initialRecipientId || null);
+  const [micRecipient, setMicRecipient] = useState(null);
 
   // Quantity picker
   const [showQuantityPicker, setShowQuantityPicker] = useState(false);
@@ -93,22 +95,13 @@ export default function GiftPanel({
 
     // Determine recipient
     let recipientId = null;
-    if (recipientMode === 'specific') {
-      // Use selected user, or fall back to targetUserId/owner if none picked yet
-      recipientId = specificRecipient || targetUserId || roomOwnerId;
-      if (!recipientId) {
-        alert('Please select a recipient');
-        return;
-      }
-    } else if (recipientMode === 'mic') {
-      recipientId = seatedUsers?.[0]?.user_id || roomOwnerId || targetUserId;
-      if (!recipientId) {
-        alert('No one is on mic');
-        return;
-      }
-    } else {
-      // 'all' — send to room owner as default
+    if (recipientMode === 'all') {
       recipientId = roomOwnerId || targetUserId;
+    } else if (recipientMode === 'mic') {
+      recipientId = micRecipient || seatedUsers?.[0]?.user_id || roomOwnerId;
+    } else {
+      // 'specific'
+      recipientId = specificRecipient || targetUserId || roomOwnerId;
     }
 
     if (!recipientId) {
@@ -222,10 +215,7 @@ export default function GiftPanel({
           ].map(mode => (
             <button
               key={mode.id}
-              onClick={() => {
-                setRecipientMode(mode.id);
-                if (mode.id !== 'specific') setSpecificRecipient(null);
-              }}
+              onClick={() => setRecipientMode(mode.id)}
               className={`shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold transition ${
                 recipientMode === mode.id
                   ? 'bg-blue-500 text-white'
@@ -238,13 +228,52 @@ export default function GiftPanel({
         </div>
       </div>
 
-      {/* Specific user list */}
-      {recipientMode === 'specific' && (
+      {/* All mode — no list, just a hint */}
+      {recipientMode === 'all' && (
+        <div className="px-3 pb-2 shrink-0">
+          <p className="text-[10px] text-white/30 py-1">
+            🎁 Gift visible to everyone in the room
+          </p>
+        </div>
+      )}
+
+      {/* On Mic — show seated users, allow picking one */}
+      {recipientMode === 'mic' && (
         <div className="flex gap-2 px-3 pb-2 overflow-x-auto scrollbar-none shrink-0">
           {(seatedUsers || []).length === 0 ? (
             <p className="text-[10px] text-white/30 py-2">No one on mic</p>
           ) : (
             (seatedUsers || []).map(su => (
+              <button
+                key={su.user_id}
+                onClick={() => setMicRecipient(su.user_id)}
+                className={`shrink-0 flex flex-col items-center gap-1 p-1.5 rounded-xl transition ${
+                  (micRecipient || seatedUsers[0]?.user_id) === su.user_id
+                    ? 'bg-blue-500/30 border border-blue-400/60'
+                    : 'bg-white/5 hover:bg-white/10'
+                }`}
+              >
+                <img
+                  src={su.avatar_url || '/default-avatar.svg'}
+                  alt={su.name}
+                  className="w-8 h-8 rounded-full object-cover"
+                />
+                <span className="text-[9px] text-white/70 truncate w-12 text-center">
+                  {su.name}
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* Specific — show all participants */}
+      {recipientMode === 'specific' && (
+        <div className="flex gap-2 px-3 pb-2 overflow-x-auto scrollbar-none shrink-0">
+          {(allParticipants || seatedUsers || []).length === 0 ? (
+            <p className="text-[10px] text-white/30 py-2">No users found</p>
+          ) : (
+            (allParticipants || seatedUsers || []).map(su => (
               <button
                 key={su.user_id}
                 onClick={() => setSpecificRecipient(su.user_id)}

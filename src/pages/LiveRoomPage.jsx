@@ -8654,6 +8654,13 @@ useEffect(() => {
               isVIP={isVipActive(currentUserProfile)}
               userCoins={userWalletCoins}
               seatedUsers={seatedUsers}
+              allParticipants={
+                Object.values(participantsMap || {}).map(p => ({
+                  user_id: p.id || p.user_id,
+                  name: p.name || p.display_name || 'User',
+                  avatar_url: p.avatar_url || null,
+                }))
+              }
               roomOwnerId={room?.owner_user_id}
               initialRecipientId={giftPanelTarget}
               initialRecipientMode={giftPanelTarget ? 'specific' : 'all'}
