@@ -6228,7 +6228,8 @@ useEffect(() => {
         try {
           if (payload?.room_id && String(payload.room_id) !== String(roomId)) return;
 
-          const overlay = {
+          // Show gift overlay
+          setGiftOverlay({
             senderName: payload.sender_name,
             senderAvatar: payload.sender_avatar,
             receiverId: payload.receiver_id,
@@ -6236,12 +6237,27 @@ useEffect(() => {
             giftIcon: payload.gift_icon,
             quantity: payload.quantity,
             coinsSpent: payload.coins_spent,
-          };
-
-          setGiftOverlay(overlay);
-
+          });
           if (giftOverlayTimerRef.current) clearTimeout(giftOverlayTimerRef.current);
           giftOverlayTimerRef.current = setTimeout(() => setGiftOverlay(null), 4000);
+
+          // Add gift notification to room chat
+          const giftNotifMsg = {
+            id: `gift_notif_${payload.ts || Date.now()}_${payload.sender_id}`,
+            type: 'gift_notification',
+            sender_id: payload.sender_id,
+            sender_name: payload.sender_name,
+            sender_avatar: payload.sender_avatar,
+            receiver_id: payload.receiver_id,
+            gift_name: payload.gift_name,
+            gift_icon: payload.gift_icon,
+            quantity: payload.quantity,
+            created_at: new Date(payload.ts || Date.now()).toISOString(),
+          };
+          setRoomGiftMessages(prev => {
+            if ((prev || []).some(m => m.id === giftNotifMsg.id)) return prev;
+            return [...(prev || []), giftNotifMsg];
+          });
         } catch (err) {
           console.error("[GIFT_SENT_BROADCAST_ERROR]", err);
         }

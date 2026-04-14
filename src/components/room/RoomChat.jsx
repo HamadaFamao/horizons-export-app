@@ -395,6 +395,42 @@ export default function RoomChat({
             ) : (
               <div className="space-y-2">
                 {visibleMessages.map((m) => {
+                  if (m.type === "gift_notification") {
+                    const receiverProfile = participantsMap?.[m.receiver_id];
+                    const receiverName = receiverProfile?.display_name || receiverProfile?.name || 'someone';
+                    const isOwnerReceiver = String(m.receiver_id) === String(room?.owner_user_id);
+                    return (
+                      <div
+                        key={m.id}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 rounded-xl mx-2 my-1 flex-wrap"
+                      >
+                        <img
+                          src={m.sender_avatar || FALLBACK_AVATAR}
+                          alt={m.sender_name}
+                          onError={e => (e.currentTarget.src = FALLBACK_AVATAR)}
+                          className="w-6 h-6 rounded-full object-cover shrink-0"
+                        />
+                        <span className="text-xs text-amber-300 font-bold shrink-0">{m.sender_name}</span>
+                        <span className="text-xs text-white/60">sent</span>
+                        {m.gift_icon && (
+                          <img
+                            src={m.gift_icon}
+                            alt={m.gift_name}
+                            className="w-5 h-5 object-contain shrink-0"
+                          />
+                        )}
+                        <span className="text-xs text-amber-200 font-semibold">{m.gift_name}</span>
+                        {m.quantity > 1 && (
+                          <span className="text-xs text-yellow-400 font-black">×{m.quantity}</span>
+                        )}
+                        <span className="text-xs text-white/60">to</span>
+                        <span className="text-xs text-white/80 font-semibold">
+                          {isOwnerReceiver ? 'everyone' : receiverName}
+                        </span>
+                      </div>
+                    );
+                  }
+
                   if (m.type === "gift" || m.content_type === "gift") {
                     return (
                       <div key={m.id} className="bg-rose-50 border border-rose-100 rounded-xl p-2 mb-2">

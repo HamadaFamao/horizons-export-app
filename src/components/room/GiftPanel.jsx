@@ -149,7 +149,7 @@ export default function GiftPanel({
       // Save for repeat
       const sentGift = selectedGift;
       const sentQty = quantity;
-      setLastSentGift({ gift: sentGift, quantity: sentQty });
+      setLastSentGift({ gift: sentGift, qty: sentQty });
       setShowRepeatBtn(true);
       if (repeatHideTimerRef.current) clearTimeout(repeatHideTimerRef.current);
       repeatHideTimerRef.current = setTimeout(() => setShowRepeatBtn(false), 5000);
@@ -455,16 +455,18 @@ export default function GiftPanel({
         </div>
       )}
 
-      {/* Repeat last gift button (shown briefly after a successful send) */}
-      {showRepeatBtn && lastSentGift && !selectedGift && (
+      {/* Repeat last gift — shows after send, outside selectedGift block */}
+      {showRepeatBtn && lastSentGift && (
         <div className="shrink-0 px-3 py-2 border-t border-white/10 bg-black/40 flex items-center gap-2">
-          <span className="text-[10px] text-white/40">Send again:</span>
+          <span className="text-[10px] text-white/40 shrink-0">Send again:</span>
           <button
+            type="button"
             onClick={() => {
               setSelectedGift(lastSentGift.gift);
-              setQuantity(lastSentGift.quantity);
+              setQuantity(lastSentGift.qty);
             }}
-            className="shrink-0 relative w-10 h-10 rounded-full bg-white/10 border border-white/20 flex items-center justify-center hover:bg-white/20 transition active:scale-95"
+            className="shrink-0 relative w-10 h-10 rounded-full bg-white/10 border border-amber-500/40 flex items-center justify-center hover:bg-white/20 transition active:scale-95 animate-pulse"
+            title="Send again"
           >
             <img
               src={lastSentGift.gift.animation_asset_url || lastSentGift.gift.icon_url}
@@ -477,7 +479,7 @@ export default function GiftPanel({
           </button>
           <span className="text-[10px] text-white/50 truncate">
             {lastSentGift.gift.name_en}
-            {lastSentGift.quantity > 1 && ` ×${lastSentGift.quantity}`}
+            {lastSentGift.qty > 1 && ` ×${lastSentGift.qty}`}
           </span>
         </div>
       )}
