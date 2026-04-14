@@ -15,6 +15,8 @@ export default function GiftPanel({
   userCoins,
   seatedUsers,
   roomOwnerId,
+  initialRecipientId = null,
+  initialRecipientMode = 'all',
 }) {
   const [activeCategory, setActiveCategory] = useState('general');
   const [gifts, setGifts] = useState({});
@@ -25,9 +27,11 @@ export default function GiftPanel({
   const [bagGifts, setBagGifts] = useState([]);
   const scrollRef = useRef(null);
 
-  // Recipient
-  const [recipientMode, setRecipientMode] = useState('all');
-  const [specificRecipient, setSpecificRecipient] = useState(null);
+  // Recipient — seeded from props when opening for a specific user
+  const [recipientMode, setRecipientMode] = useState(
+    initialRecipientId ? 'specific' : initialRecipientMode
+  );
+  const [specificRecipient, setSpecificRecipient] = useState(initialRecipientId || null);
 
   // Quantity picker
   const [showQuantityPicker, setShowQuantityPicker] = useState(false);
@@ -90,18 +94,18 @@ export default function GiftPanel({
     // Determine recipient
     let recipientId = null;
     if (recipientMode === 'specific') {
-      if (!specificRecipient) {
+      // Use selected user, or fall back to targetUserId/owner if none picked yet
+      recipientId = specificRecipient || targetUserId || roomOwnerId;
+      if (!recipientId) {
         alert('Please select a recipient');
         return;
       }
-      recipientId = specificRecipient;
     } else if (recipientMode === 'mic') {
-      const firstSeated = seatedUsers?.[0];
-      if (!firstSeated) {
+      recipientId = seatedUsers?.[0]?.user_id || roomOwnerId || targetUserId;
+      if (!recipientId) {
         alert('No one is on mic');
         return;
       }
-      recipientId = firstSeated.user_id;
     } else {
       // 'all' — send to room owner as default
       recipientId = roomOwnerId || targetUserId;
@@ -143,6 +147,7 @@ export default function GiftPanel({
         gift: selectedGift,
         quantity,
         recipientId,
+        recipientMode,
         result: data,
       });
 
@@ -346,126 +351,18 @@ export default function GiftPanel({
         )}
       </div>
 
-      {/* Footer: selected gift + quantity picker + send */}
-      {selectedGift && (
-        <div className="shrink-0 px-3 py-3 border-t border-white/10 bg-black/40 flex items-center gap-3">
-          {/* Selected gift preview */}
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <img
-              src={selectedGift.animation_asset_url || selectedGift.icon_url}
-              alt={selectedGift.name_en}
-              className="w-10 h-10 object-contain shrink-0"
-            />
-            <div className="min-w-0">
-              <p className="text-white text-xs font-bold truncate">
-                {selectedGift.name_en}
-              </p>
-              <p className="text-yellow-400 text-xs">
-                🪙 {(selectedGift.cost * quantity).toLocaleString()}
-              </p>
-            </div>
-          </div>
+      {/* Footer — always visible */}
+      <div className="shrink-0 px-3 py-3 border-t border-white/10 bg-black/40 flex items-center gap-2">
 
-          {/* Quantity selector with preset popup */}
-          <div className="relative flex items-center gap-1 shrink-0">
-            <button
-              onClick={() => setQuantity(q => Math.max(1, q - 1))}
-              className="w-7 h-7 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20"
-            >
-              −
-            </button>
-
-            <button
-              onClick={() => setShowQuantityPicker(prev => !prev)}
-              className="min-w-[40px] text-center text-white font-bold text-sm bg-white/10 rounded-lg px-2 py-1 hover:bg-white/20"
-            >
-              {quantity}
-              <span className="text-[9px] text-white/40 ml-0.5">▲</span>
-            </button>
-
-            <button
-              onClick={() => setQuantity(q => Math.min(9999, q + 1))}
-              className="w-7 h-7 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20"
-            >
-              +
-            </button>
-
-            {/* Quantity picker popup */}
-            {showQuantityPicker && (
-              <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-slate-900 border border-white/10 rounded-2xl shadow-2xl p-3 z-50 w-[220px]">
-                <div className="grid grid-cols-5 gap-1.5 mb-2">
-                  {QUANTITY_PRESETS.map(preset => (
-                    <button
-                      key={preset}
-                      onClick={() => {
-                        setQuantity(preset);
-                        setShowQuantityPicker(false);
-                      }}
-                      className={`py-1.5 rounded-lg text-[11px] font-bold transition ${
-                        quantity === preset
-                          ? 'bg-amber-500 text-white'
-                          : 'bg-white/10 text-white/70 hover:bg-white/20'
-                      }`}
-                    >
-                      {preset}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    value={customQty}
-                    onChange={e => setCustomQty(e.target.value)}
-                    placeholder="Custom..."
-                    min={1}
-                    max={9999}
-                    className="flex-1 bg-white/10 text-white text-xs rounded-lg px-2 py-1.5 outline-none placeholder:text-white/30"
-                  />
-                  <button
-                    onClick={() => {
-                      const val = parseInt(customQty);
-                      if (val > 0 && val <= 9999) {
-                        setQuantity(val);
-                        setCustomQty('');
-                        setShowQuantityPicker(false);
-                      }
-                    }}
-                    className="px-3 py-1.5 bg-amber-500 text-white text-xs font-bold rounded-lg hover:bg-amber-400"
-                  >
-                    OK
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Send button */}
-          <button
-            onClick={handleSend}
-            disabled={sending || userCoins < selectedGift.cost * quantity}
-            className="shrink-0 px-5 py-2.5 rounded-full bg-gradient-to-r from-amber-500 to-yellow-400 text-white font-black text-sm shadow-lg disabled:opacity-40 transition active:scale-95 hover:shadow-[0_0_15px_rgba(245,158,11,0.5)]"
-          >
-            {sending ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              'Send 🎁'
-            )}
-          </button>
-        </div>
-      )}
-
-      {/* Repeat last gift — shows after send, outside selectedGift block */}
-      {showRepeatBtn && lastSentGift && (
-        <div className="shrink-0 px-3 py-2 border-t border-white/10 bg-black/40 flex items-center gap-2">
-          <span className="text-[10px] text-white/40 shrink-0">Send again:</span>
+        {/* Repeat button — appears after a successful send */}
+        {showRepeatBtn && lastSentGift && (
           <button
             type="button"
             onClick={() => {
               setSelectedGift(lastSentGift.gift);
               setQuantity(lastSentGift.qty);
             }}
-            className="shrink-0 relative w-10 h-10 rounded-full bg-white/10 border border-amber-500/40 flex items-center justify-center hover:bg-white/20 transition active:scale-95 animate-pulse"
+            className="shrink-0 relative w-10 h-10 rounded-full bg-white/10 border border-amber-500/40 flex items-center justify-center hover:bg-white/20 transition active:scale-95"
             title="Send again"
           >
             <img
@@ -477,12 +374,105 @@ export default function GiftPanel({
               ↺
             </div>
           </button>
-          <span className="text-[10px] text-white/50 truncate">
-            {lastSentGift.gift.name_en}
-            {lastSentGift.qty > 1 && ` ×${lastSentGift.qty}`}
-          </span>
-        </div>
-      )}
+        )}
+
+        {/* Selected gift info + quantity + send, or placeholder */}
+        {selectedGift ? (
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            {/* Gift preview */}
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <img
+                src={selectedGift.animation_asset_url || selectedGift.icon_url}
+                alt={selectedGift.name_en}
+                className="w-10 h-10 object-contain shrink-0"
+              />
+              <div className="min-w-0">
+                <p className="text-white text-xs font-bold truncate">{selectedGift.name_en}</p>
+                <p className="text-yellow-400 text-xs">
+                  🪙 {(selectedGift.cost * quantity).toLocaleString()}
+                </p>
+              </div>
+            </div>
+
+            {/* Quantity selector with preset popup */}
+            <div className="relative flex items-center gap-1 shrink-0">
+              <button
+                onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                className="w-7 h-7 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20"
+              >−</button>
+
+              <button
+                onClick={() => setShowQuantityPicker(prev => !prev)}
+                className="min-w-[40px] text-center text-white font-bold text-sm bg-white/10 rounded-lg px-2 py-1 hover:bg-white/20"
+              >
+                {quantity}
+                <span className="text-[9px] text-white/40 ml-0.5">▲</span>
+              </button>
+
+              <button
+                onClick={() => setQuantity(q => Math.min(9999, q + 1))}
+                className="w-7 h-7 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20"
+              >+</button>
+
+              {/* Quantity picker popup */}
+              {showQuantityPicker && (
+                <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-slate-900 border border-white/10 rounded-2xl shadow-2xl p-3 z-50 w-[220px]">
+                  <div className="grid grid-cols-5 gap-1.5 mb-2">
+                    {QUANTITY_PRESETS.map(preset => (
+                      <button
+                        key={preset}
+                        onClick={() => { setQuantity(preset); setShowQuantityPicker(false); }}
+                        className={`py-1.5 rounded-lg text-[11px] font-bold transition ${
+                          quantity === preset
+                            ? 'bg-amber-500 text-white'
+                            : 'bg-white/10 text-white/70 hover:bg-white/20'
+                        }`}
+                      >
+                        {preset}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      value={customQty}
+                      onChange={e => setCustomQty(e.target.value)}
+                      placeholder="Custom..."
+                      min={1}
+                      max={9999}
+                      className="flex-1 bg-white/10 text-white text-xs rounded-lg px-2 py-1.5 outline-none placeholder:text-white/30"
+                    />
+                    <button
+                      onClick={() => {
+                        const val = parseInt(customQty);
+                        if (val > 0 && val <= 9999) {
+                          setQuantity(val);
+                          setCustomQty('');
+                          setShowQuantityPicker(false);
+                        }
+                      }}
+                      className="px-3 py-1.5 bg-amber-500 text-white text-xs font-bold rounded-lg hover:bg-amber-400"
+                    >OK</button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Send button */}
+            <button
+              onClick={handleSend}
+              disabled={sending || userCoins < selectedGift.cost * quantity}
+              className="shrink-0 px-5 py-2.5 rounded-full bg-gradient-to-r from-amber-500 to-yellow-400 text-white font-black text-sm shadow-lg disabled:opacity-40 transition active:scale-95 hover:shadow-[0_0_15px_rgba(245,158,11,0.5)]"
+            >
+              {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Send 🎁'}
+            </button>
+          </div>
+        ) : (
+          <p className="flex-1 text-white/30 text-xs text-center">
+            Select a gift to send
+          </p>
+        )}
+      </div>
     </div>
   );
 }

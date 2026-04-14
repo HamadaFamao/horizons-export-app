@@ -396,9 +396,13 @@ export default function RoomChat({
               <div className="space-y-2">
                 {visibleMessages.map((m) => {
                   if (m.type === "gift_notification") {
+                    // Prefer receiver_name/is_to_all baked into the message;
+                    // fall back to participantsMap for older messages
                     const receiverProfile = participantsMap?.[m.receiver_id];
-                    const receiverName = receiverProfile?.display_name || receiverProfile?.name || 'someone';
-                    const isOwnerReceiver = String(m.receiver_id) === String(room?.owner_user_id);
+                    const fallbackName = receiverProfile?.display_name || receiverProfile?.name || 'someone';
+                    const displayReceiver = m.is_to_all
+                      ? 'Everyone'
+                      : (m.receiver_name && m.receiver_name !== 'User' ? m.receiver_name : fallbackName);
                     return (
                       <div
                         key={m.id}
@@ -424,9 +428,7 @@ export default function RoomChat({
                           <span className="text-xs text-yellow-400 font-black">×{m.quantity}</span>
                         )}
                         <span className="text-xs text-white/60">to</span>
-                        <span className="text-xs text-white/80 font-semibold">
-                          {isOwnerReceiver ? 'everyone' : receiverName}
-                        </span>
+                        <span className="text-xs text-white/80 font-semibold">{displayReceiver}</span>
                       </div>
                     );
                   }

@@ -6249,6 +6249,8 @@ useEffect(() => {
             sender_name: payload.sender_name,
             sender_avatar: payload.sender_avatar,
             receiver_id: payload.receiver_id,
+            receiver_name: payload.receiver_name || 'User',
+            is_to_all: payload.is_to_all || false,
             gift_name: payload.gift_name,
             gift_icon: payload.gift_icon,
             quantity: payload.quantity,
@@ -8605,7 +8607,7 @@ useEffect(() => {
               room={room}
               targetUserId={giftPanelTarget || room?.owner_user_id}
               onClose={() => setGiftPanelOpen(false)}
-              onGiftSent={async ({ gift, quantity, recipientId, result }) => {
+              onGiftSent={async ({ gift, quantity, recipientId, recipientMode, result }) => {
                 setGiftPanelOpen(false);
                 toastSuccess(`🎁 ${gift.name_en} sent!`, 1400);
 
@@ -8621,6 +8623,12 @@ useEffect(() => {
                 if (channelRef.current) {
                   const myParticipant = participantsMap[user.id] ||
                     activeParticipants.find(p => String(p.user_id) === String(user.id));
+                  const isToAll = recipientMode === 'all';
+                  const receiverName = isToAll
+                    ? 'Everyone'
+                    : participantsMap?.[recipientId]?.name ||
+                      participantsMap?.[recipientId]?.display_name ||
+                      'User';
                   await channelRef.current.send({
                     type: 'broadcast',
                     event: 'gift_sent',
@@ -8630,6 +8638,8 @@ useEffect(() => {
                       sender_name: myParticipant?.name || myParticipant?.display_name || 'User',
                       sender_avatar: myParticipant?.avatar_url || null,
                       receiver_id: recipientId,
+                      receiver_name: receiverName,
+                      is_to_all: isToAll,
                       gift_id: gift.id,
                       gift_name: gift.name_en,
                       gift_icon: gift.animation_asset_url || gift.icon_url,
@@ -8645,6 +8655,8 @@ useEffect(() => {
               userCoins={userWalletCoins}
               seatedUsers={seatedUsers}
               roomOwnerId={room?.owner_user_id}
+              initialRecipientId={giftPanelTarget}
+              initialRecipientMode={giftPanelTarget ? 'specific' : 'all'}
             />
           </div>
         </div>
