@@ -6192,12 +6192,14 @@ useEffect(() => {
           const eventId = payload?.event_id;
           const payloadRoomId = payload?.room_id;
           const qty = payload?.quantity || 1;
+          const senderId = payload?.sender_id;
 
           if (!eventId) return;
           if (payloadRoomId && String(payloadRoomId) !== String(roomId)) return;
           if (processedRoomGiftIdsRef.current.has(eventId)) return;
 
-          await handleIncomingRoomGiftEvent(eventId, 0, qty, false);
+          const isSender = senderId && String(senderId) === String(user?.id);
+          await handleIncomingRoomGiftEvent(eventId, 0, qty, !isSender);
         } catch (err) {
           console.error("[ROOM_GIFT_BROADCAST_ERROR]", err);
         }
@@ -8718,10 +8720,6 @@ useEffect(() => {
                   .maybeSingle();
                 if (walletData) setUserWalletCoins(walletData.coins || 0);
 
-                if (result?.event_id) {
-                  await handleIncomingRoomGiftEvent(result.event_id, 0, quantity, true);
-                }
-
                 if (channelRef.current) {
                   const myParticipant = participantsMap[user.id] ||
                     activeParticipants.find(p => String(p.user_id) === String(user.id));
@@ -8754,6 +8752,20 @@ useEffect(() => {
                       ts: Date.now(),
                     },
                   });
+
+                  if (result?.event_id) {
+                    await channelRef.current.send({
+                      type: 'broadcast',
+                      event: 'gift',
+                      payload: {
+                        event_id: result.event_id,
+                        room_id: roomId,
+                        sender_id: user.id,
+                        quantity,
+                        ts: Date.now(),
+                      },
+                    });
+                  }
                 }
 
                 toastSuccess(`🎁 ${gift.name_en} sent!`, 1400);
