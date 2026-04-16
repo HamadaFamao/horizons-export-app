@@ -70,10 +70,11 @@ const AuthPage = () => {
 
       console.log('Initiating Google OAuth with redirect to:', redirectTo);
 
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo,
+          skipBrowserRedirect: false,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
@@ -82,7 +83,12 @@ const AuthPage = () => {
       });
 
       if (error) throw error;
-      // note: redirect happens automatically
+
+      // لو في URL (بعض البيئات مش بتعمل redirect تلقائي)
+      if (data?.url) {
+        window.location.href = data.url;
+      }
+
     } catch (err) {
       console.error('Sign in error:', err);
       setError(err?.message || 'Something went wrong');
