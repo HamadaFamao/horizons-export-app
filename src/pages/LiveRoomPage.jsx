@@ -6196,7 +6196,10 @@ useEffect(() => {
           if (!eventId) return;
           if (payloadRoomId && String(payloadRoomId) !== String(roomId)) return;
 
-          await handleIncomingRoomGiftEvent(eventId, 0, qty, false);
+          // Deduplication: broadcast fires for both sender and receiver.
+          // processedRoomGiftIdsRef inside handleIncomingRoomGiftEvent
+          // prevents double processing of the same eventId.
+          await handleIncomingRoomGiftEvent(eventId, 0, qty, true);
         } catch (err) {
           console.error("[ROOM_GIFT_BROADCAST_ERROR]", err);
         }
@@ -6292,9 +6295,9 @@ useEffect(() => {
             if (!payload?.new) return;
             const event = payload.new;
             console.log('[GIFT_EVENT_RT]', event);
-            // The postgres_changes listener (shouldAffectPkDb=true) handles PK scoring.
-            // The broadcast "gift" listener (shouldAffectPkDb=false) handles UI effects only.
-            await handleIncomingRoomGiftEvent(event.id, 0, null, true);
+            // The broadcast "gift" listener (shouldAffectPkDb=true) is authoritative for PK scoring.
+            // This postgres_changes listener is unreliable (often doesn't fire), so display-only (shouldAffectPkDb=false).
+            await handleIncomingRoomGiftEvent(event.id, 0, null, false);
           } catch (err) {
             console.error('[GIFT_EVENT_RT_ERROR]', err);
           }
@@ -8757,6 +8760,21 @@ useEffect(() => {
                       ts: Date.now(),
                     },
                   });
+
+                  // Also broadcast as "gift" event for PK scoring
+                  // (postgres_changes is unreliable, so we rely on this broadcast)
+                  if (result?.event_id) {
+                    await channelRef.current.send({
+                      type: 'broadcast',
+                      event: 'gift',
+                      payload: {
+                        event_id: result.event_id,
+                        room_id: roomId,
+                        quantity: quantity,
+                        ts: Date.now(),
+                      },
+                    });
+                  }
                 }
 
                 toastSuccess(`🎁 ${gift.name_en} sent!`, 1400);
