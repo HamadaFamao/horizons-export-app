@@ -8759,6 +8759,21 @@ useEffect(() => {
                       ts: Date.now(),
                     },
                   });
+
+                  // Also broadcast as "gift" event to trigger
+                  // handleIncomingRoomGiftEvent for PK + seat counters
+                  if (result?.event_id && channelRef.current) {
+                    await channelRef.current.send({
+                      type: 'broadcast',
+                      event: 'gift',
+                      payload: {
+                        event_id: result.event_id,
+                        room_id: roomId,
+                        quantity: quantity,
+                        ts: Date.now(),
+                      },
+                    });
+                  }
                 }
 
                 toastSuccess(`🎁 ${gift.name_en} sent!`, 1400);
