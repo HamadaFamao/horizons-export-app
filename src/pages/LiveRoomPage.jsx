@@ -6192,14 +6192,16 @@ useEffect(() => {
           const eventId = payload?.event_id;
           const payloadRoomId = payload?.room_id;
           const qty = payload?.quantity || 1;
+          const senderId = payload?.sender_id;
 
           if (!eventId) return;
           if (payloadRoomId && String(payloadRoomId) !== String(roomId)) return;
 
-          // Deduplication: broadcast fires for both sender and receiver.
-          // processedRoomGiftIdsRef inside handleIncomingRoomGiftEvent
-          // prevents double processing of the same eventId.
-          await handleIncomingRoomGiftEvent(eventId, 0, qty, true);
+          // Only process PK if we are NOT the sender.
+          // Channel has {self: true}, so sender receives their own broadcast.
+          // This prevents double counting when sender also processes it.
+          const isSender = senderId && String(senderId) === String(user?.id);
+          await handleIncomingRoomGiftEvent(eventId, 0, qty, !isSender);
         } catch (err) {
           console.error("[ROOM_GIFT_BROADCAST_ERROR]", err);
         }
@@ -8770,6 +8772,7 @@ useEffect(() => {
                       payload: {
                         event_id: result.event_id,
                         room_id: roomId,
+                        sender_id: user.id,
                         quantity: quantity,
                         ts: Date.now(),
                       },
