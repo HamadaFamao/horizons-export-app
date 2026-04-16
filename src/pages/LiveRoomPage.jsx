@@ -6292,11 +6292,10 @@ useEffect(() => {
             if (!payload?.new) return;
             const event = payload.new;
             console.log('[GIFT_EVENT_RT]', event);
-            // handleIncomingRoomGiftEvent updates mic/seat coin totals and PK scores.
-            // Pass shouldAffectPkDb=true here because the gift broadcast (event: "gift")
-            // already handled the DB write; this listener only fills the gap for gifts
-            // sent via the new GiftPanel that don't emit that broadcast.
-            await handleIncomingRoomGiftEvent(event.id, 0, null, true);
+            // The broadcast "gift" event (shouldAffectPkDb=true) handles PK scoring.
+            // This listener only updates mic/seat coin totals and gift effects display
+            // (shouldAffectPkDb=false) to avoid double-processing PK scores.
+            await handleIncomingRoomGiftEvent(event.id, 0, null, false);
           } catch (err) {
             console.error('[GIFT_EVENT_RT_ERROR]', err);
           }
