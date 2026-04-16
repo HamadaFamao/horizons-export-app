@@ -2084,7 +2084,6 @@ useEffect(() => {
 
           if (result?.success && result?.event_id) {
             const displayQuantity = result?.quantity_sent || result?.quantity_requested || giftQuantity || 1;
-            await handleIncomingRoomGiftEvent(result.event_id, 0, displayQuantity, true);
 
             if (channelRef.current) {
               await channelRef.current.send({
@@ -2093,6 +2092,7 @@ useEffect(() => {
                 payload: {
                   event_id: result.event_id,
                   room_id: roomId,
+                  sender_id: user.id,
                   quantity: displayQuantity,
                   ts: Date.now()
                 }
@@ -2151,7 +2151,6 @@ useEffect(() => {
 
           if (result?.success && result?.event_id) {
             const displayQuantity = result?.quantity_sent || result?.quantity_requested || giftQuantity || 1;
-            await handleIncomingRoomGiftEvent(result.event_id, 0, displayQuantity, true);
 
             if (channelRef.current) {
               await channelRef.current.send({
@@ -2159,7 +2158,8 @@ useEffect(() => {
                 event: "gift",
                 payload: {
                   event_id: result.event_id,
-                  roomId,
+                  room_id: roomId,
+                  sender_id: user.id,
                   quantity: displayQuantity,
                   ts: Date.now()
                 }
@@ -2211,8 +2211,6 @@ useEffect(() => {
       const displayQuantity = result?.quantity_sent || result?.quantity_requested || 1;
 
       if (result?.success && result?.event_id) {
-        await handleIncomingRoomGiftEvent(result.event_id, 0, displayQuantity, true);
-
         if (channelRef.current) {
           await channelRef.current.send({
             type: "broadcast",
@@ -2220,6 +2218,7 @@ useEffect(() => {
             payload: {
               event_id: result.event_id,
               room_id: roomId,
+              sender_id: user.id,
               quantity: displayQuantity,
               ts: Date.now()
             }
@@ -2301,8 +2300,6 @@ useEffect(() => {
             repeatQuantity;
 
           if (result?.success && result?.event_id) {
-            await handleIncomingRoomGiftEvent(result.event_id, 0, displayQuantity, true);
-
             if (channelRef.current) {
               await channelRef.current.send({
                 type: "broadcast",
@@ -2310,6 +2307,7 @@ useEffect(() => {
                 payload: {
                   event_id: result.event_id,
                   room_id: lastSentGift.roomId,
+                  sender_id: user.id,
                   quantity: displayQuantity,
                   ts: Date.now()
                 }
@@ -2350,8 +2348,6 @@ useEffect(() => {
             repeatQuantity;
 
           if (result?.success && result?.event_id) {
-            await handleIncomingRoomGiftEvent(result.event_id, 0, displayQuantity, true);
-
             if (channelRef.current) {
               await channelRef.current.send({
                 type: "broadcast",
@@ -2359,6 +2355,7 @@ useEffect(() => {
                 payload: {
                   event_id: result.event_id,
                   room_id: lastSentGift.roomId,
+                  sender_id: user.id,
                   quantity: displayQuantity,
                   ts: Date.now()
                 }
@@ -2392,8 +2389,6 @@ useEffect(() => {
         repeatQuantity;
 
       if (result?.success && result?.event_id) {
-        await handleIncomingRoomGiftEvent(result.event_id, 0, displayQuantity, true);
-
         if (channelRef.current) {
           await channelRef.current.send({
             type: "broadcast",
@@ -2401,6 +2396,7 @@ useEffect(() => {
             payload: {
               event_id: result.event_id,
               room_id: lastSentGift.roomId,
+              sender_id: user.id,
               quantity: displayQuantity,
               ts: Date.now()
             }
@@ -6289,6 +6285,7 @@ useEffect(() => {
             console.log('[GIFT_EVENT_RT]', event);
             // The broadcast "gift" listener (shouldAffectPkDb=true) is authoritative for PK scoring.
             // This postgres_changes listener is unreliable (often doesn't fire), so display-only (shouldAffectPkDb=false).
+            if (processedRoomGiftIdsRef.current.has(event.id)) return;
             await handleIncomingRoomGiftEvent(event.id, 0, null, false);
           } catch (err) {
             console.error('[GIFT_EVENT_RT_ERROR]', err);
