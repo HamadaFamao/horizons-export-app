@@ -1752,7 +1752,7 @@ useEffect(() => {
     setGiftPanelOpen(true);
   };
 
-  const handleIncomingRoomGiftEvent = async (eventId, attempt = 0, overrideQuantity = null, shouldAffectPkDb = true) => {
+  const handleIncomingRoomGiftEvent = async (eventId, attempt = 0, overrideQuantity = null, shouldAffectPkDb = true, skipChatMessage = false) => {
     if (!eventId) return;
 
     if (processedRoomGiftIdsRef.current.has(eventId)) {
@@ -1776,7 +1776,7 @@ useEffect(() => {
         processingRoomGiftIdsRef.current.delete(eventId);
         if (attempt < 5) {
           setTimeout(() => {
-            handleIncomingRoomGiftEvent(eventId, attempt + 1, overrideQuantity, shouldAffectPkDb);
+            handleIncomingRoomGiftEvent(eventId, attempt + 1, overrideQuantity, shouldAffectPkDb, skipChatMessage);
           }, 350);
         }
         return;
@@ -1970,12 +1970,14 @@ useEffect(() => {
         total_coins: addedCoins,
       };
 
-      setRoomGiftMessages((prev) => {
-        if (prev.some((m) => m.id === giftMsg.id)) return prev;
-        const nextMessages = [...prev, giftMsg];
-        console.log("[ROOM_GIFT_MESSAGES_UPDATED]", nextMessages);
-        return nextMessages;
-      });
+      if (!skipChatMessage) {
+        setRoomGiftMessages((prev) => {
+          if (prev.some((m) => m.id === giftMsg.id)) return prev;
+          const nextMessages = [...prev, giftMsg];
+          console.log("[ROOM_GIFT_MESSAGES_UPDATED]", nextMessages);
+          return nextMessages;
+        });
+      }
       scheduleLeaderboardRefresh(400);
 
       processingRoomGiftIdsRef.current.delete(eventId);
@@ -1985,7 +1987,7 @@ useEffect(() => {
 
       if (attempt < 5) {
         setTimeout(() => {
-          handleIncomingRoomGiftEvent(eventId, attempt + 1, overrideQuantity, shouldAffectPkDb);
+          handleIncomingRoomGiftEvent(eventId, attempt + 1, overrideQuantity, shouldAffectPkDb, skipChatMessage);
         }, 350);
       }
     }
@@ -6195,7 +6197,7 @@ useEffect(() => {
           if (processedRoomGiftIdsRef.current.has(eventId)) return;
 
           const isSender = senderId && String(senderId) === String(user?.id);
-          await handleIncomingRoomGiftEvent(eventId, 0, qty, !isSender);
+          await handleIncomingRoomGiftEvent(eventId, 0, qty, !isSender, true);
         } catch (err) {
           console.error("[ROOM_GIFT_BROADCAST_ERROR]", err);
         }
