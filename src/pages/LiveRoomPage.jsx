@@ -6192,94 +6192,12 @@ useEffect(() => {
           const eventId = payload?.event_id;
           const payloadRoomId = payload?.room_id;
           const qty = payload?.quantity || 1;
-          const senderId = payload?.sender_id;
 
           if (!eventId) return;
           if (payloadRoomId && String(payloadRoomId) !== String(roomId)) return;
           if (processedRoomGiftIdsRef.current.has(eventId)) return;
 
-          const isSender = senderId && String(senderId) === String(user?.id);
-
-          if (isSender) {
-            processedRoomGiftIdsRef.current.add(eventId);
-
-            const fullEvent = await fetchLiveRoomGiftEventFull(eventId);
-            if (!fullEvent) return;
-
-            const addedCoins = getEventTotalCoins(fullEvent, fullEvent.quantity || 1);
-            const receiverId = fullEvent?.receiver_id;
-
-            if (receiverId && addedCoins > 0) {
-              setMicGiftTotalsReady(true);
-              micGiftTotalsHydratedRef.current = true;
-              setMicGiftTotals((prev) => ({
-                ...prev,
-                [receiverId]: (prev?.[receiverId] || 0) + addedCoins,
-              }));
-            }
-
-            const currentPkSession = pkSessionRef.current;
-            const currentPkParticipants = pkParticipantsRef.current || [];
-            const currentPkDisplaySides = pkDisplaySidesRef.current || { A: [], B: [] };
-            const effectivePkParticipants =
-              currentPkParticipants.length > 0
-                ? currentPkParticipants
-                : [
-                    ...(currentPkDisplaySides.A || []),
-                    ...(currentPkDisplaySides.B || []),
-                  ];
-
-            const participant = effectivePkParticipants.find(
-              (p) => String(p.user_id) === String(receiverId)
-            );
-
-            if (participant && currentPkSession?.status === "live") {
-              const endsMs = currentPkSession?.ends_at
-                ? new Date(currentPkSession.ends_at).getTime()
-                : 0;
-              if (!endsMs || Date.now() <= endsMs) {
-                const pkAddedCoins = getPkEventCoins(fullEvent);
-                if (pkAddedCoins > 0) {
-                  const { data: pkScoreRes, error: pkScoreErr } = await supabase.rpc(
-                    "increment_live_room_pk_score",
-                    {
-                      p_pk_session_id: currentPkSession.id,
-                      p_side: participant.side,
-                      p_amount: pkAddedCoins,
-                    }
-                  );
-
-                  if (pkScoreErr) {
-                    console.error("[PK_SCORE_RPC_ERROR]", pkScoreErr);
-                  } else if (pkScoreRes?.success) {
-                    const nextScores = {
-                      A: Number(pkScoreRes.score_a || 0),
-                      B: Number(pkScoreRes.score_b || 0),
-                    };
-                    setPkScores(nextScores);
-
-                    if (channelRef.current) {
-                      await channelRef.current.send({
-                        type: "broadcast",
-                        event: "pk_score_updated",
-                        payload: {
-                          room_id: roomId,
-                          pk_session_id: currentPkSession.id,
-                          score_a: nextScores.A,
-                          score_b: nextScores.B,
-                          ts: Date.now(),
-                        },
-                      });
-                    }
-                  }
-                }
-              }
-            }
-
-            return;
-          }
-
-          await handleIncomingRoomGiftEvent(eventId, 0, qty, true);
+          await handleIncomingRoomGiftEvent(eventId, 0, qty, false);
         } catch (err) {
           console.error("[ROOM_GIFT_BROADCAST_ERROR]", err);
         }
@@ -6346,14 +6264,6 @@ useEffect(() => {
             if ((prev || []).some(m => m.id === giftNotifMsg.id)) return prev;
             return [...(prev || []), giftNotifMsg];
           });
-
-          // Update seat coin counter directly
-          if (payload?.receiver_id && payload?.coins_spent > 0 && !payload?.is_to_all) {
-            setMicGiftTotals(prev => ({
-              ...prev,
-              [payload.receiver_id]: (prev?.[payload.receiver_id] || 0) + Number(payload.coins_spent || 0),
-            }));
-          }
 
           // Schedule leaderboard refresh
           scheduleLeaderboardRefresh(400);
@@ -8808,7 +8718,10 @@ useEffect(() => {
                   .maybeSingle();
                 if (walletData) setUserWalletCoins(walletData.coins || 0);
 
-                // Broadcast to room channel so all members see the gift overlay
+                if (result?.event_id) {
+                  await handleIncomingRoomGiftEvent(result.event_id, 0, quantity, true);
+                }
+
                 if (channelRef.current) {
                   const myParticipant = participantsMap[user.id] ||
                     activeParticipants.find(p => String(p.user_id) === String(user.id));
@@ -8819,19 +8732,6 @@ useEffect(() => {
                     : receiverProfile?.name ||
                       receiverProfile?.display_name ||
                       'User';
-                  if (result?.event_id && channelRef.current) {
-                    await channelRef.current.send({
-                      type: 'broadcast',
-                      event: 'gift',
-                      payload: {
-                        event_id: result.event_id,
-                        room_id: roomId,
-                        sender_id: user.id,
-                        quantity: quantity,
-                        ts: Date.now(),
-                      },
-                    });
-                  }
 
                   await channelRef.current.send({
                     type: 'broadcast',
@@ -8854,7 +8754,6 @@ useEffect(() => {
                       ts: Date.now(),
                     },
                   });
-
                 }
 
                 toastSuccess(`🎁 ${gift.name_en} sent!`, 1400);
