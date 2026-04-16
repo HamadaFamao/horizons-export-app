@@ -6196,7 +6196,7 @@ useEffect(() => {
           if (!eventId) return;
           if (payloadRoomId && String(payloadRoomId) !== String(roomId)) return;
 
-          await handleIncomingRoomGiftEvent(eventId, 0, qty, false);
+          await handleIncomingRoomGiftEvent(eventId, 0, qty, true);
         } catch (err) {
           console.error("[ROOM_GIFT_BROADCAST_ERROR]", err);
         }
