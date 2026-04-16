@@ -6196,7 +6196,7 @@ useEffect(() => {
           if (!eventId) return;
           if (payloadRoomId && String(payloadRoomId) !== String(roomId)) return;
 
-          await handleIncomingRoomGiftEvent(eventId, 0, qty, true);
+          await handleIncomingRoomGiftEvent(eventId, 0, qty, false);
         } catch (err) {
           console.error("[ROOM_GIFT_BROADCAST_ERROR]", err);
         }
@@ -6292,10 +6292,9 @@ useEffect(() => {
             if (!payload?.new) return;
             const event = payload.new;
             console.log('[GIFT_EVENT_RT]', event);
-            // The broadcast "gift" event (shouldAffectPkDb=true) handles PK scoring.
-            // This listener only updates mic/seat coin totals and gift effects display
-            // (shouldAffectPkDb=false) to avoid double-processing PK scores.
-            await handleIncomingRoomGiftEvent(event.id, 0, null, false);
+            // The postgres_changes listener (shouldAffectPkDb=true) handles PK scoring.
+            // The broadcast "gift" listener (shouldAffectPkDb=false) handles UI effects only.
+            await handleIncomingRoomGiftEvent(event.id, 0, null, true);
           } catch (err) {
             console.error('[GIFT_EVENT_RT_ERROR]', err);
           }
@@ -8758,21 +8757,6 @@ useEffect(() => {
                       ts: Date.now(),
                     },
                   });
-
-                  // Also broadcast as "gift" event to trigger
-                  // handleIncomingRoomGiftEvent for PK + seat counters
-                  if (result?.event_id && channelRef.current) {
-                    await channelRef.current.send({
-                      type: 'broadcast',
-                      event: 'gift',
-                      payload: {
-                        event_id: result.event_id,
-                        room_id: roomId,
-                        quantity: quantity,
-                        ts: Date.now(),
-                      },
-                    });
-                  }
                 }
 
                 toastSuccess(`🎁 ${gift.name_en} sent!`, 1400);
