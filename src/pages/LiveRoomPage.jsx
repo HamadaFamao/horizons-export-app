@@ -6197,11 +6197,14 @@ useEffect(() => {
           if (!eventId) return;
           if (payloadRoomId && String(payloadRoomId) !== String(roomId)) return;
 
-          // Only process PK if we are NOT the sender.
-          // Channel has {self: true}, so sender receives their own broadcast.
-          // This prevents double counting when sender also processes it.
           const isSender = senderId && String(senderId) === String(user?.id);
-          await handleIncomingRoomGiftEvent(eventId, 0, qty, !isSender);
+          if (isSender) {
+            // Sender already processes their own gift via onGiftSent flow.
+            // Skip broadcast processing entirely to avoid duplicate mic totals.
+            return;
+          }
+
+          await handleIncomingRoomGiftEvent(eventId, 0, qty, true);
         } catch (err) {
           console.error("[ROOM_GIFT_BROADCAST_ERROR]", err);
         }
@@ -8741,6 +8744,10 @@ useEffect(() => {
                     : receiverProfile?.name ||
                       receiverProfile?.display_name ||
                       'User';
+                  if (result?.event_id) {
+                    await handleIncomingRoomGiftEvent(result.event_id, 0, quantity, true);
+                  }
+
                   await channelRef.current.send({
                     type: 'broadcast',
                     event: 'gift_sent',
@@ -8763,8 +8770,7 @@ useEffect(() => {
                     },
                   });
 
-                  // Also broadcast as "gift" event for PK scoring
-                  // (postgres_changes is unreliable, so we rely on this broadcast)
+                  // Also broadcast as "gift" event for others to process.
                   if (result?.event_id) {
                     await channelRef.current.send({
                       type: 'broadcast',
