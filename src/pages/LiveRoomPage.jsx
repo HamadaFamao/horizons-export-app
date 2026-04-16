@@ -2159,7 +2159,7 @@ useEffect(() => {
                 event: "gift",
                 payload: {
                   event_id: result.event_id,
-                  room_id,
+                  roomId,
                   quantity: displayQuantity,
                   ts: Date.now()
                 }
@@ -6263,6 +6263,17 @@ useEffect(() => {
             if ((prev || []).some(m => m.id === giftNotifMsg.id)) return prev;
             return [...(prev || []), giftNotifMsg];
           });
+
+          // Update seat coin counter directly
+          if (payload?.receiver_id && payload?.coins_spent > 0 && !payload?.is_to_all) {
+            setMicGiftTotals(prev => ({
+              ...prev,
+              [payload.receiver_id]: (prev?.[payload.receiver_id] || 0) + Number(payload.coins_spent || 0),
+            }));
+          }
+
+          // Schedule leaderboard refresh
+          scheduleLeaderboardRefresh(400);
         } catch (err) {
           console.error("[GIFT_SENT_BROADCAST_ERROR]", err);
         }
@@ -6282,10 +6293,10 @@ useEffect(() => {
             const event = payload.new;
             console.log('[GIFT_EVENT_RT]', event);
             // handleIncomingRoomGiftEvent updates mic/seat coin totals and PK scores.
-            // Pass shouldAffectPkDb=false here because the gift broadcast (event: "gift")
+            // Pass shouldAffectPkDb=true here because the gift broadcast (event: "gift")
             // already handled the DB write; this listener only fills the gap for gifts
             // sent via the new GiftPanel that don't emit that broadcast.
-            await handleIncomingRoomGiftEvent(event.id, 0, null, false);
+            await handleIncomingRoomGiftEvent(event.id, 0, null, true);
           } catch (err) {
             console.error('[GIFT_EVENT_RT_ERROR]', err);
           }
@@ -6299,6 +6310,11 @@ useEffect(() => {
               A: Number(payload?.score_a || 0),
               B: Number(payload?.score_b || 0),
             });
+
+            // Refresh leaderboard if open
+            if (showLeaderboard) {
+              scheduleLeaderboardRefresh(300);
+            }
           }
         } catch (err) {
           console.error("[PK_SCORE_UPDATED_BROADCAST_ERROR]", err);
