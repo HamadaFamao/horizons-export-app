@@ -6192,19 +6192,14 @@ useEffect(() => {
           const eventId = payload?.event_id;
           const payloadRoomId = payload?.room_id;
           const qty = payload?.quantity || 1;
-          const senderId = payload?.sender_id;
 
           if (!eventId) return;
           if (payloadRoomId && String(payloadRoomId) !== String(roomId)) return;
 
-          const isSender = senderId && String(senderId) === String(user?.id);
-          if (isSender) {
-            // Sender already processes their own gift via onGiftSent flow.
-            // Skip broadcast processing entirely to avoid duplicate mic totals.
-            return;
-          }
+          // Skip if this gift was already processed by GiftPanel's onGiftSent.
+          if (processedRoomGiftIdsRef.current.has(eventId)) return;
 
-          await handleIncomingRoomGiftEvent(eventId, 0, qty, true);
+          await handleIncomingRoomGiftEvent(eventId, 0, qty, false);
         } catch (err) {
           console.error("[ROOM_GIFT_BROADCAST_ERROR]", err);
         }
@@ -8770,20 +8765,6 @@ useEffect(() => {
                     },
                   });
 
-                  // Also broadcast as "gift" event for others to process.
-                  if (result?.event_id) {
-                    await channelRef.current.send({
-                      type: 'broadcast',
-                      event: 'gift',
-                      payload: {
-                        event_id: result.event_id,
-                        room_id: roomId,
-                        sender_id: user.id,
-                        quantity: quantity,
-                        ts: Date.now(),
-                      },
-                    });
-                  }
                 }
 
                 toastSuccess(`🎁 ${gift.name_en} sent!`, 1400);
