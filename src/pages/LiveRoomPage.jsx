@@ -8778,68 +8778,95 @@ useEffect(() => {
           </div>
           <button
             onClick={async () => {
-              if (!floatingRepeat || !channelRef.current) return;
+              if (!floatingRepeat) return;
               
-              const { gift, quantity } = floatingRepeat;
-              
-              // Determine recipient - use last used recipient
-              const recipientId = giftPanelTarget || room?.owner_user_id;
-              if (!recipientId) return;
+              const { gift, quantity, recipientMode, recipientId } = floatingRepeat;
 
               try {
-                const { data, error } = await supabase.rpc(
-                  'frontend_send_live_room_gift',
-                  {
-                    p_room_id: room?.id,
-                    p_receiver_id: recipientId,
-                    p_gift_id: gift.id,
-                    p_message: null,
-                    p_quantity: quantity,
+                // Determine targets based on mode
+                let targets = [];
+                
+                if (recipientMode === 'all') {
+                  targets = Object.values(participantsMap || {})
+                    .filter(p => p.user_id && 
+                      String(p.user_id) !== String(user?.id))
+                    .map(p => p.user_id);
+                } else if (recipientMode === 'mic') {
+                  targets = (seatedUsers || [])
+                    .filter(su => su.user_id && 
+                      String(su.user_id) !== String(user?.id))
+                    .map(su => su.user_id);
+                } else {
+                  // specific
+                  if (recipientId && 
+                      String(recipientId) !== String(user?.id)) {
+                    targets = [recipientId];
                   }
-                );
+                }
 
-                if (error || !data?.success) return;
+                if (!targets.length) {
+                  toast('No recipients found', 1400);
+                  return;
+                }
 
-                // Refresh coins
-                const { data: walletData } = await supabase
-                  .from('wallets').select('coins')
-                  .eq('user_id', user.id).maybeSingle();
-                if (walletData) setUserWalletCoins(walletData.coins || 0);
+                for (const targetId of targets) {
+                  const { data, error } = await supabase.rpc(
+                    'frontend_send_live_room_gift',
+                    {
+                      p_room_id: room?.id,
+                      p_receiver_id: targetId,
+                      p_gift_id: gift.id,
+                      p_message: null,
+                      p_quantity: quantity,
+                    }
+                  );
 
-                // Broadcasts
-                if (channelRef.current) {
-                  await channelRef.current.send({
-                    type: 'broadcast',
-                    event: 'gift_sent',
-                    payload: {
-                      room_id: roomId,
-                      sender_id: user.id,
-                      sender_name: participantsMap[user.id]?.name || 'User',
-                      sender_avatar: participantsMap[user.id]?.avatar_url || null,
-                      receiver_id: recipientId,
-                      receiver_name: participantsMap[recipientId]?.name || 'User',
-                      receiver_avatar: participantsMap[recipientId]?.avatar_url || null,
-                      is_to_all: false,
-                      gift_id: gift.id,
-                      gift_name: gift.name_en,
-                      gift_icon: gift.animation_asset_url || gift.icon_url,
-                      quantity,
-                      coins_spent: gift.cost * quantity,
-                      ts: Date.now(),
-                    },
-                  });
+                  if (error || !data?.success) continue;
 
-                  await channelRef.current.send({
-                    type: 'broadcast',
-                    event: 'gift',
-                    payload: {
-                      event_id: data.event_id,
-                      room_id: roomId,
-                      sender_id: user.id,
-                      quantity,
-                      ts: Date.now(),
-                    },
-                  });
+                  // Refresh coins
+                  const { data: walletData } = await supabase
+                    .from('wallets').select('coins')
+                    .eq('user_id', user.id).maybeSingle();
+                  if (walletData) setUserWalletCoins(walletData.coins || 0);
+
+                  // Broadcasts
+                  if (channelRef.current) {
+                    const myParticipant = participantsMap[user.id];
+                    const receiverProfile = participantsMap[targetId];
+                    
+                    await channelRef.current.send({
+                      type: 'broadcast',
+                      event: 'gift_sent',
+                      payload: {
+                        room_id: roomId,
+                        sender_id: user.id,
+                        sender_name: myParticipant?.name || 'User',
+                        sender_avatar: myParticipant?.avatar_url || null,
+                        receiver_id: targetId,
+                        receiver_name: receiverProfile?.name || 'User',
+                        receiver_avatar: receiverProfile?.avatar_url || null,
+                        is_to_all: recipientMode === 'all',
+                        gift_id: gift.id,
+                        gift_name: gift.name_en,
+                        gift_icon: gift.animation_asset_url || gift.icon_url,
+                        quantity,
+                        coins_spent: gift.cost * quantity,
+                        ts: Date.now(),
+                      },
+                    });
+
+                    await channelRef.current.send({
+                      type: 'broadcast',
+                      event: 'gift',
+                      payload: {
+                        event_id: data.event_id,
+                        room_id: roomId,
+                        sender_id: user.id,
+                        quantity,
+                        ts: Date.now(),
+                      },
+                    });
+                  }
                 }
 
                 // Reset timer
@@ -8853,6 +8880,7 @@ useEffect(() => {
                 toastSuccess(`🎁 ${gift.name_en} sent!`, 1400);
               } catch (err) {
                 console.error('[REPEAT_GIFT_ERROR]', err);
+                toast('Failed to repeat gift', 1400);
               }
             }}
             className="ml-1 bg-amber-500 text-white text-xs font-black px-3 py-1.5 rounded-full hover:bg-amber-400 transition active:scale-95"
@@ -8943,7 +8971,7 @@ useEffect(() => {
 
                 toastSuccess(`🎁 ${gift.name_en} sent!`, 1400);
 
-                setFloatingRepeat({ gift, quantity });
+                setFloatingRepeat({ gift, quantity, recipientMode, recipientId });
                 if (floatingRepeatTimerRef.current) {
                   clearTimeout(floatingRepeatTimerRef.current);
                 }
