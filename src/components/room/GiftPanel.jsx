@@ -39,17 +39,6 @@ export default function GiftPanel({
   const [showQuantityPicker, setShowQuantityPicker] = useState(false);
   const [customQty, setCustomQty] = useState('');
 
-  // Repeat last gift
-  const [lastSentGift, setLastSentGift] = useState(null);
-  const [showRepeatBtn, setShowRepeatBtn] = useState(false);
-  const repeatHideTimerRef = useRef(null);
-
-  useEffect(() => {
-    return () => {
-      if (repeatHideTimerRef.current) clearTimeout(repeatHideTimerRef.current);
-    };
-  }, []);
-
   useEffect(() => {
     const fetchGifts = async () => {
       setLoading(true);
@@ -79,60 +68,6 @@ export default function GiftPanel({
   }, [bagGifts]);
 
 
-  const sendRepeat = async () => {
-    if (!lastSentGift || sending) return;
-
-    const giftToSend = lastSentGift.gift;
-    const qtyToSend = lastSentGift.qty;
-
-    const totalCost = giftToSend.cost * qtyToSend;
-    if (userCoins < totalCost) {
-      alert(`Not enough coins. Need ${totalCost} coins.`);
-      return;
-    }
-
-    let recipientId = null;
-    if (recipientMode === 'all') {
-      recipientId = roomOwnerId || targetUserId;
-    } else if (recipientMode === 'mic') {
-      recipientId = micRecipient || seatedUsers?.[0]?.user_id || roomOwnerId;
-    } else {
-      recipientId = specificRecipient || targetUserId || roomOwnerId;
-    }
-
-    if (!recipientId) return;
-
-    setSending(true);
-    try {
-      const { data, error } = await supabase.rpc(
-        'frontend_send_live_room_gift',
-        {
-          p_room_id: room?.id,
-          p_receiver_id: recipientId,
-          p_gift_id: giftToSend.id,
-          p_message: null,
-          p_quantity: qtyToSend,
-        }
-      );
-
-      if (error) throw error;
-
-      onGiftSent?.({
-        gift: giftToSend,
-        quantity: qtyToSend,
-        recipientId,
-        recipientMode,
-        result: data,
-      });
-
-      if (repeatHideTimerRef.current) clearTimeout(repeatHideTimerRef.current);
-      repeatHideTimerRef.current = setTimeout(() => setShowRepeatBtn(false), 5000);
-    } catch (err) {
-      alert(err.message || 'Failed to send gift');
-    } finally {
-      setSending(false);
-    }
-  };
 
   const handleSend = async () => {
     if (!selectedGift || !user?.id || sending) return;
@@ -199,17 +134,10 @@ export default function GiftPanel({
         result: data,
       });
 
-      // Save for repeat
-      const sentGift = selectedGift;
-      const sentQty = quantity;
-      setLastSentGift({ gift: sentGift, qty: sentQty });
-      setShowRepeatBtn(true);
-      if (repeatHideTimerRef.current) clearTimeout(repeatHideTimerRef.current);
-      repeatHideTimerRef.current = setTimeout(() => setShowRepeatBtn(false), 5000);
-
       setSelectedGift(null);
       setQuantity(1);
       setShowQuantityPicker(false);
+      onClose?.();
     } catch (err) {
       console.error('[GIFT_SEND_ERROR]', err);
       alert(err.message || 'Failed to send gift');
@@ -439,8 +367,8 @@ export default function GiftPanel({
       <div className="shrink-0 px-3 py-3 border-t border-white/10
         bg-black/40 min-h-[64px]">
 
-        {/* Gift selected, no repeat pending — show gift info + quantity + send */}
-        {selectedGift && !showRepeatBtn && (
+        {/* Gift selected — show gift info + quantity + send */}
+        {selectedGift && (
           <div className="flex items-center gap-2">
             {/* Gift info */}
             <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -536,35 +464,8 @@ export default function GiftPanel({
         )}
 
         {/* After sending — show repeat UI prominently */}
-        {showRepeatBtn && lastSentGift && (
-          <div className="flex items-center gap-3">
-            <img
-              src={lastSentGift.gift.animation_asset_url || lastSentGift.gift.icon_url}
-              alt={lastSentGift.gift.name_en}
-              className="w-12 h-12 object-contain shrink-0"
-            />
-            <div className="flex-1 min-w-0">
-              <p className="text-white text-xs font-bold truncate">
-                {lastSentGift.gift.name_en}
-              </p>
-              <p className="text-white/40 text-[10px]">Tap to send again</p>
-            </div>
-            <button
-              type="button"
-              onClick={sendRepeat}
-              disabled={sending}
-              className="shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-r from-amber-500 to-yellow-400 text-white font-black text-sm shadow-lg hover:shadow-[0_0_15px_rgba(245,158,11,0.5)] transition active:scale-95 disabled:opacity-50"
-            >
-              {sending
-                ? <Loader2 className="w-4 h-4 animate-spin" />
-                : <>↺ Repeat ×{lastSentGift.qty}</>
-              }
-            </button>
-          </div>
-        )}
 
-        {/* No gift selected, no repeat — placeholder */}
-        {!selectedGift && !showRepeatBtn && (
+        {!selectedGift && (
           <p className="text-white/30 text-xs text-center py-2">
             Select a gift to send
           </p>

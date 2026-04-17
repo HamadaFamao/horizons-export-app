@@ -1007,6 +1007,8 @@ useEffect(() => {
   const [userWalletCoins, setUserWalletCoins] = useState(0);
   const [giftOverlay, setGiftOverlay] = useState(null);
   const giftOverlayTimerRef = useRef(null);
+  const [floatingRepeat, setFloatingRepeat] = useState(null);
+  const floatingRepeatTimerRef = useRef(null);
   const [giftTarget, setGiftTarget] = useState(null);
   const [giftTargetMode, setGiftTargetMode] = useState("all");
   const [giftQuantity, setGiftQuantity] = useState(1);
@@ -8694,6 +8696,36 @@ useEffect(() => {
         </div>
       )}
 
+      {floatingRepeat && !giftPanelOpen && (
+        <div className="fixed bottom-20 right-4 z-[75] flex items-center gap-2 bg-black/80 backdrop-blur-md rounded-full px-3 py-2 shadow-2xl border border-amber-500/40 animate-in slide-in-from-right duration-300">
+          <img
+            src={floatingRepeat.gift.animation_asset_url || floatingRepeat.gift.icon_url}
+            alt={floatingRepeat.gift.name_en}
+            className="w-8 h-8 object-contain"
+          />
+          <div className="flex flex-col">
+            <span className="text-white text-[10px] font-bold">
+              {floatingRepeat.gift.name_en}
+            </span>
+            <span className="text-amber-400 text-[9px]">
+              ×{floatingRepeat.quantity}
+            </span>
+          </div>
+          <button
+            onClick={() => setGiftPanelOpen(true)}
+            className="ml-1 bg-amber-500 text-white text-xs font-black px-3 py-1.5 rounded-full hover:bg-amber-400 transition active:scale-95"
+          >
+            ↺ Repeat
+          </button>
+          <button
+            onClick={() => setFloatingRepeat(null)}
+            className="text-white/40 hover:text-white/70 text-sm ml-1"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {giftPanelOpen && (
         <div
           className="fixed inset-0 z-[80]"
@@ -8709,7 +8741,7 @@ useEffect(() => {
               targetUserId={giftPanelTarget || room?.owner_user_id}
               onClose={() => setGiftPanelOpen(false)}
               onGiftSent={async ({ gift, quantity, recipientId, recipientMode, result }) => {
-                // DON'T close panel immediately — let repeat button show for 5 seconds
+                // Panel closes immediately via GiftPanel after send
 
                 // Refresh coins
                 const { data: walletData } = await supabase
@@ -8769,10 +8801,13 @@ useEffect(() => {
 
                 toastSuccess(`🎁 ${gift.name_en} sent!`, 1400);
 
-                // Close panel after 5 seconds (matches repeat button timeout)
-                setTimeout(() => {
-                  setGiftPanelOpen(false);
-                }, 5000);
+                setFloatingRepeat({ gift, quantity });
+                if (floatingRepeatTimerRef.current) {
+                  clearTimeout(floatingRepeatTimerRef.current);
+                }
+                floatingRepeatTimerRef.current = setTimeout(() => {
+                  setFloatingRepeat(null);
+                }, 8000);
               }}
               isVIP={isVipActive(currentUserProfile)}
               userCoins={userWalletCoins}
