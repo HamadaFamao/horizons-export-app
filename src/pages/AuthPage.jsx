@@ -68,7 +68,17 @@ const AuthPage = () => {
       const origin = window.location.origin;
       const redirectTo = `${origin}/auth/callback`;
 
-      console.log('Initiating Google OAuth with redirect to:', redirectTo);
+      // ✅ detect in-app browser على iOS
+      const isInAppBrowser = /FBAN|FBAV|Instagram|Messenger|WebView|wv/.test(
+        navigator.userAgent
+      );
+
+      if (isInAppBrowser) {
+        // افتح Safari بدل الـ in-app browser
+        window.open(`${origin}/auth/callback?openInBrowser=true`, '_blank');
+        setLoading(false);
+        return;
+      }
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -84,7 +94,6 @@ const AuthPage = () => {
 
       if (error) throw error;
 
-      // لو في URL (بعض البيئات مش بتعمل redirect تلقائي)
       if (data?.url) {
         window.location.href = data.url;
       }
