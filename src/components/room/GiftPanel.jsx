@@ -63,7 +63,6 @@ export default function GiftPanel({
     initialRecipientId ? 'specific' : initialRecipientMode
   );
   const [specificRecipient, setSpecificRecipient] = useState(initialRecipientId || null);
-  const [micRecipient, setMicRecipient] = useState(null);
 
   // Quantity picker
   const [showQuantityPicker, setShowQuantityPicker] = useState(false);
@@ -113,12 +112,56 @@ export default function GiftPanel({
       return;
     }
 
-    // Determine recipient
+    // Handle "All On Mic" mode — send to all seated users
+    if (recipientMode === 'mic') {
+      if (!seatedUsers?.length) {
+        alert('No users on mic');
+        return;
+      }
+      
+      setSending(true);
+      try {
+        for (const su of seatedUsers) {
+          if (!su.user_id || String(su.user_id) === String(user?.id)) continue;
+          
+          const { data, error } = await supabase.rpc(
+            'frontend_send_live_room_gift',
+            {
+              p_room_id: room?.id,
+              p_receiver_id: su.user_id,
+              p_gift_id: selectedGift.id,
+              p_message: null,
+              p_quantity: quantity,
+            }
+          );
+          
+          if (!error && data?.success) {
+            onGiftSent?.({
+              gift: selectedGift,
+              quantity,
+              recipientId: su.user_id,
+              recipientMode: 'mic',
+              result: data,
+            });
+          }
+        }
+        
+        setSelectedGift(null);
+        setQuantity(1);
+        setShowQuantityPicker(false);
+        onClose();
+      } catch (err) {
+        alert(err.message || 'Failed to send gift');
+      } finally {
+        setSending(false);
+      }
+      return;
+    }
+
+    // Determine recipient for other modes
     let recipientId = null;
     if (recipientMode === 'all') {
       recipientId = roomOwnerId || targetUserId;
-    } else if (recipientMode === 'mic') {
-      recipientId = micRecipient || seatedUsers?.[0]?.user_id || roomOwnerId;
     } else {
       // 'specific'
       recipientId = specificRecipient || targetUserId || roomOwnerId;
@@ -233,7 +276,7 @@ export default function GiftPanel({
         <div className="flex gap-1 overflow-x-auto scrollbar-none">
           {[
             { id: 'all',      label: '👥 All' },
-            { id: 'mic',      label: '🎤 On Mic' },
+            { id: 'mic',      label: '🎤 All On Mic' },
             { id: 'specific', label: '👤 Specific' },
           ].map(mode => (
             <button
@@ -260,33 +303,12 @@ export default function GiftPanel({
         </div>
       )}
 
-      {/* On Mic — show seated users, allow picking one */}
+      {/* All On Mic — send to all seated users */}
       {recipientMode === 'mic' && (
-        <div className="flex gap-2 px-3 pb-2 overflow-x-auto scrollbar-none shrink-0">
-          {(seatedUsers || []).length === 0 ? (
-            <p className="text-[10px] text-white/30 py-2">No one on mic</p>
-          ) : (
-            (seatedUsers || []).map(su => (
-              <button
-                key={su.user_id}
-                onClick={() => setMicRecipient(su.user_id)}
-                className={`shrink-0 flex flex-col items-center gap-1 p-1.5 rounded-xl transition ${
-                  (micRecipient || seatedUsers[0]?.user_id) === su.user_id
-                    ? 'bg-blue-500/30 border border-blue-400/60'
-                    : 'bg-white/5 hover:bg-white/10'
-                }`}
-              >
-                <img
-                  src={su.avatar_url || '/default-avatar.svg'}
-                  alt={su.name}
-                  className="w-8 h-8 rounded-full object-cover"
-                />
-                <span className="text-[9px] text-white/70 truncate w-12 text-center">
-                  {su.name}
-                </span>
-              </button>
-            ))
-          )}
+        <div className="px-3 pb-2 shrink-0">
+          <p className="text-[10px] text-white/30 py-1">
+            🎤 Gift will be sent to all {seatedUsers?.length || 0} users on mic
+          </p>
         </div>
       )}
 
