@@ -8712,7 +8712,84 @@ useEffect(() => {
             </span>
           </div>
           <button
-            onClick={() => setGiftPanelOpen(true)}
+            onClick={async () => {
+              if (!floatingRepeat || !channelRef.current) return;
+              
+              const { gift, quantity } = floatingRepeat;
+              
+              // Determine recipient - use last used recipient
+              const recipientId = giftPanelTarget || room?.owner_user_id;
+              if (!recipientId) return;
+
+              try {
+                const { data, error } = await supabase.rpc(
+                  'frontend_send_live_room_gift',
+                  {
+                    p_room_id: room?.id,
+                    p_receiver_id: recipientId,
+                    p_gift_id: gift.id,
+                    p_message: null,
+                    p_quantity: quantity,
+                  }
+                );
+
+                if (error || !data?.success) return;
+
+                // Refresh coins
+                const { data: walletData } = await supabase
+                  .from('wallets').select('coins')
+                  .eq('user_id', user.id).maybeSingle();
+                if (walletData) setUserWalletCoins(walletData.coins || 0);
+
+                // Broadcasts
+                if (channelRef.current) {
+                  await channelRef.current.send({
+                    type: 'broadcast',
+                    event: 'gift_sent',
+                    payload: {
+                      room_id: roomId,
+                      sender_id: user.id,
+                      sender_name: participantsMap[user.id]?.name || 'User',
+                      sender_avatar: participantsMap[user.id]?.avatar_url || null,
+                      receiver_id: recipientId,
+                      receiver_name: participantsMap[recipientId]?.name || 'User',
+                      receiver_avatar: participantsMap[recipientId]?.avatar_url || null,
+                      is_to_all: false,
+                      gift_id: gift.id,
+                      gift_name: gift.name_en,
+                      gift_icon: gift.animation_asset_url || gift.icon_url,
+                      quantity,
+                      coins_spent: gift.cost * quantity,
+                      ts: Date.now(),
+                    },
+                  });
+
+                  await channelRef.current.send({
+                    type: 'broadcast',
+                    event: 'gift',
+                    payload: {
+                      event_id: data.event_id,
+                      room_id: roomId,
+                      sender_id: user.id,
+                      quantity,
+                      ts: Date.now(),
+                    },
+                  });
+                }
+
+                // Reset timer
+                if (floatingRepeatTimerRef.current) {
+                  clearTimeout(floatingRepeatTimerRef.current);
+                }
+                floatingRepeatTimerRef.current = setTimeout(() => {
+                  setFloatingRepeat(null);
+                }, 8000);
+
+                toastSuccess(`🎁 ${gift.name_en} sent!`, 1400);
+              } catch (err) {
+                console.error('[REPEAT_GIFT_ERROR]', err);
+              }
+            }}
             className="ml-1 bg-amber-500 text-white text-xs font-black px-3 py-1.5 rounded-full hover:bg-amber-400 transition active:scale-95"
           >
             ↺ Repeat
