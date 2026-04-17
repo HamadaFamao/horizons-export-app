@@ -21,123 +21,50 @@ const AuthCallback = () => {
       console.log('🔄 [AuthCallback] Starting auth verification...');
       
       try {
-        // 1. Handle URL errors first (e.g. access_denied)
+        // 1. Handle URL errors first
         const params = new URLSearchParams(window.location.search);
-        const hashString = window.location.hash.substring(1); // remove #
+        const hashString = window.location.hash.substring(1);
         const hashParams = new URLSearchParams(hashString);
         
         const error = params.get('error') || hashParams.get('error');
         const errorDesc = params.get('error_description') || hashParams.get('error_description');
+        if (error) throw new Error(errorDesc || error || 'Authentication failed');
 
-        if (error) {
-           throw new Error(errorDesc || error || 'Authentication failed');
+        // 2. ✅ انتظر Supabase يـparse الـ URL (مهم جداً على iPhone)
+        await new Promise(r => setTimeout(r, 500));
+
+        // 3. Code exchange لو فيه code
+        const code = params.get('code');
+        if (code) {
+          console.log('🔄 Exchanging code...');
+          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+          if (exchangeError) throw exchangeError;
         }
 
-        // 2. Retrieve session
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) {
-          throw sessionError;
+        // 4. انتظر الـ session تتحفظ
+        let session = null;
+        let attempts = 0;
+        while (!session && attempts < 5) {
+          const { data } = await supabase.auth.getSession();
+          session = data?.session;
+          if (!session) {
+            await new Promise(r => setTimeout(r, 800));
+            attempts++;
+          }
         }
 
-        // 3. Handle Code Exchange if no session but code exists
         if (!session) {
-           const code = params.get('code');
-           if (code) {
-               console.log('🔄 [AuthCallback] Exchanging code for session...');
-               const { data: exchangeData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-               if (exchangeError) throw exchangeError;
-               
-               if (!exchangeData.session) {
-                   throw new Error("No session returned after code exchange");
-               }
-               
-               // Validate the new token immediately
-               if (!isValidToken(exchangeData.session.access_token)) {
-                   throw new Error("Received invalid session token from provider");
-               }
-           } else {
-               // If no code and no session, check if we have hash tokens
-               const accessToken = hashParams.get('access_token');
-               if (accessToken) {
-                   // Validate hash token
-                   if (!isValidToken(accessToken)) {
-                       throw new Error("Invalid access token in URL");
-                   }
-               } else {
-                   // Fallback: Check if we're already logged in via getUser
-                   const { data: userCheck } = await supabase.auth.getUser();
-                   if (!userCheck?.user) {
-                       throw new Error("No authentication credentials found.");
-                   }
-               }
-           }
-        } else {
-            // We have a session, validate it
-            if (!isValidToken(session.access_token)) {
-                // If invalid, try to refresh or fail
-                console.warn('[AuthCallback] Session token invalid, attempting refresh...');
-                const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-                if (refreshError || !refreshData.session || !isValidToken(refreshData.session.access_token)) {
-                    throw new Error("Invalid or expired session token");
-                }
-            }
+          // آخر محاولة عن طريق getUser
+          const { data: userData } = await supabase.auth.getUser();
+          if (!userData?.user) throw new Error('No authentication credentials found.');
         }
 
-        // 4. Verify User Profile with Safe Retry Logic
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (user) {
-            console.log('✅ [AuthCallback] User authenticated:', user.id);
-            let profile = null;
-            let attempts = 0;
-            const maxAttempts = 3;
-
-            while (attempts < maxAttempts && !profile) {
-                console.log(`⏳ [AuthCallback] Verifying profile (Attempt ${attempts + 1}/${maxAttempts})...`);
-                
-                const fetchPromise = supabase
-                    .from('profiles')
-                    .select('id, name')
-                    .eq('id', user.id)
-                    .single();
-                
-                const timeoutPromise = new Promise((_, reject) => 
-                    setTimeout(() => reject(new Error('Profile fetch timeout')), 3000)
-                );
-
-                try {
-                    const result = await Promise.race([fetchPromise, timeoutPromise]);
-                    if (result && result.data) {
-                        profile = result.data;
-                        break;
-                    }
-                } catch (e) {
-                    console.warn("Profile fetch attempt failed/timed out:", e);
-                }
-
-                if (attempts < maxAttempts - 1) {
-                    await new Promise(r => setTimeout(r, 1000));
-                }
-                attempts++;
-            }
-
-            if (!profile) {
-                console.warn('⚠️ [AuthCallback] Profile verification timed out. User may be new/creating.');
-            } else {
-                console.log('✅ [AuthCallback] Profile verified:', profile.name);
-            }
-        }
-
+        console.log('✅ Auth successful');
         setStatus('success');
-        
-        setTimeout(() => {
-             navigate('/discover', { replace: true });
-        }, 1500);
+        setTimeout(() => navigate('/discover', { replace: true }), 1500);
 
       } catch (err) {
         console.error('❌ [AuthCallback] Error:', err);
-        // Clear any bad state
         await supabase.auth.signOut().catch(() => {});
         setStatus('error');
         setErrorMessage(err.message || 'Authentication failed');
