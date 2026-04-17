@@ -106,24 +106,72 @@ export default function GiftPanel({
       return;
     }
 
-    const totalCost = selectedGift.cost * quantity;
-    if (userCoins < totalCost) {
-      alert(`Not enough coins. Need ${totalCost} coins.`);
-      return;
-    }
+    setSending(true);
+    try {
+      // ── ALL mode ──
+      if (recipientMode === 'all') {
+        const targets = (allParticipants || [])
+          .filter(p => p.user_id && 
+            String(p.user_id) !== String(user?.id));
+        
+        if (!targets.length) {
+          alert('No users in room');
+          return;
+        }
 
-    // Handle "All On Mic" mode — send to all seated users
-    if (recipientMode === 'mic') {
-      if (!seatedUsers?.length) {
-        alert('No users on mic');
+        const totalCost = selectedGift.cost * quantity * targets.length;
+        if (userCoins < totalCost) {
+          alert(`Not enough coins. Need ${totalCost} coins.`);
+          return;
+        }
+
+        for (const p of targets) {
+          const { data, error } = await supabase.rpc(
+            'frontend_send_live_room_gift',
+            {
+              p_room_id: room?.id,
+              p_receiver_id: p.user_id,
+              p_gift_id: selectedGift.id,
+              p_message: null,
+              p_quantity: quantity,
+            }
+          );
+          if (!error && data?.success) {
+            onGiftSent?.({
+              gift: selectedGift,
+              quantity,
+              recipientId: p.user_id,
+              recipientMode: 'all',
+              result: data,
+            });
+          }
+        }
+
+        setSelectedGift(null);
+        setQuantity(1);
+        setShowQuantityPicker(false);
+        onClose();
         return;
       }
-      
-      setSending(true);
-      try {
-        for (const su of seatedUsers) {
-          if (!su.user_id || String(su.user_id) === String(user?.id)) continue;
-          
+
+      // ── MIC mode ──
+      if (recipientMode === 'mic') {
+        const targets = (seatedUsers || [])
+          .filter(su => su.user_id && 
+            String(su.user_id) !== String(user?.id));
+
+        if (!targets.length) {
+          alert('No users on mic');
+          return;
+        }
+
+        const totalCost = selectedGift.cost * quantity * targets.length;
+        if (userCoins < totalCost) {
+          alert(`Not enough coins. Need ${totalCost} coins.`);
+          return;
+        }
+
+        for (const su of targets) {
           const { data, error } = await supabase.rpc(
             'frontend_send_live_room_gift',
             {
@@ -134,7 +182,6 @@ export default function GiftPanel({
               p_quantity: quantity,
             }
           );
-          
           if (!error && data?.success) {
             onGiftSent?.({
               gift: selectedGift,
@@ -145,46 +192,29 @@ export default function GiftPanel({
             });
           }
         }
-        
+
         setSelectedGift(null);
         setQuantity(1);
         setShowQuantityPicker(false);
         onClose();
-      } catch (err) {
-        alert(err.message || 'Failed to send gift');
-      } finally {
-        setSending(false);
+        return;
       }
-      return;
-    }
 
-    // Determine recipient for other modes
-    let recipientId = null;
-    if (recipientMode === 'all') {
-      recipientId = roomOwnerId || targetUserId;
-    } else {
-      // 'specific'
-      recipientId = specificRecipient || targetUserId || roomOwnerId;
-    }
+      // ── SPECIFIC mode ──
+      const recipientId = specificRecipient || 
+        targetUserId || roomOwnerId;
 
-    if (!recipientId) {
-      alert('No recipient found');
-      return;
-    }
+      if (!recipientId || 
+          String(recipientId) === String(user?.id)) {
+        alert('Please select a recipient');
+        return;
+      }
 
-    if (!recipientId || String(recipientId) === String(user?.id)) {
-      alert('Cannot send gift to yourself. Please select another recipient.');
-      return;
-    }
-
-    setSending(true);
-    try {
-      console.log('[GIFT_SEND]', {
-        p_room_id: room?.id,
-        p_receiver_id: recipientId,
-        p_gift_id: selectedGift.id,
-        p_quantity: quantity,
-      });
+      const totalCost = selectedGift.cost * quantity;
+      if (userCoins < totalCost) {
+        alert(`Not enough coins. Need ${totalCost} coins.`);
+        return;
+      }
 
       const { data, error } = await supabase.rpc(
         'frontend_send_live_room_gift',
@@ -197,35 +227,30 @@ export default function GiftPanel({
         }
       );
 
-      console.log('[GIFT_SEND_RESULT]', data, error);
-
       if (error) throw error;
-
       if (!data?.success) {
         alert(data?.error || 'Failed to send gift');
         return;
       }
 
-      console.log('[GIFT_SEND_SUCCESS]', data);
-
-      // Pass full gift data to parent for broadcast + display
       onGiftSent?.({
         gift: selectedGift,
         quantity,
         recipientId,
-        recipientMode,
+        recipientMode: 'specific',
         result: data,
       });
 
-      onClose?.();
+      setSelectedGift(null);
+      setQuantity(1);
+      setShowQuantityPicker(false);
+      onClose();
+
     } catch (err) {
       console.error('[GIFT_SEND_ERROR]', err);
       alert(err.message || 'Failed to send gift');
     } finally {
       setSending(false);
-      setSelectedGift(null);
-      setQuantity(1);
-      setShowQuantityPicker(false);
     }
   };
 
