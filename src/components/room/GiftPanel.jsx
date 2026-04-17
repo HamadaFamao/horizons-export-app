@@ -99,6 +99,11 @@ export default function GiftPanel({
       return;
     }
 
+    if (!recipientId || String(recipientId) === String(user?.id)) {
+      alert('Cannot send gift to yourself. Please select another recipient.');
+      return;
+    }
+
     setSending(true);
     try {
       console.log('[GIFT_SEND]', {
@@ -123,6 +128,11 @@ export default function GiftPanel({
 
       if (error) throw error;
 
+      if (!data?.success) {
+        alert(data?.error || 'Failed to send gift');
+        return;
+      }
+
       console.log('[GIFT_SEND_SUCCESS]', data);
 
       // Pass full gift data to parent for broadcast + display
@@ -134,15 +144,15 @@ export default function GiftPanel({
         result: data,
       });
 
-      setSelectedGift(null);
-      setQuantity(1);
-      setShowQuantityPicker(false);
       onClose?.();
     } catch (err) {
       console.error('[GIFT_SEND_ERROR]', err);
       alert(err.message || 'Failed to send gift');
     } finally {
       setSending(false);
+      setSelectedGift(null);
+      setQuantity(1);
+      setShowQuantityPicker(false);
     }
   };
 
