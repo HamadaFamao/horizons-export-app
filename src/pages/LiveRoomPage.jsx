@@ -1752,7 +1752,7 @@ useEffect(() => {
     setGiftPanelOpen(true);
   };
 
-  const handleIncomingRoomGiftEvent = async (eventId, attempt = 0, overrideQuantity = null, shouldAffectPkDb = true, skipChatMessage = false) => {
+  const handleIncomingRoomGiftEvent = async (eventId, attempt = 0, overrideQuantity = null, shouldAffectPkDb = true, skipChatMessage = false, skipEffects = false) => {
     if (!eventId) return;
 
     if (processedRoomGiftIdsRef.current.has(eventId)) {
@@ -1910,7 +1910,7 @@ useEffect(() => {
         seatTarget
       });
 
-      if (effect) {
+      if (effect && !skipEffects) {
         effect.quantity = finalQty;
         effect.targetPosition = seatTarget || null;
         effect.startMotion = false;
@@ -6197,7 +6197,7 @@ useEffect(() => {
           if (processedRoomGiftIdsRef.current.has(eventId)) return;
 
           const isSender = senderId && String(senderId) === String(user?.id);
-          await handleIncomingRoomGiftEvent(eventId, 0, qty, !isSender, true);
+          await handleIncomingRoomGiftEvent(eventId, 0, qty, !isSender, true, true);
         } catch (err) {
           console.error("[ROOM_GIFT_BROADCAST_ERROR]", err);
         }
