@@ -5,6 +5,36 @@ import { Loader2 } from 'lucide-react';
 
 const QUANTITY_PRESETS = [5, 10, 15, 20, 50, 100, 150, 250, 500, 1000];
 
+const isVideoAsset = (url) => 
+  /\.(mp4|webm)(\?|#|$)/i.test(String(url || ''));
+
+const GiftAsset = ({ url, alt, className }) => {
+  if (!url) return <span className="text-3xl">🎁</span>;
+  
+  if (isVideoAsset(url)) {
+    return (
+      <video
+        src={url}
+        className={className}
+        autoPlay
+        loop
+        muted
+        playsInline
+        preload="metadata"
+      />
+    );
+  }
+  
+  return (
+    <img
+      src={url}
+      alt={alt}
+      className={className}
+      loading="lazy"
+    />
+  );
+};
+
 export default function GiftPanel({
   user,
   room,
@@ -326,23 +356,11 @@ export default function GiftPanel({
                 }`}
               >
                 <div className="w-14 h-14 flex items-center justify-center">
-                  {gift.animation_asset_url ? (
-                    <img
-                      src={gift.animation_asset_url}
-                      alt={gift.name_en}
-                      className="w-full h-full object-contain"
-                      loading="lazy"
-                    />
-                  ) : gift.icon_url ? (
-                    <img
-                      src={gift.icon_url}
-                      alt={gift.name_en}
-                      className="w-full h-full object-contain"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <span className="text-3xl">🎁</span>
-                  )}
+                  <GiftAsset
+                    url={gift.animation_asset_url || gift.icon_url}
+                    alt={gift.name_en}
+                    className="w-full h-full object-contain"
+                  />
                 </div>
 
                 <p className="text-[10px] text-white/70 font-medium truncate w-full text-center leading-tight">
@@ -382,8 +400,8 @@ export default function GiftPanel({
           <div className="flex items-center gap-2">
             {/* Gift info */}
             <div className="flex items-center gap-2 flex-1 min-w-0">
-              <img
-                src={selectedGift.animation_asset_url || selectedGift.icon_url}
+              <GiftAsset
+                url={selectedGift.animation_asset_url || selectedGift.icon_url}
                 alt={selectedGift.name_en}
                 className="w-10 h-10 object-contain shrink-0"
               />
