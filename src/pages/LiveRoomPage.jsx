@@ -202,6 +202,16 @@ const normalizeGiftHistoryForRoomMessages = (events) => {
 
 const getMicGiftTotalsStorageKey = (roomId) => `live_room_mic_gift_totals:${roomId}`;
 
+const getGiftTier = (coins) => {
+  const c = Number(coins || 0);
+  if (c < 1) return 'none';
+  if (c <= 99) return 'tiny';
+  if (c <= 999) return 'small';
+  if (c <= 4999) return 'medium';
+  if (c <= 49999) return 'large';
+  return 'global';
+};
+
 const KICK_OPTIONS = [
   { label: "5 minutes", minutes: 5 },
   { label: "10 minutes", minutes: 10 },
@@ -269,6 +279,21 @@ const SPARKLE_CSS = `
 @keyframes marquee {
   0%   { transform: translateX(100%); }
   100% { transform: translateX(-100%); }
+}
+@keyframes tinyFly {
+  0% { 
+    transform: translate(-50%, 0) scale(0.5); 
+    opacity: 0; 
+    bottom: 80px;
+  }
+  20% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  100% { 
+    transform: translate(-50%, -60vh) scale(0.8); 
+    opacity: 0; 
+  }
+}
+.tiny-fly {
+  animation: tinyFly 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
 }
 `;
 
@@ -6267,6 +6292,46 @@ useEffect(() => {
             return [...(prev || []), giftNotifMsg];
           });
 
+          // Tiny gift flying effect
+          const giftCoins = Number(payload?.coins_spent || 0);
+          const tier = getGiftTier(giftCoins);
+
+          if (tier === 'tiny') {
+            const count = payload?.is_to_all ? 8 : 1;
+            const assetUrl = payload?.gift_icon || '';
+            
+            for (let i = 0; i < count; i++) {
+              const effectId = `tiny_${Date.now()}_${i}_${Math.random()}`;
+              const startX = 45 + Math.random() * 10; // near gift button %
+              const targetX = payload?.is_to_all 
+                ? 10 + Math.random() * 80  // spread across screen
+                : null; // will use seat position
+              
+              setTimeout(() => {
+                if (!mountedRef.current) return;
+                
+                setSeatEmojiEffects(prev => [...prev, {
+                  id: effectId,
+                  src: assetUrl,
+                  startX,
+                  targetX,
+                  targetUserId: payload?.receiver_id || null,
+                  isToAll: payload?.is_to_all || false,
+                  isTiny: true,
+                  ts: Date.now(),
+                }]);
+                
+                setTimeout(() => {
+                  if (!mountedRef.current) return;
+                  setSeatEmojiEffects(prev => 
+                    prev.filter(e => e.id !== effectId)
+                  );
+                }, 1500);
+                
+              }, i * 150); // stagger each emoji
+            }
+          }
+
           // Schedule leaderboard refresh
           scheduleLeaderboardRefresh(400);
         } catch (err) {
@@ -8949,6 +9014,28 @@ useEffect(() => {
           </div>
         </div>
       )}
+
+      {/* Tiny gift flying effects overlay */}
+      {seatEmojiEffects.filter(e => e.isTiny).map(effect => (
+        <div
+          key={effect.id}
+          className="fixed z-[66] pointer-events-none tiny-fly"
+          style={{
+            left: `${effect.startX}%`,
+            bottom: '80px',
+          }}
+        >
+          {effect.src ? (
+            <img 
+              src={effect.src} 
+              alt="gift"
+              className="w-8 h-8 object-contain drop-shadow-lg"
+            />
+          ) : (
+            <span className="text-2xl">🎁</span>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
