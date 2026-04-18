@@ -7326,56 +7326,68 @@ useEffect(() => {
   }
 
   const TinyGiftEffect = ({ effect }) => {
-    const [pos, setPos] = React.useState({
-      x: effect.startX,
-      y: effect.startY,
+    const [style, setStyle] = React.useState({
+      left: effect.startX,
+      top: effect.startY,
       opacity: 0,
-      scale: 0.3,
+      transform: 'translate(-50%, -50%) scale(0.5)',
+      transition: 'none',
     });
 
     React.useEffect(() => {
-      // Phase 1: appear at start position
-      const t1 = setTimeout(() => {
-        setPos(prev => ({ ...prev, opacity: 1, scale: 1 }));
-      }, 30);
-
-      // Phase 2: move to end position
-      const t2 = setTimeout(() => {
-        setPos({
-          x: effect.endX,
-          y: effect.endY,
+      // Frame 1: place at start, make visible, no transition
+      const raf1 = requestAnimationFrame(() => {
+        setStyle({
+          left: effect.startX,
+          top: effect.startY,
           opacity: 1,
-          scale: 0.9,
+          transform: 'translate(-50%, -50%) scale(1.2)',
+          transition: 'none',
         });
-      }, 100);
 
-      // Phase 3: fade out near destination
-      const t3 = setTimeout(() => {
-        setPos(prev => ({ ...prev, opacity: 0, scale: 0.6 }));
-      }, 2000);
+        // Frame 2: enable transition and move to end
+        const raf2 = requestAnimationFrame(() => {
+          setStyle({
+            left: effect.endX,
+            top: effect.endY,
+            opacity: 1,
+            transform: 'translate(-50%, -50%) scale(1)',
+            transition: [
+              'left 2s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+              'top 2s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+              'opacity 0.5s ease',
+              'transform 0.3s ease',
+            ].join(', '),
+          });
 
-      return () => {
-        clearTimeout(t1);
-        clearTimeout(t2);
-        clearTimeout(t3);
-      };
+          // Fade out near end
+          const t = setTimeout(() => {
+            setStyle(prev => ({
+              ...prev,
+              opacity: 0,
+              transform: 'translate(-50%, -50%) scale(0.7)',
+              transition: [
+                'left 2s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+                'top 2s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+                'opacity 0.6s ease',
+                'transform 0.6s ease',
+              ].join(', '),
+            }));
+          }, 1600);
+
+          return () => clearTimeout(t);
+        });
+
+        return () => cancelAnimationFrame(raf2);
+      });
+
+      return () => cancelAnimationFrame(raf1);
     }, []);
 
     return (
       <div
         className="fixed z-[66] pointer-events-none"
-        style={{
-          left: pos.x,
-          top: pos.y,
-          opacity: pos.opacity,
-          transform: `translate(-50%, -50%) scale(${pos.scale})`,
-          transition: [
-            'left 2s cubic-bezier(0.22, 1, 0.36, 1)',
-            'top 2s cubic-bezier(0.22, 1, 0.36, 1)',
-            'opacity 0.4s ease',
-            'transform 2s cubic-bezier(0.22, 1, 0.36, 1)',
-          ].join(', '),
-        }}
+        style={style}
       >
         {effect.src ? (
           <img
