@@ -7325,23 +7325,50 @@ useEffect(() => {
   }
 
   const TinyGiftEffect = ({ effect }) => {
-    const [moved, setMoved] = React.useState(false);
-    const [visible, setVisible] = React.useState(false);
-    const [fading, setFading] = React.useState(false);
-
-    const startOffsetY = window.innerHeight - effect.endY;
-
+    const animName = React.useRef(`tg_${Math.random().toString(36).slice(2)}`);
+    
     React.useEffect(() => {
-      const t1 = setTimeout(() => setVisible(true), 30);
+      const name = animName.current;
+      const startX = window.innerWidth * 0.5;
+      const startY = window.innerHeight - 100;
+      const endX = effect.endX;
+      const endY = effect.endY;
       
-      const t2 = setTimeout(() => setMoved(true), 60);
+      const style = document.createElement('style');
+      style.innerHTML = `
+        @keyframes ${name} {
+          0%   { 
+            left: ${startX}px; 
+            top: ${startY}px; 
+            opacity: 0; 
+            transform: translate(-50%, -50%) scale(0.4);
+          }
+          10%  { 
+            opacity: 1; 
+            transform: translate(-50%, -50%) scale(1.1);
+          }
+          80%  { 
+            left: ${endX}px; 
+            top: ${endY}px; 
+            opacity: 1; 
+            transform: translate(-50%, -50%) scale(1);
+          }
+          90%  { 
+            transform: translate(-50%, -50%) scale(1.2);
+            opacity: 1;
+          }
+          100% { 
+            left: ${endX}px; 
+            top: ${endY}px; 
+            opacity: 0; 
+            transform: translate(-50%, -50%) scale(0.8);
+          }
+        }
+      `;
+      document.head.appendChild(style);
       
-      const t3 = setTimeout(() => setFading(true), 1600);
-
       return () => {
-        clearTimeout(t1);
-        clearTimeout(t2);
-        clearTimeout(t3);
+        document.head.removeChild(style);
       };
     }, []);
 
@@ -7349,14 +7376,9 @@ useEffect(() => {
       <div
         className="fixed z-[66] pointer-events-none"
         style={{
+          animation: `${animName.current} 2.5s cubic-bezier(0.22, 1, 0.36, 1) forwards`,
           left: effect.endX,
           top: effect.endY,
-          transform: `translate(-50%, -50%) translateY(${moved ? 0 : startOffsetY}px) scale(${moved ? 1 : 0.5})`,
-          opacity: fading ? 0 : visible ? 1 : 0,
-          transition: moved 
-            ? 'transform 1s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.4s ease'
-            : 'opacity 0.2s ease',
-          willChange: 'transform, opacity',
         }}
       >
         {effect.src ? (
