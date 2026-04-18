@@ -7002,36 +7002,102 @@ useEffect(() => {
             });
 
             if (isToAll) {
-              const spreadCount = 12;
-              for (let i = 0; i < spreadCount; i++) {
+              const seatedEntries = Object.entries(micSeatRefs.current || {})
+                .filter(([id, el]) => !!el);
+
+              seatedEntries.forEach(([targetId, seatEl], idx) => {
                 setTimeout(() => {
                   if (!mountedRef.current) return;
 
-                  const startX = window.innerWidth * 0.5;
-                  const startY = window.innerHeight - 90;
-                  const flyEl = createMediumFlyEl(startX, startY);
-                  document.body.appendChild(flyEl);
+                  const receiverProfile =
+                    participantsMapRef.current?.[String(targetId)] || null;
+                  const receiverName = receiverProfile?.name ||
+                    receiverProfile?.display_name || 'User';
+                  const receiverAvatar = receiverProfile?.avatar_url || '';
 
-                  const col = i % 4;
-                  const row = Math.floor(i / 4);
-                  const endX = window.innerWidth * (0.1 + col * 0.25);
-                  const endY = window.innerHeight * (0.1 + row * 0.28);
+                  const cols = 3;
+                  const col = idx % cols;
+                  const row = Math.floor(idx / cols);
+                  const cardX = window.innerWidth * (0.2 + col * 0.3);
+                  const cardY = window.innerHeight * (0.15 + row * 0.28);
 
-                  flyMediumWithArc(flyEl, endX, endY, () => {
-                    showExplosion(endX, endY);
-                    showArrivalCard(endX, endY);
-                    flyEl.style.transition = 'opacity 0.5s ease, transform 0.3s ease';
-                    flyEl.style.transform = 'translate(-50%, -50%) scale(1.4) rotate(0deg)';
+                  const card = document.createElement('div');
+                  card.style.cssText = `
+                    position: fixed;
+                    z-index: 9999;
+                    pointer-events: none;
+                    left: ${cardX}px;
+                    top: ${cardY}px;
+                    transform: translate(-50%, -50%) scale(0.3);
+                    opacity: 0;
+                    background: linear-gradient(135deg, 
+                      rgba(0,0,0,0.85), rgba(30,20,0,0.9));
+                    backdrop-filter: blur(10px);
+                    border: 1px solid rgba(251,191,36,0.5);
+                    border-radius: 20px;
+                    padding: 12px 16px;
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    white-space: nowrap;
+                    transition: opacity 0.4s ease, transform 0.4s ease;
+                    box-shadow: 0 0 24px rgba(245,158,11,0.4),
+                                0 4px 20px rgba(0,0,0,0.5);
+                  `;
+
+                  card.innerHTML = `
+                    <img 
+                      src="${receiverAvatar}" 
+                      onerror="this.style.display='none'"
+                      style="
+                        width:40px;height:40px;
+                        border-radius:50%;
+                        object-fit:cover;
+                        border:2px solid rgba(251,191,36,0.6);
+                        flex-shrink:0;
+                      "
+                    />
+                    <div style="display:flex;flex-direction:column;gap:2px;">
+                      <div style="
+                        color:#fbbf24;
+                        font-size:12px;
+                        font-weight:900;
+                      ">${giftName}${quantity > 1 ? ` ×${quantity}` : ''}</div>
+                      <div style="
+                        color:rgba(255,255,255,0.7);
+                        font-size:11px;
+                      ">→ ${receiverName}</div>
+                    </div>
+                    ${assetUrl ? `<img src="${assetUrl}" style="
+                      width:36px;height:36px;
+                      object-fit:contain;
+                      flex-shrink:0;
+                      filter:drop-shadow(0 0 6px rgba(245,158,11,0.8));
+                    "/>` : '<span style="font-size:24px;flex-shrink:0;">🎁</span>'}
+                  `;
+
+                  document.body.appendChild(card);
+
+                  requestAnimationFrame(() => {
+                    card.style.opacity = '1';
+                    card.style.transform = 'translate(-50%, -50%) scale(1)';
+
+                    showExplosion(cardX, cardY);
+
                     setTimeout(() => {
-                      flyEl.style.opacity = '0';
+                      card.style.opacity = '0';
+                      card.style.transform =
+                        'translate(-50%, -50%) scale(0.85) translateY(-8px)';
                       setTimeout(() => {
-                        if (document.body.contains(flyEl)) document.body.removeChild(flyEl);
-                      }, 500);
-                    }, 800);
+                        if (document.body.contains(card)) {
+                          document.body.removeChild(card);
+                        }
+                      }, 400);
+                    }, 3000);
                   });
 
-                }, i * 180);
-              }
+                }, idx * 200);
+              });
             }
           }
 
