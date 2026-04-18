@@ -21,16 +21,13 @@ const GoogleIcon = () => (
 const AuthPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [isInApp, setIsInApp] = useState(false);
+  const [isInApp, setIsInApp] = useState(
+    /FBAN|FBAV|Instagram|Messenger|WebView|wv/i.test(navigator.userAgent)
+  );
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-
-  useEffect(() => {
-    const inApp = /FBAN|FBAV|Instagram|Messenger|WebView|wv/i.test(navigator.userAgent);
-    setIsInApp(inApp);
-  }, []);
 
   useEffect(() => {
     if (!authLoading && user?.id) {
@@ -55,9 +52,6 @@ const AuthPage = () => {
     setError(null);
 
     try {
-      const origin = window.location.origin;
-      const redirectTo = `${origin}/auth/callback`;
-
       const isInAppBrowser = /FBAN|FBAV|Instagram|Messenger|WebView|wv/i.test(navigator.userAgent);
 
       if (isInAppBrowser) {
@@ -69,7 +63,7 @@ const AuthPage = () => {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo,
+          redirectTo: 'https://singlesdate.online/auth/callback', // ✅ ثابت مش dynamic
           skipBrowserRedirect: false,
           queryParams: {
             access_type: 'offline',
@@ -106,47 +100,47 @@ const AuthPage = () => {
 
   // ✅ In-App Browser Screen
   if (isInApp) {
-  return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-rose-50 via-pink-50 to-orange-50 p-4">
-      <Card className="w-full max-w-sm shadow-xl border-rose-100/50 bg-white/90 backdrop-blur-sm">
-        <CardHeader className="text-center flex flex-col items-center space-y-4 pt-8 pb-6">
-          <Logo size="xl" className="mb-2" />
-          <div className="space-y-1">
-            <CardTitle className="text-2xl font-bold text-gray-900">
-              Open in Browser
-            </CardTitle>
-            <CardDescription className="text-base">
-              Google sign-in doesn't work inside Messenger
-            </CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent className="pb-8 flex flex-col gap-4">
-  <div className="bg-gray-100 rounded-xl p-3 text-center">
-    <p className="text-xs text-gray-500 mb-1">Copy this link and open in Chrome or Safari:</p>
-    <p className="text-sm font-bold text-rose-500 select-all break-all">
-      singlesdate.online/auth
-    </p>
-  </div>
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-rose-50 via-pink-50 to-orange-50 p-4">
+        <Card className="w-full max-w-sm shadow-xl border-rose-100/50 bg-white/90 backdrop-blur-sm">
+          <CardHeader className="text-center flex flex-col items-center space-y-4 pt-8 pb-6">
+            <Logo size="xl" className="mb-2" />
+            <div className="space-y-1">
+              <CardTitle className="text-2xl font-bold text-gray-900">
+                Open in Browser
+              </CardTitle>
+              <CardDescription className="text-base">
+                Google sign-in doesn't work inside Messenger
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="pb-8 flex flex-col gap-4">
+            <div className="bg-gray-100 rounded-xl p-3 text-center">
+              <p className="text-xs text-gray-500 mb-1">Copy this link and open in Chrome or Safari:</p>
+              <p className="text-sm font-bold text-rose-500 select-all break-all">
+                singlesdate.online/auth
+              </p>
+            </div>
 
-  <button
-    onClick={() => {
-      navigator.clipboard.writeText('https://singlesdate.online/auth')
-        .then(() => alert('✅ Link copied! Now open Chrome or Safari and paste it.'))
-        .catch(() => alert('Please copy the link manually: singlesdate.online/auth'));
-    }}
-    className="w-full bg-rose-500 text-white py-3 rounded-xl font-semibold"
-  >
-    📋 Copy Link
-  </button>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText('https://singlesdate.online/auth')
+                  .then(() => alert('✅ Link copied! Now open Chrome or Safari and paste it.'))
+                  .catch(() => alert('Please copy the link manually: singlesdate.online/auth'));
+              }}
+              className="w-full bg-rose-500 text-white py-3 rounded-xl font-semibold"
+            >
+              📋 Copy Link
+            </button>
 
-  <p className="text-xs text-center text-gray-400">
-    Then open Chrome or Safari and paste the link
-  </p>
-</CardContent>
-      </Card>
-    </div>
-  );
-}
+            <p className="text-xs text-center text-gray-400">
+              Then open Chrome or Safari and paste the link
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <>
