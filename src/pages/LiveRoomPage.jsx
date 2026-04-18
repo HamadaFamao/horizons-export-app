@@ -6292,15 +6292,20 @@ useEffect(() => {
             const assetUrl = payload?.gift_icon || '';
             const receiverId = payload?.receiver_id || null;
 
-            // For single recipient: show on their seat
-            // For all: show on all occupied seats
+            // Get current seated users from ref
+            const currentSeats = micSeatRefs.current 
+              ? Object.keys(micSeatRefs.current)
+              : [];
+
             const targetUserIds = isToAll
-              ? (effectiveSeats || [])
-                  .filter(s => s.user_id)
-                  .map(s => s.user_id)
+              ? currentSeats.filter(Boolean)
               : receiverId
                 ? [receiverId]
                 : [];
+
+            if (targetUserIds.length === 0 && receiverId) {
+              targetUserIds.push(receiverId);
+            }
 
             targetUserIds.forEach((targetId, idx) => {
               const effectId = `tiny_${Date.now()}_${idx}_${Math.random()}`;
@@ -6313,7 +6318,7 @@ useEffect(() => {
                   userId: targetId,
                   src: assetUrl,
                   flip: false,
-                  animation: 'emojiPulse 0.6s ease-in-out 3',
+                  animation: 'emojiBounce 1s ease-in-out infinite',
                   isTiny: true,
                   ts: Date.now(),
                 }]);
@@ -6323,9 +6328,9 @@ useEffect(() => {
                   setSeatEmojiEffects(prev =>
                     prev.filter(e => e.id !== effectId)
                   );
-                }, 2500);
+                }, 3000);
 
-              }, idx * (isToAll ? 150 : 0));
+              }, idx * (isToAll ? 200 : 0));
             });
           }
 
