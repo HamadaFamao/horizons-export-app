@@ -6560,6 +6560,230 @@ useEffect(() => {
             }
           }
 
+          if (tier === 'small') {
+            const isToAll = !!payload?.is_to_all;
+            const assetUrl = payload?.gift_icon || '';
+            const giftName = payload?.gift_name || '';
+            const quantity = Number(payload?.quantity || 1);
+            const receiverId = payload?.receiver_id || null;
+
+            const currentSeatedIds = Object.keys(micSeatRefs.current || {})
+              .filter(id => !!micSeatRefs.current[id]);
+
+            const targetUserIds = isToAll
+              ? currentSeatedIds.length > 0
+                ? currentSeatedIds
+                : receiverId ? [receiverId] : []
+              : receiverId
+                ? [receiverId]
+                : [];
+
+            if (targetUserIds.length === 0 && receiverId) {
+              targetUserIds.push(receiverId);
+            }
+
+            const createSmallFlyEl = (startX, startY) => {
+              const flyEl = document.createElement('div');
+              flyEl.style.cssText = `
+                position: fixed;
+                z-index: 9999;
+                pointer-events: none;
+                width: 120px;
+                height: 120px;
+                left: ${startX}px;
+                top: ${startY}px;
+                transform: translate(-50%, -50%) scale(0.4);
+                opacity: 0;
+                transition: none;
+                filter: drop-shadow(0 0 12px rgba(245,158,11,1));
+              `;
+
+              if (assetUrl) {
+                const img = document.createElement('img');
+                img.src = assetUrl;
+                img.style.cssText = 'width:100%;height:100%;object-fit:contain;';
+                flyEl.appendChild(img);
+              } else {
+                flyEl.textContent = '🎁';
+                flyEl.style.fontSize = '60px';
+                flyEl.style.display = 'flex';
+                flyEl.style.alignItems = 'center';
+                flyEl.style.justifyContent = 'center';
+              }
+
+              return flyEl;
+            };
+
+            const flyWithArc = (flyEl, endX, endY, onArrived) => {
+              const startX = parseFloat(flyEl.style.left);
+              const startY = parseFloat(flyEl.style.top);
+              const midX = (startX + endX) / 2 + (Math.random() > 0.5 ? 80 : -80);
+              const midY = Math.min(startY, endY) - 100;
+
+              requestAnimationFrame(() => {
+                flyEl.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
+                flyEl.style.opacity = '1';
+                flyEl.style.transform = 'translate(-50%, -50%) scale(1.1)';
+
+                setTimeout(() => {
+                  flyEl.style.transition = [
+                    'left 1s cubic-bezier(0.4, 0, 0.2, 1)',
+                    'top 1s cubic-bezier(0.4, 0, 0.2, 1)',
+                    'transform 0.3s ease',
+                  ].join(', ');
+                  flyEl.style.left = midX + 'px';
+                  flyEl.style.top = midY + 'px';
+                  flyEl.style.transform = 'translate(-50%, -50%) scale(0.9)';
+
+                  setTimeout(() => {
+                    flyEl.style.transition = [
+                      'left 0.8s cubic-bezier(0.22, 1, 0.36, 1)',
+                      'top 0.8s cubic-bezier(0.22, 1, 0.36, 1)',
+                      'transform 0.3s ease',
+                    ].join(', ');
+                    flyEl.style.left = endX + 'px';
+                    flyEl.style.top = endY + 'px';
+                    flyEl.style.transform = 'translate(-50%, -50%) scale(1.2)';
+
+                    setTimeout(() => {
+                      onArrived?.();
+                    }, 800);
+                  }, 1000);
+                }, 250);
+              });
+            };
+
+            const showPopLabel = (endX, endY) => {
+              const label = document.createElement('div');
+              label.style.cssText = `
+                position: fixed;
+                z-index: 10000;
+                pointer-events: none;
+                left: ${endX}px;
+                top: ${endY - 50}px;
+                transform: translate(-50%, -50%) scale(0.5);
+                opacity: 0;
+                background: rgba(0,0,0,0.75);
+                backdrop-filter: blur(6px);
+                border-radius: 20px;
+                padding: 4px 12px;
+                color: #fbbf24;
+                font-size: 13px;
+                font-weight: 900;
+                white-space: nowrap;
+                transition: opacity 0.3s ease, transform 0.3s ease;
+              `;
+              label.textContent = `${giftName}${quantity > 1 ? ` ×${quantity}` : ''}`;
+              document.body.appendChild(label);
+
+              requestAnimationFrame(() => {
+                label.style.opacity = '1';
+                label.style.transform = 'translate(-50%, -50%) scale(1)';
+
+                setTimeout(() => {
+                  label.style.opacity = '0';
+                  label.style.transform = 'translate(-50%, -50%) scale(0.8)';
+                  setTimeout(() => {
+                    if (document.body.contains(label)) {
+                      document.body.removeChild(label);
+                    }
+                  }, 400);
+                }, 1800);
+              });
+            };
+
+            targetUserIds.forEach((targetId, idx) => {
+              setTimeout(() => {
+                if (!mountedRef.current) return;
+
+                const startX = window.innerWidth * 0.5;
+                const startY = window.innerHeight - 90;
+                const flyEl = createSmallFlyEl(startX, startY);
+                document.body.appendChild(flyEl);
+
+                const seatEl = micSeatRefs.current[String(targetId)];
+                let endX = window.innerWidth * 0.5;
+                let endY = window.innerHeight * 0.35;
+
+                if (seatEl) {
+                  const rect = seatEl.getBoundingClientRect();
+                  endX = rect.left + rect.width / 2;
+                  endY = rect.top + rect.height / 2;
+                }
+
+                flyWithArc(flyEl, endX, endY, () => {
+                  flyEl.style.transition = 'transform 0.2s ease, opacity 0.4s ease';
+                  flyEl.style.transform = 'translate(-50%, -50%) scale(1.4)';
+
+                  setTimeout(() => {
+                    flyEl.style.transform = 'translate(-50%, -50%) scale(1)';
+                    showPopLabel(endX, endY);
+
+                    const effectId = `small_${Date.now()}_${idx}`;
+                    setSeatEmojiEffects(prev => [...prev, {
+                      id: effectId,
+                      userId: targetId,
+                      src: assetUrl,
+                      flip: false,
+                      animation: 'emojiBounce 0.8s ease-in-out infinite',
+                      isTiny: true,
+                      ts: Date.now(),
+                    }] );
+
+                    setTimeout(() => {
+                      flyEl.style.opacity = '0';
+                      setTimeout(() => {
+                        if (document.body.contains(flyEl)) {
+                          document.body.removeChild(flyEl);
+                        }
+                      }, 400);
+
+                      setTimeout(() => {
+                        if (!mountedRef.current) return;
+                        setSeatEmojiEffects(prev =>
+                          prev.filter(e => e.id !== effectId)
+                        );
+                      }, 2000);
+                    }, 500);
+                  }, 200);
+                });
+              }, idx * 300);
+            });
+
+            if (isToAll) {
+              const spreadCount = 12;
+              for (let i = 0; i < spreadCount; i++) {
+                setTimeout(() => {
+                  if (!mountedRef.current) return;
+
+                  const startX = window.innerWidth * 0.5;
+                  const startY = window.innerHeight - 90;
+                  const flyEl = createSmallFlyEl(startX, startY);
+                  document.body.appendChild(flyEl);
+
+                  const col = i % 4;
+                  const row = Math.floor(i / 4);
+                  const endX = window.innerWidth * (0.1 + col * 0.25);
+                  const endY = window.innerHeight * (0.1 + row * 0.28);
+
+                  flyWithArc(flyEl, endX, endY, () => {
+                    showPopLabel(endX, endY);
+                    flyEl.style.transition = 'opacity 0.5s ease, transform 0.3s ease';
+                    flyEl.style.transform = 'translate(-50%, -50%) scale(1.3)';
+                    setTimeout(() => {
+                      flyEl.style.opacity = '0';
+                      setTimeout(() => {
+                        if (document.body.contains(flyEl)) {
+                          document.body.removeChild(flyEl);
+                        }
+                      }, 500);
+                    }, 600);
+                  });
+                }, i * 150);
+              }
+            }
+          }
+
           // Schedule leaderboard refresh
           scheduleLeaderboardRefresh(400);
         } catch (err) {
