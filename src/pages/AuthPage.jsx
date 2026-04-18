@@ -121,20 +121,28 @@ const AuthPage = () => {
           </div>
         </CardHeader>
         <CardContent className="pb-8 flex flex-col gap-4">
+  <div className="bg-gray-100 rounded-xl p-3 text-center">
+    <p className="text-xs text-gray-500 mb-1">Copy this link and open in Chrome or Safari:</p>
+    <p className="text-sm font-bold text-rose-500 select-all break-all">
+      singlesdate.online/auth
+    </p>
+  </div>
 
-          {/* الرابط قابل للنسخ */}
-          <div className="bg-gray-100 rounded-xl p-3 text-center">
-            <p className="text-xs text-gray-500 mb-1">Copy this link and open in Chrome or Safari:</p>
-            <p className="text-sm font-bold text-rose-500 select-all break-all">
-              singlesdate.online/auth
-            </p>
-          </div>
+  <button
+    onClick={() => {
+      navigator.clipboard.writeText('https://singlesdate.online/auth')
+        .then(() => alert('✅ Link copied! Now open Chrome or Safari and paste it.'))
+        .catch(() => alert('Please copy the link manually: singlesdate.online/auth'));
+    }}
+    className="w-full bg-rose-500 text-white py-3 rounded-xl font-semibold"
+  >
+    📋 Copy Link
+  </button>
 
-          <p className="text-xs text-center text-gray-400">
-            Press and hold the link above to copy it
-          </p>
-
-        </CardContent>
+  <p className="text-xs text-center text-gray-400">
+    Then open Chrome or Safari and paste the link
+  </p>
+</CardContent>
       </Card>
     </div>
   );
