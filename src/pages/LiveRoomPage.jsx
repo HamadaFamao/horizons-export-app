@@ -7325,11 +7325,21 @@ useEffect(() => {
   }
 
   const TinyGiftEffect = ({ effect }) => {
-    const [visible, setVisible] = React.useState(false);
+    const [phase, setPhase] = React.useState('hidden');
 
     React.useEffect(() => {
-      const t1 = setTimeout(() => setVisible(true), 50);
-      return () => clearTimeout(t1);
+      const t1 = setTimeout(() => {
+        setPhase('visible');
+      }, 50);
+
+      const t2 = setTimeout(() => {
+        setPhase('gone');
+      }, 1800);
+
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+      };
     }, []);
 
     return (
@@ -7338,9 +7348,15 @@ useEffect(() => {
         style={{
           left: effect.endX,
           top: effect.endY,
-          transform: 'translate(-50%, -50%)',
-          opacity: visible ? 1 : 0,
-          transition: 'opacity 0.3s ease',
+          transform: phase === 'visible' 
+            ? 'translate(-50%, -50%) scale(1)' 
+            : phase === 'gone'
+            ? 'translate(-50%, -50%) scale(0.5)'
+            : 'translate(-50%, -50%) scale(0.3)',
+          opacity: phase === 'visible' ? 1 : 0,
+          transition: phase === 'hidden' 
+            ? 'none'
+            : 'opacity 0.4s ease, transform 0.4s ease',
         }}
       >
         {effect.src ? (
