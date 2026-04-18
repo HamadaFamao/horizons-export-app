@@ -280,14 +280,11 @@ const SPARKLE_CSS = `
   0%   { transform: translateX(100%); }
   100% { transform: translateX(-100%); }
 }
-@keyframes tinyFlyUp {
-  0%   { opacity: 0; transform: translate(-50%, 0) scale(0.4); }
-  15%  { opacity: 1; transform: translate(-50%, -20px) scale(1.1); }
-  85%  { opacity: 1; transform: translate(-50%, -55vh) scale(0.9); }
-  100% { opacity: 0; transform: translate(-50%, -65vh) scale(0.7); }
-}
-.tiny-fly-up {
-  animation: tinyFlyUp 1.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+@keyframes tinyFadeIn {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
+  20%  { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+  90%  { opacity: 1; transform: translate(-50%, -50%) scale(0.9); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
 }
 `;
 
@@ -6292,40 +6289,51 @@ useEffect(() => {
 
           if (tier === 'tiny') {
             const isToAll = !!payload?.is_to_all;
-            const isMic = !!payload?.is_to_mic;
-            const count = (isToAll || isMic) ? 12 : 1;
+            const count = isToAll ? 10 : 1;
             const assetUrl = payload?.gift_icon || '';
-            
+            const receiverId = payload?.receiver_id || null;
+
             for (let i = 0; i < count; i++) {
               const effectId = `tiny_${Date.now()}_${i}_${Math.random()}`;
-              
-              // For all/mic: spread randomly across screen
-              // For single: aim at the gift button area (bottom center)
-              const startX = (isToAll || isMic)
-                ? 5 + Math.random() * 90
-                : 48 + Math.random() * 4;
-              
+
               setTimeout(() => {
                 if (!mountedRef.current) return;
-                
+
+                // Start: gift button area at bottom center
+                const startX = window.innerWidth * 0.5 + (Math.random() - 0.5) * 40;
+                const startY = window.innerHeight - 80;
+
+                // End: seat position or random spread
+                let endX, endY;
+                if (!isToAll && receiverId) {
+                  const seatPos = getSeatScreenPosition(receiverId);
+                  endX = seatPos ? seatPos.x : startX + (Math.random() - 0.5) * 200;
+                  endY = seatPos ? seatPos.y : window.innerHeight * 0.3;
+                } else {
+                  // Spread across upper portion of screen
+                  endX = window.innerWidth * (0.1 + Math.random() * 0.8);
+                  endY = window.innerHeight * (0.1 + Math.random() * 0.5);
+                }
+
                 setSeatEmojiEffects(prev => [...prev, {
                   id: effectId,
                   src: assetUrl,
                   startX,
-                  targetUserId: isToAll ? null : (payload?.receiver_id || null),
-                  isToAll,
+                  startY,
+                  endX,
+                  endY,
                   isTiny: true,
                   ts: Date.now(),
                 }]);
-                
+
                 setTimeout(() => {
                   if (!mountedRef.current) return;
-                  setSeatEmojiEffects(prev => 
+                  setSeatEmojiEffects(prev =>
                     prev.filter(e => e.id !== effectId)
                   );
-                }, 2000);
-                
-              }, i * (isToAll || isMic ? 80 : 0));
+                }, 1800);
+
+              }, i * (isToAll ? 100 : 0));
             }
           }
 
@@ -7316,6 +7324,46 @@ useEffect(() => {
       </div>
     );
   }
+
+  const TinyGiftEffect = ({ effect }) => {
+    const [pos, setPos] = React.useState({ 
+      x: effect.startX, 
+      y: effect.startY 
+    });
+    
+    React.useEffect(() => {
+      const timer = setTimeout(() => {
+        setPos({ x: effect.endX, y: effect.endY });
+      }, 30);
+      return () => clearTimeout(timer);
+    }, []);
+    
+    return (
+      <div
+        className="fixed z-[66] pointer-events-none"
+        style={{
+          left: pos.x,
+          top: pos.y,
+          transform: 'translate(-50%, -50%)',
+          transition: 'left 1.5s cubic-bezier(0.22, 1, 0.36, 1), top 1.5s cubic-bezier(0.22, 1, 0.36, 1)',
+          opacity: 1,
+        }}
+      >
+        {effect.src ? (
+          <img
+            src={effect.src}
+            alt="gift"
+            className="w-12 h-12 object-contain"
+            style={{
+              filter: 'drop-shadow(0 0 8px rgba(245,158,11,0.8))',
+            }}
+          />
+        ) : (
+          <span className="text-3xl">🎁</span>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="fixed inset-0 w-screen h-[100dvh] max-h-[100dvh] overflow-hidden overscroll-none bg-gray-50 flex flex-col"
@@ -9041,44 +9089,9 @@ useEffect(() => {
       )}
 
       {/* Tiny gift flying effects overlay */}
-      {seatEmojiEffects.filter(e => e.isTiny).map(effect => {
-        // For specific recipient - fly toward seat position
-        const seatPos = effect.targetUserId 
-          ? getSeatScreenPosition(effect.targetUserId) 
-          : null;
-        
-        const leftPos = seatPos 
-          ? `${seatPos.x}px`
-          : `${effect.startX || 50}%`;
-          
-        const bottomPos = seatPos
-          ? `${window.innerHeight - seatPos.y + 20}px`
-          : '80px';
-
-        return (
-          <div
-            key={effect.id}
-            className="fixed z-[66] pointer-events-none tiny-fly-up"
-            style={{
-              left: leftPos,
-              bottom: bottomPos,
-            }}
-          >
-            {effect.src ? (
-              <img
-                src={effect.src}
-                alt="gift"
-                className="w-10 h-10 object-contain drop-shadow-lg"
-                style={{
-                  filter: 'drop-shadow(0 0 6px rgba(245,158,11,0.6))',
-                }}
-              />
-            ) : (
-              <span className="text-3xl">🎁</span>
-            )}
-          </div>
-        );
-      })}
+      {seatEmojiEffects.filter(e => e.isTiny).map(effect => (
+        <TinyGiftEffect key={effect.id} effect={effect} />
+      ))}
     </div>
   );
 }
