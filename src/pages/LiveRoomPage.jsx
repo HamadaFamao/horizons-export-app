@@ -6292,10 +6292,16 @@ useEffect(() => {
             const assetUrl = payload?.gift_icon || '';
             const receiverId = payload?.receiver_id || null;
 
-            const currentSeatedIds = Object.keys(micSeatRefs.current || {});
+            const currentSeatedIds = Object.keys(micSeatRefs.current || {})
+              .filter(id => {
+                const el = micSeatRefs.current[id];
+                return !!el;
+              });
             
             const targetUserIds = isToAll
-              ? currentSeatedIds.filter(Boolean)
+              ? currentSeatedIds.length > 0
+                ? currentSeatedIds
+                : receiverId ? [receiverId] : []
               : receiverId
                 ? [receiverId]
                 : [];
@@ -6316,8 +6322,8 @@ useEffect(() => {
                   position: fixed;
                   z-index: 9999;
                   pointer-events: none;
-                  width: 48px;
-                  height: 48px;
+                  width: 80px;
+                  height: 80px;
                   left: ${window.innerWidth * 0.5}px;
                   top: ${window.innerHeight - 90}px;
                   transform: translate(-50%, -50%) scale(0.5);
@@ -6358,8 +6364,8 @@ useEffect(() => {
                     }
 
                     flyEl.style.transition = [
-                      'left 1s cubic-bezier(0.22, 1, 0.36, 1)',
-                      'top 1s cubic-bezier(0.22, 1, 0.36, 1)',
+                      'left 1.8s cubic-bezier(0.22, 1, 0.36, 1)',
+                      'top 1.8s cubic-bezier(0.22, 1, 0.36, 1)',
                       'transform 0.3s ease',
                       'opacity 0.3s ease',
                     ].join(', ');
@@ -6396,7 +6402,7 @@ useEffect(() => {
                         );
                       }, 2500);
 
-                    }, 1000);
+                    }, 1800);
                   }, 200);
                 });
 
