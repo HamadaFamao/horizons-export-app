@@ -121,7 +121,7 @@ const AuthPage = () => {
           <CardContent className="pb-8 flex flex-col gap-3">
             <Button
               className="w-full text-base py-6"
-              onClick={() => window.open('https://singlesdate.online/auth', '_blank')}
+              onClick={() => { window.location.href = 'https://singlesdate.online/auth'; }}
             >
               Open in Browser
             </Button>
