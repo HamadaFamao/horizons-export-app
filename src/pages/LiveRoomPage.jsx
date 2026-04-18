@@ -6292,13 +6292,10 @@ useEffect(() => {
             const assetUrl = payload?.gift_icon || '';
             const receiverId = payload?.receiver_id || null;
 
-            // Get current seated users from ref
-            const currentSeats = micSeatRefs.current 
-              ? Object.keys(micSeatRefs.current)
-              : [];
-
+            const currentSeatedIds = Object.keys(micSeatRefs.current || {});
+            
             const targetUserIds = isToAll
-              ? currentSeats.filter(Boolean)
+              ? currentSeatedIds.filter(Boolean)
               : receiverId
                 ? [receiverId]
                 : [];
@@ -6308,27 +6305,100 @@ useEffect(() => {
             }
 
             targetUserIds.forEach((targetId, idx) => {
-              const effectId = `tiny_${Date.now()}_${idx}_${Math.random()}`;
-              
               setTimeout(() => {
                 if (!mountedRef.current) return;
-                
-                setSeatEmojiEffects(prev => [...prev, {
-                  id: effectId,
-                  userId: targetId,
-                  src: assetUrl,
-                  flip: false,
-                  animation: 'emojiBounce 1s ease-in-out infinite',
-                  isTiny: true,
-                  ts: Date.now(),
-                }]);
 
-                setTimeout(() => {
-                  if (!mountedRef.current) return;
-                  setSeatEmojiEffects(prev =>
-                    prev.filter(e => e.id !== effectId)
-                  );
-                }, 3000);
+                // Step 1: Add flying div directly to body
+                const flyId = `fly_${Date.now()}_${idx}`;
+                const flyEl = document.createElement('div');
+                flyEl.id = flyId;
+                flyEl.style.cssText = `
+                  position: fixed;
+                  z-index: 9999;
+                  pointer-events: none;
+                  width: 48px;
+                  height: 48px;
+                  left: ${window.innerWidth * 0.5}px;
+                  top: ${window.innerHeight - 90}px;
+                  transform: translate(-50%, -50%) scale(0.5);
+                  opacity: 0;
+                  transition: none;
+                  filter: drop-shadow(0 0 8px rgba(245,158,11,0.9));
+                `;
+
+                if (assetUrl) {
+                  const img = document.createElement('img');
+                  img.src = assetUrl;
+                  img.style.cssText = 'width:100%;height:100%;object-fit:contain;';
+                  flyEl.appendChild(img);
+                } else {
+                  flyEl.textContent = '🎁';
+                  flyEl.style.fontSize = '32px';
+                  flyEl.style.display = 'flex';
+                  flyEl.style.alignItems = 'center';
+                  flyEl.style.justifyContent = 'center';
+                }
+
+                document.body.appendChild(flyEl);
+
+                requestAnimationFrame(() => {
+                  flyEl.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+                  flyEl.style.opacity = '1';
+                  flyEl.style.transform = 'translate(-50%, -50%) scale(1)';
+
+                  setTimeout(() => {
+                    const seatEl = micSeatRefs.current[String(targetId)];
+                    let endX = window.innerWidth * 0.5;
+                    let endY = window.innerHeight * 0.35;
+
+                    if (seatEl) {
+                      const rect = seatEl.getBoundingClientRect();
+                      endX = rect.left + rect.width / 2;
+                      endY = rect.top + rect.height / 2;
+                    }
+
+                    flyEl.style.transition = [
+                      'left 1s cubic-bezier(0.22, 1, 0.36, 1)',
+                      'top 1s cubic-bezier(0.22, 1, 0.36, 1)',
+                      'transform 0.3s ease',
+                      'opacity 0.3s ease',
+                    ].join(', ');
+                    flyEl.style.left = endX + 'px';
+                    flyEl.style.top = endY + 'px';
+                    flyEl.style.transform = 'translate(-50%, -50%) scale(0.8)';
+
+                    setTimeout(() => {
+                      if (document.body.contains(flyEl)) {
+                        flyEl.style.opacity = '0';
+                        setTimeout(() => {
+                          if (document.body.contains(flyEl)) {
+                            document.body.removeChild(flyEl);
+                          }
+                        }, 300);
+                      }
+
+                      if (!mountedRef.current) return;
+                      const effectId = `tiny_${Date.now()}_${idx}`;
+                      setSeatEmojiEffects(prev => [...prev, {
+                        id: effectId,
+                        userId: targetId,
+                        src: assetUrl,
+                        flip: false,
+                        animation: 'emojiBounce 1s ease-in-out infinite',
+                        isTiny: true,
+                        ts: Date.now(),
+                      }]);
+
+                      setTimeout(() => {
+                        if (!mountedRef.current) return;
+                        setSeatEmojiEffects(prev =>
+                          prev.filter(e => e.id !== effectId)
+                        );
+                      }, 2500);
+
+                    }, 1000);
+                  }, 200);
+                });
 
               }, idx * (isToAll ? 200 : 0));
             });
