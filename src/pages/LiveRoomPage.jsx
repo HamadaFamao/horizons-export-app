@@ -6331,9 +6331,9 @@ useEffect(() => {
                   setSeatEmojiEffects(prev =>
                     prev.filter(e => e.id !== effectId)
                   );
-                }, 1800);
+                }, 2600);
 
-              }, i * (isToAll ? 100 : 0));
+              }, i * (isToAll ? 150 : 0));
             }
           }
 
@@ -7326,40 +7326,68 @@ useEffect(() => {
   }
 
   const TinyGiftEffect = ({ effect }) => {
-    const [pos, setPos] = React.useState({ 
-      x: effect.startX, 
-      y: effect.startY 
+    const [pos, setPos] = React.useState({
+      x: effect.startX,
+      y: effect.startY,
+      opacity: 0,
+      scale: 0.3,
     });
-    
+
     React.useEffect(() => {
-      const timer = setTimeout(() => {
-        setPos({ x: effect.endX, y: effect.endY });
+      // Phase 1: appear at start position
+      const t1 = setTimeout(() => {
+        setPos(prev => ({ ...prev, opacity: 1, scale: 1 }));
       }, 30);
-      return () => clearTimeout(timer);
+
+      // Phase 2: move to end position
+      const t2 = setTimeout(() => {
+        setPos({
+          x: effect.endX,
+          y: effect.endY,
+          opacity: 1,
+          scale: 0.9,
+        });
+      }, 100);
+
+      // Phase 3: fade out near destination
+      const t3 = setTimeout(() => {
+        setPos(prev => ({ ...prev, opacity: 0, scale: 0.6 }));
+      }, 2000);
+
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+        clearTimeout(t3);
+      };
     }, []);
-    
+
     return (
       <div
         className="fixed z-[66] pointer-events-none"
         style={{
           left: pos.x,
           top: pos.y,
-          transform: 'translate(-50%, -50%)',
-          transition: 'left 1.5s cubic-bezier(0.22, 1, 0.36, 1), top 1.5s cubic-bezier(0.22, 1, 0.36, 1)',
-          opacity: 1,
+          opacity: pos.opacity,
+          transform: `translate(-50%, -50%) scale(${pos.scale})`,
+          transition: [
+            'left 2s cubic-bezier(0.22, 1, 0.36, 1)',
+            'top 2s cubic-bezier(0.22, 1, 0.36, 1)',
+            'opacity 0.4s ease',
+            'transform 2s cubic-bezier(0.22, 1, 0.36, 1)',
+          ].join(', '),
         }}
       >
         {effect.src ? (
           <img
             src={effect.src}
             alt="gift"
-            className="w-12 h-12 object-contain"
+            className="w-14 h-14 object-contain"
             style={{
-              filter: 'drop-shadow(0 0 8px rgba(245,158,11,0.8))',
+              filter: 'drop-shadow(0 0 10px rgba(245,158,11,0.9))',
             }}
           />
         ) : (
-          <span className="text-3xl">🎁</span>
+          <span className="text-4xl">🎁</span>
         )}
       </div>
     );
