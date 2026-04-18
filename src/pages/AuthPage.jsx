@@ -106,33 +106,39 @@ const AuthPage = () => {
 
   // ✅ In-App Browser Screen
   if (isInApp) {
-    return (
-      <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-rose-50 via-pink-50 to-orange-50 p-4">
-        <Card className="w-full max-w-sm shadow-xl border-rose-100/50 bg-white/90 backdrop-blur-sm">
-          <CardHeader className="text-center flex flex-col items-center space-y-4 pt-8 pb-6">
-            <Logo size="xl" className="mb-2" />
-            <div className="space-y-1">
-              <CardTitle className="text-2xl font-bold text-gray-900">Open in Browser</CardTitle>
-              <CardDescription className="text-base">
-                To sign in with Google, please open this page in your browser
-              </CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent className="pb-8 flex flex-col gap-3">
-            <Button
-              className="w-full text-base py-6"
-              onClick={() => { window.location.href = 'https://singlesdate.online/auth'; }}
-            >
+  return (
+    <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-rose-50 via-pink-50 to-orange-50 p-4">
+      <Card className="w-full max-w-sm shadow-xl border-rose-100/50 bg-white/90 backdrop-blur-sm">
+        <CardHeader className="text-center flex flex-col items-center space-y-4 pt-8 pb-6">
+          <Logo size="xl" className="mb-2" />
+          <div className="space-y-1">
+            <CardTitle className="text-2xl font-bold text-gray-900">
               Open in Browser
-            </Button>
-            <p className="text-xs text-center text-gray-500 px-4">
-              Google sign-in is not supported inside Messenger
+            </CardTitle>
+            <CardDescription className="text-base">
+              Google sign-in doesn't work inside Messenger
+            </CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent className="pb-8 flex flex-col gap-4">
+
+          {/* الرابط قابل للنسخ */}
+          <div className="bg-gray-100 rounded-xl p-3 text-center">
+            <p className="text-xs text-gray-500 mb-1">Copy this link and open in Chrome or Safari:</p>
+            <p className="text-sm font-bold text-rose-500 select-all break-all">
+              singlesdate.online/auth
             </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+          </div>
+
+          <p className="text-xs text-center text-gray-400">
+            Press and hold the link above to copy it
+          </p>
+
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
   return (
     <>
