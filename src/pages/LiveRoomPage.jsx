@@ -280,20 +280,14 @@ const SPARKLE_CSS = `
   0%   { transform: translateX(100%); }
   100% { transform: translateX(-100%); }
 }
-@keyframes tinyFly {
-  0% { 
-    transform: translate(-50%, 0) scale(0.5); 
-    opacity: 0; 
-    bottom: 80px;
-  }
-  20% { opacity: 1; transform: translate(-50%, 0) scale(1); }
-  100% { 
-    transform: translate(-50%, -60vh) scale(0.8); 
-    opacity: 0; 
-  }
+@keyframes tinyFlyUp {
+  0%   { opacity: 0; transform: translate(-50%, 0) scale(0.4); }
+  15%  { opacity: 1; transform: translate(-50%, -20px) scale(1.1); }
+  85%  { opacity: 1; transform: translate(-50%, -55vh) scale(0.9); }
+  100% { opacity: 0; transform: translate(-50%, -65vh) scale(0.7); }
 }
-.tiny-fly {
-  animation: tinyFly 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+.tiny-fly-up {
+  animation: tinyFlyUp 1.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 `;
 
@@ -6297,15 +6291,19 @@ useEffect(() => {
           const tier = getGiftTier(giftCoins);
 
           if (tier === 'tiny') {
-            const count = payload?.is_to_all ? 8 : 1;
+            const isToAll = !!payload?.is_to_all;
+            const isMic = !!payload?.is_to_mic;
+            const count = (isToAll || isMic) ? 12 : 1;
             const assetUrl = payload?.gift_icon || '';
             
             for (let i = 0; i < count; i++) {
               const effectId = `tiny_${Date.now()}_${i}_${Math.random()}`;
-              const startX = 45 + Math.random() * 10; // near gift button %
-              const targetX = payload?.is_to_all 
-                ? 10 + Math.random() * 80  // spread across screen
-                : null; // will use seat position
+              
+              // For all/mic: spread randomly across screen
+              // For single: aim at the gift button area (bottom center)
+              const startX = (isToAll || isMic)
+                ? 5 + Math.random() * 90
+                : 48 + Math.random() * 4;
               
               setTimeout(() => {
                 if (!mountedRef.current) return;
@@ -6314,9 +6312,8 @@ useEffect(() => {
                   id: effectId,
                   src: assetUrl,
                   startX,
-                  targetX,
-                  targetUserId: payload?.receiver_id || null,
-                  isToAll: payload?.is_to_all || false,
+                  targetUserId: isToAll ? null : (payload?.receiver_id || null),
+                  isToAll,
                   isTiny: true,
                   ts: Date.now(),
                 }]);
@@ -6326,9 +6323,9 @@ useEffect(() => {
                   setSeatEmojiEffects(prev => 
                     prev.filter(e => e.id !== effectId)
                   );
-                }, 1500);
+                }, 2000);
                 
-              }, i * 150); // stagger each emoji
+              }, i * (isToAll || isMic ? 80 : 0));
             }
           }
 
@@ -9044,26 +9041,44 @@ useEffect(() => {
       )}
 
       {/* Tiny gift flying effects overlay */}
-      {seatEmojiEffects.filter(e => e.isTiny).map(effect => (
-        <div
-          key={effect.id}
-          className="fixed z-[66] pointer-events-none tiny-fly"
-          style={{
-            left: `${effect.startX}%`,
-            bottom: '80px',
-          }}
-        >
-          {effect.src ? (
-            <img 
-              src={effect.src} 
-              alt="gift"
-              className="w-8 h-8 object-contain drop-shadow-lg"
-            />
-          ) : (
-            <span className="text-2xl">🎁</span>
-          )}
-        </div>
-      ))}
+      {seatEmojiEffects.filter(e => e.isTiny).map(effect => {
+        // For specific recipient - fly toward seat position
+        const seatPos = effect.targetUserId 
+          ? getSeatScreenPosition(effect.targetUserId) 
+          : null;
+        
+        const leftPos = seatPos 
+          ? `${seatPos.x}px`
+          : `${effect.startX || 50}%`;
+          
+        const bottomPos = seatPos
+          ? `${window.innerHeight - seatPos.y + 20}px`
+          : '80px';
+
+        return (
+          <div
+            key={effect.id}
+            className="fixed z-[66] pointer-events-none tiny-fly-up"
+            style={{
+              left: leftPos,
+              bottom: bottomPos,
+            }}
+          >
+            {effect.src ? (
+              <img
+                src={effect.src}
+                alt="gift"
+                className="w-10 h-10 object-contain drop-shadow-lg"
+                style={{
+                  filter: 'drop-shadow(0 0 6px rgba(245,158,11,0.6))',
+                }}
+              />
+            ) : (
+              <span className="text-3xl">🎁</span>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
