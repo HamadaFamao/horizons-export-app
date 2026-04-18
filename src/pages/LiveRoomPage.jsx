@@ -7325,38 +7325,64 @@ useEffect(() => {
   }
 
   const TinyGiftEffect = ({ effect }) => {
-    const [phase, setPhase] = React.useState('hidden');
+    const [phase, setPhase] = React.useState('start');
+
+    const startX = window.innerWidth * 0.5;
+    const startY = window.innerHeight - 100;
 
     React.useEffect(() => {
       const t1 = setTimeout(() => {
-        setPhase('visible');
-      }, 50);
+        setPhase('flying');
+      }, 30);
 
       const t2 = setTimeout(() => {
+        setPhase('arrived');
+      }, 800);
+
+      const t3 = setTimeout(() => {
         setPhase('gone');
       }, 1800);
 
       return () => {
         clearTimeout(t1);
         clearTimeout(t2);
+        clearTimeout(t3);
       };
     }, []);
+
+    const currentX = phase === 'start' ? startX : effect.endX;
+    const currentY = phase === 'start' ? startY : effect.endY;
+
+    const currentOpacity = 
+      phase === 'start' ? 0 :
+      phase === 'flying' ? 1 :
+      phase === 'arrived' ? 1 :
+      0;
+
+    const currentScale = 
+      phase === 'start' ? 0.3 :
+      phase === 'flying' ? 0.8 :
+      phase === 'arrived' ? 1.1 :
+      0.6;
+
+    const currentTransition = phase === 'start'
+      ? 'none'
+      : [
+          `left ${phase === 'flying' ? '0.8s' : '0.3s'} cubic-bezier(0.22, 1, 0.36, 1)`,
+          `top ${phase === 'flying' ? '0.8s' : '0.3s'} cubic-bezier(0.22, 1, 0.36, 1)`,
+          'opacity 0.3s ease',
+          'transform 0.3s ease',
+        ].join(', ');
 
     return (
       <div
         className="fixed z-[66] pointer-events-none"
         style={{
-          left: effect.endX,
-          top: effect.endY,
-          transform: phase === 'visible' 
-            ? 'translate(-50%, -50%) scale(1)' 
-            : phase === 'gone'
-            ? 'translate(-50%, -50%) scale(0.5)'
-            : 'translate(-50%, -50%) scale(0.3)',
-          opacity: phase === 'visible' ? 1 : 0,
-          transition: phase === 'hidden' 
-            ? 'none'
-            : 'opacity 0.4s ease, transform 0.4s ease',
+          left: currentX,
+          top: currentY,
+          opacity: currentOpacity,
+          transform: `translate(-50%, -50%) scale(${currentScale})`,
+          transition: currentTransition,
         }}
       >
         {effect.src ? (
