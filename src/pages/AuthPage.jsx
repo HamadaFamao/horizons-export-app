@@ -47,3 +47,4 @@ const signInWithGoogle = async () => {
     setLoading(false);
   }
 };
+export default AuthPage;
