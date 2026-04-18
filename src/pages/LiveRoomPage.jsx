@@ -6289,7 +6289,7 @@ useEffect(() => {
 
           if (tier === 'tiny') {
             const isToAll = !!payload?.is_to_all;
-            const count = isToAll ? 10 : 1;
+            const count = isToAll ? 12 : 1;
             const assetUrl = payload?.gift_icon || '';
             const receiverId = payload?.receiver_id || null;
 
@@ -6299,41 +6299,40 @@ useEffect(() => {
               setTimeout(() => {
                 if (!mountedRef.current) return;
 
-                // Start: gift button area at bottom center
-                const startX = window.innerWidth * 0.5 + (Math.random() - 0.5) * 40;
-                const startY = window.innerHeight - 80;
-
-                // End: seat position or random spread
                 let endX, endY;
+
                 if (!isToAll && receiverId) {
                   const seatPos = getSeatScreenPosition(receiverId);
-                  endX = seatPos ? seatPos.x : startX + (Math.random() - 0.5) * 200;
-                  endY = seatPos ? seatPos.y : window.innerHeight * 0.3;
+                  endX = seatPos
+                    ? seatPos.x
+                    : window.innerWidth * 0.5;
+                  endY = seatPos
+                    ? seatPos.y
+                    : window.innerHeight * 0.3;
                 } else {
-                  // Spread across upper portion of screen
-                  endX = window.innerWidth * (0.1 + Math.random() * 0.8);
-                  endY = window.innerHeight * (0.1 + Math.random() * 0.5);
+                  const col = i % 4;
+                  const row = Math.floor(i / 4);
+                  endX = window.innerWidth * (0.2 + col * 0.2);
+                  endY = window.innerHeight * (0.15 + row * 0.2);
                 }
 
                 setSeatEmojiEffects(prev => [...prev, {
                   id: effectId,
                   src: assetUrl,
-                  startX,
-                  startY,
                   endX,
                   endY,
                   isTiny: true,
                   ts: Date.now(),
-                }]);
+                }] );
 
                 setTimeout(() => {
                   if (!mountedRef.current) return;
                   setSeatEmojiEffects(prev =>
                     prev.filter(e => e.id !== effectId)
                   );
-                }, 2600);
+                }, 2500);
 
-              }, i * (isToAll ? 150 : 0));
+              }, i * (isToAll ? 120 : 0));
             }
           }
 
@@ -7326,84 +7325,39 @@ useEffect(() => {
   }
 
   const TinyGiftEffect = ({ effect }) => {
-    const divRef = React.useRef(null);
+    const [visible, setVisible] = React.useState(false);
 
     React.useEffect(() => {
-      const el = divRef.current;
-      if (!el) return;
-
-      // Set start position immediately (no transition)
-      el.style.transition = 'none';
-      el.style.left = effect.startX + 'px';
-      el.style.top = effect.startY + 'px';
-      el.style.opacity = '0';
-      el.style.transform = 'translate(-50%, -50%) scale(0.6)';
-
-      // Force browser to paint start position
-      void el.offsetHeight;
-
-      // Appear at start
-      el.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
-      el.style.opacity = '1';
-      el.style.transform = 'translate(-50%, -50%) scale(1.1)';
-
-      // After appearing, move to end position
-      const t1 = setTimeout(() => {
-        el.style.transition = [
-          'left 2s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-          'top 2s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-          'transform 0.3s ease',
-        ].join(', ');
-        el.style.left = effect.endX + 'px';
-        el.style.top = effect.endY + 'px';
-        el.style.transform = 'translate(-50%, -50%) scale(0.9)';
-      }, 250);
-
-      // Fade out near end
-      const t2 = setTimeout(() => {
-        el.style.transition = [
-          'left 2s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-          'top 2s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-          'opacity 0.5s ease',
-          'transform 0.5s ease',
-        ].join(', ');
-        el.style.opacity = '0';
-        el.style.transform = 'translate(-50%, -50%) scale(0.6)';
-      }, 1800);
-
-      return () => {
-        clearTimeout(t1);
-        clearTimeout(t2);
-      };
+      const t1 = setTimeout(() => setVisible(true), 50);
+      return () => clearTimeout(t1);
     }, []);
 
     return (
       <div
-        ref={divRef}
         className="fixed z-[66] pointer-events-none"
         style={{
-          left: effect.startX,
-          top: effect.startY,
-          opacity: 0,
-          transform: 'translate(-50%, -50%) scale(0.6)',
-          willChange: 'left, top, opacity, transform',
+          left: effect.endX,
+          top: effect.endY,
+          transform: 'translate(-50%, -50%)',
+          opacity: visible ? 1 : 0,
+          transition: 'opacity 0.3s ease',
         }}
       >
         {effect.src ? (
           <img
             src={effect.src}
             alt="gift"
-            className="w-14 h-14 object-contain"
+            className="w-12 h-12 object-contain"
             style={{
-              filter: 'drop-shadow(0 0 10px rgba(245,158,11,0.9))',
+              filter: 'drop-shadow(0 0 8px rgba(245,158,11,0.8))',
             }}
           />
         ) : (
-          <span className="text-4xl">🎁</span>
+          <span className="text-3xl">🎁</span>
         )}
       </div>
     );
-  };
+  }
 
   return (
     <div className="fixed inset-0 w-screen h-[100dvh] max-h-[100dvh] overflow-hidden overscroll-none bg-gray-50 flex flex-col"
