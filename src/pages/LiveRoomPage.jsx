@@ -6408,6 +6408,156 @@ useEffect(() => {
 
               }, idx * (isToAll ? 200 : 0));
             });
+
+            // For "all" mode: also spread gifts across entire room
+            if (isToAll) {
+              const spreadCount = 15;
+              
+              for (let i = 0; i < spreadCount; i++) {
+                setTimeout(() => {
+                  if (!mountedRef.current) return;
+
+                  const flyEl = document.createElement('div');
+                  flyEl.style.cssText = `
+                    position: fixed;
+                    z-index: 9998;
+                    pointer-events: none;
+                    width: 80px;
+                    height: 80px;
+                    left: ${window.innerWidth * 0.5}px;
+                    top: ${window.innerHeight - 90}px;
+                    transform: translate(-50%, -50%) scale(0.5);
+                    opacity: 0;
+                    transition: none;
+                    filter: drop-shadow(0 0 8px rgba(245,158,11,0.9));
+                  `;
+
+                  if (assetUrl) {
+                    const img = document.createElement('img');
+                    img.src = assetUrl;
+                    img.style.cssText = 'width:100%;height:100%;object-fit:contain;';
+                    flyEl.appendChild(img);
+                  } else {
+                    flyEl.textContent = '🎁';
+                    flyEl.style.fontSize = '40px';
+                    flyEl.style.display = 'flex';
+                    flyEl.style.alignItems = 'center';
+                    flyEl.style.justifyContent = 'center';
+                  }
+
+                  document.body.appendChild(flyEl);
+
+                  requestAnimationFrame(() => {
+                    flyEl.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+                    flyEl.style.opacity = '1';
+                    flyEl.style.transform = 'translate(-50%, -50%) scale(1)';
+
+                    setTimeout(() => {
+                      const col = i % 5;
+                      const row = Math.floor(i / 5);
+                      const endX = window.innerWidth * (0.1 + col * 0.2);
+                      const endY = window.innerHeight * (0.1 + row * 0.25);
+
+                      flyEl.style.transition = [
+                        'left 1.8s cubic-bezier(0.22, 1, 0.36, 1)',
+                        'top 1.8s cubic-bezier(0.22, 1, 0.36, 1)',
+                        'transform 0.3s ease',
+                        'opacity 0.5s ease',
+                      ].join(', ');
+                      flyEl.style.left = endX + 'px';
+                      flyEl.style.top = endY + 'px';
+                      flyEl.style.transform = 'translate(-50%, -50%) scale(0.9)';
+
+                      setTimeout(() => {
+                        flyEl.style.opacity = '0';
+                        setTimeout(() => {
+                          if (document.body.contains(flyEl)) {
+                            document.body.removeChild(flyEl);
+                          }
+                        }, 500);
+                      }, 1800);
+
+                    }, 200);
+                  });
+
+                }, i * 100);
+              }
+            }
+
+            // For "all" mode: also spread gifts across entire room
+            if (isToAll) {
+              const spreadCount = 15;
+              
+              for (let i = 0; i < spreadCount; i++) {
+                setTimeout(() => {
+                  if (!mountedRef.current) return;
+
+                  const flyEl = document.createElement('div');
+                  flyEl.style.cssText = `
+                    position: fixed;
+                    z-index: 9998;
+                    pointer-events: none;
+                    width: 80px;
+                    height: 80px;
+                    left: ${window.innerWidth * 0.5}px;
+                    top: ${window.innerHeight - 90}px;
+                    transform: translate(-50%, -50%) scale(0.5);
+                    opacity: 0;
+                    transition: none;
+                    filter: drop-shadow(0 0 8px rgba(245,158,11,0.9));
+                  `;
+
+                  if (assetUrl) {
+                    const img = document.createElement('img');
+                    img.src = assetUrl;
+                    img.style.cssText = 'width:100%;height:100%;object-fit:contain;';
+                    flyEl.appendChild(img);
+                  } else {
+                    flyEl.textContent = '🎁';
+                    flyEl.style.fontSize = '40px';
+                    flyEl.style.display = 'flex';
+                    flyEl.style.alignItems = 'center';
+                    flyEl.style.justifyContent = 'center';
+                  }
+
+                  document.body.appendChild(flyEl);
+
+                  requestAnimationFrame(() => {
+                    flyEl.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+                    flyEl.style.opacity = '1';
+                    flyEl.style.transform = 'translate(-50%, -50%) scale(1)';
+
+                    setTimeout(() => {
+                      const col = i % 5;
+                      const row = Math.floor(i / 5);
+                      const endX = window.innerWidth * (0.1 + col * 0.2);
+                      const endY = window.innerHeight * (0.1 + row * 0.25);
+
+                      flyEl.style.transition = [
+                        'left 1.8s cubic-bezier(0.22, 1, 0.36, 1)',
+                        'top 1.8s cubic-bezier(0.22, 1, 0.36, 1)',
+                        'transform 0.3s ease',
+                        'opacity 0.5s ease',
+                      ].join(', ');
+                      flyEl.style.left = endX + 'px';
+                      flyEl.style.top = endY + 'px';
+                      flyEl.style.transform = 'translate(-50%, -50%) scale(0.9)';
+
+                      setTimeout(() => {
+                        flyEl.style.opacity = '0';
+                        setTimeout(() => {
+                          if (document.body.contains(flyEl)) {
+                            document.body.removeChild(flyEl);
+                          }
+                        }, 500);
+                      }, 1800);
+
+                    }, 200);
+                  });
+
+                }, i * 100);
+              }
+            }
           }
 
           // Schedule leaderboard refresh
