@@ -7326,68 +7326,68 @@ useEffect(() => {
   }
 
   const TinyGiftEffect = ({ effect }) => {
-    const [style, setStyle] = React.useState({
-      left: effect.startX,
-      top: effect.startY,
-      opacity: 0,
-      transform: 'translate(-50%, -50%) scale(0.5)',
-      transition: 'none',
-    });
+    const divRef = React.useRef(null);
 
     React.useEffect(() => {
-      // Frame 1: place at start, make visible, no transition
-      const raf1 = requestAnimationFrame(() => {
-        setStyle({
-          left: effect.startX,
-          top: effect.startY,
-          opacity: 1,
-          transform: 'translate(-50%, -50%) scale(1.2)',
-          transition: 'none',
-        });
+      const el = divRef.current;
+      if (!el) return;
 
-        // Frame 2: enable transition and move to end
-        const raf2 = requestAnimationFrame(() => {
-          setStyle({
-            left: effect.endX,
-            top: effect.endY,
-            opacity: 1,
-            transform: 'translate(-50%, -50%) scale(1)',
-            transition: [
-              'left 2s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-              'top 2s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-              'opacity 0.5s ease',
-              'transform 0.3s ease',
-            ].join(', '),
-          });
+      // Set start position immediately (no transition)
+      el.style.transition = 'none';
+      el.style.left = effect.startX + 'px';
+      el.style.top = effect.startY + 'px';
+      el.style.opacity = '0';
+      el.style.transform = 'translate(-50%, -50%) scale(0.6)';
 
-          // Fade out near end
-          const t = setTimeout(() => {
-            setStyle(prev => ({
-              ...prev,
-              opacity: 0,
-              transform: 'translate(-50%, -50%) scale(0.7)',
-              transition: [
-                'left 2s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-                'top 2s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-                'opacity 0.6s ease',
-                'transform 0.6s ease',
-              ].join(', '),
-            }));
-          }, 1600);
+      // Force browser to paint start position
+      void el.offsetHeight;
 
-          return () => clearTimeout(t);
-        });
+      // Appear at start
+      el.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+      el.style.opacity = '1';
+      el.style.transform = 'translate(-50%, -50%) scale(1.1)';
 
-        return () => cancelAnimationFrame(raf2);
-      });
+      // After appearing, move to end position
+      const t1 = setTimeout(() => {
+        el.style.transition = [
+          'left 2s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+          'top 2s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+          'transform 0.3s ease',
+        ].join(', ');
+        el.style.left = effect.endX + 'px';
+        el.style.top = effect.endY + 'px';
+        el.style.transform = 'translate(-50%, -50%) scale(0.9)';
+      }, 250);
 
-      return () => cancelAnimationFrame(raf1);
+      // Fade out near end
+      const t2 = setTimeout(() => {
+        el.style.transition = [
+          'left 2s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+          'top 2s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+          'opacity 0.5s ease',
+          'transform 0.5s ease',
+        ].join(', ');
+        el.style.opacity = '0';
+        el.style.transform = 'translate(-50%, -50%) scale(0.6)';
+      }, 1800);
+
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+      };
     }, []);
 
     return (
       <div
+        ref={divRef}
         className="fixed z-[66] pointer-events-none"
-        style={style}
+        style={{
+          left: effect.startX,
+          top: effect.startY,
+          opacity: 0,
+          transform: 'translate(-50%, -50%) scale(0.6)',
+          willChange: 'left, top, opacity, transform',
+        }}
       >
         {effect.src ? (
           <img
@@ -7403,6 +7403,7 @@ useEffect(() => {
         )}
       </div>
     );
+  };
   };
 
   return (
