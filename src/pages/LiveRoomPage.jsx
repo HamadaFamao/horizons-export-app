@@ -7404,7 +7404,6 @@ useEffect(() => {
       </div>
     );
   };
-  };
 
   return (
     <div className="fixed inset-0 w-screen h-[100dvh] max-h-[100dvh] overflow-hidden overscroll-none bg-gray-50 flex flex-col"
