@@ -6283,47 +6283,40 @@ useEffect(() => {
             return [...(prev || []), giftNotifMsg];
           });
 
-          // Tiny gift flying effect
+          // Tiny gift effect on seats
           const giftCoins = Number(payload?.coins_spent || 0);
           const tier = getGiftTier(giftCoins);
 
           if (tier === 'tiny') {
             const isToAll = !!payload?.is_to_all;
-            const count = isToAll ? 12 : 1;
             const assetUrl = payload?.gift_icon || '';
             const receiverId = payload?.receiver_id || null;
 
-            for (let i = 0; i < count; i++) {
-              const effectId = `tiny_${Date.now()}_${i}_${Math.random()}`;
+            // For single recipient: show on their seat
+            // For all: show on all occupied seats
+            const targetUserIds = isToAll
+              ? (effectiveSeats || [])
+                  .filter(s => s.user_id)
+                  .map(s => s.user_id)
+              : receiverId
+                ? [receiverId]
+                : [];
 
+            targetUserIds.forEach((targetId, idx) => {
+              const effectId = `tiny_${Date.now()}_${idx}_${Math.random()}`;
+              
               setTimeout(() => {
                 if (!mountedRef.current) return;
-
-                let endX, endY;
-
-                if (!isToAll && receiverId) {
-                  const seatPos = getSeatScreenPosition(receiverId);
-                  endX = seatPos
-                    ? seatPos.x
-                    : window.innerWidth * 0.5;
-                  endY = seatPos
-                    ? seatPos.y
-                    : window.innerHeight * 0.3;
-                } else {
-                  const col = i % 4;
-                  const row = Math.floor(i / 4);
-                  endX = window.innerWidth * (0.2 + col * 0.2);
-                  endY = window.innerHeight * (0.15 + row * 0.2);
-                }
-
+                
                 setSeatEmojiEffects(prev => [...prev, {
                   id: effectId,
+                  userId: targetId,
                   src: assetUrl,
-                  endX,
-                  endY,
+                  flip: false,
+                  animation: 'emojiPulse 0.6s ease-in-out 3',
                   isTiny: true,
                   ts: Date.now(),
-                }] );
+                }]);
 
                 setTimeout(() => {
                   if (!mountedRef.current) return;
@@ -6332,8 +6325,8 @@ useEffect(() => {
                   );
                 }, 2500);
 
-              }, i * (isToAll ? 120 : 0));
-            }
+              }, idx * (isToAll ? 150 : 0));
+            });
           }
 
           // Schedule leaderboard refresh
@@ -7324,78 +7317,7 @@ useEffect(() => {
     );
   }
 
-  const TinyGiftEffect = ({ effect }) => {
-    const animName = React.useRef(`tg_${Math.random().toString(36).slice(2)}`);
-    
-    React.useEffect(() => {
-      const name = animName.current;
-      const startX = window.innerWidth * 0.5;
-      const startY = window.innerHeight - 100;
-      const endX = effect.endX;
-      const endY = effect.endY;
-      
-      const style = document.createElement('style');
-      style.innerHTML = `
-        @keyframes ${name} {
-          0%   { 
-            left: ${startX}px; 
-            top: ${startY}px; 
-            opacity: 0; 
-            transform: translate(-50%, -50%) scale(0.4);
-          }
-          10%  { 
-            opacity: 1; 
-            transform: translate(-50%, -50%) scale(1.1);
-          }
-          80%  { 
-            left: ${endX}px; 
-            top: ${endY}px; 
-            opacity: 1; 
-            transform: translate(-50%, -50%) scale(1);
-          }
-          90%  { 
-            transform: translate(-50%, -50%) scale(1.2);
-            opacity: 1;
-          }
-          100% { 
-            left: ${endX}px; 
-            top: ${endY}px; 
-            opacity: 0; 
-            transform: translate(-50%, -50%) scale(0.8);
-          }
-        }
-      `;
-      document.head.appendChild(style);
-      
-      return () => {
-        document.head.removeChild(style);
-      };
-    }, []);
 
-    return (
-      <div
-        className="fixed z-[66] pointer-events-none"
-        style={{
-          animation: `${animName.current} 2.5s cubic-bezier(0.22, 1, 0.36, 1) forwards`,
-          left: effect.endX,
-          top: effect.endY,
-        }}
-      >
-        {effect.src ? (
-          <img
-            src={effect.src}
-            alt="gift"
-            className="w-12 h-12 object-contain"
-            style={{
-              filter: 'drop-shadow(0 0 8px rgba(245,158,11,0.8))',
-            }}
-          />
-        ) : (
-          <span className="text-3xl">🎁</span>
-        )}
-      </div>
-    );
-  }
 
   return (
     <div className="fixed inset-0 w-screen h-[100dvh] max-h-[100dvh] overflow-hidden overscroll-none bg-gray-50 flex flex-col"
@@ -9120,10 +9042,7 @@ useEffect(() => {
         </div>
       )}
 
-      {/* Tiny gift flying effects overlay */}
-      {seatEmojiEffects.filter(e => e.isTiny).map(effect => (
-        <TinyGiftEffect key={effect.id} effect={effect} />
-      ))}
+
     </div>
   );
 }
