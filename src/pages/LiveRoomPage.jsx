@@ -6784,6 +6784,257 @@ useEffect(() => {
             }
           }
 
+          if (tier === 'medium') {
+            const isToAll = !!payload?.is_to_all;
+            const assetUrl = payload?.gift_icon || '';
+            const giftName = payload?.gift_name || '';
+            const senderName = payload?.sender_name || 'User';
+            const quantity = Number(payload?.quantity || 1);
+            const receiverId = payload?.receiver_id || null;
+
+            const currentSeatedIds = Object.keys(micSeatRefs.current || {})
+              .filter(id => !!micSeatRefs.current[id]);
+
+            const targetUserIds = isToAll
+              ? currentSeatedIds.length > 0
+                ? currentSeatedIds
+                : receiverId ? [receiverId] : []
+              : receiverId
+                ? [receiverId]
+                : [];
+
+            const createMediumFlyEl = (startX, startY) => {
+              const flyEl = document.createElement('div');
+              flyEl.style.cssText = `
+                position: fixed;
+                z-index: 9999;
+                pointer-events: none;
+                width: 160px;
+                height: 160px;
+                left: ${startX}px;
+                top: ${startY}px;
+                transform: translate(-50%, -50%) scale(0.3) rotate(0deg);
+                opacity: 0;
+                transition: none;
+                filter: drop-shadow(0 0 16px rgba(245,158,11,1)) 
+                        drop-shadow(0 0 30px rgba(245,158,11,0.5));
+              `;
+              if (assetUrl) {
+                const img = document.createElement('img');
+                img.src = assetUrl;
+                img.style.cssText = 'width:100%;height:100%;object-fit:contain;';
+                flyEl.appendChild(img);
+              } else {
+                flyEl.textContent = '🎁';
+                flyEl.style.fontSize = '80px';
+                flyEl.style.display = 'flex';
+                flyEl.style.alignItems = 'center';
+                flyEl.style.justifyContent = 'center';
+              }
+              return flyEl;
+            };
+
+            const flyMediumWithArc = (flyEl, endX, endY, onArrived) => {
+              const startX = parseFloat(flyEl.style.left);
+              const startY = parseFloat(flyEl.style.top);
+              const midX = (startX + endX) / 2 + (Math.random() > 0.5 ? 120 : -120);
+              const midY = Math.min(startY, endY) - 150;
+
+              requestAnimationFrame(() => {
+                flyEl.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                flyEl.style.opacity = '1';
+                flyEl.style.transform = 'translate(-50%, -50%) scale(1.1) rotate(-15deg)';
+
+                setTimeout(() => {
+                  flyEl.style.transition = [
+                    'left 1.1s cubic-bezier(0.4, 0, 0.2, 1)',
+                    'top 1.1s cubic-bezier(0.4, 0, 0.2, 1)',
+                    'transform 1.1s cubic-bezier(0.4, 0, 0.2, 1)',
+                  ].join(', ');
+                  flyEl.style.left = midX + 'px';
+                  flyEl.style.top = midY + 'px';
+                  flyEl.style.transform = 'translate(-50%, -50%) scale(1) rotate(15deg)';
+
+                  setTimeout(() => {
+                    flyEl.style.transition = [
+                      'left 0.9s cubic-bezier(0.22, 1, 0.36, 1)',
+                      'top 0.9s cubic-bezier(0.22, 1, 0.36, 1)',
+                      'transform 0.9s cubic-bezier(0.22, 1, 0.36, 1)',
+                    ].join(', ');
+                    flyEl.style.left = endX + 'px';
+                    flyEl.style.top = endY + 'px';
+                    flyEl.style.transform = 'translate(-50%, -50%) scale(1.3) rotate(0deg)';
+
+                    setTimeout(() => onArrived?.(), 900);
+                  }, 1100);
+                }, 300);
+              });
+            };
+
+            const showExplosion = (x, y) => {
+              const colors = ['#fbbf24', '#f59e0b', '#fb7185', '#a78bfa'];
+              for (let r = 0; r < 3; r++) {
+                setTimeout(() => {
+                  const ring = document.createElement('div');
+                  ring.style.cssText = `
+                    position: fixed;
+                    z-index: 9998;
+                    pointer-events: none;
+                    left: ${x}px;
+                    top: ${y}px;
+                    width: 20px;
+                    height: 20px;
+                    border-radius: 50%;
+                    border: 3px solid ${colors[r % colors.length]};
+                    transform: translate(-50%, -50%) scale(1);
+                    opacity: 1;
+                    transition: transform 0.6s ease-out, opacity 0.6s ease-out;
+                  `;
+                  document.body.appendChild(ring);
+                  requestAnimationFrame(() => {
+                    ring.style.transform = `translate(-50%, -50%) scale(${6 + r * 3})`;
+                    ring.style.opacity = '0';
+                    setTimeout(() => {
+                      if (document.body.contains(ring)) document.body.removeChild(ring);
+                    }, 700);
+                  });
+                }, r * 120);
+              }
+            };
+
+            const showArrivalCard = (x, y) => {
+              const card = document.createElement('div');
+              card.style.cssText = `
+                position: fixed;
+                z-index: 10000;
+                pointer-events: none;
+                left: ${x}px;
+                top: ${y - 80}px;
+                transform: translate(-50%, -50%) scale(0.5);
+                opacity: 0;
+                background: linear-gradient(135deg, rgba(0,0,0,0.85), rgba(30,20,0,0.9));
+                backdrop-filter: blur(8px);
+                border: 1px solid rgba(251,191,36,0.4);
+                border-radius: 16px;
+                padding: 8px 16px;
+                text-align: center;
+                white-space: nowrap;
+                transition: opacity 0.3s ease, transform 0.3s ease;
+                box-shadow: 0 0 20px rgba(245,158,11,0.3);
+              `;
+              card.innerHTML = `
+                <div style="color:#fbbf24;font-size:13px;font-weight:900;">
+                  ${giftName}${quantity > 1 ? ` ×${quantity}` : ''}
+                </div>
+                <div style="color:rgba(255,255,255,0.6);font-size:11px;margin-top:2px;">
+                  from ${senderName}
+                </div>
+              `;
+              document.body.appendChild(card);
+              requestAnimationFrame(() => {
+                card.style.opacity = '1';
+                card.style.transform = 'translate(-50%, -50%) scale(1)';
+                setTimeout(() => {
+                  card.style.opacity = '0';
+                  card.style.transform = 'translate(-50%, -50%) scale(0.8) translateY(-10px)';
+                  setTimeout(() => {
+                    if (document.body.contains(card)) document.body.removeChild(card);
+                  }, 400);
+                }, 2500);
+              });
+            };
+
+            targetUserIds.forEach((targetId, idx) => {
+              setTimeout(() => {
+                if (!mountedRef.current) return;
+
+                const startX = window.innerWidth * 0.5;
+                const startY = window.innerHeight - 90;
+                const flyEl = createMediumFlyEl(startX, startY);
+                document.body.appendChild(flyEl);
+
+                const seatEl = micSeatRefs.current[String(targetId)];
+                let endX = window.innerWidth * 0.5;
+                let endY = window.innerHeight * 0.35;
+
+                if (seatEl) {
+                  const rect = seatEl.getBoundingClientRect();
+                  endX = rect.left + rect.width / 2;
+                  endY = rect.top + rect.height / 2;
+                }
+
+                flyMediumWithArc(flyEl, endX, endY, () => {
+                  showExplosion(endX, endY);
+                  flyEl.style.transition = 'transform 0.25s ease, opacity 0.5s ease';
+                  flyEl.style.transform = 'translate(-50%, -50%) scale(1.6) rotate(0deg)';
+
+                  setTimeout(() => {
+                    flyEl.style.transform = 'translate(-50%, -50%) scale(1.1) rotate(0deg)';
+                    showArrivalCard(endX, endY);
+
+                    const effectId = `medium_${Date.now()}_${idx}`;
+                    setSeatEmojiEffects(prev => [...prev, {
+                      id: effectId,
+                      userId: targetId,
+                      src: assetUrl,
+                      flip: false,
+                      animation: 'emojiPulse 0.8s ease-in-out infinite',
+                      isTiny: true,
+                      ts: Date.now(),
+                    }]);
+
+                    setTimeout(() => {
+                      flyEl.style.opacity = '0';
+                      setTimeout(() => {
+                        if (document.body.contains(flyEl)) document.body.removeChild(flyEl);
+                      }, 500);
+                      setTimeout(() => {
+                        if (!mountedRef.current) return;
+                        setSeatEmojiEffects(prev =>
+                          prev.filter(e => e.id !== effectId)
+                        );
+                      }, 3000);
+                    }, 600);
+                  }, 250);
+                });
+
+              }, idx * 400);
+            });
+
+            if (isToAll) {
+              const spreadCount = 12;
+              for (let i = 0; i < spreadCount; i++) {
+                setTimeout(() => {
+                  if (!mountedRef.current) return;
+
+                  const startX = window.innerWidth * 0.5;
+                  const startY = window.innerHeight - 90;
+                  const flyEl = createMediumFlyEl(startX, startY);
+                  document.body.appendChild(flyEl);
+
+                  const col = i % 4;
+                  const row = Math.floor(i / 4);
+                  const endX = window.innerWidth * (0.1 + col * 0.25);
+                  const endY = window.innerHeight * (0.1 + row * 0.28);
+
+                  flyMediumWithArc(flyEl, endX, endY, () => {
+                    showExplosion(endX, endY);
+                    showArrivalCard(endX, endY);
+                    flyEl.style.transition = 'opacity 0.5s ease, transform 0.3s ease';
+                    flyEl.style.transform = 'translate(-50%, -50%) scale(1.4) rotate(0deg)';
+                    setTimeout(() => {
+                      flyEl.style.opacity = '0';
+                      setTimeout(() => {
+                        if (document.body.contains(flyEl)) document.body.removeChild(flyEl);
+                      }, 500);
+                    }, 800);
+                  });
+
+                }, i * 180);
+              }
+            }
+          }
+
           // Schedule leaderboard refresh
           scheduleLeaderboardRefresh(400);
         } catch (err) {
