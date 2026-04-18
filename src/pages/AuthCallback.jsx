@@ -79,3 +79,4 @@ const handleAuthCallback = async () => {
     setErrorMessage(err.message || 'Authentication failed');
   }
 };
+export default AuthCallback;
