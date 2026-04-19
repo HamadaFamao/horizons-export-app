@@ -7002,6 +7002,8 @@ useEffect(() => {
             });
 
             if (isToAll) {
+              // Show gift cards in organized grid
+              // Each card shows receiver avatar + gift
               const seatedEntries = Object.entries(micSeatRefs.current || {})
                 .filter(([id, el]) => !!el);
 
@@ -7009,18 +7011,21 @@ useEffect(() => {
                 setTimeout(() => {
                   if (!mountedRef.current) return;
 
-                  const receiverProfile =
+                  // Get receiver info from participantsMap
+                  const receiverProfile = 
                     participantsMapRef.current?.[String(targetId)] || null;
-                  const receiverName = receiverProfile?.name ||
+                  const receiverName = receiverProfile?.name || 
                     receiverProfile?.display_name || 'User';
                   const receiverAvatar = receiverProfile?.avatar_url || '';
 
+                  // Position cards in a grid
                   const cols = 3;
                   const col = idx % cols;
                   const row = Math.floor(idx / cols);
                   const cardX = window.innerWidth * (0.2 + col * 0.3);
                   const cardY = window.innerHeight * (0.15 + row * 0.28);
 
+                  // Create gift card
                   const card = document.createElement('div');
                   card.style.cssText = `
                     position: fixed;
@@ -7078,15 +7083,18 @@ useEffect(() => {
 
                   document.body.appendChild(card);
 
+                  // Animate in
                   requestAnimationFrame(() => {
                     card.style.opacity = '1';
                     card.style.transform = 'translate(-50%, -50%) scale(1)';
 
+                    // Show explosion at card position
                     showExplosion(cardX, cardY);
 
+                    // Fade out after 3 seconds
                     setTimeout(() => {
                       card.style.opacity = '0';
-                      card.style.transform =
+                      card.style.transform = 
                         'translate(-50%, -50%) scale(0.85) translateY(-8px)';
                       setTimeout(() => {
                         if (document.body.contains(card)) {
