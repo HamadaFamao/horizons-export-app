@@ -1038,6 +1038,8 @@ useEffect(() => {
   const [lastSentGift, setLastSentGift] = useState(null);
   const [repeatSending, setRepeatSending] = useState(false);
   const [showRepeatButton, setShowRepeatButton] = useState(false);
+  const [largeGiftBanner, setLargeGiftBanner] = useState(null);
+  const largeGiftBannerTimerRef = useRef(null);
   const [micGiftTotals, setMicGiftTotals] = useState({});
   const [micGiftTotalsReady, setMicGiftTotalsReady] = useState(false);
 
@@ -7173,6 +7175,120 @@ useEffect(() => {
             }
           }
 
+          if (tier === 'large' || tier === 'global') {
+            const isToAll = !!payload?.is_to_all;
+            const assetUrl = payload?.gift_icon || '';
+            const animationUrl = payload?.gift_animation_url || assetUrl || '';
+            const giftName = payload?.gift_name || '';
+            const senderName = payload?.sender_name || 'User';
+            const senderAvatar = payload?.sender_avatar || '';
+            const receiverId = payload?.receiver_id || null;
+            const receiverName = payload?.receiver_name || 'User';
+            const receiverAvatar = payload?.receiver_avatar || '';
+
+            // 1. Show fullscreen animation
+            if (animationUrl) {
+              const isVideo = /\.(mp4|webm)(\?|#|$)/i.test(animationUrl);
+              const overlay = document.createElement('div');
+              overlay.style.cssText = `
+                position: fixed;
+                inset: 0;
+                z-index: 10000;
+                pointer-events: none;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: rgba(0,0,0,0.3);
+                backdrop-filter: blur(2px);
+                opacity: 0;
+                transition: opacity 0.4s ease;
+              `;
+
+              if (isVideo) {
+                const vid = document.createElement('video');
+                vid.src = animationUrl;
+                vid.autoplay = true;
+                vid.loop = false;
+                vid.muted = false;
+                vid.playsInline = true;
+                vid.style.cssText = `
+                  max-width: 90vw;
+                  max-height: 80vh;
+                  object-fit: contain;
+                  border-radius: 16px;
+                  drop-shadow: 0 0 40px rgba(245,158,11,0.8);
+                `;
+                overlay.appendChild(vid);
+              } else {
+                const img = document.createElement('img');
+                img.src = animationUrl;
+                img.style.cssText = `
+                  max-width: 90vw;
+                  max-height: 80vh;
+                  object-fit: contain;
+                  border-radius: 16px;
+                  filter: drop-shadow(0 0 40px rgba(245,158,11,0.8));
+                `;
+                overlay.appendChild(img);
+              }
+
+              document.body.appendChild(overlay);
+              requestAnimationFrame(() => {
+                overlay.style.opacity = '1';
+              });
+
+              // Remove after 4 seconds
+              setTimeout(() => {
+                overlay.style.opacity = '0';
+                setTimeout(() => {
+                  if (document.body.contains(overlay)) {
+                    document.body.removeChild(overlay);
+                  }
+                }, 400);
+              }, 4000);
+            }
+
+            // 2. Show banner in ALL rooms via broadcast
+            // (banner is shown locally here,
+            //  global broadcast handled separately)
+            if (largeGiftBannerTimerRef.current) {
+              clearTimeout(largeGiftBannerTimerRef.current);
+            }
+            setLargeGiftBanner({
+              senderName,
+              senderAvatar,
+              receiverName,
+              receiverAvatar,
+              giftName,
+              giftIcon: assetUrl,
+              isToAll,
+              roomId: payload?.room_id || roomId,
+            });
+            largeGiftBannerTimerRef.current = setTimeout(() => {
+              setLargeGiftBanner(null);
+            }, 10000);
+
+            // 3. Show icon on seat for specific recipient
+            if (!isToAll && receiverId) {
+              const effectId = `large_${Date.now()}`;
+              setSeatEmojiEffects(prev => [...prev, {
+                id: effectId,
+                userId: receiverId,
+                src: assetUrl,
+                flip: false,
+                animation: 'emojiPulse 1s ease-in-out infinite',
+                isTiny: true,
+                ts: Date.now(),
+              }]);
+              setTimeout(() => {
+                if (!mountedRef.current) return;
+                setSeatEmojiEffects(prev =>
+                  prev.filter(e => e.id !== effectId)
+                );
+              }, 4000);
+            }
+          }
+
           // Schedule leaderboard refresh
           scheduleLeaderboardRefresh(400);
         } catch (err) {
@@ -7712,6 +7828,9 @@ useEffect(() => {
     return () => {
       mountedRef.current = false;
       stopPolling();
+      if (largeGiftBannerTimerRef.current) {
+        clearTimeout(largeGiftBannerTimerRef.current);
+      }
       if (miniRoomActiveRef.current) return;
       cleanupChannel();
     };
@@ -8746,6 +8865,12 @@ useEffect(() => {
         myIncomingInvites={myIncomingInvites}
         handleAcceptMyInvite={handleAcceptMyInvite}
         handleRejectMyInvite={handleRejectMyInvite}
+        largeGiftBanner={largeGiftBanner}
+        onLargeGiftBannerClick={(banner) => {
+          if (banner?.roomId && banner.roomId !== roomId) {
+            navigate(`/rooms/${banner.roomId}`);
+          }
+        }}
         activeGlobalMsg={activeGlobalMsg}
         onGlobalMsgClick={() => setShowRoomJoinConfirm(true)}
       />
