@@ -631,6 +631,7 @@ export default function LiveRoomPage() {
             giftIcon: payload.gift_icon,
             isToAll: payload.is_to_all,
             roomId: payload.room_id,
+            isGlobal: payload.is_global || false,
           });
           largeGiftBannerTimerRef.current = setTimeout(() => {
             setLargeGiftBanner(null);
@@ -5342,6 +5343,69 @@ toastSuccess("✅ Room unlocked", 1400);
     return null;
   };
 
+  const showConfetti = () => {
+    const colors = [
+      '#fbbf24', '#f59e0b', '#ef4444', '#8b5cf6',
+      '#06b6d4', '#10b981', '#f97316', '#ec4899'
+    ];
+    const count = 80;
+
+    for (let i = 0; i < count; i++) {
+      setTimeout(() => {
+        if (!mountedRef.current) return;
+
+        const piece = document.createElement('div');
+        const color = colors[Math.floor(Math.random() * colors.length)];
+        const size = 6 + Math.random() * 10;
+        const startX = Math.random() * window.innerWidth;
+        const rotation = Math.random() * 360;
+        const isCircle = Math.random() > 0.5;
+
+        piece.style.cssText = `
+          position: fixed;
+          z-index: 10001;
+          pointer-events: none;
+          left: ${startX}px;
+          top: -20px;
+          width: ${size}px;
+          height: ${size}px;
+          background: ${color};
+          border-radius: ${isCircle ? '50%' : '2px'};
+          transform: rotate(${rotation}deg);
+          opacity: 1;
+        `;
+
+        document.body.appendChild(piece);
+
+        const duration = 2000 + Math.random() * 2000;
+        const endY = window.innerHeight + 20;
+        const drift = (Math.random() - 0.5) * 200;
+
+        piece.animate([
+          {
+            transform: `rotate(${rotation}deg) translateX(0px)`,
+            top: '-20px',
+            opacity: 1,
+          },
+          {
+            transform: `rotate(${rotation + 360 * (Math.random() > 0.5 ? 1 : -1)}deg) translateX(${drift}px)`,
+            top: `${endY}px`,
+            opacity: 0,
+          }
+        ], {
+          duration,
+          easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+          fill: 'forwards',
+        }).onfinish = () => {
+          if (document.body.contains(piece)) {
+            document.body.removeChild(piece);
+          }
+        };
+
+      }, i * 40);
+    }
+  };
+
 const syncServerClock = async () => {
   try {
     const { data } = await supabase.rpc('get_server_time_ms');
@@ -7214,6 +7278,7 @@ useEffect(() => {
           }
 
           if (tier === 'large' || tier === 'global') {
+            const isGlobal = tier === 'global';
             const isToAll = !!payload?.is_to_all;
             const assetUrl = payload?.gift_icon || '';
             const animationUrl = payload?.gift_animation_url || assetUrl || '';
@@ -7224,7 +7289,16 @@ useEffect(() => {
             const receiverName = payload?.receiver_name || 'User';
             const receiverAvatar = payload?.receiver_avatar || '';
 
-            // 1. Show fullscreen animation
+            // 1. Confetti for global only
+            if (isGlobal) {
+              showConfetti();
+              // Second wave after 1.5s
+              setTimeout(() => {
+                if (mountedRef.current) showConfetti();
+              }, 1500);
+            }
+
+            // 2. Fullscreen animation
             if (animationUrl) {
               const isVideo = /\.(mp4|webm)(\?|#|$)/i.test(animationUrl);
               const overlay = document.createElement('div');
@@ -7236,8 +7310,8 @@ useEffect(() => {
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                background: rgba(0,0,0,0.3);
-                backdrop-filter: blur(2px);
+                background: rgba(0,0,0,${isGlobal ? '0.5' : '0.3'});
+                backdrop-filter: blur(${isGlobal ? '4px' : '2px'});
                 opacity: 0;
                 transition: opacity 0.4s ease;
               `;
@@ -7254,7 +7328,6 @@ useEffect(() => {
                   max-height: 80vh;
                   object-fit: contain;
                   border-radius: 16px;
-                  drop-shadow: 0 0 40px rgba(245,158,11,0.8);
                 `;
                 overlay.appendChild(vid);
               } else {
@@ -7265,9 +7338,14 @@ useEffect(() => {
                   max-height: 80vh;
                   object-fit: contain;
                   border-radius: 16px;
-                  filter: drop-shadow(0 0 40px rgba(245,158,11,0.8));
+                  filter: drop-shadow(0 0 ${isGlobal ? '60px' : '40px'} rgba(245,158,11,0.9));
                 `;
                 overlay.appendChild(img);
+              }
+
+              // Global: add golden border ring
+              if (isGlobal) {
+                overlay.style.boxShadow = 'inset 0 0 100px rgba(251,191,36,0.15)';
               }
 
               document.body.appendChild(overlay);
@@ -7275,7 +7353,6 @@ useEffect(() => {
                 overlay.style.opacity = '1';
               });
 
-              // Remove after 4 seconds
               setTimeout(() => {
                 overlay.style.opacity = '0';
                 setTimeout(() => {
@@ -7283,12 +7360,10 @@ useEffect(() => {
                     document.body.removeChild(overlay);
                   }
                 }, 400);
-              }, 4000);
+              }, isGlobal ? 5000 : 4000);
             }
 
-            // 2. Show banner in ALL rooms via broadcast
-            // (banner is shown locally here,
-            //  global broadcast handled separately)
+            // 3. Banner - gold for global, purple for large
             if (largeGiftBannerTimerRef.current) {
               clearTimeout(largeGiftBannerTimerRef.current);
             }
@@ -7301,12 +7376,15 @@ useEffect(() => {
               giftIcon: assetUrl,
               isToAll,
               roomId: payload?.room_id || roomId,
+              isGlobal,
             });
+            largeGiftBannerTimerRef.current = setTimeout(() => {
+              setLargeGiftBanner(null);
+            }, 12000);
 
-            // Broadcast to all other rooms globally
+            // Global broadcast to all rooms
             const globalBroadcastChannel = supabase
               .channel('global_large_gifts');
-
             globalBroadcastChannel.send({
               type: 'broadcast',
               event: 'large_gift_banner',
@@ -7319,15 +7397,12 @@ useEffect(() => {
                 gift_name: giftName,
                 gift_icon: assetUrl,
                 is_to_all: isToAll,
+                is_global: isGlobal,
                 ts: Date.now(),
               },
             });
 
-            largeGiftBannerTimerRef.current = setTimeout(() => {
-              setLargeGiftBanner(null);
-            }, 10000);
-
-            // 3. Show icon on seat for specific recipient
+            // 4. Seat effect for specific recipient
             if (!isToAll && receiverId) {
               const effectId = `large_${Date.now()}`;
               setSeatEmojiEffects(prev => [...prev, {
@@ -7344,7 +7419,7 @@ useEffect(() => {
                 setSeatEmojiEffects(prev =>
                   prev.filter(e => e.id !== effectId)
                 );
-              }, 4000);
+              }, isGlobal ? 5000 : 4000);
             }
           }
 

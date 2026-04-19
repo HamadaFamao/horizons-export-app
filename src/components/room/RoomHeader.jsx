@@ -245,10 +245,13 @@ export default function RoomHeader({
         <button
           type="button"
           onClick={() => onLargeGiftBannerClick?.(largeGiftBanner)}
-          className="w-full flex items-center
-            bg-gradient-to-r from-purple-900/80 via-rose-900/80 to-purple-900/80
-            border-b border-purple-500/30 overflow-hidden
-            animate-in slide-in-from-top duration-500"
+          className={`w-full flex items-center
+            border-b overflow-hidden
+            animate-in slide-in-from-top duration-500
+            ${largeGiftBanner.isGlobal
+              ? 'bg-gradient-to-r from-amber-900/90 via-yellow-800/90 to-amber-900/90 border-amber-500/40'
+              : 'bg-gradient-to-r from-purple-900/80 via-rose-900/80 to-purple-900/80 border-purple-500/30'
+            }`}
           style={{ height: '44px' }}
         >
           {/* Scrolling container */}
