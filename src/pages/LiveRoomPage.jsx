@@ -64,6 +64,7 @@ import RoomHeader from "@/components/room/RoomHeader";
 import RoomSeats from "@/components/room/RoomSeats";
 import RoomChat from "@/components/room/RoomChat";
 import RoomModals from "@/components/room/RoomModals";
+import GamesLobby from "@/components/room/GamesLobby";
 import SpinGame from "@/components/room/SpinGame";
 
 const FALLBACK_AVATAR =
@@ -1157,6 +1158,7 @@ useEffect(() => {
   const [pkBusy, setPkBusy] = useState(false);
   const [pkRemainingMs, setPkRemainingMs] = useState(0);
   const [showPkModal, setShowPkModal] = useState(false);
+  const [showGamesLobby, setShowGamesLobby] = useState(false);
   const [showSpinGame, setShowSpinGame] = useState(false);
   const [activeSpinSession, setActiveSpinSession] = useState(null);
   const [pkSeatA, setPkSeatA] = useState("");
@@ -9666,7 +9668,7 @@ useEffect(() => {
             showTemplates={showTemplates}
             setShowTemplates={setShowTemplates}
             globalMsgCooldown={globalMsgCooldown}
-            onOpenSpinGame={() => setShowSpinGame(true)}
+            onOpenSpinGame={() => setShowGamesLobby(true)}
             activeSpinSession={activeSpinSession}
           />
         </div>
@@ -10253,6 +10255,18 @@ useEffect(() => {
           </div>
         </div>
       )}
+
+      <GamesLobby
+        open={showGamesLobby}
+        onClose={() => setShowGamesLobby(false)}
+        activeSpinSession={activeSpinSession}
+        onSelectGame={(gameId) => {
+          setShowGamesLobby(false);
+          if (gameId === 'spin') {
+            setShowSpinGame(true);
+          }
+        }}
+      />
 
       <SpinGame
         open={showSpinGame}
