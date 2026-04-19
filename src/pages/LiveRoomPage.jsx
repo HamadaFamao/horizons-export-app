@@ -64,6 +64,7 @@ import RoomHeader from "@/components/room/RoomHeader";
 import RoomSeats from "@/components/room/RoomSeats";
 import RoomChat from "@/components/room/RoomChat";
 import RoomModals from "@/components/room/RoomModals";
+import SpinGame from "@/components/room/SpinGame";
 
 const FALLBACK_AVATAR =
   "data:image/svg+xml;utf8," +
@@ -1156,6 +1157,8 @@ useEffect(() => {
   const [pkBusy, setPkBusy] = useState(false);
   const [pkRemainingMs, setPkRemainingMs] = useState(0);
   const [showPkModal, setShowPkModal] = useState(false);
+  const [showSpinGame, setShowSpinGame] = useState(false);
+  const [activeSpinSession, setActiveSpinSession] = useState(null);
   const [pkSeatA, setPkSeatA] = useState("");
   const [pkSeatB, setPkSeatB] = useState("");
   const [pkDuration, setPkDuration] = useState(5);
@@ -3729,6 +3732,18 @@ console.log("MODERATORS MAP:", nextMap);
       }
 
       await loadPkState();
+
+      // Load active spin session
+      const { data: spinData } = await supabase
+        .from('room_spin_sessions')
+        .select('*')
+        .eq('room_id', roomId)
+        .in('status', ['waiting', 'spinning'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      setActiveSpinSession(spinData || null);
+
       await fetchPlaylist();
 
       try {
@@ -7520,6 +7535,25 @@ useEffect(() => {
         }
       );
 
+      ch.on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'room_spin_sessions',
+          filter: `room_id=eq.${roomId}`,
+        },
+        async (payload) => {
+          const session = payload?.new;
+          if (session?.status === 'waiting' ||
+              session?.status === 'spinning') {
+            setActiveSpinSession(session);
+          } else {
+            setActiveSpinSession(null);
+          }
+        }
+      );
+
       ch.on("broadcast", { event: "pk_score_updated" }, async ({ payload }) => {
         try {
           if (payload?.room_id && String(payload.room_id) === String(roomId)) {
@@ -9632,6 +9666,8 @@ useEffect(() => {
             showTemplates={showTemplates}
             setShowTemplates={setShowTemplates}
             globalMsgCooldown={globalMsgCooldown}
+            onOpenSpinGame={() => setShowSpinGame(true)}
+            activeSpinSession={activeSpinSession}
           />
         </div>
 
@@ -10217,6 +10253,25 @@ useEffect(() => {
           </div>
         </div>
       )}
+
+      <SpinGame
+        open={showSpinGame}
+        onClose={() => setShowSpinGame(false)}
+        roomId={roomId}
+        user={user}
+        canModerate={canModerate}
+        activeParticipants={activeParticipants}
+        userCoins={userWalletCoins}
+        onCoinsUpdated={() => {
+          if (user?.id) {
+            fetchUserWallet(user.id)
+              .then(({ data }) => {
+                if (data) setUserWalletCoins(data.coins || 0);
+              })
+              .catch(console.error);
+          }
+        }}
+      />
 
 
     </div>
