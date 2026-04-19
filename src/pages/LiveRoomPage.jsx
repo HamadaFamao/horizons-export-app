@@ -614,11 +614,77 @@ export default function LiveRoomPage() {
         { event: 'large_gift_banner' },
         ({ payload }) => {
           if (!payload) return;
-
-          // Don't show if already in the sender's room
-          // (already shown via gift_sent broadcast)
           if (String(payload.room_id) === String(roomId)) return;
 
+          const isGlobal = payload.is_global || false;
+          const animUrl = payload.animation_url || payload.gift_icon || '';
+
+          // Show fullscreen animation in other rooms too
+          if (animUrl) {
+            const isVideo = /\.(mp4|webm)(\?|#|$)/i.test(animUrl);
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+              position: fixed;
+              inset: 0;
+              z-index: 10000;
+              pointer-events: none;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              background: rgba(0,0,0,${isGlobal ? '0.5' : '0.3'});
+              backdrop-filter: blur(${isGlobal ? '4px' : '2px'});
+              opacity: 0;
+              transition: opacity 0.4s ease;
+            `;
+
+            if (isVideo) {
+              const vid = document.createElement('video');
+              vid.src = animUrl;
+              vid.autoplay = true;
+              vid.loop = false;
+              vid.muted = true;
+              vid.playsInline = true;
+              vid.style.cssText = `
+                max-width: 90vw;
+                max-height: 80vh;
+                object-fit: contain;
+                border-radius: 16px;
+              `;
+              overlay.appendChild(vid);
+            } else {
+              const img = document.createElement('img');
+              img.src = animUrl;
+              img.style.cssText = `
+                max-width: 90vw;
+                max-height: 80vh;
+                object-fit: contain;
+                border-radius: 16px;
+                filter: drop-shadow(0 0 ${isGlobal ? '60px' : '40px'} rgba(245,158,11,0.9));
+              `;
+              overlay.appendChild(img);
+            }
+
+            document.body.appendChild(overlay);
+            requestAnimationFrame(() => {
+              overlay.style.opacity = '1';
+            });
+
+            // Show confetti in other rooms for global tier
+            if (isGlobal && mountedRef.current) {
+              showConfetti();
+            }
+
+            setTimeout(() => {
+              overlay.style.opacity = '0';
+              setTimeout(() => {
+                if (document.body.contains(overlay)) {
+                  document.body.removeChild(overlay);
+                }
+              }, 400);
+            }, isGlobal ? 5000 : 4000);
+          }
+
+          // Show banner
           if (largeGiftBannerTimerRef.current) {
             clearTimeout(largeGiftBannerTimerRef.current);
           }
@@ -631,7 +697,7 @@ export default function LiveRoomPage() {
             giftIcon: payload.gift_icon,
             isToAll: payload.is_to_all,
             roomId: payload.room_id,
-            isGlobal: payload.is_global || false,
+            isGlobal,
           });
           largeGiftBannerTimerRef.current = setTimeout(() => {
             setLargeGiftBanner(null);
@@ -7396,6 +7462,7 @@ useEffect(() => {
                 receiver_avatar: receiverAvatar,
                 gift_name: giftName,
                 gift_icon: assetUrl,
+                animation_url: animationUrl,
                 is_to_all: isToAll,
                 is_global: isGlobal,
                 ts: Date.now(),
