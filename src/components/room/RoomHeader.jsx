@@ -15,8 +15,8 @@ const SHIMMER_STYLE = `
     100% { transform: translateX(100%); }
   }
   @keyframes bannerScroll {
-    0% { transform: translateX(0%); }
-    100% { transform: translateX(-50%); }
+    0% { transform: translateX(100vw); }
+    100% { transform: translateX(-100%); }
   }
   .animate-shimmer {
     animation: shimmer 2s infinite;
@@ -262,6 +262,7 @@ export default function RoomHeader({
                 alignItems: 'center',
                 gap: '12px',
                 willChange: 'transform',
+                transform: 'translateX(100vw)',
               }}
             >
               {/* Sender */}
