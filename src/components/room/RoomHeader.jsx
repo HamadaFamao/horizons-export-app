@@ -14,6 +14,10 @@ const SHIMMER_STYLE = `
     0% { transform: translateX(-100%); }
     100% { transform: translateX(100%); }
   }
+  @keyframes bannerScroll {
+    0% { transform: translateX(0%); }
+    100% { transform: translateX(-50%); }
+  }
   .animate-shimmer {
     animation: shimmer 2s infinite;
   }
@@ -252,8 +256,12 @@ export default function RoomHeader({
             <div
               className="flex items-center gap-3 px-4"
               style={{
-                animation: 'marquee 18s linear infinite',
+                animation: 'bannerScroll 14s linear infinite',
                 whiteSpace: 'nowrap',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '12px',
+                willChange: 'transform',
               }}
             >
               {/* Sender */}
