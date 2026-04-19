@@ -606,6 +606,44 @@ export default function LiveRoomPage() {
     };
   }, [addToGlobalMsgQueue]);
 
+  useEffect(() => {
+    const globalGiftChannel = supabase
+      .channel('global_large_gifts')
+      .on(
+        'broadcast',
+        { event: 'large_gift_banner' },
+        ({ payload }) => {
+          if (!payload) return;
+
+          // Don't show if already in the sender's room
+          // (already shown via gift_sent broadcast)
+          if (String(payload.room_id) === String(roomId)) return;
+
+          if (largeGiftBannerTimerRef.current) {
+            clearTimeout(largeGiftBannerTimerRef.current);
+          }
+          setLargeGiftBanner({
+            senderName: payload.sender_name,
+            senderAvatar: payload.sender_avatar,
+            receiverName: payload.receiver_name,
+            receiverAvatar: payload.receiver_avatar,
+            giftName: payload.gift_name,
+            giftIcon: payload.gift_icon,
+            isToAll: payload.is_to_all,
+            roomId: payload.room_id,
+          });
+          largeGiftBannerTimerRef.current = setTimeout(() => {
+            setLargeGiftBanner(null);
+          }, 10000);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(globalGiftChannel);
+    };
+  }, [roomId]);
+
   const fetchRoomFollowState = async () => {
     if (!roomId) return;
 
@@ -7264,6 +7302,27 @@ useEffect(() => {
               isToAll,
               roomId: payload?.room_id || roomId,
             });
+
+            // Broadcast to all other rooms globally
+            const globalBroadcastChannel = supabase
+              .channel('global_large_gifts');
+
+            globalBroadcastChannel.send({
+              type: 'broadcast',
+              event: 'large_gift_banner',
+              payload: {
+                room_id: roomId,
+                sender_name: senderName,
+                sender_avatar: senderAvatar,
+                receiver_name: receiverName,
+                receiver_avatar: receiverAvatar,
+                gift_name: giftName,
+                gift_icon: assetUrl,
+                is_to_all: isToAll,
+                ts: Date.now(),
+              },
+            });
+
             largeGiftBannerTimerRef.current = setTimeout(() => {
               setLargeGiftBanner(null);
             }, 10000);
