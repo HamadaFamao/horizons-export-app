@@ -6789,6 +6789,7 @@ useEffect(() => {
             const assetUrl = payload?.gift_icon || '';
             const giftName = payload?.gift_name || '';
             const senderName = payload?.sender_name || 'User';
+            const senderAvatar = payload?.sender_avatar || '';
             const quantity = Number(payload?.quantity || 1);
             const receiverId = payload?.receiver_id || null;
 
@@ -6803,176 +6804,180 @@ useEffect(() => {
                 ? [receiverId]
                 : [];
 
-            const createMediumFlyEl = (startX, startY) => {
-              const flyEl = document.createElement('div');
-              flyEl.style.cssText = `
-                position: fixed;
-                z-index: 9999;
-                pointer-events: none;
-                width: 160px;
-                height: 160px;
-                left: ${startX}px;
-                top: ${startY}px;
-                transform: translate(-50%, -50%) scale(0.3) rotate(0deg);
-                opacity: 0;
-                transition: none;
-                filter: drop-shadow(0 0 16px rgba(245,158,11,1)) 
-                        drop-shadow(0 0 30px rgba(245,158,11,0.5));
-              `;
-              if (assetUrl) {
-                const img = document.createElement('img');
-                img.src = assetUrl;
-                img.style.cssText = 'width:100%;height:100%;object-fit:contain;';
-                flyEl.appendChild(img);
-              } else {
-                flyEl.textContent = '🎁';
-                flyEl.style.fontSize = '80px';
-                flyEl.style.display = 'flex';
-                flyEl.style.alignItems = 'center';
-                flyEl.style.justifyContent = 'center';
-              }
-              return flyEl;
-            };
-
-            const flyMediumWithArc = (flyEl, endX, endY, onArrived) => {
-              const startX = parseFloat(flyEl.style.left);
-              const startY = parseFloat(flyEl.style.top);
-              const midX = (startX + endX) / 2 + (Math.random() > 0.5 ? 120 : -120);
-              const midY = Math.min(startY, endY) - 150;
-
-              requestAnimationFrame(() => {
-                flyEl.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-                flyEl.style.opacity = '1';
-                flyEl.style.transform = 'translate(-50%, -50%) scale(1.1) rotate(-15deg)';
+            if (isToAll) {
+              // Show sequential cards only - no flying gift
+              // Each card appears after previous one fades out
+              targetUserIds.forEach((targetId, idx) => {
+                const delay = idx * 2200; // strictly sequential
 
                 setTimeout(() => {
-                  flyEl.style.transition = [
-                    'left 1.1s cubic-bezier(0.4, 0, 0.2, 1)',
-                    'top 1.1s cubic-bezier(0.4, 0, 0.2, 1)',
-                    'transform 1.1s cubic-bezier(0.4, 0, 0.2, 1)',
-                  ].join(', ');
-                  flyEl.style.left = midX + 'px';
-                  flyEl.style.top = midY + 'px';
-                  flyEl.style.transform = 'translate(-50%, -50%) scale(1) rotate(15deg)';
+                  if (!mountedRef.current) return;
 
-                  setTimeout(() => {
-                    flyEl.style.transition = [
-                      'left 0.9s cubic-bezier(0.22, 1, 0.36, 1)',
-                      'top 0.9s cubic-bezier(0.22, 1, 0.36, 1)',
-                      'transform 0.9s cubic-bezier(0.22, 1, 0.36, 1)',
-                    ].join(', ');
-                    flyEl.style.left = endX + 'px';
-                    flyEl.style.top = endY + 'px';
-                    flyEl.style.transform = 'translate(-50%, -50%) scale(1.3) rotate(0deg)';
+                  const receiverProfile =
+                    participantsMapRef.current?.[String(targetId)] || null;
+                  const receiverName = receiverProfile?.name ||
+                    receiverProfile?.display_name || 'User';
+                  const receiverAvatar = receiverProfile?.avatar_url || '';
 
-                    setTimeout(() => onArrived?.(), 900);
-                  }, 1100);
-                }, 300);
-              });
-            };
+                  const cardX = window.innerWidth * 0.5;
+                  const cardY = window.innerHeight - 160;
 
-            const showExplosion = (x, y) => {
-              const colors = ['#fbbf24', '#f59e0b', '#fb7185', '#a78bfa'];
-              for (let r = 0; r < 3; r++) {
-                setTimeout(() => {
-                  const ring = document.createElement('div');
-                  ring.style.cssText = `
+                  const card = document.createElement('div');
+                  card.style.cssText = `
                     position: fixed;
-                    z-index: 9998;
+                    z-index: 9999;
                     pointer-events: none;
-                    left: ${x}px;
-                    top: ${y}px;
-                    width: 20px;
-                    height: 20px;
-                    border-radius: 50%;
-                    border: 3px solid ${colors[r % colors.length]};
-                    transform: translate(-50%, -50%) scale(1);
-                    opacity: 1;
-                    transition: transform 0.6s ease-out, opacity 0.6s ease-out;
+                    left: ${cardX}px;
+                    top: ${cardY}px;
+                    transform: translate(-50%, -50%) scale(0.8) translateY(20px);
+                    opacity: 0;
+                    background: linear-gradient(135deg,
+                      rgba(10,10,20,0.95), rgba(30,20,5,0.97));
+                    backdrop-filter: blur(16px);
+                    border: 1.5px solid rgba(251,191,36,0.5);
+                    border-radius: 28px;
+                    padding: 16px 20px;
+                    display: flex;
+                    align-items: center;
+                    gap: 14px;
+                    white-space: nowrap;
+                    transition: opacity 0.4s ease,
+                                transform 0.4s cubic-bezier(0.22,1,0.36,1);
+                    box-shadow: 0 0 40px rgba(245,158,11,0.4),
+                                0 12px 40px rgba(0,0,0,0.7);
                   `;
-                  document.body.appendChild(ring);
+
+                  // Sender avatar
+                  const senderImg = document.createElement('img');
+                  senderImg.src = senderAvatar;
+                  senderImg.style.cssText = `
+                    width:44px;height:44px;
+                    border-radius:50%;
+                    object-fit:cover;
+                    border:2px solid rgba(251,191,36,0.6);
+                    flex-shrink:0;
+                  `;
+                  senderImg.onerror = () => {
+                    senderImg.style.background = '#1e293b';
+                    senderImg.src = '';
+                  };
+
+                  // Gift image (center)
+                  const giftImg = document.createElement('div');
+                  giftImg.style.cssText = `
+                    display:flex;
+                    flex-direction:column;
+                    align-items:center;
+                    gap:4px;
+                    flex-shrink:0;
+                  `;
+                  if (assetUrl) {
+                    giftImg.innerHTML = `
+                      <img src="${assetUrl}" style="
+                        width:48px;height:48px;
+                        object-fit:contain;
+                        filter:drop-shadow(0 0 10px rgba(245,158,11,1));
+                      "/>
+                      <span style="
+                        color:#fbbf24;
+                        font-size:11px;
+                        font-weight:900;
+                      ">${giftName}${quantity > 1 ? ` ×${quantity}` : ''}</span>
+                    `;
+                  } else {
+                    giftImg.innerHTML = `
+                      <span style="font-size:32px;">🎁</span>
+                      <span style="color:#fbbf24;font-size:11px;font-weight:900;">
+                        ${giftName}
+                      </span>
+                    `;
+                  }
+
+                  // Arrow
+                  const arrow = document.createElement('div');
+                  arrow.textContent = '→';
+                  arrow.style.cssText = `
+                    color:rgba(251,191,36,0.8);
+                    font-size:20px;
+                    font-weight:900;
+                    flex-shrink:0;
+                  `;
+
+                  // Receiver avatar + name
+                  const receiverDiv = document.createElement('div');
+                  receiverDiv.style.cssText = `
+                    display:flex;
+                    flex-direction:column;
+                    align-items:center;
+                    gap:4px;
+                    flex-shrink:0;
+                  `;
+                  const receiverImg = document.createElement('img');
+                  receiverImg.src = receiverAvatar;
+                  receiverImg.style.cssText = `
+                    width:44px;height:44px;
+                    border-radius:50%;
+                    object-fit:cover;
+                    border:2px solid rgba(251,191,36,0.6);
+                  `;
+                  receiverImg.onerror = () => {
+                    receiverImg.style.background = '#1e293b';
+                    receiverImg.src = '';
+                  };
+                  const receiverNameEl = document.createElement('span');
+                  receiverNameEl.textContent = receiverName;
+                  receiverNameEl.style.cssText = `
+                    color:#fbbf24;
+                    font-size:11px;
+                    font-weight:900;
+                    max-width:70px;
+                    overflow:hidden;
+                    text-overflow:ellipsis;
+                    white-space:nowrap;
+                  `;
+                  receiverDiv.appendChild(receiverImg);
+                  receiverDiv.appendChild(receiverNameEl);
+
+                  // Assemble: sender → gift → arrow → receiver
+                  const senderDiv = document.createElement('div');
+                  senderDiv.style.cssText = `
+                    display:flex;
+                    flex-direction:column;
+                    align-items:center;
+                    gap:4px;
+                    flex-shrink:0;
+                  `;
+                  const senderNameEl = document.createElement('span');
+                  senderNameEl.textContent = senderName;
+                  senderNameEl.style.cssText = `
+                    color:rgba(255,255,255,0.7);
+                    font-size:11px;
+                    font-weight:700;
+                    max-width:70px;
+                    overflow:hidden;
+                    text-overflow:ellipsis;
+                    white-space:nowrap;
+                  `;
+                  senderDiv.appendChild(senderImg);
+                  senderDiv.appendChild(senderNameEl);
+
+                  card.appendChild(senderDiv);
+                  card.appendChild(giftImg);
+                  card.appendChild(arrow);
+                  card.appendChild(receiverDiv);
+
+                  document.body.appendChild(card);
+
+                  // Animate in
                   requestAnimationFrame(() => {
-                    ring.style.transform = `translate(-50%, -50%) scale(${6 + r * 3})`;
-                    ring.style.opacity = '0';
                     setTimeout(() => {
-                      if (document.body.contains(ring)) document.body.removeChild(ring);
-                    }, 700);
-                  });
-                }, r * 120);
-              }
-            };
+                      card.style.opacity = '1';
+                      card.style.transform =
+                        'translate(-50%, -50%) scale(1) translateY(0px)';
+                    }, 30);
 
-            const showArrivalCard = (x, y) => {
-              const card = document.createElement('div');
-              card.style.cssText = `
-                position: fixed;
-                z-index: 10000;
-                pointer-events: none;
-                left: ${x}px;
-                top: ${y - 80}px;
-                transform: translate(-50%, -50%) scale(0.5);
-                opacity: 0;
-                background: linear-gradient(135deg, rgba(0,0,0,0.85), rgba(30,20,0,0.9));
-                backdrop-filter: blur(8px);
-                border: 1px solid rgba(251,191,36,0.4);
-                border-radius: 16px;
-                padding: 8px 16px;
-                text-align: center;
-                white-space: nowrap;
-                transition: opacity 0.3s ease, transform 0.3s ease;
-                box-shadow: 0 0 20px rgba(245,158,11,0.3);
-              `;
-              card.innerHTML = `
-                <div style="color:#fbbf24;font-size:13px;font-weight:900;">
-                  ${giftName}${quantity > 1 ? ` ×${quantity}` : ''}
-                </div>
-                <div style="color:rgba(255,255,255,0.6);font-size:11px;margin-top:2px;">
-                  from ${senderName}
-                </div>
-              `;
-              document.body.appendChild(card);
-              requestAnimationFrame(() => {
-                card.style.opacity = '1';
-                card.style.transform = 'translate(-50%, -50%) scale(1)';
-                setTimeout(() => {
-                  card.style.opacity = '0';
-                  card.style.transform = 'translate(-50%, -50%) scale(0.8) translateY(-10px)';
-                  setTimeout(() => {
-                    if (document.body.contains(card)) document.body.removeChild(card);
-                  }, 400);
-                }, 2500);
-              });
-            };
-
-            targetUserIds.forEach((targetId, idx) => {
-              setTimeout(() => {
-                if (!mountedRef.current) return;
-
-                const startX = window.innerWidth * 0.5;
-                const startY = window.innerHeight - 90;
-                const flyEl = createMediumFlyEl(startX, startY);
-                document.body.appendChild(flyEl);
-
-                const seatEl = micSeatRefs.current[String(targetId)];
-                let endX = window.innerWidth * 0.5;
-                let endY = window.innerHeight * 0.35;
-
-                if (seatEl) {
-                  const rect = seatEl.getBoundingClientRect();
-                  endX = rect.left + rect.width / 2;
-                  endY = rect.top + rect.height / 2;
-                }
-
-                flyMediumWithArc(flyEl, endX, endY, () => {
-                  showExplosion(endX, endY);
-                  flyEl.style.transition = 'transform 0.25s ease, opacity 0.5s ease';
-                  flyEl.style.transform = 'translate(-50%, -50%) scale(1.6) rotate(0deg)';
-
-                  setTimeout(() => {
-                    flyEl.style.transform = 'translate(-50%, -50%) scale(1.1) rotate(0deg)';
-                    showArrivalCard(endX, endY);
-
-                    const effectId = `medium_${Date.now()}_${idx}`;
+                    // Show seat effect when card appears
+                    const effectId = `medium_all_${Date.now()}_${idx}`;
                     setSeatEmojiEffects(prev => [...prev, {
                       id: effectId,
                       userId: targetId,
@@ -6983,128 +6988,187 @@ useEffect(() => {
                       ts: Date.now(),
                     }]);
 
-                    setTimeout(() => {
-                      flyEl.style.opacity = '0';
-                      setTimeout(() => {
-                        if (document.body.contains(flyEl)) document.body.removeChild(flyEl);
-                      }, 500);
-                      setTimeout(() => {
-                        if (!mountedRef.current) return;
-                        setSeatEmojiEffects(prev =>
-                          prev.filter(e => e.id !== effectId)
-                        );
-                      }, 3000);
-                    }, 600);
-                  }, 250);
-                });
-
-              }, idx * 400);
-            });
-
-            if (isToAll) {
-              // Show gift cards in organized grid
-              // Each card shows receiver avatar + gift
-              const seatedEntries = Object.entries(micSeatRefs.current || {})
-                .filter(([id, el]) => !!el);
-
-              seatedEntries.forEach(([targetId, seatEl], idx) => {
-                setTimeout(() => {
-                  if (!mountedRef.current) return;
-
-                  // Get receiver info from participantsMap
-                  const receiverProfile = 
-                    participantsMapRef.current?.[String(targetId)] || null;
-                  const receiverName = receiverProfile?.name || 
-                    receiverProfile?.display_name || 'User';
-                  const receiverAvatar = receiverProfile?.avatar_url || '';
-
-                  // Position cards in a grid
-                  const cols = 3;
-                  const col = idx % cols;
-                  const row = Math.floor(idx / cols);
-                  const cardX = window.innerWidth * (0.2 + col * 0.3);
-                  const cardY = window.innerHeight * (0.15 + row * 0.28);
-
-                  // Create gift card
-                  const card = document.createElement('div');
-                  card.style.cssText = `
-                    position: fixed;
-                    z-index: 9999;
-                    pointer-events: none;
-                    left: ${cardX}px;
-                    top: ${cardY}px;
-                    transform: translate(-50%, -50%) scale(0.3);
-                    opacity: 0;
-                    background: linear-gradient(135deg, 
-                      rgba(0,0,0,0.85), rgba(30,20,0,0.9));
-                    backdrop-filter: blur(10px);
-                    border: 1px solid rgba(251,191,36,0.5);
-                    border-radius: 20px;
-                    padding: 12px 16px;
-                    display: flex;
-                    align-items: center;
-                    gap: 10px;
-                    white-space: nowrap;
-                    transition: opacity 0.4s ease, transform 0.4s ease;
-                    box-shadow: 0 0 24px rgba(245,158,11,0.4),
-                                0 4px 20px rgba(0,0,0,0.5);
-                  `;
-
-                  card.innerHTML = `
-                    <img 
-                      src="${receiverAvatar}" 
-                      onerror="this.style.display='none'"
-                      style="
-                        width:40px;height:40px;
-                        border-radius:50%;
-                        object-fit:cover;
-                        border:2px solid rgba(251,191,36,0.6);
-                        flex-shrink:0;
-                      "
-                    />
-                    <div style="display:flex;flex-direction:column;gap:2px;">
-                      <div style="
-                        color:#fbbf24;
-                        font-size:12px;
-                        font-weight:900;
-                      ">${giftName}${quantity > 1 ? ` ×${quantity}` : ''}</div>
-                      <div style="
-                        color:rgba(255,255,255,0.7);
-                        font-size:11px;
-                      ">→ ${receiverName}</div>
-                    </div>
-                    ${assetUrl ? `<img src="${assetUrl}" style="
-                      width:36px;height:36px;
-                      object-fit:contain;
-                      flex-shrink:0;
-                      filter:drop-shadow(0 0 6px rgba(245,158,11,0.8));
-                    "/>` : '<span style="font-size:24px;flex-shrink:0;">🎁</span>'}
-                  `;
-
-                  document.body.appendChild(card);
-
-                  // Animate in
-                  requestAnimationFrame(() => {
-                    card.style.opacity = '1';
-                    card.style.transform = 'translate(-50%, -50%) scale(1)';
-
-                    // Show explosion at card position
-                    showExplosion(cardX, cardY);
-
-                    // Fade out after 3 seconds
+                    // Fade out card after 1.6s
                     setTimeout(() => {
                       card.style.opacity = '0';
-                      card.style.transform = 
-                        'translate(-50%, -50%) scale(0.85) translateY(-8px)';
+                      card.style.transform =
+                        'translate(-50%, -50%) scale(0.9) translateY(-16px)';
                       setTimeout(() => {
                         if (document.body.contains(card)) {
                           document.body.removeChild(card);
                         }
                       }, 400);
-                    }, 3000);
+
+                      // Remove seat effect
+                      setTimeout(() => {
+                        if (!mountedRef.current) return;
+                        setSeatEmojiEffects(prev =>
+                          prev.filter(e => e.id !== effectId)
+                        );
+                      }, 2000);
+                    }, 1600);
                   });
 
-                }, idx * 200);
+                }, delay);
+              });
+
+            } else {
+              // Single recipient: fly with arc to seat
+              const createMediumFlyEl = (startX, startY) => {
+                const flyEl = document.createElement('div');
+                flyEl.style.cssText = `
+                  position: fixed;
+                  z-index: 9999;
+                  pointer-events: none;
+                  width: 120px;
+                  height: 120px;
+                  left: ${startX}px;
+                  top: ${startY}px;
+                  transform: translate(-50%, -50%) scale(0.3) rotate(0deg);
+                  opacity: 0;
+                  transition: none;
+                  filter: drop-shadow(0 0 16px rgba(245,158,11,1))
+                          drop-shadow(0 0 30px rgba(245,158,11,0.5));
+                `;
+                if (assetUrl) {
+                  const img = document.createElement('img');
+                  img.src = assetUrl;
+                  img.style.cssText = 'width:100%;height:100%;object-fit:contain;';
+                  flyEl.appendChild(img);
+                } else {
+                  flyEl.textContent = '🎁';
+                  flyEl.style.fontSize = '60px';
+                  flyEl.style.display = 'flex';
+                  flyEl.style.alignItems = 'center';
+                  flyEl.style.justifyContent = 'center';
+                }
+                return flyEl;
+              };
+
+              const showExplosion = (x, y) => {
+                const colors = ['#fbbf24', '#f59e0b', '#fb7185', '#a78bfa'];
+                for (let r = 0; r < 3; r++) {
+                  setTimeout(() => {
+                    const ring = document.createElement('div');
+                    ring.style.cssText = `
+                      position: fixed;
+                      z-index: 9998;
+                      pointer-events: none;
+                      left: ${x}px;
+                      top: ${y}px;
+                      width: 20px;
+                      height: 20px;
+                      border-radius: 50%;
+                      border: 3px solid ${colors[r % colors.length]};
+                      transform: translate(-50%, -50%) scale(1);
+                      opacity: 1;
+                      transition: transform 0.6s ease-out, opacity 0.6s ease-out;
+                    `;
+                    document.body.appendChild(ring);
+                    requestAnimationFrame(() => {
+                      ring.style.transform =
+                        `translate(-50%, -50%) scale(${6 + r * 3})`;
+                      ring.style.opacity = '0';
+                      setTimeout(() => {
+                        if (document.body.contains(ring)) document.body.removeChild(ring);
+                      }, 700);
+                    });
+                  }, r * 120);
+                }
+              };
+
+              targetUserIds.forEach((targetId, idx) => {
+                setTimeout(() => {
+                  if (!mountedRef.current) return;
+
+                  const startX = window.innerWidth * 0.5;
+                  const startY = window.innerHeight - 90;
+                  const flyEl = createMediumFlyEl(startX, startY);
+                  document.body.appendChild(flyEl);
+
+                  const seatEl = micSeatRefs.current[String(targetId)];
+                  let endX = window.innerWidth * 0.5;
+                  let endY = window.innerHeight * 0.35;
+
+                  if (seatEl) {
+                    const rect = seatEl.getBoundingClientRect();
+                    endX = rect.left + rect.width / 2;
+                    endY = rect.top + rect.height / 2;
+                  }
+
+                  const midX = (startX + endX) / 2 + (Math.random() > 0.5 ? 100 : -100);
+                  const midY = Math.min(startY, endY) - 130;
+
+                  requestAnimationFrame(() => {
+                    flyEl.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                    flyEl.style.opacity = '1';
+                    flyEl.style.transform =
+                      'translate(-50%, -50%) scale(1.1) rotate(-15deg)';
+
+                    setTimeout(() => {
+                      flyEl.style.transition = [
+                        'left 1.1s cubic-bezier(0.4,0,0.2,1)',
+                        'top 1.1s cubic-bezier(0.4,0,0.2,1)',
+                        'transform 1.1s cubic-bezier(0.4,0,0.2,1)',
+                      ].join(', ');
+                      flyEl.style.left = midX + 'px';
+                      flyEl.style.top = midY + 'px';
+                      flyEl.style.transform =
+                        'translate(-50%, -50%) scale(1) rotate(15deg)';
+
+                      setTimeout(() => {
+                        flyEl.style.transition = [
+                          'left 0.9s cubic-bezier(0.22,1,0.36,1)',
+                          'top 0.9s cubic-bezier(0.22,1,0.36,1)',
+                          'transform 0.9s cubic-bezier(0.22,1,0.36,1)',
+                        ].join(', ');
+                        flyEl.style.left = endX + 'px';
+                        flyEl.style.top = endY + 'px';
+                        flyEl.style.transform =
+                          'translate(-50%, -50%) scale(1.3) rotate(0deg)';
+
+                        setTimeout(() => {
+                          showExplosion(endX, endY);
+                          flyEl.style.transition = 'transform 0.25s ease, opacity 0.5s ease';
+                          flyEl.style.transform =
+                            'translate(-50%, -50%) scale(1.6) rotate(0deg)';
+
+                          setTimeout(() => {
+                            flyEl.style.transform =
+                              'translate(-50%, -50%) scale(1.1) rotate(0deg)';
+
+                            // Seat bounce
+                            const effectId = `medium_${Date.now()}_${idx}`;
+                            setSeatEmojiEffects(prev => [...prev, {
+                              id: effectId,
+                              userId: targetId,
+                              src: assetUrl,
+                              flip: false,
+                              animation: 'emojiPulse 0.8s ease-in-out infinite',
+                              isTiny: true,
+                              ts: Date.now(),
+                            }]);
+
+                            setTimeout(() => {
+                              flyEl.style.opacity = '0';
+                              setTimeout(() => {
+                                if (document.body.contains(flyEl))
+                                  document.body.removeChild(flyEl);
+                              }, 500);
+                              setTimeout(() => {
+                                if (!mountedRef.current) return;
+                                setSeatEmojiEffects(prev =>
+                                  prev.filter(e => e.id !== effectId)
+                                );
+                              }, 3000);
+                            }, 600);
+                          }, 250);
+                        }, 900);
+                      }, 1100);
+                    }, 300);
+                  });
+
+                }, idx * 400);
               });
             }
           }
