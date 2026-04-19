@@ -6,7 +6,7 @@ const FALLBACK_AVATAR =
   "data:image/svg+xml;utf8," +
   encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128"><rect width="128" height="128" rx="64" fill="#f1f5f9"/><circle cx="64" cy="52" r="22" fill="#cbd5e1"/><path d="M24 112c8-22 28-34 40-34s32 12 40 34" fill="#cbd5e1"/></svg>`);
 
-const MAX_PLAYERS_OPTIONS = [4, 6, 8, 10];
+const MAX_PLAYERS_OPTIONS = [2, 4, 6, 8, 10];
 const ENTRY_COST_OPTIONS = [100, 200, 500, 1000, 5000, 10000];
 
 const SEAT_COLORS = [
@@ -341,8 +341,10 @@ export default function SpinGame({
     const slots = currentSession.max_players;
     const anglePerSlice = (2 * Math.PI) / slots;
 
-    // Calculate target rotation
-    const winnerAngle = winnerIdx * anglePerSlice;
+    // Use actual seat_number - 1 for angle calculation
+    // since wheel slots are 0-indexed but seat_numbers are 1-indexed
+    const winnerSeatIdx = winnerPlayer.seat_number - 1;
+    const winnerAngle = winnerSeatIdx * anglePerSlice;
     const extraSpins = (5 + Math.floor(Math.random() * 5)) * 2 * Math.PI;
     const targetRotation = extraSpins + (2 * Math.PI - winnerAngle - anglePerSlice / 2);
 
@@ -370,7 +372,12 @@ export default function SpinGame({
             p_winner_seat: winnerPlayer.seat_number,
           });
 
-          setWinner(winnerPlayer);
+          const actualWinnerId = data?.winner_id;
+          const actualWinner = players.find(
+            p => String(p.user_id) === String(actualWinnerId)
+          ) || winnerPlayer;
+
+          setWinner(actualWinner);
           setWinnerCoins(data?.winner_coins || 0);
           setShowResult(true);
           setSpinning(false);
@@ -412,12 +419,21 @@ export default function SpinGame({
         <div className="px-4 py-3 flex items-center justify-between 
           border-b border-white/10">
           <div className="flex items-center gap-2">
-            <span className="text-2xl">🎰</span>
-            <span className="font-bold text-white text-lg">Spin Game</span>
+            <span className="text-2xl">🎡</span>
+            <span className="font-bold text-white text-lg">Spin Wheel</span>
           </div>
-          <button onClick={onClose} className="text-white/50 hover:text-white">
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1 bg-amber-500/20 
+              border border-amber-500/30 rounded-full px-3 py-1">
+              <span className="text-sm">🪙</span>
+              <span className="text-amber-300 font-black text-sm">
+                {(userCoins || 0).toLocaleString()}
+              </span>
+            </div>
+            <button onClick={onClose} className="text-white/50 hover:text-white">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">
@@ -455,7 +471,7 @@ export default function SpinGame({
             <div className="flex flex-col gap-4">
               {/* Session Info */}
               <div className="flex items-center justify-between 
-                bg-white/5 rounded-2xl px-4 py-3">
+                bg-white/5 rounded-2xl px-4 py-3 gap-2">
                 <div>
                   <div className="text-white/50 text-xs">Entry</div>
                   <div className="text-amber-300 font-black">
@@ -464,82 +480,85 @@ export default function SpinGame({
                 </div>
                 <div className="text-center">
                   <div className="text-white/50 text-xs">Players</div>
-                  <div className="text-white font-black text-lg">
-                    {players.length}/{currentSession.max_players}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-white/50 text-xs">Prize Pool</div>
-                  <div className="text-emerald-300 font-black">
-                    🪙 {netPrize.toLocaleString()}
-                  </div>
-                </div>
-              </div>
-
-              {/* Wheel */}
-              <div className="relative flex items-center justify-center">
-                {/* Pointer */}
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 
-                  z-10 w-0 h-0"
-                  style={{
-                    borderLeft: '8px solid transparent',
-                    borderRight: '8px solid transparent',
-                    borderTop: '20px solid #fbbf24',
-                    filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))',
-                  }}
-                />
-                <canvas
-                  ref={canvasRef}
-                  width={280}
-                  height={280}
-                  className="rounded-full shadow-2xl"
-                />
-              </div>
-
-              {/* Players List */}
-              <div className="grid grid-cols-2 gap-2">
-                {Array.from({ length: currentSession.max_players }).map((_, i) => {
-                  const player = players[i];
-                  return (
-                    <div
-                      key={i}
-                      className={`flex items-center gap-2 rounded-xl p-2 
-                        border transition ${
-                        player
-                          ? 'bg-white/10 border-white/20'
-                          : 'bg-white/5 border-white/10 border-dashed'
-                      }`}
-                    >
-                      <div
-                        className="w-3 h-3 rounded-full shrink-0"
-                        style={{ background: SEAT_COLORS[i % SEAT_COLORS.length] }}
-                      />
-                      {player ? (
-                        <>
-                          <img
-                            src={player.avatar_url || FALLBACK_AVATAR}
-                            alt={player.name}
-                            className="w-7 h-7 rounded-full object-cover shrink-0"
-                            onError={e => e.currentTarget.src = FALLBACK_AVATAR}
-                          />
-                          <span className="text-white text-xs font-bold truncate">
-                            {player.name}
-                          </span>
-                          {String(player.user_id) === String(user?.id) && (
-                            <span className="text-[9px] text-amber-300 
-                              font-bold ml-auto shrink-0">You</span>
-                          )}
-                        </>
-                      ) : (
-                        <span className="text-white/30 text-xs">
-                          Seat #{i + 1}
-                        </span>
-                      )}
+                    <div className="text-white/50 text-xs">Prize</div>
+                    <div className="text-emerald-300 font-black">
+                      🪙 {netPrize.toLocaleString()}
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-white/50 text-xs">My Coins</div>
+                    <div className={`font-black text-sm ${
+                      userCoins >= currentSession.entry_cost
+                        ? 'text-white'
+                        : 'text-rose-400'
+                    }`}>
+                      🪙 {(userCoins || 0).toLocaleString()}
+                    </div>
+                  </div>
+                </div>
 
+                {/* Wheel */}
+                <div className="relative flex items-center justify-center">
+                  {/* Pointer */}
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 
+                    z-10 w-0 h-0"
+                    style={{
+                      borderLeft: '8px solid transparent',
+                      borderRight: '8px solid transparent',
+                      borderTop: '20px solid #fbbf24',
+                      filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))',
+                    }}
+                  />
+                  <canvas
+                    ref={canvasRef}
+                    width={280}
+                    height={280}
+                    className="rounded-full shadow-2xl"
+                  />
+                </div>
+
+                {/* Players List */}
+                <div className="grid grid-cols-2 gap-2">
+                  {Array.from({ length: currentSession.max_players }, (_, i) => {
+                    const player = players.find(p => p.seat_number === i + 1);
+                    return (
+                      <div
+                        key={i}
+                        className={`rounded-xl border px-3 py-2 flex items-center gap-2 ${
+                          player
+                            ? 'border-white/10 bg-white/5'
+                            : 'border-white/5 bg-white/[0.03]'
+                        }`}
+                      >
+                        {player ? (
+                          <>
+                            <div
+                              className="w-3 h-3 rounded-full shrink-0"
+                              style={{ backgroundColor: SEAT_COLORS[i % SEAT_COLORS.length] }}
+                            />
+                            <img
+                              src={player.avatar_url || FALLBACK_AVATAR}
+                              alt={player.name}
+                              className="w-7 h-7 rounded-full object-cover shrink-0"
+                              onError={e => e.currentTarget.src = FALLBACK_AVATAR}
+                            />
+                            <span className="text-white text-xs font-bold truncate">
+                              {player.name}
+                            </span>
+                            {String(player.user_id) === String(user?.id) && (
+                              <span className="text-[9px] text-amber-300 
+                                font-bold ml-auto shrink-0">You</span>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-white/30 text-xs">
+                            Seat #{i + 1}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               {/* Actions */}
               <div className="flex gap-2">
                 {!isJoined && !isFull && 

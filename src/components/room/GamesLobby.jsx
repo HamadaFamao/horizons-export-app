@@ -4,7 +4,7 @@ import { X } from 'lucide-react';
 const GAMES = [
   {
     id: 'spin',
-    emoji: '🎰',
+    emoji: '🎡',
     name: 'Spin Wheel',
     description: 'Winner takes all! Join the spin and test your luck.',
     color: 'from-amber-500 to-yellow-400',
