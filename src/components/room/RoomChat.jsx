@@ -91,6 +91,8 @@ export default function RoomChat({
   showTemplates,
   setShowTemplates,
   globalMsgCooldown,
+  onOpenSpinGame,
+  activeSpinSession,
 }) {
   const [footerHeight, setFooterHeight] = React.useState(0);
   const [userScrolledUp, setUserScrolledUp] = React.useState(false);
@@ -970,6 +972,21 @@ export default function RoomChat({
             >
               🌍
             </button>
+
+            {canModerate && (
+              <button
+                type="button"
+                onClick={onOpenSpinGame}
+                className={`shrink-0 w-10 h-10 rounded-full flex items-center
+                  justify-center text-lg transition active:scale-95
+                  bg-white/10 backdrop-blur-sm border border-white/20
+                  ${activeSpinSession ? 'ring-2 ring-amber-400 animate-pulse' : ''}
+                `}
+                title="Spin Game"
+              >
+                🎰
+              </button>
+            )}
 
             <Button
               onClick={sendText}
