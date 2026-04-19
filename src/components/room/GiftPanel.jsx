@@ -75,16 +75,29 @@ export default function GiftPanel({
         const { data } = await supabase
           .from('gift_catalog')
           .select('*')
-          .eq('is_active', true)
           .eq('is_room_gift_enabled', true)
+          .or('is_active.eq.true,is_exclusive.eq.true')
           .order('sort_order', { ascending: true });
 
         const grouped = {
           general: (data || []).filter(g =>
-            g.category === 'general' && !g.is_vip_only && !g.is_lucky && !g.bag_only
+            g.category === 'general' && !g.is_vip_only &&
+            !g.is_lucky && !g.bag_only && !g.is_exclusive
           ),
-          vip: (data || []).filter(g => g.is_vip_only),
+          vip: (data || []).filter(g => g.is_vip_only && !g.is_exclusive),
           lucky: (data || []).filter(g => g.is_lucky),
+          exclusive: (data || []).filter(g =>
+            g.is_exclusive === true &&
+            g.is_active === true &&
+            (
+              !g.exclusive_user_id ||
+              String(g.exclusive_user_id) === String(user?.id)
+            ) &&
+            (
+              !g.exclusive_valid_until ||
+              new Date(g.exclusive_valid_until) > new Date()
+            )
+          ),
           bag: bagGifts,
           store: (data || []).filter(g => g.category === 'store'),
         };
@@ -379,6 +392,15 @@ export default function GiftPanel({
             <p className="text-white/40 text-sm">Your bag is empty</p>
             <p className="text-white/30 text-xs">Win gifts from games &amp; competitions</p>
           </div>
+        ) : activeCategory === 'exclusive' && 
+            (gifts['exclusive'] || []).length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-32 gap-2">
+            <span className="text-3xl">👑</span>
+            <p className="text-white/40 text-sm">No exclusive gifts</p>
+            <p className="text-white/25 text-xs text-center px-4">
+              Recharge $1,000+ in 30 days to unlock
+            </p>
+          </div>
         ) : activeCategory === 'store' ? (
           <div className="flex flex-col items-center justify-center h-32 gap-2">
             <span className="text-3xl">🏪</span>
@@ -399,7 +421,9 @@ export default function GiftPanel({
                 className={`flex flex-col items-center gap-1 p-2 rounded-2xl transition active:scale-95 ${
                   selectedGift?.id === gift.id
                     ? 'bg-amber-500/30 border border-amber-500/60'
-                    : 'bg-white/5 hover:bg-white/10 border border-transparent'
+                    : gift.is_exclusive
+                      ? 'bg-amber-900/20 hover:bg-amber-900/30 border border-amber-500/30'
+                      : 'bg-white/5 hover:bg-white/10 border border-transparent'
                 }`}
               >
                 <div className="w-14 h-14 flex items-center justify-center">
@@ -424,6 +448,13 @@ export default function GiftPanel({
                 {gift.is_lucky && (
                   <div className="text-[9px] bg-purple-500/40 text-purple-300 rounded-full px-1.5 py-0.5 font-bold">
                     🎲 Lucky
+                  </div>
+                )}
+
+                {gift.is_exclusive && (
+                  <div className="text-[9px] bg-amber-500/40 
+                    text-amber-300 rounded-full px-1.5 py-0.5 font-bold">
+                    👑 Exclusive
                   </div>
                 )}
 
