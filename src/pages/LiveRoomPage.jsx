@@ -8926,9 +8926,15 @@ useEffect(() => {
         handleRejectMyInvite={handleRejectMyInvite}
         largeGiftBanner={largeGiftBanner}
         onLargeGiftBannerClick={(banner) => {
-          if (banner?.roomId && banner.roomId !== roomId) {
-            navigate(`/rooms/${banner.roomId}`);
-          }
+          if (!banner?.roomId) return;
+          if (banner.roomId === roomId) return;
+          setShowRoomJoinConfirm(true);
+          setActiveGlobalMsg({
+            senderName: banner.senderName,
+            senderAvatar: banner.senderAvatar,
+            message: `sent ${banner.giftName} 🎁`,
+            room_id: banner.roomId,
+          });
         }}
         activeGlobalMsg={activeGlobalMsg}
         onGlobalMsgClick={() => setShowRoomJoinConfirm(true)}

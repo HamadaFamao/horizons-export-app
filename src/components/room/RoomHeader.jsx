@@ -241,78 +241,131 @@ export default function RoomHeader({
         <button
           type="button"
           onClick={() => onLargeGiftBannerClick?.(largeGiftBanner)}
-          className="w-full flex items-center gap-2 px-3 py-2
+          className="w-full flex items-center
             bg-gradient-to-r from-purple-900/80 via-rose-900/80 to-purple-900/80
             border-b border-purple-500/30 overflow-hidden
             animate-in slide-in-from-top duration-500"
+          style={{ height: '44px' }}
         >
-          {/* Sender avatar + name */}
-          <div className="flex flex-col items-center gap-0.5 shrink-0">
-            <img
-              src={largeGiftBanner.senderAvatar || ''}
-              alt={largeGiftBanner.senderName}
-              className="w-8 h-8 rounded-full object-cover
-                border-2 border-purple-400/60"
-              onError={e => e.currentTarget.style.display='none'}
-            />
-            <span className="text-[9px] text-purple-300 font-bold
-              max-w-[52px] truncate">
-              {largeGiftBanner.senderName}
-            </span>
-          </div>
-
-          {/* Arrow */}
-          <span className="text-purple-400 text-sm shrink-0">→</span>
-
-          {/* Gift icon + name */}
-          <div className="flex flex-col items-center gap-0.5 shrink-0">
-            {largeGiftBanner.giftIcon ? (
+          {/* Scrolling container */}
+          <div className="flex items-center overflow-hidden flex-1">
+            <div
+              className="flex items-center gap-3 px-4"
+              style={{
+                animation: 'marquee 18s linear infinite',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {/* Sender */}
               <img
-                src={largeGiftBanner.giftIcon}
-                alt={largeGiftBanner.giftName}
-                className="w-8 h-8 object-contain
-                  drop-shadow-[0_0_6px_rgba(245,158,11,0.8)]"
-              />
-            ) : (
-              <span className="text-xl">🎁</span>
-            )}
-            <span className="text-[9px] text-amber-300 font-bold
-              max-w-[52px] truncate">
-              {largeGiftBanner.giftName}
-            </span>
-          </div>
-
-          {/* Arrow */}
-          <span className="text-purple-400 text-sm shrink-0">→</span>
-
-          {/* Receiver avatar + name or global */}
-          {largeGiftBanner.isToAll ? (
-            <div className="flex flex-col items-center gap-0.5 shrink-0">
-              <span className="text-2xl">🌍</span>
-              <span className="text-[9px] text-purple-300 font-bold">
-                Everyone
-              </span>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-0.5 shrink-0">
-              <img
-                src={largeGiftBanner.receiverAvatar || ''}
-                alt={largeGiftBanner.receiverName}
-                className="w-8 h-8 rounded-full object-cover
-                  border-2 border-rose-400/60"
+                src={largeGiftBanner.senderAvatar || ''}
+                alt={largeGiftBanner.senderName}
+                className="w-7 h-7 rounded-full object-cover
+                  border-2 border-purple-400/60 shrink-0 inline-block"
                 onError={e => e.currentTarget.style.display='none'}
               />
-              <span className="text-[9px] text-rose-300 font-bold
-                max-w-[52px] truncate">
-                {largeGiftBanner.receiverName}
+              <span className="text-purple-300 font-bold text-sm">
+                {largeGiftBanner.senderName}
               </span>
-            </div>
-          )}
 
-          {/* Room info */}
-          <div className="flex-1 flex justify-end">
-            <span className="text-[10px] text-purple-300/60 shrink-0">
-              Tap to visit →
+              <span className="text-purple-400 text-sm">sent</span>
+
+              {/* Gift */}
+              {largeGiftBanner.giftIcon ? (
+                <img
+                  src={largeGiftBanner.giftIcon}
+                  alt={largeGiftBanner.giftName}
+                  className="w-7 h-7 object-contain shrink-0 inline-block
+                    drop-shadow-[0_0_6px_rgba(245,158,11,0.8)]"
+                />
+              ) : (
+                <span className="text-lg">🎁</span>
+              )}
+              <span className="text-amber-300 font-bold text-sm">
+                {largeGiftBanner.giftName}
+              </span>
+
+              <span className="text-purple-400 text-sm">to</span>
+
+              {/* Receiver */}
+              {largeGiftBanner.isToAll ? (
+                <>
+                  <span className="text-xl">🌍</span>
+                  <span className="text-rose-300 font-bold text-sm">
+                    Everyone
+                  </span>
+                </>
+              ) : (
+                <>
+                  <img
+                    src={largeGiftBanner.receiverAvatar || ''}
+                    alt={largeGiftBanner.receiverName}
+                    className="w-7 h-7 rounded-full object-cover
+                      border-2 border-rose-400/60 shrink-0 inline-block"
+                    onError={e => e.currentTarget.style.display='none'}
+                  />
+                  <span className="text-rose-300 font-bold text-sm">
+                    {largeGiftBanner.receiverName}
+                  </span>
+                </>
+              )}
+
+              {/* Separator before repeat */}
+              <span className="text-purple-500/40 mx-4">✦</span>
+
+              {/* Duplicate for seamless loop */}
+              <img
+                src={largeGiftBanner.senderAvatar || ''}
+                alt={largeGiftBanner.senderName}
+                className="w-7 h-7 rounded-full object-cover
+                  border-2 border-purple-400/60 shrink-0 inline-block"
+                onError={e => e.currentTarget.style.display='none'}
+              />
+              <span className="text-purple-300 font-bold text-sm">
+                {largeGiftBanner.senderName}
+              </span>
+              <span className="text-purple-400 text-sm">sent</span>
+              {largeGiftBanner.giftIcon ? (
+                <img
+                  src={largeGiftBanner.giftIcon}
+                  alt={largeGiftBanner.giftName}
+                  className="w-7 h-7 object-contain shrink-0 inline-block
+                    drop-shadow-[0_0_6px_rgba(245,158,11,0.8)]"
+                />
+              ) : (
+                <span className="text-lg">🎁</span>
+              )}
+              <span className="text-amber-300 font-bold text-sm">
+                {largeGiftBanner.giftName}
+              </span>
+              <span className="text-purple-400 text-sm">to</span>
+              {largeGiftBanner.isToAll ? (
+                <>
+                  <span className="text-xl">🌍</span>
+                  <span className="text-rose-300 font-bold text-sm">Everyone</span>
+                </>
+              ) : (
+                <>
+                  <img
+                    src={largeGiftBanner.receiverAvatar || ''}
+                    alt={largeGiftBanner.receiverName}
+                    className="w-7 h-7 rounded-full object-cover
+                      border-2 border-rose-400/60 shrink-0 inline-block"
+                    onError={e => e.currentTarget.style.display='none'}
+                  />
+                  <span className="text-rose-300 font-bold text-sm">
+                    {largeGiftBanner.receiverName}
+                  </span>
+                </>
+              )}
+              <span className="text-purple-500/40 mx-4">✦</span>
+            </div>
+          </div>
+
+          {/* Tap indicator - fixed right */}
+          <div className="shrink-0 px-3 border-l border-purple-500/30">
+            <span className="text-[10px] text-purple-300/60">
+              Tap →
             </span>
           </div>
         </button>
