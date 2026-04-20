@@ -35,6 +35,7 @@ export default function RaceGame({
   const [maxPlayers, setMaxPlayers] = useState(4);
   const [entryCost, setEntryCost] = useState(100);
   const [joining, setJoining] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   const [rolling, setRolling] = useState(false);
   const [lastRoll, setLastRoll] = useState(null);
   const [winner, setWinner] = useState(null);
@@ -290,6 +291,25 @@ export default function RaceGame({
       alert(err.message || 'Failed to join');
     } finally {
       setJoining(false);
+    }
+  };
+
+  const leaveSession = async () => {
+    if (!currentSession?.id || !user?.id) return;
+    setLeaving(true);
+    try {
+      const { data, error } = await supabase.rpc('leave_race_session', {
+        p_session_id: currentSession.id,
+        p_user_id: user.id,
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Failed to leave');
+      onCoinsUpdated?.();
+      await loadPlayers(currentSession.id);
+    } catch (err) {
+      alert(err.message || 'Failed to leave');
+    } finally {
+      setLeaving(false);
     }
   };
 
@@ -609,6 +629,22 @@ export default function RaceGame({
                   </button>
                 )}
 
+                {/* Leave */}
+                {isJoined && currentSession.status === 'waiting' && (
+                  <button
+                    onClick={leaveSession}
+                    disabled={leaving}
+                    className="flex-1 py-3 rounded-2xl border border-white/20
+                      text-white/70 font-bold text-sm
+                      hover:bg-white/10 transition active:scale-95"
+                  >
+                    {leaving
+                      ? <Loader2 className="w-4 h-4 animate-spin mx-auto" />
+                      : 'Leave & Refund'
+                    }
+                  </button>
+                )}
+
                 {/* Roll */}
                 {isJoined && currentSession.status === 'playing' &&
                   isMyTurn && (
@@ -639,15 +675,21 @@ export default function RaceGame({
                     >
                       🚀 Start Race
                     </button>
-                    <button
-                      onClick={cancelSession}
-                      className="px-4 py-3 rounded-2xl border
-                        border-rose-500/40 text-rose-400 font-bold text-sm
-                        hover:bg-rose-500/10 transition active:scale-95"
-                    >
-                      Cancel
-                    </button>
                   </>
+                )}
+
+                {canModerate && (
+                  currentSession.status === 'waiting' ||
+                  currentSession.status === 'playing'
+                ) && (
+                  <button
+                    onClick={cancelSession}
+                    className="px-4 py-3 rounded-2xl border
+                      border-rose-500/40 text-rose-400 font-bold text-sm
+                      hover:bg-rose-500/10 transition active:scale-95"
+                  >
+                    Cancel
+                  </button>
                 )}
 
                 {/* Waiting message */}
