@@ -403,7 +403,9 @@ export default function RoomChat({
                         key={m.id}
                         className="flex items-center gap-2 px-3 py-2 bg-amber-500/15 border border-amber-500/20 rounded-xl mx-2 my-1"
                       >
-                        <span className="text-xl shrink-0">🎡</span>
+                        <span className="text-xl shrink-0">
+                          {m.game_type === 'race' ? '🎲' : '🎡'}
+                        </span>
                         <img
                           src={m.winner_avatar || FALLBACK_AVATAR}
                           alt={m.winner_name}
@@ -415,7 +417,7 @@ export default function RoomChat({
                             {m.winner_name}
                           </span>
                           <span className="text-white/60 text-xs mx-1">
-                            won the Spin Game!
+                            {m.game_type === 'race' ? 'won the Race Game!' : 'won the Spin Game!'}
                           </span>
                           <span className="text-emerald-300 font-black text-xs">
                             🪙 {(m.winner_coins || 0).toLocaleString()}

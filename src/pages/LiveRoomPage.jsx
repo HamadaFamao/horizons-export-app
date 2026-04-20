@@ -10403,6 +10403,7 @@ useEffect(() => {
             winner_id: winnerId,
             winner_coins: winnerCoins,
             total_players: totalPlayers,
+            game_type: 'race',
             created_at: new Date(now + 1000).toISOString(),
           };
 

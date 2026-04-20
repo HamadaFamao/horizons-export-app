@@ -67,6 +67,7 @@ export default function RaceGame({
   const avatarImagesRef = useRef({});
   const animationRef = useRef(null);
   const channelRef = useRef(null);
+  const resultFiredRef = useRef(false);
 
   useEffect(() => {
     if (!open || !roomId) return;
@@ -113,6 +114,9 @@ export default function RaceGame({
       }, (payload) => {
         const s = payload.new;
         if (s?.status === 'finished') {
+          if (resultFiredRef.current) return;
+          resultFiredRef.current = true;
+
           setCurrentSession(s);
           loadPlayers(s.id).then(ps => {
             const w = ps.find(p =>
@@ -129,6 +133,9 @@ export default function RaceGame({
                 winnerCoins: s.winner_coins || 0,
                 totalPlayers: ps.length,
               });
+              setTimeout(() => {
+                resultFiredRef.current = false;
+              }, 6000);
               setTimeout(() => {
                 setCurrentSession(null);
                 setPlayers([]);
@@ -708,29 +715,33 @@ export default function RaceGame({
       const fromPos = myPlayer?.position || 0;
 
       setLastRoll(data.roll);
-      setDiceDisplay(null);
       // Update my own entry in allDiceRolls
       setAllDiceRolls(prev => ({
         ...prev,
         [user.id]: { roll: data.roll, color: myColor, animating: false }
       }));
 
-      // Animate step by step
-      animateSteps(user.id, fromPos, newPos, finalPos, async () => {
-        if (data.special_event) {
-          setSpecialEvent(data.special_event);
-          setTimeout(() => setSpecialEvent(null), 2500);
-        }
-        onCoinsUpdated?.();
-        await loadPlayers(currentSession.id);
+      // Wait for dice to show result before moving
+      setTimeout(() => {
+        setDiceDisplay(null);
 
-        const { data: sessionData } = await supabase
-          .from('room_race_sessions')
-          .select('*')
-          .eq('id', currentSession.id)
-          .single();
-        if (sessionData) setCurrentSession(sessionData);
-      });
+        // Animate step by step
+        animateSteps(user.id, fromPos, newPos, finalPos, async () => {
+          if (data.special_event) {
+            setSpecialEvent(data.special_event);
+            setTimeout(() => setSpecialEvent(null), 2500);
+          }
+          onCoinsUpdated?.();
+          await loadPlayers(currentSession.id);
+
+          const { data: sessionData } = await supabase
+            .from('room_race_sessions')
+            .select('*')
+            .eq('id', currentSession.id)
+            .single();
+          if (sessionData) setCurrentSession(sessionData);
+        });
+      }, 800);
 
     } catch (err) {
       alert(err.message || 'Failed to roll');
@@ -809,11 +820,71 @@ export default function RaceGame({
           </div>
         </div>
         
-        {isCurrentTurn && (
-          <span className="text-sm animate-bounce shrink-0 drop-shadow-md z-10">
-            🎲
-          </span>
-        )}
+        {(() => {
+          const uid = p.user_id;
+          const diceData = allDiceRolls[uid];
+          const isAnimating = allDiceAnimating[uid] || false;
+          const isMe = String(uid) === String(user?.id);
+          const canRoll = isMyTurn && isMe &&
+            currentSession?.status === 'playing' && !rolling;
+
+          if (!diceData && !isCurrentTurn) return null;
+
+          const num = Math.min(diceData?.roll || 1, 6);
+          const dotPositions = {
+            1: [[50,50]],
+            2: [[25,25],[75,75]],
+            3: [[25,25],[50,50],[75,75]],
+            4: [[25,25],[75,25],[25,75],[75,75]],
+            5: [[25,25],[75,25],[50,50],[25,75],[75,75]],
+            6: [[25,20],[75,20],[25,50],[75,50],[25,80],[75,80]],
+          };
+          const dots = dotPositions[num] || dotPositions[1];
+
+          return (
+            <div
+              onClick={canRoll ? rollDice : undefined}
+              className={`relative shrink-0 w-10 h-10 rounded-xl
+                flex items-center justify-center
+                border-b-4 border-r-2 z-10
+                ${canRoll
+                  ? 'cursor-pointer active:scale-90 active:border-b-2 active:translate-y-0.5'
+                  : 'cursor-default opacity-80'
+                }
+                ${isAnimating ? 'animate-spin' : canRoll ? 'animate-bounce' : ''}
+              `}
+              style={{
+                background: 'linear-gradient(135deg, #ffffff, #e2e8f0)',
+                borderColor: p.color || '#ffffff',
+                boxShadow: canRoll
+                  ? `0 4px 12px rgba(0,0,0,0.4), 0 0 15px ${p.color || '#fff'}66`
+                  : `0 4px 8px rgba(0,0,0,0.3)`,
+              }}
+              title={canRoll ? 'Tap to roll!' : ''}
+            >
+              {diceData ? (
+                dots.map(([dx, dy], di) => (
+                  <div
+                    key={di}
+                    className="absolute w-1.5 h-1.5 rounded-full"
+                    style={{
+                      left: `${dx}%`,
+                      top: `${dy}%`,
+                      transform: 'translate(-50%,-50%)',
+                      backgroundColor: p.color || '#1e293b',
+                    }}
+                  />
+                ))
+              ) : (
+                <span className="text-base">🎲</span>
+              )}
+              {canRoll && !isAnimating && (
+                <div className="absolute -top-1 -right-1 w-3 h-3
+                  rounded-full bg-emerald-400 animate-ping" />
+              )}
+            </div>
+          );
+        })()}
         {playerLastRoll && currentSession?.status === 'playing' && (
           <span className="text-[9px] text-white/50 font-bold shrink-0">
             🎲{playerLastRoll}
@@ -973,83 +1044,8 @@ export default function RaceGame({
 
               {/* Players & Dice */}
               {currentSession.status === 'playing' ? (
-                <div className="flex items-stretch justify-between gap-2 my-1">
-                  {/* Left Players */}
-                  <div className="flex-1 flex flex-col gap-1.5 justify-center">
-                    {players.filter((_, i) => i % 2 === 0).map(renderPlayer)}
-                  </div>
-
-                  {/* Dice - shows current/last roller */}
-                  <div className="shrink-0 flex flex-col items-center justify-center w-20 gap-2">
-                    {Object.entries(allDiceRolls).length > 0 ? (
-                      Object.entries(allDiceRolls).map(([uid, diceData]) => {
-                        const isAnimating = allDiceAnimating[uid] || false;
-                        const dicePlayer = players.find(
-                          p => String(p.user_id) === String(uid)
-                        );
-                        const num = Math.min(diceData.roll || 1, 6);
-                        const dotPositions = {
-                          1: [[50, 50]],
-                          2: [[25, 25], [75, 75]],
-                          3: [[25, 25], [50, 50], [75, 75]],
-                          4: [[25, 25], [75, 25], [25, 75], [75, 75]],
-                          5: [[25, 25], [75, 25], [50, 50], [25, 75], [75, 75]],
-                          6: [[25, 20], [75, 20], [25, 50], [75, 50], [25, 80], [75, 80]],
-                        };
-                        const dots = dotPositions[num] || dotPositions[1];
-
-                        return (
-                          <div key={uid} className="flex flex-col items-center gap-0.5">
-                            <div
-                              className={`relative w-12 h-12 rounded-xl flex items-center
-                                justify-center shadow-xl border-b-4 border-r-2
-                                ${isAnimating ? 'animate-spin' : ''}`}
-                              style={{
-                                background: 'linear-gradient(135deg, #ffffff, #e2e8f0)',
-                                borderColor: diceData.color || '#ffffff',
-                                boxShadow: `0 4px 12px rgba(0,0,0,0.4), 
-                                  0 0 12px ${diceData.color || '#ffffff'}44,
-                                  inset 0 2px 0 rgba(255,255,255,1)`,
-                              }}
-                            >
-                              {dots.map(([dx, dy], di) => (
-                                <div
-                                  key={di}
-                                  className="absolute w-2 h-2 rounded-full"
-                                  style={{
-                                    left: `${dx}%`,
-                                    top: `${dy}%`,
-                                    transform: 'translate(-50%, -50%)',
-                                    backgroundColor: diceData.color || '#1e293b',
-                                    boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.4)',
-                                  }}
-                                />
-                              ))}
-                            </div>
-                            <div className="text-[9px] font-black"
-                              style={{ color: diceData.color || '#fff' }}>
-                              {dicePlayer?.name?.slice(0, 6) || 'Player'}
-                            </div>
-                            {!isAnimating && diceData.roll && (
-                              <div className="text-[8px] text-white/50">
-                                🎲 {diceData.roll}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <div className="w-12 h-12 rounded-xl border-2 border-dashed
-                        border-white/10 flex items-center justify-center opacity-30">
-                        <span className="text-xl">🎲</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Right Players */}
-                  <div className="flex-1 flex flex-col gap-1.5 justify-center">
-                    {players.filter((_, i) => i % 2 !== 0).map(renderPlayer)}
-                  </div>
+                <div className="flex flex-col gap-1.5 my-1">
+                  {players.map(renderPlayer)}
                 </div>
               ) : (
                 /* Waiting state: just show players in a grid */
@@ -1093,24 +1089,6 @@ export default function RaceGame({
                   </button>
                 )}
 
-                {/* Roll */}
-                {isJoined && currentSession.status === 'playing' &&
-                  isMyTurn && (
-                  <button
-                    onClick={rollDice}
-                    disabled={rolling}
-                    className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400
-                      text-white font-black text-sm disabled:opacity-50 shadow-[0_0_15px_rgba(16,185,129,0.4)]
-                      hover:shadow-[0_0_20px_rgba(16,185,129,0.6)] transition active:scale-95
-                      animate-pulse border border-emerald-400"
-                  >
-                    {rolling
-                      ? <Loader2 className="w-5 h-5 animate-spin mx-auto" />
-                      : '🎲 ROLL DICE!'
-                    }
-                  </button>
-                )}
-
                 {/* Start */}
                 {canModerate && currentSession.status === 'waiting' && (
                   <button
@@ -1138,14 +1116,6 @@ export default function RaceGame({
                   </button>
                 )}
 
-                {/* Waiting message */}
-                {isJoined && currentSession.status === 'playing' &&
-                  !isMyTurn && (
-                  <div className="flex-1 py-2.5 rounded-xl bg-white/5 border border-white/10
-                    text-white/50 font-bold text-xs text-center shadow-inner">
-                    ⏳ Waiting for your turn...
-                  </div>
-                )}
               </div>
             </div>
           ) : (
