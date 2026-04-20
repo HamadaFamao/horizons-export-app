@@ -80,6 +80,19 @@ export default function RaceGame({
 
     const channel = supabase
       .channel(`race_${roomId}`)
+      .on('broadcast', { event: 'player_move' }, ({ payload }) => {
+        if (!payload) return;
+        const { userId, position } = payload;
+
+        // Don't animate own moves (already animated locally)
+        if (String(userId) === String(user?.id)) return;
+
+        setPlayers(prev => prev.map(p =>
+          String(p.user_id) === String(userId)
+            ? { ...p, position }
+            : p
+        ));
+      })
       .on('broadcast', { event: 'dice_roll' }, ({ payload }) => {
         if (!payload) return;
         const { userId, roll, color } = payload;
@@ -620,7 +633,6 @@ export default function RaceGame({
     let currentPos = fromPos;
     const step = () => {
       if (currentPos >= toPos) {
-        // Jump to final position (snake/ladder)
         if (finalPos !== toPos) {
           setTimeout(() => {
             setPlayers(prev => prev.map(p =>
@@ -628,6 +640,20 @@ export default function RaceGame({
                 ? { ...p, position: finalPos }
                 : p
             ));
+
+            // Broadcast final position (snake/ladder jump)
+            if (channelRef.current) {
+              channelRef.current.send({
+                type: 'broadcast',
+                event: 'player_move',
+                payload: {
+                  userId: playerId,
+                  position: finalPos,
+                  isJump: true,
+                },
+              });
+            }
+
             setAnimatingPlayer(null);
             setTimeout(callback, 400);
           }, 400);
@@ -643,6 +669,20 @@ export default function RaceGame({
           ? { ...p, position: currentPos }
           : p
       ));
+
+      // Broadcast each step to all viewers
+      if (channelRef.current) {
+        channelRef.current.send({
+          type: 'broadcast',
+          event: 'player_move',
+          payload: {
+            userId: playerId,
+            position: currentPos,
+            isJump: false,
+          },
+        });
+      }
+
       animationRef.current = setTimeout(step, 500);
     };
     step();
