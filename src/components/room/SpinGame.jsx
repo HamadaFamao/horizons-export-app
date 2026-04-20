@@ -384,14 +384,16 @@ export default function SpinGame({
           setSpinning(false);
           onCoinsUpdated?.();
 
-          onSpinResult?.({
-            winnerName: actualWinner?.name || 'User',
-            winnerAvatar: actualWinner?.avatar_url || null,
-            winnerId: actualWinner?.user_id,
-            winnerCoins: data?.winner_coins || 0,
-            totalPlayers: players.length,
-            entryCost: currentSession?.entry_cost || 0,
-          });
+            if (typeof onSpinResult === 'function') {
+              onSpinResult({
+                winnerName: actualWinner?.name || 'User',
+                winnerAvatar: actualWinner?.avatar_url || null,
+                winnerId: actualWinner?.user_id,
+                winnerCoins: data?.winner_coins || 0,
+                totalPlayers: players.length,
+                entryCost: currentSession?.entry_cost || 0,
+              });
+            }
 
           setTimeout(() => {
             setCurrentSession(null);
