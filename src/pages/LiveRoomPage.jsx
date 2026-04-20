@@ -10295,6 +10295,9 @@ useEffect(() => {
             created_at: new Date(now + 1000).toISOString(),
           };
 
+            console.log('[SPIN_RESULT_MSG]', resultMsg);
+            setRoomGiftMessages(prev => [...prev, resultMsg]);
+
           if (channelRef.current) {
             await channelRef.current.send({
               type: 'broadcast',
@@ -10306,8 +10309,6 @@ useEffect(() => {
               },
             });
           }
-
-          setRoomGiftMessages(prev => [...prev, resultMsg]);
 
           const BIG_WIN_THRESHOLD = 5000;
           if (winnerCoins >= BIG_WIN_THRESHOLD) {
