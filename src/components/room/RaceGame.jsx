@@ -200,6 +200,8 @@ export default function RaceGame({
     const W = canvas.width;
     const H = canvas.height;
     ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(0, 0, W, H);
 
     const cols = 10;
     const rows = 10;
@@ -221,13 +223,13 @@ export default function RaceGame({
 
       // Cell colors
       let bgColor = (row + col) % 2 === 0
-        ? 'rgba(255,255,255,0.08)'
-        : 'rgba(255,255,255,0.04)';
+        ? 'rgba(255,255,255,0.18)'
+        : 'rgba(255,255,255,0.08)';
 
-      if (LADDERS[i]) bgColor = 'rgba(34,197,94,0.25)';
-      if (SNAKES[i]) bgColor = 'rgba(239,68,68,0.25)';
-      if (i === 100) bgColor = 'rgba(251,191,36,0.35)';
-      if (i === 1) bgColor = 'rgba(99,102,241,0.25)';
+      if (LADDERS[i]) bgColor = 'rgba(34,197,94,0.5)';
+      if (SNAKES[i]) bgColor = 'rgba(239,68,68,0.5)';
+      if (i === 100) bgColor = 'rgba(251,191,36,0.6)';
+      if (i === 1) bgColor = 'rgba(99,102,241,0.5)';
 
       ctx.fillStyle = bgColor;
       ctx.fillRect(x + 1, y + 1, cellW - 2, cellH - 2);
@@ -242,7 +244,7 @@ export default function RaceGame({
         ? '#fbbf24'
         : i === 1
           ? '#818cf8'
-          : 'rgba(255,255,255,0.4)';
+          : 'rgba(255,255,255,0.85)';
       ctx.font = `bold ${cellW * 0.22}px sans-serif`;
       ctx.textAlign = 'center';
       ctx.fillText(i, x + cellW / 2, y + cellH * 0.32);
@@ -314,7 +316,7 @@ export default function RaceGame({
       ctx.arc(
         center.x + offsetX,
         center.y + 6,
-        cellW * 0.2,
+        cellW * 0.28,
         0, Math.PI * 2
       );
       ctx.fillStyle = p.color || '#fff';
@@ -624,7 +626,7 @@ export default function RaceGame({
               )}
 
               {/* Track Canvas */}
-              <div className="bg-white/5 rounded-2xl p-2 overflow-hidden">
+              <div className="bg-slate-800 rounded-2xl p-2 overflow-hidden">
                 <canvas
                   ref={canvasRef}
                   width={340}
