@@ -10316,6 +10316,7 @@ useEffect(() => {
               });
             }
 
+          console.log('[SPIN_WIN_CHECK]', { winnerCoins, BIG_WIN_THRESHOLD: 5000 });
           const BIG_WIN_THRESHOLD = 5000;
           if (winnerCoins >= BIG_WIN_THRESHOLD) {
             if (largeGiftBannerTimerRef.current) {
