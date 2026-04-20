@@ -384,15 +384,29 @@ export default function SpinGame({
           setSpinning(false);
           onCoinsUpdated?.();
 
-            if (typeof onSpinResult === 'function') {
-              onSpinResult({
-                winnerName: actualWinner?.name || 'User',
-                winnerAvatar: actualWinner?.avatar_url || null,
-                winnerId: actualWinner?.user_id,
-                winnerCoins: data?.winner_coins || 0,
-                totalPlayers: players.length,
-                entryCost: currentSession?.entry_cost || 0,
+            // Broadcast result directly from SpinGame
+            try {
+              const spinResultChannel = supabase
+                .channel(`room_${roomId}`);
+            
+              await spinResultChannel.send({
+                type: 'broadcast',
+                event: 'spin_result',
+                payload: {
+                  room_id: roomId,
+                  id: `spin_result_${Date.now() + 1000}`,
+                  type: 'spin_result',
+                  winner_name: actualWinner?.name || 'User',
+                  winner_avatar: actualWinner?.avatar_url || null,
+                  winner_id: actualWinner?.user_id,
+                  winner_coins: data?.winner_coins || 0,
+                  total_players: players.length,
+                  entry_cost: currentSession?.entry_cost || 0,
+                  ts: Date.now() + 1000,
+                },
               });
+            } catch(e) {
+              console.error('[SPIN_BROADCAST_ERROR]', e);
             }
 
           setTimeout(() => {
