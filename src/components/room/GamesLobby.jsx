@@ -4,23 +4,23 @@ import { X } from 'lucide-react';
 const GAMES = [
   {
     id: 'spin',
-    emoji: '🎡✨',
+    emoji: '🎡',
     name: 'Spin Wheel',
     description: 'Winner takes all! Join the spin and test your luck.',
     color: 'from-amber-500 to-yellow-400',
     available: true,
   },
   {
-    id: 'race', // تم الاحتفاظ بنفس الـ id لعدم كسر منطق الكود
-    emoji: '🐍🪜',
-    name: 'Snakes and Ladders',
-    description: 'Climb the ladders and avoid the snakes!',
-    color: 'from-emerald-500 to-green-400',
+    id: 'race',
+    emoji: '🎲',
+    name: 'Race Game',
+    description: 'Roll dice and race to the finish line!',
+    color: 'from-blue-500 to-cyan-400',
     available: true,
   },
   {
     id: 'rps',
-    emoji: '✂️🔥',
+    emoji: '✂️',
     name: 'Rock Paper Scissors',
     description: '1v1 challenge between two players.',
     color: 'from-purple-500 to-pink-400',
@@ -28,7 +28,7 @@ const GAMES = [
   },
   {
     id: 'slots',
-    emoji: '🎰💰',
+    emoji: '🎰',
     name: 'Slot Machine',
     description: 'Spin the slots and win big!',
     color: 'from-rose-500 to-orange-400',
@@ -36,10 +36,10 @@ const GAMES = [
   },
   {
     id: 'trivia',
-    emoji: '🧠💡',
+    emoji: '❓',
     name: 'Trivia',
     description: 'Answer questions faster than others.',
-    color: 'from-blue-500 to-cyan-400',
+    color: 'from-emerald-500 to-teal-400',
     available: false,
   },
 ];
@@ -64,10 +64,10 @@ export default function GamesLobby({ open, onClose, onSelectGame, activeSpinSess
         <div className="px-4 py-3 flex items-center justify-between
           border-b border-white/10">
           <div className="flex items-center gap-2">
-            <span className="text-2xl animate-pulse">🎮</span>
+            <span className="text-2xl">🎮</span>
             <span className="font-bold text-white text-lg">Games</span>
           </div>
-          <button onClick={onClose} className="text-white/50 hover:text-white transition-colors">
+          <button onClick={onClose} className="text-white/50 hover:text-white">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -84,34 +84,23 @@ export default function GamesLobby({ open, onClose, onSelectGame, activeSpinSess
                   onSelectGame(game.id);
                 }}
                 disabled={!game.available}
-                className={`group flex flex-col items-center gap-2 p-3 rounded-2xl
-                  border transition-all duration-300 active:scale-95 relative overflow-hidden
+                className={`flex flex-col items-center gap-2 p-3 rounded-2xl
+                  border transition active:scale-95 relative
                   ${game.available
-                    ? 'border-white/10 bg-white/5 hover:bg-white/10 hover:shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:-translate-y-1'
+                    ? 'border-white/10 bg-white/5 hover:bg-white/10'
                     : 'border-white/5 bg-white/3 opacity-50 cursor-not-allowed'
                   }`}
               >
-                {/* Sparkle Background Effect for available games */}
-                {game.available && (
-                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.1)_0%,transparent_70%)]" />
-                )}
-
                 {/* Icon */}
                 <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br
                   ${game.color} flex items-center justify-center
-                  text-3xl shadow-lg transition-all duration-300
-                  ${game.available ? 'group-hover:scale-110 group-hover:rotate-3 group-hover:shadow-xl' : ''}
-                  relative`}>
-                  {/* Inner Shine */}
-                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-tr from-white/0 via-white/20 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  <span className="drop-shadow-md relative z-10 transform transition-transform duration-300 group-hover:scale-110">
-                    {game.emoji}
-                  </span>
+                  text-3xl shadow-lg`}>
+                  {game.emoji}
                 </div>
 
                 {/* Name */}
                 <span className="text-white font-bold text-xs text-center
-                  leading-tight relative z-10 group-hover:text-white/90 transition-colors">
+                  leading-tight">
                   {game.name}
                 </span>
 
@@ -120,14 +109,14 @@ export default function GamesLobby({ open, onClose, onSelectGame, activeSpinSess
                   <span className="absolute top-1.5 right-1.5 text-[8px]
                     font-black px-1.5 py-0.5 rounded-full
                     bg-emerald-500/20 text-emerald-400
-                    border border-emerald-500/30 animate-pulse z-10">
+                    border border-emerald-500/30 animate-pulse">
                     LIVE
                   </span>
                 )}
                 {!game.available && (
                   <span className="absolute top-1.5 right-1.5 text-[8px]
                     font-bold px-1.5 py-0.5 rounded-full
-                    bg-white/10 text-white/40 z-10">
+                    bg-white/10 text-white/40">
                     Soon
                   </span>
                 )}
