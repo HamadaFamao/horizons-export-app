@@ -72,62 +72,57 @@ export default function GamesLobby({ open, onClose, onSelectGame, activeSpinSess
           </button>
         </div>
 
-        {/* Games List */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {GAMES.map(game => (
-            <button
-              key={game.id}
-              type="button"
-              onClick={() => {
-                if (!game.available) return;
-                onSelectGame(game.id);
-              }}
-              disabled={!game.available}
-              className={`w-full flex items-center gap-4 p-4 rounded-2xl
-                border transition text-left
-                ${game.available
-                  ? 'border-white/10 bg-white/5 hover:bg-white/10 active:scale-[0.98]'
-                  : 'border-white/5 bg-white/3 opacity-50 cursor-not-allowed'
-                }`}
-            >
-              {/* Icon */}
-              <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br
-                ${game.color} flex items-center justify-center
-                text-3xl shrink-0 shadow-lg`}>
-                {game.emoji}
-              </div>
-
-              {/* Info */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-white font-bold text-base">
-                    {game.name}
-                  </span>
-                  {game.id === 'spin' && activeSpinSession && (
-                    <span className="text-[9px] font-black px-2 py-0.5
-                      rounded-full bg-emerald-500/20 text-emerald-400
-                      border border-emerald-500/30 animate-pulse">
-                      LIVE
-                    </span>
-                  )}
-                  {!game.available && (
-                    <span className="text-[9px] font-bold px-2 py-0.5
-                      rounded-full bg-white/10 text-white/40">
-                      Soon
-                    </span>
-                  )}
+        {/* Games Grid */}
+        <div className="flex-1 overflow-y-auto p-4">
+          <div className="grid grid-cols-3 gap-3">
+            {GAMES.map(game => (
+              <button
+                key={game.id}
+                type="button"
+                onClick={() => {
+                  if (!game.available) return;
+                  onSelectGame(game.id);
+                }}
+                disabled={!game.available}
+                className={`flex flex-col items-center gap-2 p-3 rounded-2xl
+                  border transition active:scale-95 relative
+                  ${game.available
+                    ? 'border-white/10 bg-white/5 hover:bg-white/10'
+                    : 'border-white/5 bg-white/3 opacity-50 cursor-not-allowed'
+                  }`}
+              >
+                {/* Icon */}
+                <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br
+                  ${game.color} flex items-center justify-center
+                  text-3xl shadow-lg`}>
+                  {game.emoji}
                 </div>
-                <p className="text-white/40 text-xs mt-0.5 leading-relaxed">
-                  {game.description}
-                </p>
-              </div>
 
-              {/* Arrow */}
-              {game.available && (
-                <div className="text-white/30 text-xl shrink-0">›</div>
-              )}
-            </button>
-          ))}
+                {/* Name */}
+                <span className="text-white font-bold text-xs text-center
+                  leading-tight">
+                  {game.name}
+                </span>
+
+                {/* Badges */}
+                {game.id === 'spin' && activeSpinSession && (
+                  <span className="absolute top-1.5 right-1.5 text-[8px]
+                    font-black px-1.5 py-0.5 rounded-full
+                    bg-emerald-500/20 text-emerald-400
+                    border border-emerald-500/30 animate-pulse">
+                    LIVE
+                  </span>
+                )}
+                {!game.available && (
+                  <span className="absolute top-1.5 right-1.5 text-[8px]
+                    font-bold px-1.5 py-0.5 rounded-full
+                    bg-white/10 text-white/40">
+                    Soon
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </div>

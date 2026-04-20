@@ -89,7 +89,7 @@ export default function RoomSeats({
               return (
                 <div
                   key={`${s.room_id}_${s.seat_no}`}
-                  className={`relative rounded-xl border p-2 transition-all duration-300 backdrop-blur-sm ${pkSide === "A"
+                  className={`relative rounded-xl border p-1.5 transition-all duration-300 backdrop-blur-sm ${pkSide === "A"
                     ? "bg-fuchsia-500/15 border-fuchsia-300/50 shadow-[0_0_12px_rgba(232,121,249,0.25)]"
                     : pkSide === "B"
                       ? "bg-cyan-500/15 border-cyan-300/50 shadow-[0_0_12px_rgba(34,211,238,0.25)]"
@@ -106,7 +106,7 @@ export default function RoomSeats({
                   }}
                 >
                   <div className="mb-1 flex items-start justify-between gap-1">
-                    <div className="text-[10px] text-white/70">Seat #{s.seat_no}</div>
+                    <div className="text-[9px] text-white/70">#{s.seat_no}</div>
 
                     <div className="flex items-center gap-1">
                       {pkSide === "A" && (
@@ -236,7 +236,7 @@ export default function RoomSeats({
                           src={avatar}
                           alt={name}
                           onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
-                          className={`object-cover bg-white/30 relative z-10 rounded-full transition-all duration-150 backdrop-blur-sm rounded-full object-cover ring-2 ring-white/60 shadow-lg ${s.user_id ? "w-16 h-16 sm:w-[72px] sm:h-[72px] cursor-pointer" : "w-9 h-9 sm:w-10 sm:h-10"
+                          className={`object-cover bg-white/30 relative z-10 rounded-full transition-all duration-150 backdrop-blur-sm rounded-full object-cover ring-2 ring-white/60 shadow-lg ${s.user_id ? "w-12 h-12 sm:w-14 sm:h-14 cursor-pointer" : "w-7 h-7 sm:w-8 sm:h-8"
                             } ${isSpeakingNow
                               ? "ring-2 ring-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.6)]"
                               : isSeatMuted
@@ -298,7 +298,7 @@ export default function RoomSeats({
                         }}
                       >
                         <span
-                          className={`max-w-[80px] truncate drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)] ${
+                          className={`max-w-[64px] truncate text-[11px] drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)] ${
                             !s.user_id
                               ? "text-white/80 font-semibold"
                               : isHostUser
@@ -313,7 +313,7 @@ export default function RoomSeats({
                       </div>
 
                       {s.user_id && micGiftTotalsReady ? (
-                        <div className="mt-1 text-[11px] font-bold text-amber-300 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] flex items-center justify-center gap-1">
+                        <div className="mt-0.5 text-[10px] font-bold text-amber-300 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] flex items-center justify-center gap-1">
                           <span>💰</span>
                           <span>{(micGiftTotals[s.user_id] || 0).toLocaleString()}</span>
                         </div>
