@@ -7509,6 +7509,7 @@ useEffect(() => {
           winner_id: payload.winner_id,
           winner_coins: payload.winner_coins,
           total_players: payload.total_players,
+          game_type: payload.game_type || 'spin',
           entry_cost: payload.entry_cost,
           created_at: new Date((payload.ts || Date.now()) + 1000).toISOString(),
         };

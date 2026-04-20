@@ -62,6 +62,7 @@ export default function RaceGame({
   const [playersLastRoll, setPlayersLastRoll] = useState({});
   const [allDiceRolls, setAllDiceRolls] = useState({});
   const [allDiceAnimating, setAllDiceAnimating] = useState({});
+  const [anyoneMoving, setAnyoneMoving] = useState(false);
   const [animatingPlayer, setAnimatingPlayer] = useState(null);
   const canvasRef = useRef(null);
   const avatarImagesRef = useRef({});
@@ -82,16 +83,24 @@ export default function RaceGame({
       .channel(`race_${roomId}`)
       .on('broadcast', { event: 'player_move' }, ({ payload }) => {
         if (!payload) return;
-        const { userId, position } = payload;
+        const { userId, position, isJump, isDone } = payload;
 
         // Don't animate own moves (already animated locally)
         if (String(userId) === String(user?.id)) return;
+
+        // Block rolling while anyone is moving
+        setAnyoneMoving(true);
 
         setPlayers(prev => prev.map(p =>
           String(p.user_id) === String(userId)
             ? { ...p, position }
             : p
         ));
+
+        // isDone signals movement finished
+        if (isDone) {
+          setAnyoneMoving(false);
+        }
       })
       .on('broadcast', { event: 'dice_roll' }, ({ payload }) => {
         if (!payload) return;
@@ -644,7 +653,6 @@ export default function RaceGame({
                 : p
             ));
 
-            // Broadcast final position (snake/ladder jump)
             if (channelRef.current) {
               channelRef.current.send({
                 type: 'broadcast',
@@ -653,15 +661,46 @@ export default function RaceGame({
                   userId: playerId,
                   position: finalPos,
                   isJump: true,
+                  isDone: false,
                 },
               });
             }
 
             setAnimatingPlayer(null);
-            setTimeout(callback, 400);
+
+            // Done after jump
+            setTimeout(() => {
+              if (channelRef.current) {
+                channelRef.current.send({
+                  type: 'broadcast',
+                  event: 'player_move',
+                  payload: {
+                    userId: playerId,
+                    position: finalPos,
+                    isJump: false,
+                    isDone: true,
+                  },
+                });
+              }
+              callback?.();
+            }, 400);
           }, 400);
         } else {
           setAnimatingPlayer(null);
+
+          // Done - no jump
+          if (channelRef.current) {
+            channelRef.current.send({
+              type: 'broadcast',
+              event: 'player_move',
+              payload: {
+                userId: playerId,
+                position: finalPos,
+                isJump: false,
+                isDone: true,
+              },
+            });
+          }
           callback?.();
         }
         return;
@@ -673,7 +712,6 @@ export default function RaceGame({
           : p
       ));
 
-      // Broadcast each step to all viewers
       if (channelRef.current) {
         channelRef.current.send({
           type: 'broadcast',
@@ -682,6 +720,7 @@ export default function RaceGame({
             userId: playerId,
             position: currentPos,
             isJump: false,
+            isDone: false,
           },
         });
       }
@@ -700,6 +739,7 @@ export default function RaceGame({
     if (rolling) return;
 
     setRolling(true);
+    setAnyoneMoving(true);
     setDiceAnimating(true);
 
     // Get my player color
@@ -770,6 +810,7 @@ export default function RaceGame({
 
         // Animate step by step
         animateSteps(user.id, fromPos, newPos, finalPos, async () => {
+          setAnyoneMoving(false);
           if (data.special_event) {
             setSpecialEvent(data.special_event);
             setTimeout(() => setSpecialEvent(null), 2500);
@@ -869,7 +910,8 @@ export default function RaceGame({
           const isAnimating = allDiceAnimating[uid] || false;
           const isMe = String(uid) === String(user?.id);
           const canRoll = isMyTurn && isMe &&
-            currentSession?.status === 'playing' && !rolling;
+            currentSession?.status === 'playing' &&
+            !rolling && !anyoneMoving;
 
           if (!diceData && !isCurrentTurn) return null;
 
