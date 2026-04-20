@@ -623,21 +623,20 @@ export default function RaceGame({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[85]" onClick={onClose}>
+    <div className="fixed inset-0 z-[85] flex items-end sm:items-center justify-center" onClick={onClose}>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div
-        className="absolute inset-x-0 bottom-0 bg-slate-900 rounded-t-3xl
-          shadow-2xl flex flex-col overflow-hidden max-h-[90vh]"
+        className="relative w-full max-w-md bg-slate-900 rounded-t-3xl sm:rounded-3xl
+          shadow-2xl flex flex-col overflow-hidden max-h-[90vh] sm:max-h-[85vh]"
         onClick={e => e.stopPropagation()}
       >
-        {/* Handle */}
-        <div className="flex justify-center pt-2 pb-1">
-          <div className="w-10 h-1 rounded-full bg-white/20" />
+        {/* Handle (Visible only on mobile) */}
+        <div className="flex justify-center pt-3 pb-2 sm:hidden">
+          <div className="w-12 h-1.5 rounded-full bg-white/20" />
         </div>
 
         {/* Header */}
-        <div className="px-4 py-3 flex items-center justify-between
-          border-b border-white/10">
+        <div className="px-4 py-3 flex items-center justify-between border-b border-white/10">
           <div className="flex items-center gap-2">
             <span className="text-2xl">🎲</span>
             <span className="font-bold text-white text-lg">Race Game</span>
@@ -677,7 +676,7 @@ export default function RaceGame({
                   onError={e => e.currentTarget.src = FALLBACK_AVATAR}
                 />
               </div>
-              <div className="text-amber-300 font-black text-3xl drop-shadow-lg">
+              <div className="text-amber-300 font-black text-3xl drop-shadow-lg text-center">
                 {winner.name}
               </div>
               <div className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/40
@@ -692,7 +691,7 @@ export default function RaceGame({
             <div className="flex flex-col gap-4">
               {/* Session Info */}
               <div className="flex items-center justify-between
-                bg-gradient-to-r from-slate-800 to-slate-800/50 border border-white/10 rounded-2xl px-5 py-4 shadow-lg">
+                bg-gradient-to-r from-slate-800 to-slate-800/50 border border-white/10 rounded-2xl px-4 py-4 shadow-lg">
                 <div className="text-center">
                   <div className="text-white/50 text-[10px] uppercase tracking-wider font-bold mb-0.5">Entry</div>
                   <div className="text-amber-400 font-black text-sm">
@@ -743,12 +742,12 @@ export default function RaceGame({
               )}
 
               {/* Track Canvas */}
-              <div className="bg-slate-900 rounded-2xl p-2 overflow-hidden shadow-inner border border-white/5">
+              <div className="bg-slate-900 rounded-2xl p-2 overflow-hidden shadow-inner border border-white/5 flex justify-center">
                 <canvas
                   ref={canvasRef}
                   width={340}
                   height={340}
-                  className="w-full rounded-xl shadow-lg"
+                  className="w-full max-w-[340px] aspect-square rounded-xl shadow-lg"
                 />
               </div>
 
@@ -880,7 +879,7 @@ export default function RaceGame({
               </div>
 
               {/* Actions */}
-              <div className="flex gap-2 mt-2">
+              <div className="flex flex-wrap gap-2 mt-2">
                 {/* Join */}
                 {!isJoined && !isFull &&
                   currentSession.status === 'waiting' && (
@@ -934,17 +933,15 @@ export default function RaceGame({
 
                 {/* Start */}
                 {canModerate && currentSession.status === 'waiting' && (
-                  <>
-                    <button
-                      onClick={startGame}
-                      disabled={players.length < 2}
-                      className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-500
-                        text-white font-black text-sm disabled:opacity-50 shadow-lg
-                        hover:shadow-xl transition active:scale-95 border border-blue-400"
-                    >
-                      🚀 Start Race
-                    </button>
-                  </>
+                  <button
+                    onClick={startGame}
+                    disabled={players.length < 2}
+                    className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-500
+                      text-white font-black text-sm disabled:opacity-50 shadow-lg
+                      hover:shadow-xl transition active:scale-95 border border-blue-400"
+                  >
+                    🚀 Start Race
+                  </button>
                 )}
 
                 {canModerate && (
