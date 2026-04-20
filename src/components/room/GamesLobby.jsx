@@ -11,12 +11,12 @@ const GAMES = [
     available: true,
   },
   {
-    id: 'dice',
+    id: 'race',
     emoji: '🎲',
-    name: 'Dice Roll',
-    description: 'Roll the dice, highest number wins.',
+    name: 'Race Game',
+    description: 'Roll dice and race to the finish line!',
     color: 'from-blue-500 to-cyan-400',
-    available: false,
+    available: true,
   },
   {
     id: 'rps',
