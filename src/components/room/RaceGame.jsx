@@ -8,15 +8,30 @@ const FALLBACK_AVATAR =
 
 const MAX_PLAYERS_OPTIONS = [2, 4, 6, 8];
 const ENTRY_COST_OPTIONS = [100, 200, 500, 1000, 5000, 10000];
-const TRACK_LENGTH = 20;
+const TRACK_LENGTH = 100;
+
+const LADDERS = {
+  4: 14,
+  9: 31,
+  20: 38,
+  28: 84,
+  40: 59,
+  51: 67,
+};
+
+const SNAKES = {
+  17: 7,
+  54: 34,
+  62: 19,
+  64: 60,
+  87: 24,
+  93: 73,
+};
 
 const PLAYER_COLORS = [
   '#f43f5e', '#f97316', '#eab308', '#22c55e',
   '#06b6d4', '#8b5cf6', '#ec4899', '#14b8a6',
 ];
-
-const GOAL_EMOJI = '🏆';
-const DICE_FACES = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
 
 export default function RaceGame({
   open,
@@ -164,84 +179,161 @@ export default function RaceGame({
     return merged;
   };
 
+  const getCellCenter = (cellNum, cols, rows, cellW, cellH) => {
+    const idx = cellNum - 1;
+    const row = Math.floor(idx / cols);
+    const col = row % 2 === 0
+      ? idx % cols
+      : cols - 1 - (idx % cols);
+    const displayRow = rows - 1 - row;
+    return {
+      x: col * cellW + cellW / 2,
+      y: displayRow * cellH + cellH / 2,
+    };
+  };
+
   const drawTrack = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     const W = canvas.width;
     const H = canvas.height;
-
     ctx.clearRect(0, 0, W, H);
 
-    const cols = 5;
-    const rows = Math.ceil((TRACK_LENGTH + 1) / cols);
+    const cols = 10;
+    const rows = 10;
     const cellW = W / cols;
-    const cellH = (H - 40) / rows;
+    const cellH = H / rows;
 
-    // Draw track cells
-    for (let i = 0; i <= TRACK_LENGTH; i++) {
-      const row = Math.floor(i / cols);
-      const col = row % 2 === 0 ? i % cols : cols - 1 - (i % cols);
+    // Draw cells
+    for (let i = 1; i <= 100; i++) {
+      const idx = i - 1;
+      const row = Math.floor(idx / cols);
+      const col = row % 2 === 0
+        ? idx % cols
+        : cols - 1 - (idx % cols);
+
+      // Flip row from bottom
+      const displayRow = rows - 1 - row;
       const x = col * cellW;
-      const y = row * cellH + 20;
+      const y = displayRow * cellH;
 
-      // Cell background
-      const isGoal = i === TRACK_LENGTH;
-      const isStart = i === 0;
+      // Cell colors
+      let bgColor = (row + col) % 2 === 0
+        ? 'rgba(255,255,255,0.08)'
+        : 'rgba(255,255,255,0.04)';
 
-      ctx.fillStyle = isGoal
-        ? 'rgba(251,191,36,0.3)'
-        : isStart
-          ? 'rgba(34,197,94,0.2)'
-          : i % 2 === 0
-            ? 'rgba(255,255,255,0.05)'
-            : 'rgba(255,255,255,0.1)';
+      if (LADDERS[i]) bgColor = 'rgba(34,197,94,0.25)';
+      if (SNAKES[i]) bgColor = 'rgba(239,68,68,0.25)';
+      if (i === 100) bgColor = 'rgba(251,191,36,0.35)';
+      if (i === 1) bgColor = 'rgba(99,102,241,0.25)';
 
-      ctx.beginPath();
-      ctx.roundRect(x + 2, y + 2, cellW - 4, cellH - 4, 6);
-      ctx.fill();
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(x + 1, y + 1, cellW - 2, cellH - 2);
 
-      ctx.strokeStyle = isGoal
-        ? 'rgba(251,191,36,0.6)'
-        : 'rgba(255,255,255,0.15)';
-      ctx.lineWidth = 1;
-      ctx.stroke();
+      // Cell border
+      ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+      ctx.lineWidth = 0.5;
+      ctx.strokeRect(x + 1, y + 1, cellW - 2, cellH - 2);
 
       // Cell number
-      ctx.fillStyle = 'rgba(255,255,255,0.3)';
-      ctx.font = '9px sans-serif';
+      ctx.fillStyle = i === 100
+        ? '#fbbf24'
+        : i === 1
+          ? '#818cf8'
+          : 'rgba(255,255,255,0.4)';
+      ctx.font = `bold ${cellW * 0.22}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText(i, x + cellW / 2, y + cellH * 0.32);
+
+      // Icons
+      if (i === 100) {
+        ctx.font = `${cellW * 0.35}px sans-serif`;
+        ctx.fillText('🏆', x + cellW / 2, y + cellH * 0.78);
+      } else if (i === 1) {
+        ctx.font = `${cellW * 0.3}px sans-serif`;
+        ctx.fillText('🚀', x + cellW / 2, y + cellH * 0.78);
+      } else if (LADDERS[i]) {
+        ctx.font = `${cellW * 0.3}px sans-serif`;
+        ctx.fillText('🪜', x + cellW / 2, y + cellH * 0.78);
+      } else if (SNAKES[i]) {
+        ctx.font = `${cellW * 0.3}px sans-serif`;
+        ctx.fillText('🐍', x + cellW / 2, y + cellH * 0.78);
+      }
+    }
+
+    // Draw ladder connections
+    ctx.setLineDash([3, 3]);
+    Object.entries(LADDERS).forEach(([from, to]) => {
+      const fromPos = getCellCenter(Number(from), cols, rows, cellW, cellH);
+      const toPos = getCellCenter(Number(to), cols, rows, cellW, cellH);
+      ctx.beginPath();
+      ctx.moveTo(fromPos.x, fromPos.y);
+      ctx.lineTo(toPos.x, toPos.y);
+      ctx.strokeStyle = 'rgba(34,197,94,0.6)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    });
+
+    // Draw snake connections
+    Object.entries(SNAKES).forEach(([from, to]) => {
+      const fromPos = getCellCenter(Number(from), cols, rows, cellW, cellH);
+      const toPos = getCellCenter(Number(to), cols, rows, cellW, cellH);
+      ctx.beginPath();
+      ctx.moveTo(fromPos.x, fromPos.y);
+
+      // Curved snake line
+      const midX = (fromPos.x + toPos.x) / 2 + 15;
+      const midY = (fromPos.y + toPos.y) / 2;
+      ctx.quadraticCurveTo(midX, midY, toPos.x, toPos.y);
+      ctx.strokeStyle = 'rgba(239,68,68,0.6)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    });
+
+    ctx.setLineDash([]);
+
+    // Draw players
+    players.forEach((p) => {
+      if (p.position === 0) return;
+      const center = getCellCenter(p.position, cols, rows, cellW, cellH);
+      const playersOnSameCell = players.filter(
+        op => op.position === p.position
+      );
+      const pidx = playersOnSameCell.findIndex(
+        op => op.user_id === p.user_id
+      );
+      const offsetX = (pidx - playersOnSameCell.length / 2) * 8;
+
+      // Glow
+      ctx.shadowColor = p.color || '#fff';
+      ctx.shadowBlur = 8;
+
+      ctx.beginPath();
+      ctx.arc(
+        center.x + offsetX,
+        center.y + 6,
+        cellW * 0.2,
+        0, Math.PI * 2
+      );
+      ctx.fillStyle = p.color || '#fff';
+      ctx.fill();
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      ctx.shadowBlur = 0;
+
+      // Initial
+      ctx.fillStyle = 'white';
+      ctx.font = `bold ${cellW * 0.18}px sans-serif`;
       ctx.textAlign = 'center';
       ctx.fillText(
-        isGoal ? GOAL_EMOJI : isStart ? '🚀' : i,
-        x + cellW / 2,
-        y + 14
+        (p.name || 'U')[0].toUpperCase(),
+        center.x + offsetX,
+        center.y + 10
       );
-
-      // Draw players on this cell
-      const playersHere = players.filter(p => p.position === i);
-      playersHere.forEach((p, idx) => {
-        const px = x + cellW / 2 + (idx - playersHere.length / 2) * 10;
-        const py = y + cellH / 2 + 6;
-
-        // Player dot
-        ctx.beginPath();
-        ctx.arc(px, py, 8, 0, Math.PI * 2);
-        ctx.fillStyle = p.color || '#fff';
-        ctx.fill();
-        ctx.strokeStyle = 'white';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-
-        // Player initial
-        ctx.fillStyle = 'white';
-        ctx.font = 'bold 7px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(
-          (p.name || 'U')[0].toUpperCase(),
-          px, py + 3
-        );
-      });
-    }
+    });
   };
 
   const createSession = async () => {
@@ -530,29 +622,60 @@ export default function RaceGame({
               <div className="bg-white/5 rounded-2xl p-2 overflow-hidden">
                 <canvas
                   ref={canvasRef}
-                  width={320}
-                  height={280}
+                  width={340}
+                  height={340}
                   className="w-full rounded-xl"
                 />
               </div>
 
-              {/* Last Roll */}
-              {lastRoll && (
-                <div className="text-center">
-                  <span className="text-4xl">
-                    {DICE_FACES[Math.floor(lastRoll / 2) - 1] || '🎲'}
-                    {DICE_FACES[(lastRoll % 6) - 1] || '🎲'}
-                  </span>
-                  <div className="text-white/50 text-xs mt-1">
-                    Rolled: {lastRoll}
+              {(lastRoll || diceAnimating) && (
+                <div className="flex flex-col items-center gap-1">
+                  <div
+                    className={`relative w-16 h-16 rounded-2xl flex items-center
+                      justify-center shadow-2xl border-2 border-white/20
+                      ${diceAnimating ? 'animate-spin' : 'animate-bounce'}`}
+                    style={{
+                      background: 'linear-gradient(135deg, #1e293b, #0f172a)',
+                      boxShadow: diceAnimating
+                        ? '0 0 20px rgba(251,191,36,0.6)'
+                        : '0 0 15px rgba(251,191,36,0.4), inset 0 1px 0 rgba(255,255,255,0.1)',
+                    }}
+                  >
+                    {/* Dice dots */}
+                    {(() => {
+                      const num = diceAnimating
+                        ? (diceDisplay ?? 1) + 1
+                        : lastRoll > 6 ? 6 : lastRoll;
+                      const dotPositions = {
+                        1: [[50, 50]],
+                        2: [[25, 25], [75, 75]],
+                        3: [[25, 25], [50, 50], [75, 75]],
+                        4: [[25, 25], [75, 25], [25, 75], [75, 75]],
+                        5: [[25, 25], [75, 25], [50, 50], [25, 75], [75, 75]],
+                        6: [[25, 20], [75, 20], [25, 50], [75, 50], [25, 80], [75, 80]],
+                      };
+                      const dots = dotPositions[Math.min(num, 6)] || dotPositions[1];
+                      return dots.map(([dx, dy], di) => (
+                        <div
+                          key={di}
+                          className="absolute w-2.5 h-2.5 rounded-full bg-white"
+                          style={{
+                            left: `${dx}%`,
+                            top: `${dy}%`,
+                            transform: 'translate(-50%, -50%)',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.5)',
+                          }}
+                        />
+                      ));
+                    })()}
                   </div>
-                </div>
-              )}
-
-              {/* Dice animation */}
-              {diceAnimating && diceDisplay !== null && (
-                <div className="text-center text-5xl animate-bounce">
-                  {DICE_FACES[diceDisplay]}
+                  {!diceAnimating && lastRoll && (
+                    <div className="text-white/50 text-xs">
+                      Rolled: <span className="text-amber-300 font-black">
+                        {lastRoll}
+                      </span> steps
+                    </div>
+                  )}
                 </div>
               )}
 
