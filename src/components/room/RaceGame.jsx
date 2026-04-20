@@ -643,7 +643,7 @@ export default function RaceGame({
           ? { ...p, position: currentPos }
           : p
       ));
-      animationRef.current = setTimeout(step, 250);
+      animationRef.current = setTimeout(step, 500);
     };
     step();
   };
@@ -808,11 +808,11 @@ export default function RaceGame({
         
         <div className="flex-1 min-w-0 z-10">
           <div className="flex items-center gap-1">
-            <span className="text-white text-[11px] font-bold truncate">
+            <span className="text-white text-[10px] font-bold truncate">
               {p.name}
             </span>
             {String(p.user_id) === String(user?.id) && (
-              <span className="text-amber-300 text-[9px] shrink-0">(You)</span>
+              <span className="text-amber-300 text-[8px] shrink-0">(You)</span>
             )}
           </div>
           <div className="text-white/60 text-[9px] font-bold leading-tight">
@@ -1044,7 +1044,7 @@ export default function RaceGame({
 
               {/* Players & Dice */}
               {currentSession.status === 'playing' ? (
-                <div className="flex flex-col gap-1.5 my-1">
+                <div className="grid grid-cols-2 gap-1.5 my-1">
                   {players.map(renderPlayer)}
                 </div>
               ) : (
