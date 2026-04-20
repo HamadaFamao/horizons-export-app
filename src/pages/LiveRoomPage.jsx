@@ -10296,19 +10296,25 @@ useEffect(() => {
           };
 
             console.log('[SPIN_RESULT_MSG]', resultMsg);
-            setRoomGiftMessages(prev => [...prev, resultMsg]);
 
-          if (channelRef.current) {
-            await channelRef.current.send({
-              type: 'broadcast',
-              event: 'spin_result',
-              payload: {
-                room_id: roomId,
-                ...resultMsg,
-                ts: Date.now(),
-              },
+            // Add locally
+            setRoomGiftMessages(prev => {
+              if (prev.some(m => m.id === resultMsg.id)) return prev;
+              return [...prev, resultMsg];
             });
-          }
+            
+            // Broadcast via main room channel
+            if (channelRef.current) {
+              channelRef.current.send({
+                type: 'broadcast',
+                event: 'spin_result',
+                payload: {
+                  room_id: roomId,
+                  ...resultMsg,
+                  ts: Date.now(),
+                },
+              });
+            }
 
           const BIG_WIN_THRESHOLD = 5000;
           if (winnerCoins >= BIG_WIN_THRESHOLD) {
