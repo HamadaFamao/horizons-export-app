@@ -199,8 +199,10 @@ export default function RaceGame({
     const ctx = canvas.getContext('2d');
     const W = canvas.width;
     const H = canvas.height;
+    
+    // Clear and draw outer border
     ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = '#1e293b';
+    ctx.fillStyle = '#0f172a';
     ctx.fillRect(0, 0, W, H);
 
     const cols = 10;
@@ -223,78 +225,169 @@ export default function RaceGame({
 
       // Cell colors
       let bgColor = (row + col) % 2 === 0
-        ? 'rgba(255,255,255,0.18)'
-        : 'rgba(255,255,255,0.08)';
+        ? '#1e293b' // slate-800
+        : '#334155'; // slate-700
 
-      if (LADDERS[i]) bgColor = 'rgba(34,197,94,0.5)';
-      if (SNAKES[i]) bgColor = 'rgba(239,68,68,0.5)';
-      if (i === 100) bgColor = 'rgba(251,191,36,0.6)';
-      if (i === 1) bgColor = 'rgba(99,102,241,0.5)';
+      if (i === 100) bgColor = '#b45309'; // amber-700
+      if (i === 1) bgColor = '#4338ca'; // indigo-700
 
       ctx.fillStyle = bgColor;
-      ctx.fillRect(x + 1, y + 1, cellW - 2, cellH - 2);
+      ctx.fillRect(x, y, cellW, cellH);
 
-      // Cell border
-      ctx.strokeStyle = 'rgba(255,255,255,0.08)';
-      ctx.lineWidth = 0.5;
-      ctx.strokeRect(x + 1, y + 1, cellW - 2, cellH - 2);
+      // Inner highlight for 3D effect
+      ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(x, y + cellH);
+      ctx.lineTo(x, y);
+      ctx.lineTo(x + cellW, y);
+      ctx.stroke();
+
+      ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+      ctx.beginPath();
+      ctx.moveTo(x + cellW, y);
+      ctx.lineTo(x + cellW, y + cellH);
+      ctx.lineTo(x, y + cellH);
+      ctx.stroke();
 
       // Cell number
       ctx.fillStyle = i === 100
-        ? '#fbbf24'
+        ? '#fde68a'
         : i === 1
-          ? '#818cf8'
-          : 'rgba(255,255,255,0.85)';
-      ctx.font = `bold ${cellW * 0.22}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.fillText(i, x + cellW / 2, y + cellH * 0.32);
+          ? '#a5b4fc'
+          : 'rgba(255,255,255,0.4)';
+      ctx.font = `bold ${cellW * 0.25}px sans-serif`;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillText(i, x + 3, y + 3);
 
       // Icons
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
       if (i === 100) {
-        ctx.font = `${cellW * 0.35}px sans-serif`;
-        ctx.fillText('🏆', x + cellW / 2, y + cellH * 0.78);
+        ctx.font = `${cellW * 0.4}px sans-serif`;
+        ctx.fillText('🏆', x + cellW / 2, y + cellH / 2 + 4);
       } else if (i === 1) {
-        ctx.font = `${cellW * 0.3}px sans-serif`;
-        ctx.fillText('🚀', x + cellW / 2, y + cellH * 0.78);
-      } else if (LADDERS[i]) {
-        ctx.font = `${cellW * 0.3}px sans-serif`;
-        ctx.fillText('🪜', x + cellW / 2, y + cellH * 0.78);
-      } else if (SNAKES[i]) {
-        ctx.font = `${cellW * 0.3}px sans-serif`;
-        ctx.fillText('🐍', x + cellW / 2, y + cellH * 0.78);
+        ctx.font = `${cellW * 0.4}px sans-serif`;
+        ctx.fillText('🚀', x + cellW / 2, y + cellH / 2 + 4);
       }
     }
 
-    // Draw ladder connections
-    ctx.setLineDash([3, 3]);
+    // Draw ladders
     Object.entries(LADDERS).forEach(([from, to]) => {
       const fromPos = getCellCenter(Number(from), cols, rows, cellW, cellH);
       const toPos = getCellCenter(Number(to), cols, rows, cellW, cellH);
+      
+      const dx = toPos.x - fromPos.x;
+      const dy = toPos.y - fromPos.y;
+      const angle = Math.atan2(dy, dx);
+      const length = Math.sqrt(dx * dx + dy * dy);
+      
+      ctx.save();
+      ctx.translate(fromPos.x, fromPos.y);
+      ctx.rotate(angle);
+      
+      // Shadow
+      ctx.shadowColor = 'rgba(0,0,0,0.5)';
+      ctx.shadowBlur = 4;
+      ctx.shadowOffsetY = 2;
+
+      // Ladder styles
+      ctx.strokeStyle = '#fbbf24'; // amber-400
+      ctx.lineWidth = 4;
+      ctx.lineCap = 'round';
+      
+      const width = cellW * 0.35;
       ctx.beginPath();
-      ctx.moveTo(fromPos.x, fromPos.y);
-      ctx.lineTo(toPos.x, toPos.y);
-      ctx.strokeStyle = 'rgba(34,197,94,0.6)';
-      ctx.lineWidth = 2;
+      ctx.moveTo(0, -width/2);
+      ctx.lineTo(length, -width/2);
+      ctx.moveTo(0, width/2);
+      ctx.lineTo(length, width/2);
       ctx.stroke();
+      
+      // Rungs
+      const rungSpacing = 12;
+      const rungs = Math.floor(length / rungSpacing);
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      for(let j=1; j<=rungs; j++) {
+        const rx = j * (length / (rungs + 1));
+        ctx.moveTo(rx, -width/2);
+        ctx.lineTo(rx, width/2);
+      }
+      ctx.stroke();
+      
+      ctx.restore();
     });
 
-    // Draw snake connections
+    // Draw snakes
     Object.entries(SNAKES).forEach(([from, to]) => {
       const fromPos = getCellCenter(Number(from), cols, rows, cellW, cellH);
       const toPos = getCellCenter(Number(to), cols, rows, cellW, cellH);
+      
+      ctx.save();
+      // Shadow
+      ctx.shadowColor = 'rgba(0,0,0,0.5)';
+      ctx.shadowBlur = 4;
+      ctx.shadowOffsetY = 2;
+
       ctx.beginPath();
       ctx.moveTo(fromPos.x, fromPos.y);
-
-      // Curved snake line
-      const midX = (fromPos.x + toPos.x) / 2 + 15;
+      
+      const midX = (fromPos.x + toPos.x) / 2;
       const midY = (fromPos.y + toPos.y) / 2;
-      ctx.quadraticCurveTo(midX, midY, toPos.x, toPos.y);
-      ctx.strokeStyle = 'rgba(239,68,68,0.6)';
-      ctx.lineWidth = 2;
+      
+      const cp1x = midX + (toPos.y - fromPos.y) * 0.25;
+      const cp1y = midY - (toPos.x - fromPos.x) * 0.25;
+      
+      ctx.quadraticCurveTo(cp1x, cp1y, toPos.x, toPos.y);
+      
+      // Snake body
+      ctx.strokeStyle = '#10b981'; // emerald-500
+      ctx.lineWidth = 7;
+      ctx.lineCap = 'round';
       ctx.stroke();
-    });
+      
+      // Snake pattern
+      ctx.strokeStyle = '#047857'; // emerald-700
+      ctx.setLineDash([4, 6]);
+      ctx.lineWidth = 5;
+      ctx.stroke();
+      ctx.setLineDash([]);
+      
+      // Snake head
+      ctx.fillStyle = '#10b981';
+      ctx.beginPath();
+      ctx.ellipse(fromPos.x, fromPos.y, 7, 9, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Eyes
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(fromPos.x - 2.5, fromPos.y - 2, 2, 0, Math.PI * 2);
+      ctx.arc(fromPos.x + 2.5, fromPos.y - 2, 2, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.fillStyle = '#000000';
+      ctx.beginPath();
+      ctx.arc(fromPos.x - 2.5, fromPos.y - 2, 1, 0, Math.PI * 2);
+      ctx.arc(fromPos.x + 2.5, fromPos.y - 2, 1, 0, Math.PI * 2);
+      ctx.fill();
 
-    ctx.setLineDash([]);
+      // Tongue
+      ctx.strokeStyle = '#ef4444'; // red-500
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(fromPos.x, fromPos.y + 5);
+      ctx.lineTo(fromPos.x, fromPos.y + 12);
+      ctx.moveTo(fromPos.x, fromPos.y + 12);
+      ctx.lineTo(fromPos.x - 3, fromPos.y + 15);
+      ctx.moveTo(fromPos.x, fromPos.y + 12);
+      ctx.lineTo(fromPos.x + 3, fromPos.y + 15);
+      ctx.stroke();
+
+      ctx.restore();
+    });
 
     // Draw players
     players.forEach((p) => {
@@ -306,36 +399,54 @@ export default function RaceGame({
       const pidx = playersOnSameCell.findIndex(
         op => op.user_id === p.user_id
       );
-      const offsetX = (pidx - playersOnSameCell.length / 2) * 8;
+      
+      // Arrange players in a circle if multiple
+      let offsetX = 0;
+      let offsetY = 0;
+      if (playersOnSameCell.length > 1) {
+        const angle = (pidx / playersOnSameCell.length) * Math.PI * 2 - Math.PI / 2;
+        const radius = cellW * 0.22;
+        offsetX = Math.cos(angle) * radius;
+        offsetY = Math.sin(angle) * radius;
+      }
 
-      // Glow
-      ctx.shadowColor = p.color || '#fff';
-      ctx.shadowBlur = 8;
+      ctx.save();
+      // Shadow
+      ctx.shadowColor = 'rgba(0,0,0,0.6)';
+      ctx.shadowBlur = 4;
+      ctx.shadowOffsetY = 2;
 
       ctx.beginPath();
       ctx.arc(
         center.x + offsetX,
-        center.y + 6,
-        cellW * 0.28,
+        center.y + offsetY,
+        cellW * 0.22,
         0, Math.PI * 2
       );
-      ctx.fillStyle = p.color || '#fff';
+      ctx.fillStyle = p.color || '#ffffff';
       ctx.fill();
-      ctx.strokeStyle = 'white';
-      ctx.lineWidth = 1.5;
+      
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#ffffff';
       ctx.stroke();
 
       ctx.shadowBlur = 0;
+      ctx.shadowOffsetY = 0;
 
       // Initial
-      ctx.fillStyle = 'white';
-      ctx.font = `bold ${cellW * 0.18}px sans-serif`;
+      ctx.shadowColor = 'rgba(0,0,0,0.8)';
+      ctx.shadowBlur = 2;
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `bold ${cellW * 0.25}px sans-serif`;
       ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
       ctx.fillText(
         (p.name || 'U')[0].toUpperCase(),
         center.x + offsetX,
-        center.y + 10
+        center.y + offsetY + 1
       );
+      
+      ctx.restore();
     });
   };
 
@@ -540,7 +651,7 @@ export default function RaceGame({
               </span>
             </div>
             <button onClick={onClose}
-              className="text-white/50 hover:text-white">
+              className="text-white/50 hover:text-white transition-colors">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -553,23 +664,26 @@ export default function RaceGame({
             </div>
           ) : showResult && winner ? (
             /* Winner */
-            <div className="flex flex-col items-center gap-4 py-8">
-              <div className="text-6xl animate-bounce">🏆</div>
-              <div className="text-white font-black text-2xl">Winner!</div>
-              <img
-                src={winner.avatar_url || FALLBACK_AVATAR}
-                alt={winner.name}
-                className="w-20 h-20 rounded-full border-4 border-amber-400
-                  shadow-[0_0_30px_rgba(251,191,36,0.6)]"
-                onError={e => e.currentTarget.src = FALLBACK_AVATAR}
-              />
-              <div className="text-amber-300 font-black text-xl">
+            <div className="flex flex-col items-center gap-6 py-12">
+              <div className="text-8xl animate-bounce drop-shadow-[0_0_30px_rgba(251,191,36,0.6)]">🏆</div>
+              <div className="text-white font-black text-4xl tracking-wide">WINNER!</div>
+              <div className="relative">
+                <div className="absolute inset-0 bg-amber-400 rounded-full animate-ping opacity-20"></div>
+                <img
+                  src={winner.avatar_url || FALLBACK_AVATAR}
+                  alt={winner.name}
+                  className="relative w-28 h-28 rounded-full border-4 border-amber-400
+                    shadow-[0_0_40px_rgba(251,191,36,0.8)] object-cover"
+                  onError={e => e.currentTarget.src = FALLBACK_AVATAR}
+                />
+              </div>
+              <div className="text-amber-300 font-black text-3xl drop-shadow-lg">
                 {winner.name}
               </div>
-              <div className="bg-amber-500/20 border border-amber-500/40
-                rounded-2xl px-6 py-3 text-center">
-                <div className="text-amber-300 text-sm font-bold">Won</div>
-                <div className="text-amber-200 text-3xl font-black">
+              <div className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/40
+                rounded-3xl px-8 py-4 text-center shadow-xl backdrop-blur-sm">
+                <div className="text-amber-200 text-sm font-bold uppercase tracking-wider mb-1">Prize Won</div>
+                <div className="text-amber-400 text-4xl font-black drop-shadow-md">
                   🪙 {winnerCoins.toLocaleString()}
                 </div>
               </div>
@@ -578,27 +692,30 @@ export default function RaceGame({
             <div className="flex flex-col gap-4">
               {/* Session Info */}
               <div className="flex items-center justify-between
-                bg-white/5 rounded-2xl px-4 py-3">
-                <div>
-                  <div className="text-white/50 text-xs">Entry</div>
-                  <div className="text-amber-300 font-black">
+                bg-gradient-to-r from-slate-800 to-slate-800/50 border border-white/10 rounded-2xl px-5 py-4 shadow-lg">
+                <div className="text-center">
+                  <div className="text-white/50 text-[10px] uppercase tracking-wider font-bold mb-0.5">Entry</div>
+                  <div className="text-amber-400 font-black text-sm">
                     🪙 {currentSession.entry_cost.toLocaleString()}
                   </div>
                 </div>
+                <div className="w-px h-8 bg-white/10"></div>
                 <div className="text-center">
-                  <div className="text-white/50 text-xs">Players</div>
-                  <div className="text-white font-black text-lg">
-                    {players.length}/{currentSession.max_players}
+                  <div className="text-white/50 text-[10px] uppercase tracking-wider font-bold mb-0.5">Players</div>
+                  <div className="text-white font-black text-sm">
+                    {players.length} / {currentSession.max_players}
                   </div>
                 </div>
+                <div className="w-px h-8 bg-white/10"></div>
                 <div className="text-center">
-                  <div className="text-white/50 text-xs">Prize</div>
-                  <div className="text-emerald-300 font-black">
+                  <div className="text-white/50 text-[10px] uppercase tracking-wider font-bold mb-0.5">Prize</div>
+                  <div className="text-emerald-400 font-black text-sm">
                     🪙 {netPrize.toLocaleString()}
                   </div>
                 </div>
-                <div>
-                  <div className="text-white/50 text-xs">My Coins</div>
+                <div className="w-px h-8 bg-white/10"></div>
+                <div className="text-center">
+                  <div className="text-white/50 text-[10px] uppercase tracking-wider font-bold mb-0.5">My Coins</div>
                   <div className={`font-black text-sm ${
                     userCoins >= currentSession.entry_cost
                       ? 'text-white' : 'text-rose-400'
@@ -610,42 +727,43 @@ export default function RaceGame({
 
               {/* Status */}
               {currentSession.status === 'playing' && (
-                <div className={`text-center py-2 rounded-xl text-sm font-bold ${
+                <div className={`text-center py-3 rounded-xl text-sm font-black shadow-lg transition-all ${
                   isMyTurn
-                    ? 'bg-emerald-500/20 text-emerald-300 animate-pulse'
-                    : 'bg-white/5 text-white/50'
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-400 text-white animate-pulse border border-emerald-400'
+                    : 'bg-white/5 text-white/50 border border-white/10'
                 }`}>
-                  {isMyTurn ? '🎲 Your turn! Roll the dice!' : (() => {
+                  {isMyTurn ? '🎲 YOUR TURN! ROLL THE DICE!' : (() => {
                     const currentPlayer = players.find(
                       p => String(p.user_id) ===
                            String(currentSession.current_turn_user_id)
                     );
-                    return `⏳ ${currentPlayer?.name || 'Player'}'s turn`;
+                    return `⏳ Waiting for ${currentPlayer?.name || 'Player'}...`;
                   })()}
                 </div>
               )}
 
               {/* Track Canvas */}
-              <div className="bg-slate-800 rounded-2xl p-2 overflow-hidden">
+              <div className="bg-slate-900 rounded-2xl p-2 overflow-hidden shadow-inner border border-white/5">
                 <canvas
                   ref={canvasRef}
                   width={340}
                   height={340}
-                  className="w-full rounded-xl"
+                  className="w-full rounded-xl shadow-lg"
                 />
               </div>
 
               {(lastRoll || diceAnimating) && (
-                <div className="flex flex-col items-center gap-1">
+                <div className="flex flex-col items-center gap-1 py-2">
                   <div
-                    className={`relative w-16 h-16 rounded-2xl flex items-center
-                      justify-center shadow-2xl border-2 border-white/20
+                    className={`relative w-20 h-20 rounded-3xl flex items-center
+                      justify-center shadow-2xl border-b-4 border-r-4 border-white/20
                       ${diceAnimating ? 'animate-spin' : 'animate-bounce'}`}
                     style={{
-                      background: 'linear-gradient(135deg, #1e293b, #0f172a)',
+                      background: 'linear-gradient(135deg, #ffffff, #e2e8f0)',
                       boxShadow: diceAnimating
-                        ? '0 0 20px rgba(251,191,36,0.6)'
-                        : '0 0 15px rgba(251,191,36,0.4), inset 0 1px 0 rgba(255,255,255,0.1)',
+                        ? '0 0 30px rgba(251,191,36,0.8)'
+                        : '0 10px 25px rgba(0,0,0,0.5), inset 0 2px 0 rgba(255,255,255,1)',
+                      animationDuration: diceAnimating ? '0.3s' : '1s',
                     }}
                   >
                     {/* Dice dots */}
@@ -665,35 +783,35 @@ export default function RaceGame({
                       return dots.map(([dx, dy], di) => (
                         <div
                           key={di}
-                          className="absolute w-2.5 h-2.5 rounded-full bg-white"
+                          className="absolute w-4 h-4 rounded-full bg-slate-800"
                           style={{
                             left: `${dx}%`,
                             top: `${dy}%`,
                             transform: 'translate(-50%, -50%)',
-                            boxShadow: '0 1px 3px rgba(0,0,0,0.5)',
+                            boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.6), 0 1px 0 rgba(255,255,255,0.8)',
                           }}
                         />
                       ));
                     })()}
                   </div>
                   {!diceAnimating && lastRoll && (
-                    <div className="text-white/50 text-xs">
-                      Rolled: <span className="text-amber-300 font-black">
+                    <div className="text-white/70 text-sm font-bold mt-2 bg-black/20 px-4 py-1.5 rounded-full">
+                      Rolled: <span className="text-amber-400 font-black text-lg">
                         {lastRoll}
-                      </span> steps
+                      </span>
                     </div>
                   )}
                 </div>
               )}
 
               {specialEvent && (
-                <div className={`text-center py-2 px-4 rounded-2xl font-black
-                  text-sm animate-bounce ${
+                <div className={`text-center py-3 px-4 rounded-2xl font-black
+                  text-sm animate-bounce shadow-lg ${
                   specialEvent.includes('ladder')
-                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                    ? 'bg-gradient-to-r from-emerald-500 to-green-400 text-white border border-emerald-400'
                     : specialEvent.includes('snake')
-                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                      : 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                      ? 'bg-gradient-to-r from-rose-500 to-red-400 text-white border border-rose-400'
+                      : 'bg-gradient-to-r from-purple-500 to-indigo-400 text-white border border-purple-400'
                 }`}>
                   {specialEvent.includes('ladder') && '🪜 Ladder! Jump forward!'}
                   {specialEvent.includes('snake') && '🐍 Snake! Slide back!'}
@@ -707,48 +825,52 @@ export default function RaceGame({
               <div className="space-y-2">
                 {players.map((p, idx) => {
                   const progressPct = (p.position / TRACK_LENGTH) * 100;
+                  const isCurrentTurn = String(currentSession.current_turn_user_id) === String(p.user_id) && currentSession.status === 'playing';
+                  
                   return (
                     <div key={p.id}
-                      className="flex items-center gap-3 bg-white/5
-                        rounded-xl px-3 py-2">
+                      className={`flex items-center gap-3 rounded-xl px-3 py-2 transition-colors ${
+                        isCurrentTurn ? 'bg-white/10 border border-white/20 shadow-lg' : 'bg-white/5'
+                      }`}>
                       <div
-                        className="w-4 h-4 rounded-full shrink-0"
+                        className="w-4 h-4 rounded-full shrink-0 shadow-sm border border-white/50"
                         style={{ background: p.color }}
                       />
                       <img
                         src={p.avatar_url || FALLBACK_AVATAR}
                         alt={p.name}
-                        className="w-7 h-7 rounded-full object-cover shrink-0"
+                        className="w-8 h-8 rounded-full object-cover shrink-0 border-2 border-white/10"
                         onError={e => e.currentTarget.src = FALLBACK_AVATAR}
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-1">
-                          <span className="text-white text-xs font-bold truncate">
+                          <span className="text-white text-sm font-bold truncate">
                             {p.name}
                             {String(p.user_id) === String(user?.id) && (
-                              <span className="text-amber-300 ml-1">
+                              <span className="text-amber-300 ml-1 text-xs">
                                 (You)
                               </span>
                             )}
                           </span>
-                          <span className="text-white/40 text-xs">
+                          <span className="text-white/60 text-xs font-bold bg-black/20 px-2 py-0.5 rounded-full">
                             {p.position}/{TRACK_LENGTH}
                           </span>
                         </div>
-                        <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                        <div className="h-2 bg-black/30 rounded-full overflow-hidden shadow-inner">
                           <div
-                            className="h-full rounded-full transition-all duration-500"
+                            className="h-full rounded-full transition-all duration-500 relative"
                             style={{
                               width: `${progressPct}%`,
                               background: p.color,
+                              boxShadow: 'inset 0 2px 4px rgba(255,255,255,0.3)'
                             }}
-                          />
+                          >
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent to-white/20"></div>
+                          </div>
                         </div>
                       </div>
-                      {String(currentSession.current_turn_user_id) ===
-                       String(p.user_id) &&
-                       currentSession.status === 'playing' && (
-                        <span className="text-lg animate-bounce shrink-0">
+                      {isCurrentTurn && (
+                        <span className="text-2xl animate-bounce shrink-0 drop-shadow-lg">
                           🎲
                         </span>
                       )}
@@ -758,16 +880,16 @@ export default function RaceGame({
               </div>
 
               {/* Actions */}
-              <div className="flex gap-2">
+              <div className="flex gap-2 mt-2">
                 {/* Join */}
                 {!isJoined && !isFull &&
                   currentSession.status === 'waiting' && (
                   <button
                     onClick={joinSession}
                     disabled={joining || userCoins < currentSession.entry_cost}
-                    className="flex-1 py-3 rounded-2xl bg-amber-500
-                      text-white font-black text-sm disabled:opacity-50
-                      hover:bg-amber-400 transition active:scale-95"
+                    className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-400
+                      text-white font-black text-sm disabled:opacity-50 shadow-lg
+                      hover:shadow-xl transition active:scale-95 border border-amber-400"
                   >
                     {joining
                       ? <Loader2 className="w-4 h-4 animate-spin mx-auto" />
@@ -782,7 +904,7 @@ export default function RaceGame({
                     onClick={leaveSession}
                     disabled={leaving}
                     className="flex-1 py-3 rounded-2xl border border-white/20
-                      text-white/70 font-bold text-sm
+                      text-white/70 font-bold text-sm bg-white/5
                       hover:bg-white/10 transition active:scale-95"
                   >
                     {leaving
@@ -798,14 +920,14 @@ export default function RaceGame({
                   <button
                     onClick={rollDice}
                     disabled={rolling}
-                    className="flex-1 py-3 rounded-2xl bg-emerald-500
-                      text-white font-black text-sm disabled:opacity-50
-                      hover:bg-emerald-400 transition active:scale-95
-                      animate-pulse"
+                    className="flex-1 py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-400
+                      text-white font-black text-lg disabled:opacity-50 shadow-[0_0_20px_rgba(16,185,129,0.4)]
+                      hover:shadow-[0_0_30px_rgba(16,185,129,0.6)] transition active:scale-95
+                      animate-pulse border border-emerald-400"
                   >
                     {rolling
-                      ? <Loader2 className="w-4 h-4 animate-spin mx-auto" />
-                      : '🎲 Roll Dice!'
+                      ? <Loader2 className="w-6 h-6 animate-spin mx-auto" />
+                      : '🎲 ROLL DICE!'
                     }
                   </button>
                 )}
@@ -816,9 +938,9 @@ export default function RaceGame({
                     <button
                       onClick={startGame}
                       disabled={players.length < 2}
-                      className="flex-1 py-3 rounded-2xl bg-blue-500
-                        text-white font-black text-sm disabled:opacity-50
-                        hover:bg-blue-400 transition active:scale-95"
+                      className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-500
+                        text-white font-black text-sm disabled:opacity-50 shadow-lg
+                        hover:shadow-xl transition active:scale-95 border border-blue-400"
                     >
                       🚀 Start Race
                     </button>
@@ -832,7 +954,7 @@ export default function RaceGame({
                   <button
                     onClick={cancelSession}
                     className="px-4 py-3 rounded-2xl border
-                      border-rose-500/40 text-rose-400 font-bold text-sm
+                      border-rose-500/40 text-rose-400 font-bold text-sm bg-rose-500/5
                       hover:bg-rose-500/10 transition active:scale-95"
                   >
                     Cancel
@@ -842,8 +964,8 @@ export default function RaceGame({
                 {/* Waiting message */}
                 {isJoined && currentSession.status === 'playing' &&
                   !isMyTurn && (
-                  <div className="flex-1 py-3 rounded-2xl bg-white/5
-                    text-white/40 font-bold text-sm text-center">
+                  <div className="flex-1 py-3 rounded-2xl bg-white/5 border border-white/10
+                    text-white/50 font-bold text-sm text-center shadow-inner">
                     ⏳ Waiting for your turn...
                   </div>
                 )}
@@ -852,25 +974,25 @@ export default function RaceGame({
           ) : (
             /* Create */
             canModerate ? (
-              <div className="flex flex-col gap-5">
+              <div className="flex flex-col gap-6 py-4">
                 <div className="text-center text-white/50 text-sm">
                   No active race game. Create one!
                 </div>
 
                 <div>
-                  <div className="text-white/70 text-sm font-bold mb-2">
+                  <div className="text-white/70 text-sm font-bold mb-3 uppercase tracking-wider">
                     👥 Number of Players
                   </div>
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-4 gap-3">
                     {MAX_PLAYERS_OPTIONS.map(n => (
                       <button
                         key={n}
                         onClick={() => setMaxPlayers(n)}
-                        className={`py-3 rounded-xl font-black text-lg
-                          transition active:scale-95 ${
+                        className={`py-3.5 rounded-xl font-black text-lg
+                          transition-all active:scale-95 shadow-md ${
                           maxPlayers === n
-                            ? 'bg-amber-500 text-white'
-                            : 'bg-white/10 text-white/70 hover:bg-white/20'
+                            ? 'bg-gradient-to-b from-amber-400 to-amber-600 text-white border border-amber-400'
+                            : 'bg-white/5 text-white/70 hover:bg-white/10 border border-white/10'
                         }`}
                       >
                         {n}
@@ -880,19 +1002,19 @@ export default function RaceGame({
                 </div>
 
                 <div>
-                  <div className="text-white/70 text-sm font-bold mb-2">
+                  <div className="text-white/70 text-sm font-bold mb-3 uppercase tracking-wider">
                     🪙 Entry Cost
                   </div>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-3 gap-3">
                     {ENTRY_COST_OPTIONS.map(c => (
                       <button
                         key={c}
                         onClick={() => setEntryCost(c)}
-                        className={`py-2.5 rounded-xl font-bold text-sm
-                          transition active:scale-95 ${
+                        className={`py-3 rounded-xl font-bold text-sm
+                          transition-all active:scale-95 shadow-md ${
                           entryCost === c
-                            ? 'bg-amber-500 text-white'
-                            : 'bg-white/10 text-white/70 hover:bg-white/20'
+                            ? 'bg-gradient-to-b from-amber-400 to-amber-600 text-white border border-amber-400'
+                            : 'bg-white/5 text-white/70 hover:bg-white/10 border border-white/10'
                         }`}
                       >
                         {c.toLocaleString()}
@@ -901,14 +1023,14 @@ export default function RaceGame({
                   </div>
                 </div>
 
-                <div className="bg-white/5 rounded-2xl p-4 text-center">
-                  <div className="text-white/50 text-xs mb-1">
+                <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-2xl p-5 text-center shadow-inner">
+                  <div className="text-amber-200/70 text-xs font-bold uppercase tracking-wider mb-2">
                     Winner gets (after 10% fee)
                   </div>
-                  <div className="text-amber-300 font-black text-2xl">
+                  <div className="text-amber-400 font-black text-4xl drop-shadow-md">
                     🪙 {Math.floor(entryCost * maxPlayers * 0.9).toLocaleString()}
                   </div>
-                  <div className="text-white/30 text-xs mt-1">
+                  <div className="text-amber-200/50 text-xs mt-2 font-medium">
                     {entryCost.toLocaleString()} × {maxPlayers} players
                   </div>
                 </div>
@@ -917,10 +1039,10 @@ export default function RaceGame({
                   onClick={createSession}
                   disabled={creating}
                   className="w-full py-4 rounded-2xl bg-gradient-to-r
-                    from-blue-500 to-cyan-400 text-white font-black text-lg
+                    from-blue-500 to-indigo-500 text-white font-black text-lg
                     shadow-[0_0_20px_rgba(59,130,246,0.4)]
                     hover:shadow-[0_0_30px_rgba(59,130,246,0.6)]
-                    transition active:scale-95 disabled:opacity-50"
+                    transition active:scale-95 disabled:opacity-50 border border-blue-400"
                 >
                   {creating
                     ? <Loader2 className="w-5 h-5 animate-spin mx-auto" />
@@ -929,10 +1051,10 @@ export default function RaceGame({
                 </button>
               </div>
             ) : (
-              <div className="text-center text-white/40 py-12">
-                <div className="text-4xl mb-3">🎲</div>
-                <div className="text-sm">No active race game</div>
-                <div className="text-xs mt-1">
+              <div className="text-center text-white/40 py-16">
+                <div className="text-6xl mb-4 opacity-50">🎲</div>
+                <div className="text-lg font-bold text-white/60">No active race game</div>
+                <div className="text-sm mt-2">
                   Wait for the host to start one
                 </div>
               </div>
