@@ -620,6 +620,57 @@ export default function RaceGame({
   const totalPrize = (currentSession?.entry_cost || 0) * players.length;
   const netPrize = Math.floor(totalPrize * 0.9);
 
+  const renderPlayer = (p) => {
+    const progressPct = (p.position / TRACK_LENGTH) * 100;
+    const isCurrentTurn = String(currentSession?.current_turn_user_id) === String(p.user_id) && currentSession?.status === 'playing';
+    
+    return (
+      <div key={p.id}
+        className={`relative overflow-hidden flex items-center gap-2 rounded-xl px-2 py-1.5 transition-colors ${
+          isCurrentTurn ? 'bg-white/10 border border-white/20 shadow-md' : 'bg-white/5 border border-transparent'
+        }`}>
+        {/* Progress background */}
+        <div 
+          className="absolute left-0 top-0 bottom-0 opacity-20 transition-all duration-500"
+          style={{ width: `${progressPct}%`, backgroundColor: p.color }}
+        />
+        
+        <div className="relative shrink-0">
+          <img
+            src={p.avatar_url || FALLBACK_AVATAR}
+            alt={p.name}
+            className="w-7 h-7 rounded-full object-cover border border-white/20"
+            onError={e => e.currentTarget.src = FALLBACK_AVATAR}
+          />
+          <div 
+            className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-slate-900"
+            style={{ backgroundColor: p.color }}
+          />
+        </div>
+        
+        <div className="flex-1 min-w-0 z-10">
+          <div className="flex items-center gap-1">
+            <span className="text-white text-[11px] font-bold truncate">
+              {p.name}
+            </span>
+            {String(p.user_id) === String(user?.id) && (
+              <span className="text-amber-300 text-[9px] shrink-0">(You)</span>
+            )}
+          </div>
+          <div className="text-white/60 text-[9px] font-bold leading-tight">
+            {p.position}/{TRACK_LENGTH}
+          </div>
+        </div>
+        
+        {isCurrentTurn && (
+          <span className="text-sm animate-bounce shrink-0 drop-shadow-md z-10">
+            🎲
+          </span>
+        )}
+      </div>
+    );
+  };
+
   if (!open) return null;
 
   return (
@@ -627,16 +678,16 @@ export default function RaceGame({
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div
         className="relative w-full max-w-md bg-slate-900 rounded-t-3xl sm:rounded-3xl
-          shadow-2xl flex flex-col overflow-hidden max-h-[90vh] sm:max-h-[85vh]"
+          shadow-2xl flex flex-col overflow-hidden max-h-[95vh] sm:max-h-[90vh]"
         onClick={e => e.stopPropagation()}
       >
         {/* Handle (Visible only on mobile) */}
-        <div className="flex justify-center pt-3 pb-2 sm:hidden">
+        <div className="flex justify-center pt-3 pb-1 sm:hidden">
           <div className="w-12 h-1.5 rounded-full bg-white/20" />
         </div>
 
         {/* Header */}
-        <div className="px-4 py-3 flex items-center justify-between border-b border-white/10">
+        <div className="px-4 py-2.5 flex items-center justify-between border-b border-white/10">
           <div className="flex items-center gap-2">
             <span className="text-2xl">🎲</span>
             <span className="font-bold text-white text-lg">Race Game</span>
@@ -656,66 +707,65 @@ export default function RaceGame({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto p-3">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-white/50" />
             </div>
           ) : showResult && winner ? (
             /* Winner */
-            <div className="flex flex-col items-center gap-6 py-12">
-              <div className="text-8xl animate-bounce drop-shadow-[0_0_30px_rgba(251,191,36,0.6)]">🏆</div>
-              <div className="text-white font-black text-4xl tracking-wide">WINNER!</div>
+            <div className="flex flex-col items-center gap-4 py-8">
+              <div className="text-7xl animate-bounce drop-shadow-[0_0_30px_rgba(251,191,36,0.6)]">🏆</div>
+              <div className="text-white font-black text-3xl tracking-wide">WINNER!</div>
               <div className="relative">
                 <div className="absolute inset-0 bg-amber-400 rounded-full animate-ping opacity-20"></div>
                 <img
                   src={winner.avatar_url || FALLBACK_AVATAR}
                   alt={winner.name}
-                  className="relative w-28 h-28 rounded-full border-4 border-amber-400
+                  className="relative w-24 h-24 rounded-full border-4 border-amber-400
                     shadow-[0_0_40px_rgba(251,191,36,0.8)] object-cover"
                   onError={e => e.currentTarget.src = FALLBACK_AVATAR}
                 />
               </div>
-              <div className="text-amber-300 font-black text-3xl drop-shadow-lg text-center">
+              <div className="text-amber-300 font-black text-2xl drop-shadow-lg text-center">
                 {winner.name}
               </div>
               <div className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/40
-                rounded-3xl px-8 py-4 text-center shadow-xl backdrop-blur-sm">
-                <div className="text-amber-200 text-sm font-bold uppercase tracking-wider mb-1">Prize Won</div>
-                <div className="text-amber-400 text-4xl font-black drop-shadow-md">
+                rounded-2xl px-6 py-3 text-center shadow-xl backdrop-blur-sm">
+                <div className="text-amber-200 text-xs font-bold uppercase tracking-wider mb-1">Prize Won</div>
+                <div className="text-amber-400 text-3xl font-black drop-shadow-md">
                   🪙 {winnerCoins.toLocaleString()}
                 </div>
               </div>
             </div>
           ) : currentSession ? (
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
               {/* Session Info */}
-              <div className="flex items-center justify-between
-                bg-gradient-to-r from-slate-800 to-slate-800/50 border border-white/10 rounded-2xl px-4 py-4 shadow-lg">
+              <div className="flex items-center justify-between bg-gradient-to-r from-slate-800 to-slate-800/50 border border-white/10 rounded-xl px-2 py-1.5 shadow-sm">
                 <div className="text-center">
-                  <div className="text-white/50 text-[10px] uppercase tracking-wider font-bold mb-0.5">Entry</div>
-                  <div className="text-amber-400 font-black text-sm">
+                  <div className="text-white/50 text-[9px] uppercase tracking-wider font-bold">Entry</div>
+                  <div className="text-amber-400 font-black text-xs">
                     🪙 {currentSession.entry_cost.toLocaleString()}
                   </div>
                 </div>
-                <div className="w-px h-8 bg-white/10"></div>
+                <div className="w-px h-5 bg-white/10"></div>
                 <div className="text-center">
-                  <div className="text-white/50 text-[10px] uppercase tracking-wider font-bold mb-0.5">Players</div>
-                  <div className="text-white font-black text-sm">
-                    {players.length} / {currentSession.max_players}
+                  <div className="text-white/50 text-[9px] uppercase tracking-wider font-bold">Players</div>
+                  <div className="text-white font-black text-xs">
+                    {players.length}/{currentSession.max_players}
                   </div>
                 </div>
-                <div className="w-px h-8 bg-white/10"></div>
+                <div className="w-px h-5 bg-white/10"></div>
                 <div className="text-center">
-                  <div className="text-white/50 text-[10px] uppercase tracking-wider font-bold mb-0.5">Prize</div>
-                  <div className="text-emerald-400 font-black text-sm">
+                  <div className="text-white/50 text-[9px] uppercase tracking-wider font-bold">Prize</div>
+                  <div className="text-emerald-400 font-black text-xs">
                     🪙 {netPrize.toLocaleString()}
                   </div>
                 </div>
-                <div className="w-px h-8 bg-white/10"></div>
+                <div className="w-px h-5 bg-white/10"></div>
                 <div className="text-center">
-                  <div className="text-white/50 text-[10px] uppercase tracking-wider font-bold mb-0.5">My Coins</div>
-                  <div className={`font-black text-sm ${
+                  <div className="text-white/50 text-[9px] uppercase tracking-wider font-bold">My Coins</div>
+                  <div className={`font-black text-xs ${
                     userCoins >= currentSession.entry_cost
                       ? 'text-white' : 'text-rose-400'
                   }`}>
@@ -726,7 +776,7 @@ export default function RaceGame({
 
               {/* Status */}
               {currentSession.status === 'playing' && (
-                <div className={`text-center py-3 rounded-xl text-sm font-black shadow-lg transition-all ${
+                <div className={`text-center py-1.5 rounded-xl text-xs font-black shadow-sm transition-all ${
                   isMyTurn
                     ? 'bg-gradient-to-r from-emerald-500 to-teal-400 text-white animate-pulse border border-emerald-400'
                     : 'bg-white/5 text-white/50 border border-white/10'
@@ -742,70 +792,19 @@ export default function RaceGame({
               )}
 
               {/* Track Canvas */}
-              <div className="bg-slate-900 rounded-2xl p-2 overflow-hidden shadow-inner border border-white/5 flex justify-center">
+              <div className="bg-slate-900 rounded-xl p-1.5 overflow-hidden shadow-inner border border-white/5 flex justify-center">
                 <canvas
                   ref={canvasRef}
                   width={340}
                   height={340}
-                  className="w-full max-w-[340px] aspect-square rounded-xl shadow-lg"
+                  className="w-full max-w-[340px] aspect-square rounded-lg shadow-sm"
                 />
               </div>
 
-              {(lastRoll || diceAnimating) && (
-                <div className="flex flex-col items-center gap-1 py-2">
-                  <div
-                    className={`relative w-20 h-20 rounded-3xl flex items-center
-                      justify-center shadow-2xl border-b-4 border-r-4 border-white/20
-                      ${diceAnimating ? 'animate-spin' : 'animate-bounce'}`}
-                    style={{
-                      background: 'linear-gradient(135deg, #ffffff, #e2e8f0)',
-                      boxShadow: diceAnimating
-                        ? '0 0 30px rgba(251,191,36,0.8)'
-                        : '0 10px 25px rgba(0,0,0,0.5), inset 0 2px 0 rgba(255,255,255,1)',
-                      animationDuration: diceAnimating ? '0.3s' : '1s',
-                    }}
-                  >
-                    {/* Dice dots */}
-                    {(() => {
-                      const num = diceAnimating
-                        ? (diceDisplay ?? 1) + 1
-                        : lastRoll > 6 ? 6 : lastRoll;
-                      const dotPositions = {
-                        1: [[50, 50]],
-                        2: [[25, 25], [75, 75]],
-                        3: [[25, 25], [50, 50], [75, 75]],
-                        4: [[25, 25], [75, 25], [25, 75], [75, 75]],
-                        5: [[25, 25], [75, 25], [50, 50], [25, 75], [75, 75]],
-                        6: [[25, 20], [75, 20], [25, 50], [75, 50], [25, 80], [75, 80]],
-                      };
-                      const dots = dotPositions[Math.min(num, 6)] || dotPositions[1];
-                      return dots.map(([dx, dy], di) => (
-                        <div
-                          key={di}
-                          className="absolute w-4 h-4 rounded-full bg-slate-800"
-                          style={{
-                            left: `${dx}%`,
-                            top: `${dy}%`,
-                            transform: 'translate(-50%, -50%)',
-                            boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.6), 0 1px 0 rgba(255,255,255,0.8)',
-                          }}
-                        />
-                      ));
-                    })()}
-                  </div>
-                  {!diceAnimating && lastRoll && (
-                    <div className="text-white/70 text-sm font-bold mt-2 bg-black/20 px-4 py-1.5 rounded-full">
-                      Rolled: <span className="text-amber-400 font-black text-lg">
-                        {lastRoll}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
-
+              {/* Special Event */}
               {specialEvent && (
-                <div className={`text-center py-3 px-4 rounded-2xl font-black
-                  text-sm animate-bounce shadow-lg ${
+                <div className={`text-center py-1.5 px-3 rounded-xl font-black
+                  text-xs animate-bounce shadow-sm my-1 ${
                   specialEvent.includes('ladder')
                     ? 'bg-gradient-to-r from-emerald-500 to-green-400 text-white border border-emerald-400'
                     : specialEvent.includes('snake')
@@ -820,75 +819,94 @@ export default function RaceGame({
                 </div>
               )}
 
-              {/* Players list */}
-              <div className="space-y-2">
-                {players.map((p, idx) => {
-                  const progressPct = (p.position / TRACK_LENGTH) * 100;
-                  const isCurrentTurn = String(currentSession.current_turn_user_id) === String(p.user_id) && currentSession.status === 'playing';
-                  
-                  return (
-                    <div key={p.id}
-                      className={`flex items-center gap-3 rounded-xl px-3 py-2 transition-colors ${
-                        isCurrentTurn ? 'bg-white/10 border border-white/20 shadow-lg' : 'bg-white/5'
-                      }`}>
-                      <div
-                        className="w-4 h-4 rounded-full shrink-0 shadow-sm border border-white/50"
-                        style={{ background: p.color }}
-                      />
-                      <img
-                        src={p.avatar_url || FALLBACK_AVATAR}
-                        alt={p.name}
-                        className="w-8 h-8 rounded-full object-cover shrink-0 border-2 border-white/10"
-                        onError={e => e.currentTarget.src = FALLBACK_AVATAR}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-white text-sm font-bold truncate">
-                            {p.name}
-                            {String(p.user_id) === String(user?.id) && (
-                              <span className="text-amber-300 ml-1 text-xs">
-                                (You)
-                              </span>
-                            )}
-                          </span>
-                          <span className="text-white/60 text-xs font-bold bg-black/20 px-2 py-0.5 rounded-full">
-                            {p.position}/{TRACK_LENGTH}
-                          </span>
+              {/* Players & Dice */}
+              {currentSession.status === 'playing' ? (
+                <div className="flex items-stretch justify-between gap-2 my-1">
+                  {/* Left Players */}
+                  <div className="flex-1 flex flex-col gap-1.5 justify-center">
+                    {players.filter((_, i) => i % 2 === 0).map(renderPlayer)}
+                  </div>
+
+                  {/* Dice */}
+                  <div className="shrink-0 flex flex-col items-center justify-center w-20">
+                    {(lastRoll || diceAnimating) ? (
+                      <div className="flex flex-col items-center gap-1">
+                        <div
+                          className={`relative w-14 h-14 rounded-2xl flex items-center
+                            justify-center shadow-xl border-b-4 border-r-4 border-white/20
+                            ${diceAnimating ? 'animate-spin' : 'animate-bounce'}`}
+                          style={{
+                            background: 'linear-gradient(135deg, #ffffff, #e2e8f0)',
+                            boxShadow: diceAnimating
+                              ? '0 0 20px rgba(251,191,36,0.8)'
+                              : '0 5px 15px rgba(0,0,0,0.5), inset 0 2px 0 rgba(255,255,255,1)',
+                            animationDuration: diceAnimating ? '0.3s' : '1s',
+                          }}
+                        >
+                          {/* Dice dots */}
+                          {(() => {
+                            const num = diceAnimating
+                              ? (diceDisplay ?? 1) + 1
+                              : lastRoll > 6 ? 6 : lastRoll;
+                            const dotPositions = {
+                              1: [[50, 50]],
+                              2: [[25, 25], [75, 75]],
+                              3: [[25, 25], [50, 50], [75, 75]],
+                              4: [[25, 25], [75, 25], [25, 75], [75, 75]],
+                              5: [[25, 25], [75, 25], [50, 50], [25, 75], [75, 75]],
+                              6: [[25, 20], [75, 20], [25, 50], [75, 50], [25, 80], [75, 80]],
+                            };
+                            const dots = dotPositions[Math.min(num, 6)] || dotPositions[1];
+                            return dots.map(([dx, dy], di) => (
+                              <div
+                                key={di}
+                                className="absolute w-2.5 h-2.5 rounded-full bg-slate-800"
+                                style={{
+                                  left: `${dx}%`,
+                                  top: `${dy}%`,
+                                  transform: 'translate(-50%, -50%)',
+                                  boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.6), 0 1px 0 rgba(255,255,255,0.8)',
+                                }}
+                              />
+                            ));
+                          })()}
                         </div>
-                        <div className="h-2 bg-black/30 rounded-full overflow-hidden shadow-inner">
-                          <div
-                            className="h-full rounded-full transition-all duration-500 relative"
-                            style={{
-                              width: `${progressPct}%`,
-                              background: p.color,
-                              boxShadow: 'inset 0 2px 4px rgba(255,255,255,0.3)'
-                            }}
-                          >
-                            <div className="absolute inset-0 bg-gradient-to-r from-transparent to-white/20"></div>
+                        {!diceAnimating && lastRoll && (
+                          <div className="text-white/70 text-[10px] font-bold bg-black/20 px-2 py-0.5 rounded-full whitespace-nowrap">
+                            Rolled: <span className="text-amber-400 font-black text-xs">{lastRoll}</span>
                           </div>
-                        </div>
+                        )}
                       </div>
-                      {isCurrentTurn && (
-                        <span className="text-2xl animate-bounce shrink-0 drop-shadow-lg">
-                          🎲
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+                    ) : (
+                      <div className="w-14 h-14 rounded-2xl border-2 border-dashed border-white/10 flex items-center justify-center opacity-30">
+                        <span className="text-2xl">🎲</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right Players */}
+                  <div className="flex-1 flex flex-col gap-1.5 justify-center">
+                    {players.filter((_, i) => i % 2 !== 0).map(renderPlayer)}
+                  </div>
+                </div>
+              ) : (
+                /* Waiting state: just show players in a grid */
+                <div className="grid grid-cols-2 gap-2 my-1">
+                  {players.map(renderPlayer)}
+                </div>
+              )}
 
               {/* Actions */}
-              <div className="flex flex-wrap gap-2 mt-2">
+              <div className="flex flex-wrap gap-2 mt-1">
                 {/* Join */}
                 {!isJoined && !isFull &&
                   currentSession.status === 'waiting' && (
                   <button
                     onClick={joinSession}
                     disabled={joining || userCoins < currentSession.entry_cost}
-                    className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-400
-                      text-white font-black text-sm disabled:opacity-50 shadow-lg
-                      hover:shadow-xl transition active:scale-95 border border-amber-400"
+                    className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-400
+                      text-white font-black text-xs disabled:opacity-50 shadow-md
+                      hover:shadow-lg transition active:scale-95 border border-amber-400"
                   >
                     {joining
                       ? <Loader2 className="w-4 h-4 animate-spin mx-auto" />
@@ -902,8 +920,8 @@ export default function RaceGame({
                   <button
                     onClick={leaveSession}
                     disabled={leaving}
-                    className="flex-1 py-3 rounded-2xl border border-white/20
-                      text-white/70 font-bold text-sm bg-white/5
+                    className="flex-1 py-2.5 rounded-xl border border-white/20
+                      text-white/70 font-bold text-xs bg-white/5
                       hover:bg-white/10 transition active:scale-95"
                   >
                     {leaving
@@ -919,13 +937,13 @@ export default function RaceGame({
                   <button
                     onClick={rollDice}
                     disabled={rolling}
-                    className="flex-1 py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-400
-                      text-white font-black text-lg disabled:opacity-50 shadow-[0_0_20px_rgba(16,185,129,0.4)]
-                      hover:shadow-[0_0_30px_rgba(16,185,129,0.6)] transition active:scale-95
+                    className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400
+                      text-white font-black text-sm disabled:opacity-50 shadow-[0_0_15px_rgba(16,185,129,0.4)]
+                      hover:shadow-[0_0_20px_rgba(16,185,129,0.6)] transition active:scale-95
                       animate-pulse border border-emerald-400"
                   >
                     {rolling
-                      ? <Loader2 className="w-6 h-6 animate-spin mx-auto" />
+                      ? <Loader2 className="w-5 h-5 animate-spin mx-auto" />
                       : '🎲 ROLL DICE!'
                     }
                   </button>
@@ -936,9 +954,9 @@ export default function RaceGame({
                   <button
                     onClick={startGame}
                     disabled={players.length < 2}
-                    className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-500
-                      text-white font-black text-sm disabled:opacity-50 shadow-lg
-                      hover:shadow-xl transition active:scale-95 border border-blue-400"
+                    className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500
+                      text-white font-black text-xs disabled:opacity-50 shadow-md
+                      hover:shadow-lg transition active:scale-95 border border-blue-400"
                   >
                     🚀 Start Race
                   </button>
@@ -950,8 +968,8 @@ export default function RaceGame({
                 ) && (
                   <button
                     onClick={cancelSession}
-                    className="px-4 py-3 rounded-2xl border
-                      border-rose-500/40 text-rose-400 font-bold text-sm bg-rose-500/5
+                    className="px-3 py-2.5 rounded-xl border
+                      border-rose-500/40 text-rose-400 font-bold text-xs bg-rose-500/5
                       hover:bg-rose-500/10 transition active:scale-95"
                   >
                     Cancel
@@ -961,8 +979,8 @@ export default function RaceGame({
                 {/* Waiting message */}
                 {isJoined && currentSession.status === 'playing' &&
                   !isMyTurn && (
-                  <div className="flex-1 py-3 rounded-2xl bg-white/5 border border-white/10
-                    text-white/50 font-bold text-sm text-center shadow-inner">
+                  <div className="flex-1 py-2.5 rounded-xl bg-white/5 border border-white/10
+                    text-white/50 font-bold text-xs text-center shadow-inner">
                     ⏳ Waiting for your turn...
                   </div>
                 )}
@@ -971,22 +989,22 @@ export default function RaceGame({
           ) : (
             /* Create */
             canModerate ? (
-              <div className="flex flex-col gap-6 py-4">
+              <div className="flex flex-col gap-4 py-2">
                 <div className="text-center text-white/50 text-sm">
                   No active race game. Create one!
                 </div>
 
                 <div>
-                  <div className="text-white/70 text-sm font-bold mb-3 uppercase tracking-wider">
+                  <div className="text-white/70 text-xs font-bold mb-2 uppercase tracking-wider">
                     👥 Number of Players
                   </div>
-                  <div className="grid grid-cols-4 gap-3">
+                  <div className="grid grid-cols-4 gap-2">
                     {MAX_PLAYERS_OPTIONS.map(n => (
                       <button
                         key={n}
                         onClick={() => setMaxPlayers(n)}
-                        className={`py-3.5 rounded-xl font-black text-lg
-                          transition-all active:scale-95 shadow-md ${
+                        className={`py-2.5 rounded-xl font-black text-sm
+                          transition-all active:scale-95 shadow-sm ${
                           maxPlayers === n
                             ? 'bg-gradient-to-b from-amber-400 to-amber-600 text-white border border-amber-400'
                             : 'bg-white/5 text-white/70 hover:bg-white/10 border border-white/10'
@@ -999,59 +1017,56 @@ export default function RaceGame({
                 </div>
 
                 <div>
-                  <div className="text-white/70 text-sm font-bold mb-3 uppercase tracking-wider">
+                  <div className="text-white/70 text-xs font-bold mb-2 uppercase tracking-wider">
                     🪙 Entry Cost
                   </div>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-3 gap-2">
                     {ENTRY_COST_OPTIONS.map(c => (
                       <button
                         key={c}
                         onClick={() => setEntryCost(c)}
-                        className={`py-3 rounded-xl font-bold text-sm
-                          transition-all active:scale-95 shadow-md ${
+                        className={`py-2.5 rounded-xl font-bold text-xs
+                          transition-all active:scale-95 shadow-sm ${
                           entryCost === c
                             ? 'bg-gradient-to-b from-amber-400 to-amber-600 text-white border border-amber-400'
                             : 'bg-white/5 text-white/70 hover:bg-white/10 border border-white/10'
                         }`}
                       >
-                        {c.toLocaleString()}
+                        {c >= 1000 ? (c/1000)+'k' : c}
                       </button>
                     ))}
                   </div>
                 </div>
 
-                <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-2xl p-5 text-center shadow-inner">
-                  <div className="text-amber-200/70 text-xs font-bold uppercase tracking-wider mb-2">
+                <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-xl p-3 text-center shadow-inner">
+                  <div className="text-amber-200/70 text-[10px] font-bold uppercase tracking-wider mb-1">
                     Winner gets (after 10% fee)
                   </div>
-                  <div className="text-amber-400 font-black text-4xl drop-shadow-md">
+                  <div className="text-amber-400 font-black text-2xl drop-shadow-md">
                     🪙 {Math.floor(entryCost * maxPlayers * 0.9).toLocaleString()}
-                  </div>
-                  <div className="text-amber-200/50 text-xs mt-2 font-medium">
-                    {entryCost.toLocaleString()} × {maxPlayers} players
                   </div>
                 </div>
 
                 <button
                   onClick={createSession}
                   disabled={creating}
-                  className="w-full py-4 rounded-2xl bg-gradient-to-r
-                    from-blue-500 to-indigo-500 text-white font-black text-lg
-                    shadow-[0_0_20px_rgba(59,130,246,0.4)]
-                    hover:shadow-[0_0_30px_rgba(59,130,246,0.6)]
+                  className="w-full py-3 rounded-xl bg-gradient-to-r
+                    from-blue-500 to-indigo-500 text-white font-black text-sm
+                    shadow-[0_0_15px_rgba(59,130,246,0.4)]
+                    hover:shadow-[0_0_20px_rgba(59,130,246,0.6)]
                     transition active:scale-95 disabled:opacity-50 border border-blue-400"
                 >
                   {creating
-                    ? <Loader2 className="w-5 h-5 animate-spin mx-auto" />
+                    ? <Loader2 className="w-4 h-4 animate-spin mx-auto" />
                     : '🎲 Create Race Game'
                   }
                 </button>
               </div>
             ) : (
-              <div className="text-center text-white/40 py-16">
-                <div className="text-6xl mb-4 opacity-50">🎲</div>
-                <div className="text-lg font-bold text-white/60">No active race game</div>
-                <div className="text-sm mt-2">
+              <div className="text-center text-white/40 py-12">
+                <div className="text-5xl mb-3 opacity-50">🎲</div>
+                <div className="text-base font-bold text-white/60">No active race game</div>
+                <div className="text-xs mt-2">
                   Wait for the host to start one
                 </div>
               </div>
