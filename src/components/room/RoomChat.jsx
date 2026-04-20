@@ -397,6 +397,37 @@ export default function RoomChat({
             ) : (
               <div className="space-y-2">
                 {visibleMessages.map((m) => {
+                  if (m.type === "spin_result") {
+                    return (
+                      <div
+                        key={m.id}
+                        className="flex items-center gap-2 px-3 py-2 bg-amber-500/15 border border-amber-500/20 rounded-xl mx-2 my-1"
+                      >
+                        <span className="text-xl shrink-0">🎡</span>
+                        <img
+                          src={m.winner_avatar || FALLBACK_AVATAR}
+                          alt={m.winner_name}
+                          onError={e => e.currentTarget.src = FALLBACK_AVATAR}
+                          className="w-7 h-7 rounded-full object-cover border-2 border-amber-400/60 shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <span className="text-amber-300 font-black text-xs">
+                            {m.winner_name}
+                          </span>
+                          <span className="text-white/60 text-xs mx-1">
+                            won the Spin Game!
+                          </span>
+                          <span className="text-emerald-300 font-black text-xs">
+                            🪙 {(m.winner_coins || 0).toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="text-white/30 text-[10px] shrink-0">
+                          {m.total_players} players
+                        </div>
+                      </div>
+                    );
+                  }
+
                   if (m.type === "gift_notification") {
                     // Prefer receiver_name/is_to_all baked into the message;
                     // fall back to participantsMap for older messages

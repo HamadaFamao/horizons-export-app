@@ -33,28 +33,6 @@ import {
   Trash2,
   Mic,
   X,
-  Minimize2,
-  MicOff,
-  Lock,
-  Unlock,
-  Copy,
-  Users,
-  CheckCircle2,
-  XCircle,
-  BadgeCheck,
-  Crown,
-  AtSign,
-  Heart,
-  Gift,
-  User as UserIcon,
-  Settings,
-  Image as ImageIcon,
-  ShieldBan,
-  RefreshCw,
-  Shield,
-  Bell,
-  LogOut,
-  Share2,
   Power
 } from "lucide-react";
 
@@ -7514,6 +7492,28 @@ useEffect(() => {
         }
       });
 
+      ch.on("broadcast", { event: "spin_result" }, ({ payload }) => {
+        if (!payload) return;
+        if (String(payload.room_id) !== String(roomId)) return;
+
+        const resultMsg = {
+          id: payload.id || `spin_result_${payload.ts}`,
+          type: 'spin_result',
+          winner_name: payload.winner_name,
+          winner_avatar: payload.winner_avatar,
+          winner_id: payload.winner_id,
+          winner_coins: payload.winner_coins,
+          total_players: payload.total_players,
+          entry_cost: payload.entry_cost,
+          created_at: new Date(payload.ts || Date.now()).toISOString(),
+        };
+
+        setRoomGiftMessages(prev => {
+          if (prev.some(m => m.id === resultMsg.id)) return prev;
+          return [...prev, resultMsg];
+        });
+      });
+
       ch.on(
         'postgres_changes',
         {
@@ -10276,6 +10276,75 @@ useEffect(() => {
         canModerate={canModerate}
         activeParticipants={activeParticipants}
         userCoins={userWalletCoins}
+        onSpinResult={async ({ winnerName, winnerAvatar,
+          winnerId, winnerCoins,
+          totalPlayers, entryCost }) => {
+          const resultMsg = {
+            id: `spin_result_${Date.now()}`,
+            type: 'spin_result',
+            winner_name: winnerName,
+            winner_avatar: winnerAvatar,
+            winner_id: winnerId,
+            winner_coins: winnerCoins,
+            total_players: totalPlayers,
+            entry_cost: entryCost,
+            created_at: new Date().toISOString(),
+          };
+
+          if (channelRef.current) {
+            await channelRef.current.send({
+              type: 'broadcast',
+              event: 'spin_result',
+              payload: {
+                room_id: roomId,
+                ...resultMsg,
+                ts: Date.now(),
+              },
+            });
+          }
+
+          setRoomGiftMessages(prev => [...prev, resultMsg]);
+
+          const BIG_WIN_THRESHOLD = 5000;
+          if (winnerCoins >= BIG_WIN_THRESHOLD) {
+            if (largeGiftBannerTimerRef.current) {
+              clearTimeout(largeGiftBannerTimerRef.current);
+            }
+            setLargeGiftBanner({
+              senderName: winnerName,
+              senderAvatar: winnerAvatar,
+              receiverName: `${winnerCoins.toLocaleString()} coins`,
+              receiverAvatar: null,
+              giftName: '🎡 Spin Winner',
+              giftIcon: null,
+              isToAll: false,
+              roomId: roomId,
+              isGlobal: winnerCoins >= 50000,
+            });
+            largeGiftBannerTimerRef.current = setTimeout(() => {
+              setLargeGiftBanner(null);
+            }, 10000);
+
+            const globalCh = supabase.channel('global_large_gifts');
+            globalCh.send({
+              type: 'broadcast',
+              event: 'large_gift_banner',
+              payload: {
+                room_id: roomId,
+                sender_name: winnerName,
+                sender_avatar: winnerAvatar,
+                receiver_name: `🪙 ${winnerCoins.toLocaleString()}`,
+                receiver_avatar: null,
+                gift_name: '🎡 Spin Winner',
+                gift_icon: null,
+                animation_url: null,
+                is_to_all: false,
+                is_global: winnerCoins >= 50000,
+                ts: Date.now(),
+              },
+            });
+          }
+        }}
         onCoinsUpdated={() => {
           if (user?.id) {
             fetchUserWallet(user.id)
