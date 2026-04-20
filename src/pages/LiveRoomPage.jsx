@@ -7505,7 +7505,7 @@ useEffect(() => {
           winner_coins: payload.winner_coins,
           total_players: payload.total_players,
           entry_cost: payload.entry_cost,
-          created_at: new Date(payload.ts || Date.now()).toISOString(),
+          created_at: new Date((payload.ts || Date.now()) + 1000).toISOString(),
         };
 
         setRoomGiftMessages(prev => {
@@ -10279,8 +10279,9 @@ useEffect(() => {
         onSpinResult={async ({ winnerName, winnerAvatar,
           winnerId, winnerCoins,
           totalPlayers, entryCost }) => {
+          const now = Date.now();
           const resultMsg = {
-            id: `spin_result_${Date.now()}`,
+            id: `spin_result_${now}`,
             type: 'spin_result',
             winner_name: winnerName,
             winner_avatar: winnerAvatar,
@@ -10288,7 +10289,7 @@ useEffect(() => {
             winner_coins: winnerCoins,
             total_players: totalPlayers,
             entry_cost: entryCost,
-            created_at: new Date().toISOString(),
+            created_at: new Date(now + 1000).toISOString(),
           };
 
           if (channelRef.current) {
