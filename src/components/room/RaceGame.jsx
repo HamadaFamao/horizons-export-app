@@ -59,7 +59,11 @@ export default function RaceGame({
   const [diceAnimating, setDiceAnimating] = useState(false);
   const [diceDisplay, setDiceDisplay] = useState(null);
   const [specialEvent, setSpecialEvent] = useState(null);
+  const [playersLastRoll, setPlayersLastRoll] = useState({});
+  const [animatingPlayer, setAnimatingPlayer] = useState(null);
   const canvasRef = useRef(null);
+  const avatarImagesRef = useRef({});
+  const animationRef = useRef(null);
 
   useEffect(() => {
     if (!open || !roomId) return;
@@ -125,7 +129,22 @@ export default function RaceGame({
   useEffect(() => {
     if (!canvasRef.current || !currentSession) return;
     drawTrack();
-  }, [players, currentSession]);
+  }, [players, currentSession, animatingPlayer]);
+
+  useEffect(() => {
+    players.forEach(p => {
+      if (p.avatar_url && !avatarImagesRef.current[p.user_id]) {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          avatarImagesRef.current[p.user_id] = img;
+          drawTrack();
+        };
+        img.src = p.avatar_url;
+        avatarImagesRef.current[p.user_id] = img;
+      }
+    });
+  }, [players]);
 
   const loadSession = async () => {
     setLoading(true);
@@ -158,6 +177,7 @@ export default function RaceGame({
 
     if (!playersData?.length) {
       setPlayers([]);
+      setPlayersLastRoll({});
       return [];
     }
 
@@ -177,6 +197,11 @@ export default function RaceGame({
     }));
 
     setPlayers(merged);
+    const rollsMap = {};
+    merged.forEach(p => {
+      if (p.last_roll) rollsMap[p.user_id] = p.last_roll;
+    });
+    setPlayersLastRoll(rollsMap);
     return merged;
   };
 
@@ -399,8 +424,7 @@ export default function RaceGame({
       const pidx = playersOnSameCell.findIndex(
         op => op.user_id === p.user_id
       );
-      
-      // Arrange players in a circle if multiple
+
       let offsetX = 0;
       let offsetY = 0;
       if (playersOnSameCell.length > 1) {
@@ -410,42 +434,54 @@ export default function RaceGame({
         offsetY = Math.sin(angle) * radius;
       }
 
+      const cx = center.x + offsetX;
+      const cy = center.y + offsetY;
+      const r = cellW * 0.22;
+
       ctx.save();
-      // Shadow
       ctx.shadowColor = 'rgba(0,0,0,0.6)';
       ctx.shadowBlur = 4;
       ctx.shadowOffsetY = 2;
 
+      // Color ring
       ctx.beginPath();
-      ctx.arc(
-        center.x + offsetX,
-        center.y + offsetY,
-        cellW * 0.22,
-        0, Math.PI * 2
-      );
+      ctx.arc(cx, cy, r + 2, 0, Math.PI * 2);
       ctx.fillStyle = p.color || '#ffffff';
       ctx.fill();
-      
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = '#ffffff';
-      ctx.stroke();
 
       ctx.shadowBlur = 0;
       ctx.shadowOffsetY = 0;
 
-      // Initial
-      ctx.shadowColor = 'rgba(0,0,0,0.8)';
-      ctx.shadowBlur = 2;
-      ctx.fillStyle = '#ffffff';
-      ctx.font = `bold ${cellW * 0.25}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(
-        (p.name || 'U')[0].toUpperCase(),
-        center.x + offsetX,
-        center.y + offsetY + 1
-      );
-      
+      // Clip circle for avatar
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.clip();
+
+      if (p.avatar_url) {
+        // Use cached image
+        const img = avatarImagesRef.current[p.user_id];
+        if (img?.complete && img?.naturalWidth > 0) {
+          ctx.drawImage(img, cx - r, cy - r, r * 2, r * 2);
+        } else {
+          // Fallback: draw color circle with initial
+          ctx.fillStyle = p.color || '#334155';
+          ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+          ctx.fillStyle = '#ffffff';
+          ctx.font = `bold ${r * 0.9}px sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText((p.name || 'U')[0].toUpperCase(), cx, cy + 1);
+        }
+      } else {
+        ctx.fillStyle = p.color || '#334155';
+        ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `bold ${r * 0.9}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText((p.name || 'U')[0].toUpperCase(), cx, cy + 1);
+      }
+
       ctx.restore();
     });
   };
@@ -539,6 +575,41 @@ export default function RaceGame({
     if (error) alert(error.message);
   };
 
+  const animateSteps = (playerId, fromPos, toPos, finalPos, callback) => {
+    if (animationRef.current) clearTimeout(animationRef.current);
+
+    setAnimatingPlayer(playerId);
+    let currentPos = fromPos;
+    const step = () => {
+      if (currentPos >= toPos) {
+        // Jump to final position (snake/ladder)
+        if (finalPos !== toPos) {
+          setTimeout(() => {
+            setPlayers(prev => prev.map(p =>
+              String(p.user_id) === String(playerId)
+                ? { ...p, position: finalPos }
+                : p
+            ));
+            setAnimatingPlayer(null);
+            setTimeout(callback, 400);
+          }, 400);
+        } else {
+          setAnimatingPlayer(null);
+          callback?.();
+        }
+        return;
+      }
+      currentPos += 1;
+      setPlayers(prev => prev.map(p =>
+        String(p.user_id) === String(playerId)
+          ? { ...p, position: currentPos }
+          : p
+      ));
+      animationRef.current = setTimeout(step, 250);
+    };
+    step();
+  };
+
   const rollDice = async () => {
     if (!currentSession?.id || !user?.id) return;
     if (String(currentSession.current_turn_user_id) !== String(user.id)) {
@@ -569,22 +640,33 @@ export default function RaceGame({
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Failed to roll');
 
-      setLastRoll(data.roll);
-      if (data.special_event) {
-        setSpecialEvent(data.special_event);
-        setTimeout(() => setSpecialEvent(null), 2500);
-      }
-      setDiceDisplay(null);
-      onCoinsUpdated?.();
-      await loadPlayers(currentSession.id);
+      const roll = data.roll;
+      const newPos = data.new_position;
+      const finalPos = data.final_position;
+      const myPlayer = players.find(
+        p => String(p.user_id) === String(user.id)
+      );
+      const fromPos = myPlayer?.position || 0;
 
-      // Refresh session for next turn
-      const { data: sessionData } = await supabase
-        .from('room_race_sessions')
-        .select('*')
-        .eq('id', currentSession.id)
-        .single();
-      if (sessionData) setCurrentSession(sessionData);
+      setLastRoll(roll);
+      setDiceDisplay(null);
+
+      // Animate step by step
+      animateSteps(user.id, fromPos, newPos, finalPos, async () => {
+        if (data.special_event) {
+          setSpecialEvent(data.special_event);
+          setTimeout(() => setSpecialEvent(null), 2500);
+        }
+        onCoinsUpdated?.();
+        await loadPlayers(currentSession.id);
+
+        const { data: sessionData } = await supabase
+          .from('room_race_sessions')
+          .select('*')
+          .eq('id', currentSession.id)
+          .single();
+        if (sessionData) setCurrentSession(sessionData);
+      });
 
     } catch (err) {
       alert(err.message || 'Failed to roll');
@@ -623,6 +705,7 @@ export default function RaceGame({
   const renderPlayer = (p) => {
     const progressPct = (p.position / TRACK_LENGTH) * 100;
     const isCurrentTurn = String(currentSession?.current_turn_user_id) === String(p.user_id) && currentSession?.status === 'playing';
+    const playerLastRoll = playersLastRoll[p.user_id];
     
     return (
       <div key={p.id}
@@ -665,6 +748,11 @@ export default function RaceGame({
         {isCurrentTurn && (
           <span className="text-sm animate-bounce shrink-0 drop-shadow-md z-10">
             🎲
+          </span>
+        )}
+        {playerLastRoll && currentSession?.status === 'playing' && (
+          <span className="text-[9px] text-white/50 font-bold shrink-0">
+            🎲{playerLastRoll}
           </span>
         )}
       </div>
