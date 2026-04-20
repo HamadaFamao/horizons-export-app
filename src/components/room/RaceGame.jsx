@@ -58,6 +58,7 @@ export default function RaceGame({
   const [showResult, setShowResult] = useState(false);
   const [diceAnimating, setDiceAnimating] = useState(false);
   const [diceDisplay, setDiceDisplay] = useState(null);
+  const [specialEvent, setSpecialEvent] = useState(null);
   const canvasRef = useRef(null);
 
   useEffect(() => {
@@ -456,6 +457,10 @@ export default function RaceGame({
       if (!data?.success) throw new Error(data?.error || 'Failed to roll');
 
       setLastRoll(data.roll);
+      if (data.special_event) {
+        setSpecialEvent(data.special_event);
+        setTimeout(() => setSpecialEvent(null), 2500);
+      }
       setDiceDisplay(null);
       onCoinsUpdated?.();
       await loadPlayers(currentSession.id);
@@ -676,6 +681,23 @@ export default function RaceGame({
                       </span> steps
                     </div>
                   )}
+                </div>
+              )}
+
+              {specialEvent && (
+                <div className={`text-center py-2 px-4 rounded-2xl font-black
+                  text-sm animate-bounce ${
+                  specialEvent.includes('ladder')
+                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                    : specialEvent.includes('snake')
+                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                      : 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                }`}>
+                  {specialEvent.includes('ladder') && '🪜 Ladder! Jump forward!'}
+                  {specialEvent.includes('snake') && '🐍 Snake! Slide back!'}
+                  {specialEvent.includes('bump') && !specialEvent.includes('ladder')
+                    && !specialEvent.includes('snake')
+                    && '💥 Bumped a player back to start!'}
                 </div>
               )}
 
