@@ -24,6 +24,7 @@ export default function SpinGame({
   activeParticipants,
   userCoins,
   onCoinsUpdated,
+  onSpinResult,
 }) {
   const [sessions, setSessions] = useState([]);
   const [currentSession, setCurrentSession] = useState(null);
@@ -382,6 +383,15 @@ export default function SpinGame({
           setShowResult(true);
           setSpinning(false);
           onCoinsUpdated?.();
+
+          onSpinResult?.({
+            winnerName: actualWinner?.name || 'User',
+            winnerAvatar: actualWinner?.avatar_url || null,
+            winnerId: actualWinner?.user_id,
+            winnerCoins: data?.winner_coins || 0,
+            totalPlayers: players.length,
+            entryCost: currentSession?.entry_cost || 0,
+          });
 
           setTimeout(() => {
             setCurrentSession(null);
