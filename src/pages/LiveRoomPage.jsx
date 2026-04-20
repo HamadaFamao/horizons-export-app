@@ -7502,7 +7502,7 @@ useEffect(() => {
         if (String(payload.room_id) !== String(roomId)) return;
 
         const resultMsg = {
-          id: payload.id || `spin_result_${payload.ts}`,
+          id: payload.id || `result_${payload.winner_id}_${payload.room_id}`,
           type: 'spin_result',
           winner_name: payload.winner_name,
           winner_avatar: payload.winner_avatar,
@@ -10396,7 +10396,7 @@ useEffect(() => {
                           totalPlayers }) => {
           const now = Date.now();
           const resultMsg = {
-            id: `race_result_${now}`,
+            id: `result_${winnerId}_${roomId}`,
             type: 'spin_result',
             winner_name: winnerName,
             winner_avatar: winnerAvatar,

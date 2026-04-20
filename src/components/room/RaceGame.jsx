@@ -139,17 +139,20 @@ export default function RaceGame({
               setWinner(w);
               setWinnerCoins(s.winner_coins || 0);
               setShowResult(true);
-              onRaceResult?.({
-                winnerName: w.name,
-                winnerAvatar: w.avatar_url,
-                winnerId: w.user_id,
-                winnerCoins: s.winner_coins || 0,
-                totalPlayers: ps.length,
-              });
+
+              // Only winner broadcasts the result to chat
+              if (String(s.winner_id) === String(user?.id)) {
+                onRaceResult?.({
+                  winnerName: w.name,
+                  winnerAvatar: w.avatar_url,
+                  winnerId: w.user_id,
+                  winnerCoins: s.winner_coins || 0,
+                  totalPlayers: ps.length,
+                });
+              }
+
               setTimeout(() => {
                 resultFiredRef.current = false;
-              }, 6000);
-              setTimeout(() => {
                 setCurrentSession(null);
                 setPlayers([]);
                 setShowResult(false);
