@@ -5656,7 +5656,10 @@ useEffect(() => {
   const combinedMessages = [...messages, ...roomGiftMessages]
     .sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
 
-  const visibleMessages = combinedMessages.filter(m => new Date(m.created_at).getTime() >= joinTime);
+  const visibleMessages = combinedMessages.filter(m => 
+  m.type === 'spin_result' || 
+  new Date(m.created_at).getTime() >= joinTime
+);
 
   useEffect(() => {
     const scrollToBottom = () => {
