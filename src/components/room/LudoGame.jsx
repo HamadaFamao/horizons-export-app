@@ -14,31 +14,21 @@ const PLAYER_COLORS = ['#ef4444', '#3b82f6', '#f59e0b', '#22c55e'];
 const PLAYER_LIGHT_COLORS = ['#fca5a5', '#93c5fd', '#fcd34d', '#86efac'];
 const PLAYER_DARK_COLORS = ['#991b1b', '#1e40af', '#b45309', '#15803d'];
 
-// Safe squares on the main track (0-51)
-// Includes start squares (0, 13, 26, 39) and star squares (6, 19, 32, 45)
-const SAFE_SQUARES = [0, 6, 13, 19, 26, 32, 39, 45];
-
-// Each player's starting position offset on the main track
-const START_POSITIONS = [0, 13, 26, 39];
-
-// Ludo board: 15x15 grid
-// Track cells (row, col) for positions 0-51
+// Standard Ludo path: 52 cells (indices 0-51), [row, col]
 const TRACK_CELLS = [
-  // Red start to Blue start (0-12)
-  [13,8],[12,8],[11,8],[10,8],[9,8],
-  [8,9],[8,10],[8,11],[8,12],[8,13],[8,14],[7,14],[6,14],
-  // Blue start to Yellow start (13-25)
-  [6,13],[6,12],[6,11],[6,10],[6,9],
-  [5,8],[4,8],[3,8],[2,8],[1,8],[0,8],[0,7],[0,6],
-  // Yellow start to Green start (26-38)
-  [1,6],[2,6],[3,6],[4,6],[5,6],
-  [6,5],[6,4],[6,3],[6,2],[6,1],[6,0],[7,0],[8,0],
-  // Green start to Red start (39-51)
-  [8,1],[8,2],[8,3],[8,4],[8,5],
-  [9,6],[10,6],[11,6],[12,6],[13,6],[14,6],[14,7],[14,8]
+  [6,1],[6,2],[6,3],[6,4],[6,5],[5,6],[4,6],[3,6],[2,6],[1,6],[0,6],[0,7],[0,8],
+  [1,8],[2,8],[3,8],[4,8],[5,8],[6,9],[6,10],[6,11],[6,12],[6,13],[6,14],[7,14],[8,14],
+  [8,13],[8,12],[8,11],[8,10],[8,9],[9,8],[10,8],[11,8],[12,8],[13,8],[14,8],[14,7],[14,6],
+  [13,6],[12,6],[11,6],[10,6],[9,6],[8,5],[8,4],[8,3],[8,2],[8,1],[8,0],[7,0],[6,0],
 ];
 
-// Home column cells per player
+// Safe squares: starred positions on track (includes start positions 0,13,26,39)
+const SAFE_SQUARES = [0, 8, 13, 21, 26, 34, 39, 47];
+
+// Start position on track per color: Red=39, Blue=26, Yellow=13, Green=0
+const START_POSITIONS = [39, 26, 13, 0];
+
+// Home column cells per player (5 cells, positions 52-56 relative)
 const HOME_COLUMNS = [
   [[13,7],[12,7],[11,7],[10,7],[9,7]], // 0: Red (Bottom)
   [[7,13],[7,12],[7,11],[7,10],[7,9]], // 1: Blue (Right)
@@ -46,13 +36,26 @@ const HOME_COLUMNS = [
   [[7,1],[7,2],[7,3],[7,4],[7,5]],     // 3: Green (Left)
 ];
 
-// Home base positions (4 pieces in home)
+// Home base positions (4 pieces per player in home corner)
 const HOME_BASES = [
-  [[11,2],[11,3],[12,2],[12,3]],     // 0: Red (Bottom-Left)
-  [[11,11],[11,12],[12,11],[12,12]], // 1: Blue (Bottom-Right)
-  [[2,11],[2,12],[3,11],[3,12]],     // 2: Yellow (Top-Right)
-  [[2,2],[2,3],[3,2],[3,3]],         // 3: Green (Top-Left)
+  [[10,1],[10,3],[12,1],[12,3]],     // 0: Red (Bottom-Left)
+  [[10,11],[10,13],[12,11],[12,13]], // 1: Blue (Bottom-Right)
+  [[1,11],[1,13],[3,11],[3,13]],     // 2: Yellow (Top-Right)
+  [[1,1],[1,3],[3,1],[3,3]],         // 3: Green (Top-Left)
 ];
+
+// Visual seat layouts: maps seat order → color index for 2/3/4 players
+const VISUAL_SEAT_LAYOUTS = {
+  2: [0, 2],      // Red + Yellow (diagonal)
+  3: [0, 1, 2],
+  4: [0, 1, 2, 3],
+};
+
+function getVisualSeatIndex(player, playersList) {
+  const layout = VISUAL_SEAT_LAYOUTS[playersList.length] || [0, 1, 2, 3];
+  const seatIdx = (player.seat_number || 1) - 1;
+  return layout[Math.min(seatIdx, layout.length - 1)] ?? seatIdx;
+}
 
 export default function LudoGame({
   open,
@@ -294,18 +297,16 @@ export default function LudoGame({
       const x = col * cellSize;
       const y = row * cellSize;
 
-      // Safe squares colored
-      let cellColor = '#334155';
-      
-      // Color start squares
-      if (i === 0) cellColor = '#fca5a5';      // Red start
-      if (i === 13) cellColor = '#93c5fd';     // Blue start
-      if (i === 26) cellColor = '#fcd34d';     // Yellow start
-      if (i === 39) cellColor = '#86efac';     // Green start
-      
-      // Safe squares
-      if (SAFE_SQUARES.includes(i) && i !== 0 && i !== 13 && i !== 26 && i !== 39) {
-        cellColor = '#475569';
+      // White track; colored start squares
+      let cellColor = '#f8fafc';
+      const startIndices = [39, 26, 13, 0]; // Red, Blue, Yellow, Green
+      const startColors = ['#fca5a5', '#93c5fd', '#fcd34d', '#86efac'];
+      const startIdx = startIndices.indexOf(i);
+      if (startIdx !== -1) cellColor = startColors[startIdx];
+
+      // Safe (non-start) squares get a slightly darker shade
+      if (SAFE_SQUARES.includes(i) && !startIndices.includes(i)) {
+        cellColor = '#cbd5e1';
       }
 
       ctx.fillStyle = cellColor;
@@ -314,8 +315,8 @@ export default function LudoGame({
       ctx.lineWidth = 0.5;
       ctx.strokeRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
 
-      // Star on safe squares
-      if (SAFE_SQUARES.includes(i) && i !== 0 && i !== 13 && i !== 26 && i !== 39) {
+      // Star on non-start safe squares
+      if (SAFE_SQUARES.includes(i) && !startIndices.includes(i)) {
         ctx.fillStyle = 'rgba(255,255,255,0.6)';
         ctx.font = `${cellSize * 0.5}px sans-serif`;
         ctx.textAlign = 'center';
@@ -411,7 +412,7 @@ export default function LudoGame({
 
     // Draw pieces on board
     players.forEach((player, playerIdx) => {
-      const colorIdx = player.seat_number - 1;
+      const colorIdx = getVisualSeatIndex(player, players);
       const pieces = [player.piece1, player.piece2, player.piece3, player.piece4];
       
       pieces.forEach((pos, pieceIdx) => {
@@ -427,32 +428,23 @@ export default function LudoGame({
           px = baseCol * cellSize + cellSize / 2;
           py = baseRow * cellSize + cellSize / 2;
         } else {
-          if (pos < 51) {
-            // On main track (0-50)
+          if (pos <= 51) {
+            // On main track (0-51)
             const adjustedPos = (pos + START_POSITIONS[colorIdx]) % 52;
             if (!TRACK_CELLS[adjustedPos]) return;
             const [row, col] = TRACK_CELLS[adjustedPos];
             px = col * cellSize + cellSize / 2;
             py = row * cellSize + cellSize / 2;
-          } else if (pos < 56) {
-            // In home column (51-55)
-            const homeColIdx = pos - 51;
+          } else if (pos >= 52 && pos <= 56) {
+            // In home column (52-56)
+            const homeColIdx = pos - 52;
             const homeCol = HOME_COLUMNS[colorIdx];
             if (!homeCol || !homeCol[homeColIdx]) return;
             const [row, col] = homeCol[homeColIdx];
             px = col * cellSize + cellSize / 2;
             py = row * cellSize + cellSize / 2;
-          } else if (pos >= 56) {
-            // Center triangle (almost finished)
-            const centerOffsets = [
-              [8.2, 7.5], // Red (bottom)
-              [7.5, 8.2], // Blue (right)
-              [6.8, 7.5], // Yellow (top)
-              [7.5, 6.8], // Green (left)
-            ];
-            const [row, col] = centerOffsets[colorIdx];
-            px = col * cellSize;
-            py = row * cellSize;
+          } else {
+            return; // pos=57 finished, already handled above
           }
         }
 
@@ -749,7 +741,7 @@ export default function LudoGame({
   };
 
   const myPlayer = players.find(p => String(p.user_id) === String(user?.id));
-  const myColorIdx = myPlayer ? myPlayer.seat_number - 1 : 0;
+  const myColorIdx = myPlayer ? getVisualSeatIndex(myPlayer, players) : 0;
 
   if (!open) return null;
 
@@ -862,13 +854,70 @@ export default function LudoGame({
               )}
 
               {/* Board */}
-              <div className="bg-slate-800 rounded-xl p-1.5 border border-white/5">
+              <div className="relative bg-slate-800 rounded-xl p-1.5 border border-white/5">
                 <canvas
                   ref={canvasRef}
                   width={600}
                   height={600}
                   className="w-full aspect-square rounded-lg"
                 />
+                {/* Player card overlays around board corners */}
+                {currentSession.status === 'playing' && (() => {
+                  const overlayPositions = [
+                    'bottom-2 left-2',   // 0: Red bottom-left
+                    'bottom-2 right-2',  // 1: Blue bottom-right
+                    'top-2 right-2',     // 2: Yellow top-right
+                    'top-2 left-2',      // 3: Green top-left
+                  ];
+                  return players.map((p) => {
+                    const colorIdx = getVisualSeatIndex(p, players);
+                    const isCurrentTurn = String(currentSession.current_turn_user_id) === String(p.user_id);
+                    const piecesFinished = p.pieces_finished || 0;
+                    return (
+                      <div
+                        key={p.id}
+                        className={`absolute ${overlayPositions[colorIdx]} flex flex-col items-center gap-0.5
+                          rounded-xl p-1.5 backdrop-blur-sm transition`}
+                        style={{
+                          background: isCurrentTurn
+                            ? `${PLAYER_COLORS[colorIdx]}44`
+                            : 'rgba(0,0,0,0.55)',
+                          outline: isCurrentTurn
+                            ? `2px solid ${PLAYER_COLORS[colorIdx]}`
+                            : 'none',
+                        }}
+                      >
+                        <img
+                          src={p.avatar_url || FALLBACK_AVATAR}
+                          alt={p.name}
+                          className="w-8 h-8 rounded-full object-cover"
+                          style={{ border: `2px solid ${PLAYER_COLORS[colorIdx]}` }}
+                          onError={e => e.currentTarget.src = FALLBACK_AVATAR}
+                        />
+                        <div className="text-white text-[9px] font-bold max-w-[56px] truncate text-center leading-tight">
+                          {p.name}
+                        </div>
+                        <div className="flex gap-0.5">
+                          {[0,1,2,3].map(i => (
+                            <div
+                              key={i}
+                              className="w-1.5 h-1.5 rounded-full border"
+                              style={{
+                                backgroundColor: i < piecesFinished
+                                  ? PLAYER_COLORS[colorIdx]
+                                  : 'transparent',
+                                borderColor: PLAYER_COLORS[colorIdx],
+                              }}
+                            />
+                          ))}
+                        </div>
+                        {isCurrentTurn && (
+                          <div className="text-[10px] animate-bounce">🎲</div>
+                        )}
+                      </div>
+                    );
+                  });
+                })()}
               </div>
 
               {/* Dice + Players */}
@@ -926,61 +975,7 @@ export default function LudoGame({
                     )}
                   </div>
 
-                  {/* Players */}
-                  <div className="flex-1 grid grid-cols-2 gap-1">
-                    {players.map((p) => {
-                      const colorIdx = p.seat_number - 1;
-                      const isCurrentTurn = String(currentSession.current_turn_user_id) === String(p.user_id);
-                      const piecesFinished = p.pieces_finished || 0;
-                      return (
-                        <div
-                          key={p.id}
-                          className={`flex items-center gap-1.5 rounded-xl px-2 py-1.5
-                            border transition ${
-                            isCurrentTurn
-                              ? 'border-white/20 bg-white/10'
-                              : 'border-transparent bg-white/5'
-                          }`}
-                        >
-                          <div
-                            className="w-2.5 h-2.5 rounded-full shrink-0"
-                            style={{ backgroundColor: PLAYER_COLORS[colorIdx] }}
-                          />
-                          <img
-                            src={p.avatar_url || FALLBACK_AVATAR}
-                            alt={p.name}
-                            className="w-6 h-6 rounded-full object-cover shrink-0"
-                            onError={e => e.currentTarget.src = FALLBACK_AVATAR}
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="text-white text-[10px] font-bold truncate">
-                              {p.name}
-                              {String(p.user_id) === String(user?.id) && (
-                                <span className="text-amber-300 ml-1 text-[8px]">(You)</span>
-                              )}
-                            </div>
-                            <div className="flex gap-0.5 mt-0.5">
-                              {[0,1,2,3].map(i => (
-                                <div
-                                  key={i}
-                                  className="w-2 h-2 rounded-full border"
-                                  style={{
-                                    backgroundColor: i < piecesFinished
-                                      ? PLAYER_COLORS[colorIdx]
-                                      : 'transparent',
-                                    borderColor: PLAYER_COLORS[colorIdx],
-                                  }}
-                                />
-                              ))}
-                            </div>
-                          </div>
-                          {isCurrentTurn && (
-                            <span className="text-xs animate-bounce shrink-0">🎲</span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
+                  {/* Players hidden during playing — shown as overlays on board */}
                 </div>
               )}
 
@@ -1014,7 +1009,7 @@ export default function LudoGame({
               {currentSession.status === 'waiting' && (
                 <div className="grid grid-cols-2 gap-1.5">
                   {players.map(p => {
-                    const colorIdx = p.seat_number - 1;
+                    const colorIdx = getVisualSeatIndex(p, players);
                     return (
                       <div key={p.id}
                         className="flex items-center gap-2 bg-white/5
