@@ -4,7 +4,7 @@ import { X } from 'lucide-react';
 const GAMES = [
   {
     id: 'spin',
-    emoji: '🎡',
+    emoji: '🎡✨',
     name: 'Spin Wheel',
     description: 'Winner takes all! Join the spin and test your luck.',
     color: 'from-amber-500 to-yellow-400',
@@ -12,15 +12,15 @@ const GAMES = [
   },
   {
     id: 'race',
-    emoji: '🎲',
-    name: 'Race Game',
+    emoji: '🐍🪜✨',
+    name: 'Snakes and Ladders',
     description: 'Roll dice and race to the finish line!',
     color: 'from-blue-500 to-cyan-400',
     available: true,
   },
   {
     id: 'rps',
-    emoji: '✂️',
+    emoji: '✂️✨',
     name: 'Rock Paper Scissors',
     description: '1v1 challenge between two players.',
     color: 'from-purple-500 to-pink-400',
@@ -28,7 +28,7 @@ const GAMES = [
   },
   {
     id: 'slots',
-    emoji: '🎰',
+    emoji: '🎰✨',
     name: 'Slot Machine',
     description: 'Spin the slots and win big!',
     color: 'from-rose-500 to-orange-400',
@@ -36,7 +36,7 @@ const GAMES = [
   },
   {
     id: 'trivia',
-    emoji: '❓',
+    emoji: '🧠✨',
     name: 'Trivia',
     description: 'Answer questions faster than others.',
     color: 'from-emerald-500 to-teal-400',
@@ -67,7 +67,7 @@ export default function GamesLobby({ open, onClose, onSelectGame, activeSpinSess
             <span className="text-2xl">🎮</span>
             <span className="font-bold text-white text-lg">Games</span>
           </div>
-          <button onClick={onClose} className="text-white/50 hover:text-white">
+          <button onClick={onClose} className="text-white/50 hover:text-white transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -84,18 +84,19 @@ export default function GamesLobby({ open, onClose, onSelectGame, activeSpinSess
                   onSelectGame(game.id);
                 }}
                 disabled={!game.available}
-                className={`flex flex-col items-center gap-2 p-3 rounded-2xl
-                  border transition active:scale-95 relative
+                className={`group flex flex-col items-center gap-2 p-3 rounded-2xl
+                  border transition-all duration-300 active:scale-95 relative
                   ${game.available
-                    ? 'border-white/10 bg-white/5 hover:bg-white/10'
+                    ? 'border-white/10 bg-white/5 hover:bg-white/10 hover:shadow-[0_0_15px_rgba(255,255,255,0.15)] hover:-translate-y-1'
                     : 'border-white/5 bg-white/3 opacity-50 cursor-not-allowed'
                   }`}
               >
                 {/* Icon */}
                 <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br
                   ${game.color} flex items-center justify-center
-                  text-3xl shadow-lg`}>
-                  {game.emoji}
+                  text-2xl shadow-lg transition-transform duration-300
+                  ${game.available ? 'group-hover:scale-110 group-hover:rotate-6' : ''}`}>
+                  <span className="drop-shadow-md whitespace-nowrap">{game.emoji}</span>
                 </div>
 
                 {/* Name */}
