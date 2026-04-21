@@ -233,6 +233,88 @@ export default function LudoGame({
     return merged;
   };
 
+  const getRelativeVisualSeat = (player, playersList = players) => {
+    const totalPlayers = playersList.length;
+    if (!totalPlayers) return 0;
+
+    const layout = VISUAL_SEAT_LAYOUTS[totalPlayers] || [0, 1, 2, 3];
+    const sortedBySeat = [...playersList].sort((a, b) => a.seat_number - b.seat_number);
+    const myPlayerInGame = sortedBySeat.find(
+      p => String(p.user_id) === String(user?.id)
+    );
+
+    const myBaseIndex = myPlayerInGame
+      ? sortedBySeat.findIndex(p => String(p.user_id) === String(myPlayerInGame.user_id))
+      : 0;
+    const playerIndex = sortedBySeat.findIndex(p => String(p.user_id) === String(player.user_id));
+    const relativeIndex = ((playerIndex - myBaseIndex) % totalPlayers + totalPlayers) % totalPlayers;
+
+    return layout[relativeIndex] ?? 0;
+  };
+
+  const getPieceCanvasPosition = (player, pieceIndex, cellSize, playersList = players) => {
+    const pieces = [player.piece1, player.piece2, player.piece3, player.piece4];
+    const pos = pieces[pieceIndex];
+    if (typeof pos !== 'number') return null;
+
+    const colorIdx = getRelativeVisualSeat(player, playersList);
+    const finishedOffsets = [
+      [8.2, 7.5],
+      [7.5, 8.2],
+      [6.8, 7.5],
+      [7.5, 6.8],
+    ];
+
+    if (pos === 57) {
+      const [row, col] = finishedOffsets[colorIdx] || [7.5, 7.5];
+      return {
+        x: col * cellSize,
+        y: row * cellSize,
+        colorIdx,
+        isFinished: true,
+      };
+    }
+
+    if (pos === -1) {
+      const homeBase = HOME_BASES[colorIdx];
+      if (!homeBase || !homeBase[pieceIndex]) return null;
+      const [baseRow, baseCol] = homeBase[pieceIndex];
+      return {
+        x: baseCol * cellSize + cellSize / 2,
+        y: baseRow * cellSize + cellSize / 2,
+        colorIdx,
+        isFinished: false,
+      };
+    }
+
+    if (pos >= 0 && pos <= 51) {
+      const adjustedPos = (pos + START_POSITIONS[colorIdx]) % 52;
+      if (!TRACK_CELLS[adjustedPos]) return null;
+      const [row, col] = TRACK_CELLS[adjustedPos];
+      return {
+        x: col * cellSize + cellSize / 2,
+        y: row * cellSize + cellSize / 2,
+        colorIdx,
+        isFinished: false,
+      };
+    }
+
+    if (pos >= 52 && pos <= 56) {
+      const homeColIdx = pos - 52;
+      const homeCol = HOME_COLUMNS[colorIdx];
+      if (!homeCol || !homeCol[homeColIdx]) return null;
+      const [row, col] = homeCol[homeColIdx];
+      return {
+        x: col * cellSize + cellSize / 2,
+        y: row * cellSize + cellSize / 2,
+        colorIdx,
+        isFinished: false,
+      };
+    }
+
+    return null;
+  };
+
   const drawBoard = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -412,41 +494,13 @@ export default function LudoGame({
 
     // Draw pieces on board
     players.forEach((player, playerIdx) => {
-      const colorIdx = getVisualSeatIndex(player, players);
       const pieces = [player.piece1, player.piece2, player.piece3, player.piece4];
       
       pieces.forEach((pos, pieceIdx) => {
-        if (pos === 57) return; // Finished - draw in center
+        const piecePos = getPieceCanvasPosition(player, pieceIdx, cellSize, players);
+        if (!piecePos || piecePos.isFinished) return;
 
-        let px, py;
-
-        if (pos === -1) {
-          // In home base
-          const homeBase = HOME_BASES[colorIdx];
-          if (!homeBase || !homeBase[pieceIdx]) return;
-          const [baseRow, baseCol] = homeBase[pieceIdx];
-          px = baseCol * cellSize + cellSize / 2;
-          py = baseRow * cellSize + cellSize / 2;
-        } else {
-          if (pos <= 51) {
-            // On main track (0-51)
-            const adjustedPos = (pos + START_POSITIONS[colorIdx]) % 52;
-            if (!TRACK_CELLS[adjustedPos]) return;
-            const [row, col] = TRACK_CELLS[adjustedPos];
-            px = col * cellSize + cellSize / 2;
-            py = row * cellSize + cellSize / 2;
-          } else if (pos >= 52 && pos <= 56) {
-            // In home column (52-56)
-            const homeColIdx = pos - 52;
-            const homeCol = HOME_COLUMNS[colorIdx];
-            if (!homeCol || !homeCol[homeColIdx]) return;
-            const [row, col] = homeCol[homeColIdx];
-            px = col * cellSize + cellSize / 2;
-            py = row * cellSize + cellSize / 2;
-          } else {
-            return; // pos=57 finished, already handled above
-          }
-        }
+        const { x: px, y: py, colorIdx } = piecePos;
 
         const r = cellSize * 0.32;
         const isMyPiece = String(player.user_id) === String(user?.id);
@@ -617,8 +671,8 @@ export default function LudoGame({
         // Auto-move the only movable piece
         await movePiece(movable[0], roll);
       } else {
-        // Let player choose which piece to move
-        setMessage("Choose a piece to move!");
+        // Multiple options: player picks directly from board pieces
+        setMessage('Tap a highlighted piece to move.');
       }
 
     } catch (err) {
@@ -711,6 +765,39 @@ export default function LudoGame({
     if (!movablePieces.includes(pieceNumber)) return;
     setSelectedPiece(pieceNumber);
     await movePiece(pieceNumber, lastRoll);
+  };
+
+  const handleCanvasClick = (e) => {
+    if (!isMyTurn || rolling) return;
+    if (!movablePieces.length) return;
+
+    const myPlayerLocal = players.find(
+      p => String(p.user_id) === String(user?.id)
+    );
+    if (!myPlayerLocal) return;
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+    const cellSize = canvas.width / 15;
+    const hitRadius = cellSize * 0.38;
+
+    for (const pieceNum of movablePieces) {
+      const piecePos = getPieceCanvasPosition(myPlayerLocal, pieceNum - 1, cellSize, players);
+      if (!piecePos || piecePos.isFinished) continue;
+
+      const dx = x - piecePos.x;
+      const dy = y - piecePos.y;
+      if (dx * dx + dy * dy <= hitRadius * hitRadius) {
+        handlePieceSelect(pieceNum);
+        return;
+      }
+    }
   };
 
   const joinSession = async () => {
@@ -832,7 +919,7 @@ export default function LudoGame({
   };
 
   const myPlayer = players.find(p => String(p.user_id) === String(user?.id));
-  const myColorIdx = myPlayer ? getVisualSeatIndex(myPlayer, players) : 0;
+  const myColorIdx = myPlayer ? getRelativeVisualSeat(myPlayer, players) : 0;
 
   if (!open) return null;
 
@@ -950,6 +1037,7 @@ export default function LudoGame({
                   ref={canvasRef}
                   width={600}
                   height={600}
+                  onClick={handleCanvasClick}
                   className="w-full aspect-square rounded-lg"
                 />
                 {/* Player card overlays around board corners */}
@@ -961,7 +1049,7 @@ export default function LudoGame({
                     'top-2 left-2',      // 3: Green top-left
                   ];
                   return players.map((p) => {
-                    const colorIdx = getVisualSeatIndex(p, players);
+                    const colorIdx = getRelativeVisualSeat(p, players);
                     const isCurrentTurn = String(currentSession.current_turn_user_id) === String(p.user_id);
                     const piecesFinished = p.pieces_finished || 0;
                     return (
@@ -1070,37 +1158,11 @@ export default function LudoGame({
                 </div>
               )}
 
-              {/* Piece selection for current player */}
-              {isMyTurn && movablePieces.length > 1 && (
-                <div className="bg-emerald-500/10 border border-emerald-500/30
-                  rounded-xl p-2">
-                  <div className="text-emerald-300 text-xs font-bold text-center mb-2">
-                    Choose which piece to move:
-                  </div>
-                  <div className="flex gap-2 justify-center">
-                    {movablePieces.map(pieceNum => (
-                      <button
-                        key={pieceNum}
-                        onClick={() => handlePieceSelect(pieceNum)}
-                        className="w-10 h-10 rounded-xl font-black text-white
-                          active:scale-95 transition border-2"
-                        style={{
-                          backgroundColor: PLAYER_COLORS[myColorIdx],
-                          borderColor: 'white',
-                        }}
-                      >
-                        {pieceNum}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {/* Waiting: players list */}
               {currentSession.status === 'waiting' && (
                 <div className="grid grid-cols-2 gap-1.5">
                   {players.map(p => {
-                    const colorIdx = getVisualSeatIndex(p, players);
+                    const colorIdx = getRelativeVisualSeat(p, players);
                     return (
                       <div key={p.id}
                         className="flex items-center gap-2 bg-white/5
