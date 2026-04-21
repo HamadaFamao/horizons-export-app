@@ -45,6 +45,7 @@ import RoomModals from "@/components/room/RoomModals";
 import GamesLobby from "@/components/room/GamesLobby";
 import SpinGame from "@/components/room/SpinGame";
 import RaceGame from "@/components/room/RaceGame";
+import LudoGame from "@/components/room/LudoGame";
 
 const FALLBACK_AVATAR =
   "data:image/svg+xml;utf8," +
@@ -1140,6 +1141,7 @@ useEffect(() => {
   const [showGamesLobby, setShowGamesLobby] = useState(false);
   const [showSpinGame, setShowSpinGame] = useState(false);
   const [showRaceGame, setShowRaceGame] = useState(false);
+  const [showLudoGame, setShowLudoGame] = useState(false);
   const [activeSpinSession, setActiveSpinSession] = useState(null);
   const [pkSeatA, setPkSeatA] = useState("");
   const [pkSeatB, setPkSeatB] = useState("");
@@ -10270,6 +10272,7 @@ useEffect(() => {
           setShowGamesLobby(false);
           if (gameId === 'spin') setShowSpinGame(true);
           if (gameId === 'race') setShowRaceGame(true);
+          if (gameId === 'ludo') setShowLudoGame(true);
         }}
       />
 
@@ -10464,6 +10467,100 @@ useEffect(() => {
                   receiver_name: `🪙 ${winnerCoins.toLocaleString()}`,
                   receiver_avatar: null,
                   gift_name: '🎲 Race Winner',
+                  gift_icon: null,
+                  animation_url: null,
+                  is_to_all: false,
+                  is_global: winnerCoins >= 50000,
+                  ts: Date.now(),
+                },
+              });
+            }, 500);
+          }
+        }}
+      />
+
+      <LudoGame
+        open={showLudoGame}
+        onClose={() => setShowLudoGame(false)}
+        roomId={roomId}
+        user={user}
+        canModerate={canModerate}
+        userCoins={userWalletCoins}
+        onCoinsUpdated={() => {
+          if (user?.id) {
+            fetchUserWallet(user.id)
+              .then(({ data }) => {
+                if (data) setUserWalletCoins(data.coins || 0);
+              })
+              .catch(console.error);
+          }
+        }}
+        onLudoResult={({ winnerName, winnerAvatar,
+                          winnerId, winnerCoins,
+                          totalPlayers }) => {
+          const now = Date.now();
+          const resultMsg = {
+            id: `result_${winnerId}_${roomId}`,
+            type: 'spin_result',
+            winner_name: winnerName,
+            winner_avatar: winnerAvatar,
+            winner_id: winnerId,
+            winner_coins: winnerCoins,
+            total_players: totalPlayers,
+            game_type: 'ludo',
+            created_at: new Date(now + 1000).toISOString(),
+          };
+
+          setRoomGiftMessages(prev => {
+            if (prev.some(m => m.id === resultMsg.id)) return prev;
+            return [...prev, resultMsg];
+          });
+
+          if (channelRef.current) {
+            channelRef.current.send({
+              type: 'broadcast',
+              event: 'spin_result',
+              payload: {
+                room_id: roomId,
+                ...resultMsg,
+                ts: now,
+              },
+            });
+          }
+
+          // Global banner for big wins
+          if (winnerCoins >= 5000) {
+            if (largeGiftBannerTimerRef.current) {
+              clearTimeout(largeGiftBannerTimerRef.current);
+            }
+            setLargeGiftBanner({
+              senderName: winnerName,
+              senderAvatar: winnerAvatar,
+              receiverName: `🪙 ${winnerCoins.toLocaleString()}`,
+              receiverAvatar: null,
+              giftName: '🎯 Ludo Winner',
+              giftIcon: null,
+              isToAll: false,
+              roomId: roomId,
+              isGlobal: winnerCoins >= 50000,
+            });
+            largeGiftBannerTimerRef.current = setTimeout(() => {
+              setLargeGiftBanner(null);
+            }, 10000);
+
+            const globalCh = supabase
+              .channel('global_large_gifts')
+              .subscribe();
+            setTimeout(() => {
+              globalCh.send({
+                type: 'broadcast',
+                event: 'large_gift_banner',
+                payload: {
+                  room_id: roomId,
+                  sender_name: winnerName,
+                  sender_avatar: winnerAvatar,
+                  receiver_name: `🪙 ${winnerCoins.toLocaleString()}`,
+                  gift_name: '🎯 Ludo Winner',
                   gift_icon: null,
                   animation_url: null,
                   is_to_all: false,

@@ -19,12 +19,12 @@ const GAMES = [
     available: true,
   },
   {
-    id: 'rps',
-    emoji: '✂️✨',
-    name: 'Rock Paper Scissors',
-    description: '1v1 challenge between two players.',
-    color: 'from-purple-500 to-pink-400',
-    available: false,
+    id: 'ludo',
+    emoji: '🎯',
+    name: 'Ludo',
+    description: 'Race your 4 pieces to the center!',
+    color: 'from-red-500 to-yellow-400',
+    available: true,
   },
   {
     id: 'slots',
