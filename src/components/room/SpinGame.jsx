@@ -42,6 +42,7 @@ export default function SpinGame({
   const [leaving, setLeaving] = useState(false);
   const canvasRef = useRef(null);
   const spinAudioRef = useRef(null);
+  const imageCache = useRef({});
 
   // Load active session for this room
   useEffect(() => {
@@ -136,9 +137,19 @@ export default function SpinGame({
     const ctx = canvas.getContext('2d');
     const size = canvas.width;
     const center = size / 2;
-    const radius = center - 10;
+    const radius = center - 15;
 
     ctx.clearRect(0, 0, size, size);
+
+    // Outer glow for the wheel
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(center, center, radius, 0, Math.PI * 2);
+    ctx.shadowColor = '#fbbf24';
+    ctx.shadowBlur = 15;
+    ctx.fillStyle = '#000';
+    ctx.fill();
+    ctx.restore();
 
     const slots = currentSession?.max_players || maxPlayers;
     const anglePerSlice = (2 * Math.PI) / slots;
@@ -153,35 +164,54 @@ export default function SpinGame({
       ctx.moveTo(center, center);
       ctx.arc(center, center, radius, startAngle, endAngle);
       ctx.closePath();
+      
+      // Base color
       ctx.fillStyle = SEAT_COLORS[i % SEAT_COLORS.length];
       ctx.fill();
-      ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+
+      // Glossy overlay for dazzling effect
+      const gloss = ctx.createRadialGradient(center, center, radius * 0.2, center, center, radius);
+      gloss.addColorStop(0, 'rgba(255,255,255,0.5)');
+      gloss.addColorStop(0.6, 'rgba(255,255,255,0)');
+      gloss.addColorStop(1, 'rgba(0,0,0,0.4)');
+      ctx.fillStyle = gloss;
+      ctx.fill();
+
+      // Stroke with glow
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)';
       ctx.lineWidth = 2;
+      ctx.shadowColor = 'rgba(255,255,255,0.8)';
+      ctx.shadowBlur = 5;
       ctx.stroke();
+      ctx.shadowBlur = 0;
 
       // Text/Avatar label
       const midAngle = startAngle + anglePerSlice / 2;
-      const textX = center + (radius * 0.65) * Math.cos(midAngle);
-      const textY = center + (radius * 0.65) * Math.sin(midAngle);
-
-      ctx.save();
-      ctx.translate(textX, textY);
-      ctx.rotate(midAngle + Math.PI / 2);
+      const textX = center + (radius * 0.7) * Math.cos(midAngle);
+      const textY = center + (radius * 0.7) * Math.sin(midAngle);
 
       if (player) {
-        // Draw avatar circle
-        const avatarSize = 24;
+        const avatarSize = 36;
         if (player.avatar_url) {
-          const img = new Image();
-          img.crossOrigin = 'anonymous';
-          img.onload = () => {
+          const drawAvatarAndText = (img) => {
             ctx.save();
             ctx.translate(textX, textY);
             ctx.rotate(midAngle + Math.PI / 2);
+            
+            // Glowing border for avatar
             ctx.beginPath();
-            ctx.arc(0, -8, avatarSize / 2, 0, Math.PI * 2);
+            ctx.arc(0, -10, (avatarSize / 2) + 2, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffffff';
+            ctx.shadowColor = '#fbbf24';
+            ctx.shadowBlur = 8;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            // Draw avatar
+            ctx.beginPath();
+            ctx.arc(0, -10, avatarSize / 2, 0, Math.PI * 2);
             ctx.clip();
-            ctx.drawImage(img, -avatarSize / 2, -8 - avatarSize / 2, avatarSize, avatarSize);
+            ctx.drawImage(img, -avatarSize / 2, -10 - avatarSize / 2, avatarSize, avatarSize);
             ctx.restore();
 
             // Name
@@ -189,47 +219,80 @@ export default function SpinGame({
             ctx.translate(textX, textY);
             ctx.rotate(midAngle + Math.PI / 2);
             ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 9px sans-serif';
+            ctx.font = '900 14px sans-serif';
             ctx.textAlign = 'center';
-            ctx.shadowColor = 'rgba(0,0,0,0.8)';
-            ctx.shadowBlur = 3;
+            ctx.shadowColor = 'rgba(0,0,0,1)';
+            ctx.shadowBlur = 6;
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = 'rgba(0,0,0,0.9)';
             const shortName = (player.name || 'User').slice(0, 8);
-            ctx.fillText(shortName, 0, 22);
+            ctx.strokeText(shortName, 0, 24);
+            ctx.fillText(shortName, 0, 24);
             ctx.restore();
           };
-          img.src = player.avatar_url;
+
+          // Use cache to prevent flickering during spin animation
+          if (imageCache.current[player.avatar_url]) {
+            drawAvatarAndText(imageCache.current[player.avatar_url]);
+          } else {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+              imageCache.current[player.avatar_url] = img;
+              drawAvatarAndText(img);
+            };
+            img.src = player.avatar_url;
+          }
         } else {
-          ctx.fillStyle = 'rgba(255,255,255,0.9)';
-          ctx.font = 'bold 10px sans-serif';
+          ctx.save();
+          ctx.translate(textX, textY);
+          ctx.rotate(midAngle + Math.PI / 2);
+          ctx.fillStyle = '#ffffff';
+          ctx.font = '900 14px sans-serif';
           ctx.textAlign = 'center';
+          ctx.shadowColor = 'rgba(0,0,0,1)';
+          ctx.shadowBlur = 6;
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = 'rgba(0,0,0,0.9)';
           const shortName = (player.name || 'User').slice(0, 8);
+          ctx.strokeText(shortName, 0, 4);
           ctx.fillText(shortName, 0, 4);
+          ctx.restore();
         }
       } else {
         // Empty seat
-        ctx.fillStyle = 'rgba(255,255,255,0.5)';
-        ctx.font = 'bold 10px sans-serif';
+        ctx.save();
+        ctx.translate(textX, textY);
+        ctx.rotate(midAngle + Math.PI / 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
+        ctx.font = 'bold 16px sans-serif';
         ctx.textAlign = 'center';
+        ctx.shadowColor = 'rgba(0,0,0,0.8)';
+        ctx.shadowBlur = 4;
         ctx.fillText(`#${i + 1}`, 0, 4);
+        ctx.restore();
       }
-
-      ctx.restore();
     }
 
     // Center circle
     ctx.beginPath();
-    ctx.arc(center, center, 20, 0, Math.PI * 2);
+    ctx.arc(center, center, 24, 0, Math.PI * 2);
     ctx.fillStyle = '#1e293b';
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-    ctx.lineWidth = 2;
+    
+    // Center border with glow
+    ctx.strokeStyle = '#fbbf24';
+    ctx.lineWidth = 4;
+    ctx.shadowColor = '#fbbf24';
+    ctx.shadowBlur = 10;
     ctx.stroke();
+    ctx.shadowBlur = 0;
 
     // Center icon
     ctx.fillStyle = '#fbbf24';
-    ctx.font = 'bold 14px sans-serif';
+    ctx.font = 'bold 18px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('🎰', center, center + 5);
+    ctx.fillText('🎰', center, center + 6);
   };
 
   const createSession = async () => {
@@ -489,85 +552,90 @@ export default function SpinGame({
                 </div>
                 <div className="text-center">
                   <div className="text-white/50 text-xs">Players</div>
-                    <div className="text-white/50 text-xs">Prize</div>
-                    <div className="text-emerald-300 font-black">
-                      🪙 {netPrize.toLocaleString()}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-white/50 text-xs">My Coins</div>
-                    <div className={`font-black text-sm ${
-                      userCoins >= currentSession.entry_cost
-                        ? 'text-white'
-                        : 'text-rose-400'
-                    }`}>
-                      🪙 {(userCoins || 0).toLocaleString()}
-                    </div>
+                  <div className="text-white font-bold">
+                    {players.length} / {currentSession.max_players}
                   </div>
                 </div>
-
-                {/* Wheel */}
-                <div className="relative flex items-center justify-center">
-                  {/* Pointer */}
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 
-                    z-10 w-0 h-0"
-                    style={{
-                      borderLeft: '8px solid transparent',
-                      borderRight: '8px solid transparent',
-                      borderTop: '20px solid #fbbf24',
-                      filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))',
-                    }}
-                  />
-                  <canvas
-                    ref={canvasRef}
-                    width={280}
-                    height={280}
-                    className="rounded-full shadow-2xl"
-                  />
+                <div className="text-center">
+                  <div className="text-white/50 text-xs">Prize</div>
+                  <div className="text-emerald-300 font-black">
+                    🪙 {netPrize.toLocaleString()}
+                  </div>
                 </div>
+                <div className="text-right">
+                  <div className="text-white/50 text-xs">My Coins</div>
+                  <div className={`font-black text-sm ${
+                    userCoins >= currentSession.entry_cost
+                      ? 'text-white'
+                      : 'text-rose-400'
+                  }`}>
+                    🪙 {(userCoins || 0).toLocaleString()}
+                  </div>
+                </div>
+              </div>
 
-                {/* Players List */}
-                <div className="grid grid-cols-2 gap-2">
-                  {Array.from({ length: currentSession.max_players }, (_, i) => {
-                    const player = players.find(p => p.seat_number === i + 1);
-                    return (
-                      <div
-                        key={i}
-                        className={`rounded-xl border px-3 py-2 flex items-center gap-2 ${
-                          player
-                            ? 'border-white/10 bg-white/5'
-                            : 'border-white/5 bg-white/[0.03]'
-                        }`}
-                      >
-                        {player ? (
-                          <>
-                            <div
-                              className="w-3 h-3 rounded-full shrink-0"
-                              style={{ backgroundColor: SEAT_COLORS[i % SEAT_COLORS.length] }}
-                            />
-                            <img
-                              src={player.avatar_url || FALLBACK_AVATAR}
-                              alt={player.name}
-                              className="w-7 h-7 rounded-full object-cover shrink-0"
-                              onError={e => e.currentTarget.src = FALLBACK_AVATAR}
-                            />
-                            <span className="text-white text-xs font-bold truncate">
-                              {player.name}
-                            </span>
-                            {String(player.user_id) === String(user?.id) && (
-                              <span className="text-[9px] text-amber-300 
-                                font-bold ml-auto shrink-0">You</span>
-                            )}
-                          </>
-                        ) : (
-                          <span className="text-white/30 text-xs">
-                            Seat #{i + 1}
+              {/* Wheel */}
+              <div className="relative flex items-center justify-center my-4">
+                {/* Pointer */}
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 
+                  z-20 w-0 h-0"
+                  style={{
+                    borderLeft: '12px solid transparent',
+                    borderRight: '12px solid transparent',
+                    borderTop: '24px solid #fbbf24',
+                    filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.5)) drop-shadow(0 0px 10px rgba(251,191,36,0.8))',
+                  }}
+                />
+                <canvas
+                  ref={canvasRef}
+                  width={300}
+                  height={300}
+                  className="rounded-full shadow-[0_0_40px_rgba(251,191,36,0.2)]"
+                />
+              </div>
+
+              {/* Players List */}
+              <div className="grid grid-cols-2 gap-2">
+                {Array.from({ length: currentSession.max_players }, (_, i) => {
+                  const player = players.find(p => p.seat_number === i + 1);
+                  return (
+                    <div
+                      key={i}
+                      className={`rounded-xl border px-3 py-2 flex items-center gap-2 ${
+                        player
+                          ? 'border-white/10 bg-white/5'
+                          : 'border-white/5 bg-white/[0.03]'
+                      }`}
+                    >
+                      {player ? (
+                        <>
+                          <div
+                            className="w-3 h-3 rounded-full shrink-0"
+                            style={{ backgroundColor: SEAT_COLORS[i % SEAT_COLORS.length] }}
+                          />
+                          <img
+                            src={player.avatar_url || FALLBACK_AVATAR}
+                            alt={player.name}
+                            className="w-7 h-7 rounded-full object-cover shrink-0"
+                            onError={e => e.currentTarget.src = FALLBACK_AVATAR}
+                          />
+                          <span className="text-white text-xs font-bold truncate">
+                            {player.name}
                           </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+                          {String(player.user_id) === String(user?.id) && (
+                            <span className="text-[9px] text-amber-300 
+                              font-bold ml-auto shrink-0">You</span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-white/30 text-xs">
+                          Seat #{i + 1}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
               {/* Actions */}
               <div className="flex gap-2">
                 {!isJoined && !isFull && 
