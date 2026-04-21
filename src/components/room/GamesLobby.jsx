@@ -21,7 +21,7 @@ const GAMES = [
   {
     id: 'ludo',
     emoji: '🎯',
-    name: 'Ludo',
+    name: 'Ludo Game',
     description: 'Race your 4 pieces to the center!',
     color: 'from-red-500 to-yellow-400',
     available: true,
