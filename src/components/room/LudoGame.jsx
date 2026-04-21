@@ -492,17 +492,68 @@ export default function LudoGame({
     });
   };
 
+  const getTrackPos = (pos, colorIdx) => {
+    if (pos < 0 || pos > 51) return null;
+    return (pos + START_POSITIONS[colorIdx]) % 52;
+  };
+
+  const getLogicalNextPos = (pos, roll) => {
+    if (pos === 57) return null;
+
+    if (pos === -1) {
+      return roll === 6 ? 0 : null;
+    }
+
+    if (pos >= 0 && pos <= 51) {
+      const target = pos + roll;
+      if (target <= 51) return target;
+      if (target <= 57) return 52 + (target - 52);
+      return null;
+    }
+
+    if (pos >= 52 && pos <= 56) {
+      const target = pos + roll;
+      if (target <= 56) return target;
+      if (target === 57) return 57;
+      return null;
+    }
+
+    return null;
+  };
+
+  const getCaptureTargets = (playersList, moverPlayer, landingPos) => {
+    const moverColorIdx = getVisualSeatIndex(moverPlayer, playersList);
+    const landingTrackPos = getTrackPos(landingPos, moverColorIdx);
+    if (landingTrackPos === null) return [];
+    if (SAFE_SQUARES.includes(landingTrackPos)) return [];
+
+    const targets = [];
+    playersList.forEach((p) => {
+      if (String(p.user_id) === String(moverPlayer.user_id)) return;
+      const colorIdx = getVisualSeatIndex(p, playersList);
+      const pieces = [p.piece1, p.piece2, p.piece3, p.piece4];
+      pieces.forEach((piecePos, idx) => {
+        const trackPos = getTrackPos(piecePos, colorIdx);
+        if (trackPos === null) return;
+        if (trackPos === landingTrackPos) {
+          targets.push({ userId: p.user_id, pieceNumber: idx + 1 });
+        }
+      });
+    });
+
+    return targets;
+  };
+
   const getMovablePieces = (player, roll) => {
     const pieces = [player.piece1, player.piece2, player.piece3, player.piece4];
     const movable = [];
+
     pieces.forEach((pos, idx) => {
-      if (pos === 57) return; // Already finished
-      if (pos === -1 && roll === 6) movable.push(idx + 1); // Can exit home
-      if (pos >= 0 && pos < 57) {
-        // Can move if won't overshoot (pieces need exact number to finish)
-        if (pos + roll <= 57) movable.push(idx + 1);
-      }
+      if (pos === 57) return;
+      const nextPos = getLogicalNextPos(pos, roll);
+      if (nextPos !== null && nextPos <= 57) movable.push(idx + 1);
     });
+
     return movable;
   };
 
@@ -579,6 +630,23 @@ export default function LudoGame({
 
   const movePiece = async (pieceNumber, roll) => {
     try {
+      const myPlayerLocal = players.find(
+        p => String(p.user_id) === String(user?.id)
+      );
+      if (!myPlayerLocal) return;
+
+      const pieceKey = `piece${pieceNumber}`;
+      const currentPos = myPlayerLocal[pieceKey];
+      const nextPos = getLogicalNextPos(currentPos, roll);
+
+      if (nextPos === null || nextPos > 57) {
+        setMessage('Invalid move');
+        setTimeout(() => setMessage(''), 1200);
+        return;
+      }
+
+      const captureTargets = getCaptureTargets(players, myPlayerLocal, nextPos);
+
       const { data, error } = await supabase.rpc('roll_ludo_dice', {
         p_session_id: currentSession.id,
         p_user_id: user.id,
@@ -591,6 +659,29 @@ export default function LudoGame({
       setMovablePieces([]);
       setSelectedPiece(null);
       setMessage('');
+
+      setPlayers((prev) => {
+        return prev.map((p) => {
+          if (String(p.user_id) === String(myPlayerLocal.user_id)) {
+            const pieceFinishedInc = nextPos === 57 && p[pieceKey] !== 57 ? 1 : 0;
+            return {
+              ...p,
+              [pieceKey]: nextPos,
+              pieces_finished: (p.pieces_finished || 0) + pieceFinishedInc,
+            };
+          }
+
+          const hit = captureTargets.find(
+            t => String(t.userId) === String(p.user_id)
+          );
+          if (!hit) return p;
+
+          return {
+            ...p,
+            [`piece${hit.pieceNumber}`]: -1,
+          };
+        });
+      });
 
       if (data.extra_turn) {
         setExtraTurn(true);
