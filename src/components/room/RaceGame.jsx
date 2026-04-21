@@ -311,27 +311,31 @@ export default function RaceGame({
       const x = col * cellW;
       const y = displayRow * cellH;
 
-      // Cell colors
-      let bgColor = (row + col) % 2 === 0
-        ? '#1e293b' // slate-800
-        : '#334155'; // slate-700
+      // Vibrant Cell colors
+      const vibrantColors = [
+        '#FF4B4B', // Bright Red
+        '#4B7BFF', // Bright Blue
+        '#00D084', // Bright Green
+        '#FFB020'  // Bright Orange/Yellow
+      ];
+      let bgColor = vibrantColors[(row + col) % vibrantColors.length];
 
-      if (i === 100) bgColor = '#b45309'; // amber-700
-      if (i === 1) bgColor = '#4338ca'; // indigo-700
+      if (i === 100) bgColor = '#FFD700'; // Gold for finish
+      if (i === 1) bgColor = '#00E676'; // Neon Green for start
 
       ctx.fillStyle = bgColor;
       ctx.fillRect(x, y, cellW, cellH);
 
       // Inner highlight for 3D effect
-      ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+      ctx.lineWidth = cellW * 0.04;
       ctx.beginPath();
       ctx.moveTo(x, y + cellH);
       ctx.lineTo(x, y);
       ctx.lineTo(x + cellW, y);
       ctx.stroke();
 
-      ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+      ctx.strokeStyle = 'rgba(0,0,0,0.2)';
       ctx.beginPath();
       ctx.moveTo(x + cellW, y);
       ctx.lineTo(x + cellW, y + cellH);
@@ -339,25 +343,28 @@ export default function RaceGame({
       ctx.stroke();
 
       // Cell number
-      ctx.fillStyle = i === 100
-        ? '#fde68a'
-        : i === 1
-          ? '#a5b4fc'
-          : 'rgba(255,255,255,0.4)';
-      ctx.font = `bold ${cellW * 0.25}px sans-serif`;
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowColor = 'rgba(0,0,0,0.8)';
+      ctx.shadowBlur = cellW * 0.1;
+      ctx.shadowOffsetY = cellW * 0.02;
+      ctx.font = `bold ${cellW * 0.28}px sans-serif`;
       ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
-      ctx.fillText(i, x + 3, y + 3);
+      ctx.fillText(i, x + cellW * 0.08, y + cellH * 0.08);
+      
+      // Reset shadow
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetY = 0;
 
       // Icons
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       if (i === 100) {
-        ctx.font = `${cellW * 0.4}px sans-serif`;
-        ctx.fillText('🏆', x + cellW / 2, y + cellH / 2 + 4);
+        ctx.font = `${cellW * 0.45}px sans-serif`;
+        ctx.fillText('🏆', x + cellW / 2, y + cellH / 2 + cellH * 0.1);
       } else if (i === 1) {
-        ctx.font = `${cellW * 0.4}px sans-serif`;
-        ctx.fillText('🚀', x + cellW / 2, y + cellH / 2 + 4);
+        ctx.font = `${cellW * 0.45}px sans-serif`;
+        ctx.fillText('🚀', x + cellW / 2, y + cellH / 2 + cellH * 0.1);
       }
     }
 
@@ -376,13 +383,13 @@ export default function RaceGame({
       ctx.rotate(angle);
       
       // Shadow
-      ctx.shadowColor = 'rgba(0,0,0,0.5)';
-      ctx.shadowBlur = 4;
-      ctx.shadowOffsetY = 2;
+      ctx.shadowColor = 'rgba(0,0,0,0.6)';
+      ctx.shadowBlur = cellW * 0.15;
+      ctx.shadowOffsetY = cellW * 0.05;
 
       // Ladder styles
-      ctx.strokeStyle = '#fbbf24'; // amber-400
-      ctx.lineWidth = 4;
+      ctx.strokeStyle = '#FDE047'; // brighter yellow
+      ctx.lineWidth = cellW * 0.12;
       ctx.lineCap = 'round';
       
       const width = cellW * 0.35;
@@ -394,9 +401,9 @@ export default function RaceGame({
       ctx.stroke();
       
       // Rungs
-      const rungSpacing = 12;
+      const rungSpacing = cellW * 0.35;
       const rungs = Math.floor(length / rungSpacing);
-      ctx.lineWidth = 3;
+      ctx.lineWidth = cellW * 0.09;
       ctx.beginPath();
       for(let j=1; j<=rungs; j++) {
         const rx = j * (length / (rungs + 1));
@@ -415,9 +422,9 @@ export default function RaceGame({
       
       ctx.save();
       // Shadow
-      ctx.shadowColor = 'rgba(0,0,0,0.5)';
-      ctx.shadowBlur = 4;
-      ctx.shadowOffsetY = 2;
+      ctx.shadowColor = 'rgba(0,0,0,0.6)';
+      ctx.shadowBlur = cellW * 0.15;
+      ctx.shadowOffsetY = cellW * 0.05;
 
       ctx.beginPath();
       ctx.moveTo(fromPos.x, fromPos.y);
@@ -432,46 +439,46 @@ export default function RaceGame({
       
       // Snake body
       ctx.strokeStyle = '#10b981'; // emerald-500
-      ctx.lineWidth = 7;
+      ctx.lineWidth = cellW * 0.2;
       ctx.lineCap = 'round';
       ctx.stroke();
       
       // Snake pattern
       ctx.strokeStyle = '#047857'; // emerald-700
-      ctx.setLineDash([4, 6]);
-      ctx.lineWidth = 5;
+      ctx.setLineDash([cellW * 0.12, cellW * 0.18]);
+      ctx.lineWidth = cellW * 0.14;
       ctx.stroke();
       ctx.setLineDash([]);
       
       // Snake head
       ctx.fillStyle = '#10b981';
       ctx.beginPath();
-      ctx.ellipse(fromPos.x, fromPos.y, 7, 9, 0, 0, Math.PI * 2);
+      ctx.ellipse(fromPos.x, fromPos.y, cellW * 0.2, cellW * 0.26, 0, 0, Math.PI * 2);
       ctx.fill();
       
       // Eyes
       ctx.fillStyle = '#ffffff';
       ctx.beginPath();
-      ctx.arc(fromPos.x - 2.5, fromPos.y - 2, 2, 0, Math.PI * 2);
-      ctx.arc(fromPos.x + 2.5, fromPos.y - 2, 2, 0, Math.PI * 2);
+      ctx.arc(fromPos.x - cellW * 0.07, fromPos.y - cellW * 0.06, cellW * 0.06, 0, Math.PI * 2);
+      ctx.arc(fromPos.x + cellW * 0.07, fromPos.y - cellW * 0.06, cellW * 0.06, 0, Math.PI * 2);
       ctx.fill();
       
       ctx.fillStyle = '#000000';
       ctx.beginPath();
-      ctx.arc(fromPos.x - 2.5, fromPos.y - 2, 1, 0, Math.PI * 2);
-      ctx.arc(fromPos.x + 2.5, fromPos.y - 2, 1, 0, Math.PI * 2);
+      ctx.arc(fromPos.x - cellW * 0.07, fromPos.y - cellW * 0.06, cellW * 0.03, 0, Math.PI * 2);
+      ctx.arc(fromPos.x + cellW * 0.07, fromPos.y - cellW * 0.06, cellW * 0.03, 0, Math.PI * 2);
       ctx.fill();
 
       // Tongue
       ctx.strokeStyle = '#ef4444'; // red-500
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = cellW * 0.04;
       ctx.beginPath();
-      ctx.moveTo(fromPos.x, fromPos.y + 5);
-      ctx.lineTo(fromPos.x, fromPos.y + 12);
-      ctx.moveTo(fromPos.x, fromPos.y + 12);
-      ctx.lineTo(fromPos.x - 3, fromPos.y + 15);
-      ctx.moveTo(fromPos.x, fromPos.y + 12);
-      ctx.lineTo(fromPos.x + 3, fromPos.y + 15);
+      ctx.moveTo(fromPos.x, fromPos.y + cellW * 0.15);
+      ctx.lineTo(fromPos.x, fromPos.y + cellW * 0.35);
+      ctx.moveTo(fromPos.x, fromPos.y + cellW * 0.35);
+      ctx.lineTo(fromPos.x - cellW * 0.09, fromPos.y + cellW * 0.44);
+      ctx.moveTo(fromPos.x, fromPos.y + cellW * 0.35);
+      ctx.lineTo(fromPos.x + cellW * 0.09, fromPos.y + cellW * 0.44);
       ctx.stroke();
 
       ctx.restore();
@@ -503,12 +510,12 @@ export default function RaceGame({
 
       ctx.save();
       ctx.shadowColor = 'rgba(0,0,0,0.6)';
-      ctx.shadowBlur = 4;
-      ctx.shadowOffsetY = 2;
+      ctx.shadowBlur = cellW * 0.1;
+      ctx.shadowOffsetY = cellW * 0.05;
 
       // Color ring
       ctx.beginPath();
-      ctx.arc(cx, cy, r + 2, 0, Math.PI * 2);
+      ctx.arc(cx, cy, r + cellW * 0.06, 0, Math.PI * 2);
       ctx.fillStyle = p.color || '#ffffff';
       ctx.fill();
 
@@ -533,7 +540,7 @@ export default function RaceGame({
           ctx.font = `bold ${r * 0.9}px sans-serif`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText((p.name || 'U')[0].toUpperCase(), cx, cy + 1);
+          ctx.fillText((p.name || 'U')[0].toUpperCase(), cx, cy + cellW * 0.03);
         }
       } else {
         ctx.fillStyle = p.color || '#334155';
@@ -542,7 +549,7 @@ export default function RaceGame({
         ctx.font = `bold ${r * 0.9}px sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText((p.name || 'U')[0].toUpperCase(), cx, cy + 1);
+        ctx.fillText((p.name || 'U')[0].toUpperCase(), cx, cy + cellW * 0.03);
       }
 
       ctx.restore();
@@ -1100,12 +1107,12 @@ export default function RaceGame({
               )}
 
               {/* Track Canvas */}
-              <div className="bg-slate-900 rounded-xl p-1.5 overflow-hidden shadow-inner border border-white/5 flex justify-center">
+              <div className="bg-slate-900 rounded-xl p-2 overflow-hidden shadow-inner border border-white/5 flex justify-center">
                 <canvas
                   ref={canvasRef}
-                  width={340}
-                  height={340}
-                  className="w-full max-w-[340px] aspect-square rounded-lg shadow-sm"
+                  width={800}
+                  height={800}
+                  className="w-full max-w-[400px] aspect-square rounded-lg shadow-md"
                 />
               </div>
 
