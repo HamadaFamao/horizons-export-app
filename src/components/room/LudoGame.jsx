@@ -325,16 +325,19 @@ export default function LudoGame({
 
     ctx.clearRect(0, 0, W, W);
 
-    // Background
-    ctx.fillStyle = '#1e293b';
+    // Background with radial gradient
+    const bgGrad = ctx.createRadialGradient(W/2, W/2, 0, W/2, W/2, W);
+    bgGrad.addColorStop(0, '#1e293b');
+    bgGrad.addColorStop(1, '#0f172a');
+    ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, W, W);
 
     // Draw home bases (corners)
     const homeColors = [
-      { bg: '#fca5a5', border: '#ef4444' }, // 0: Red
-      { bg: '#93c5fd', border: '#3b82f6' }, // 1: Blue
-      { bg: '#fcd34d', border: '#f59e0b' }, // 2: Yellow
-      { bg: '#86efac', border: '#22c55e' }, // 3: Green
+      { bg: '#fca5a5', border: '#ef4444', grad1: '#f87171', grad2: '#dc2626' }, // 0: Red
+      { bg: '#93c5fd', border: '#3b82f6', grad1: '#60a5fa', grad2: '#2563eb' }, // 1: Blue
+      { bg: '#fcd34d', border: '#f59e0b', grad1: '#fbbf24', grad2: '#d97706' }, // 2: Yellow
+      { bg: '#86efac', border: '#22c55e', grad1: '#4ade80', grad2: '#16a34a' }, // 3: Green
     ];
 
     const homeRects = [
@@ -345,31 +348,48 @@ export default function LudoGame({
     ];
 
     homeRects.forEach((rect, i) => {
-      // Outer border
+      const x = rect.c * cellSize;
+      const y = rect.r * cellSize;
+      const w = rect.w * cellSize;
+      const h = rect.h * cellSize;
+
+      // Outer border with shadow
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,0,0,0.5)';
+      ctx.shadowBlur = 10;
       ctx.fillStyle = homeColors[i].border;
+      ctx.fillRect(x, y, w, h);
+      ctx.restore();
+
+      // Inner area with gradient
+      const innerGrad = ctx.createLinearGradient(x, y, x + w, y + h);
+      innerGrad.addColorStop(0, homeColors[i].grad1);
+      innerGrad.addColorStop(1, homeColors[i].grad2);
+      
+      ctx.fillStyle = innerGrad;
       ctx.fillRect(
-        rect.c * cellSize, rect.r * cellSize,
-        rect.w * cellSize, rect.h * cellSize
-      );
-      // Inner area
-      ctx.fillStyle = homeColors[i].bg;
-      ctx.fillRect(
-        (rect.c + 0.5) * cellSize, (rect.r + 0.5) * cellSize,
-        (rect.w - 1) * cellSize, (rect.h - 1) * cellSize
+        x + cellSize * 0.5, y + cellSize * 0.5,
+        w - cellSize, h - cellSize
       );
 
-      // Inner home circle
+      // Inner home circle with glow
+      const cx = x + w / 2;
+      const cy = y + h / 2;
+      
       ctx.beginPath();
-      ctx.arc(
-        (rect.c + rect.w / 2) * cellSize,
-        (rect.r + rect.h / 2) * cellSize,
-        cellSize * 2,
-        0, Math.PI * 2
-      );
-      ctx.fillStyle = homeColors[i].border + '40';
+      ctx.arc(cx, cy, cellSize * 2, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.15)';
       ctx.fill();
-      ctx.strokeStyle = homeColors[i].border;
-      ctx.lineWidth = 2;
+      
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+      ctx.stroke();
+      
+      // Add a subtle inner shadow/glow to the circle
+      ctx.beginPath();
+      ctx.arc(cx, cy, cellSize * 1.8, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+      ctx.lineWidth = 1;
       ctx.stroke();
     });
 
@@ -379,31 +399,46 @@ export default function LudoGame({
       const x = col * cellSize;
       const y = row * cellSize;
 
-      // White track; colored start squares
       let cellColor = '#f8fafc';
+      let isStart = false;
       const startIndices = [39, 26, 13, 0]; // Red, Blue, Yellow, Green
-      const startColors = ['#fca5a5', '#93c5fd', '#fcd34d', '#86efac'];
       const startIdx = startIndices.indexOf(i);
-      if (startIdx !== -1) cellColor = startColors[startIdx];
-
-      // Safe (non-start) squares get a slightly darker shade
-      if (SAFE_SQUARES.includes(i) && !startIndices.includes(i)) {
-        cellColor = '#cbd5e1';
+      
+      if (startIdx !== -1) {
+        cellColor = homeColors[startIdx].grad1;
+        isStart = true;
+      } else if (SAFE_SQUARES.includes(i)) {
+        cellColor = '#e2e8f0';
       }
 
+      // Cell background
       ctx.fillStyle = cellColor;
       ctx.fillRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
-      ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-      ctx.lineWidth = 0.5;
+      
+      // Subtle 3D bevel effect for cells
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.fillRect(x + 1, y + 1, cellSize - 2, 2); // top highlight
+      ctx.fillRect(x + 1, y + 1, 2, cellSize - 2); // left highlight
+      
+      ctx.fillStyle = 'rgba(0,0,0,0.15)';
+      ctx.fillRect(x + 1, y + cellSize - 3, cellSize - 2, 2); // bottom shadow
+      ctx.fillRect(x + cellSize - 3, y + 1, 2, cellSize - 2); // right shadow
+
+      ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+      ctx.lineWidth = 1;
       ctx.strokeRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
 
       // Star on non-start safe squares
-      if (SAFE_SQUARES.includes(i) && !startIndices.includes(i)) {
-        ctx.fillStyle = 'rgba(255,255,255,0.6)';
-        ctx.font = `${cellSize * 0.5}px sans-serif`;
+      if (SAFE_SQUARES.includes(i) && !isStart) {
+        ctx.save();
+        ctx.shadowColor = 'rgba(251, 191, 36, 0.8)';
+        ctx.shadowBlur = 6;
+        ctx.fillStyle = '#fbbf24';
+        ctx.font = `${cellSize * 0.6}px sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('⭐', x + cellSize / 2, y + cellSize / 2);
+        ctx.fillText('⭐', x + cellSize / 2, y + cellSize / 2 + 1);
+        ctx.restore();
       }
     }
 
@@ -412,10 +447,16 @@ export default function LudoGame({
       col.forEach(([row, c]) => {
         const x = c * cellSize;
         const y = row * cellSize;
-        ctx.fillStyle = PLAYER_LIGHT_COLORS[playerIdx] + '60';
+        
+        const grad = ctx.createLinearGradient(x, y, x + cellSize, y + cellSize);
+        grad.addColorStop(0, homeColors[playerIdx].grad1 + '80');
+        grad.addColorStop(1, homeColors[playerIdx].grad2 + '80');
+        
+        ctx.fillStyle = grad;
         ctx.fillRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
-        ctx.strokeStyle = PLAYER_COLORS[playerIdx] + '80';
-        ctx.lineWidth = 0.5;
+        
+        ctx.strokeStyle = homeColors[playerIdx].border + '60';
+        ctx.lineWidth = 1;
         ctx.strokeRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
       });
     });
@@ -430,6 +471,10 @@ export default function LudoGame({
     arrows.forEach(({ r, c, color, dir }) => {
       const cx = c * cellSize + cellSize / 2;
       const cy = r * cellSize + cellSize / 2;
+      
+      ctx.save();
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 8;
       ctx.fillStyle = color;
       ctx.beginPath();
       const s = cellSize * 0.15;
@@ -468,6 +513,7 @@ export default function LudoGame({
         ctx.lineTo(cx, cy + s*2);
       }
       ctx.fill();
+      ctx.restore();
     });
 
     // Center finishing square
@@ -488,8 +534,20 @@ export default function LudoGame({
       ctx.lineTo(pts[1][1] * cellSize, pts[1][0] * cellSize);
       ctx.lineTo(pts[2][1] * cellSize, pts[2][0] * cellSize);
       ctx.closePath();
-      ctx.fillStyle = triColors[i] + 'cc';
+      
+      const grad = ctx.createLinearGradient(
+        pts[0][1] * cellSize, pts[0][0] * cellSize,
+        pts[2][1] * cellSize, pts[2][0] * cellSize
+      );
+      grad.addColorStop(0, triColors[i] + 'ee');
+      grad.addColorStop(1, triColors[i] + '66');
+      
+      ctx.fillStyle = grad;
       ctx.fill();
+      
+      ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
     });
 
     // Draw pieces on board
@@ -502,46 +560,96 @@ export default function LudoGame({
 
         const { x: px, y: py, colorIdx } = piecePos;
 
-        const r = cellSize * 0.32;
+        // INCREASED PIECE RADIUS for better visibility
+        const r = cellSize * 0.42; 
         const isMyPiece = String(player.user_id) === String(user?.id);
         const isMovable = isMyPiece && movablePieces.includes(pieceIdx + 1);
         const isSelected = isMyPiece && selectedPiece === pieceIdx + 1;
 
+        ctx.save();
+
         // Glow for movable pieces
         if (isMovable || isSelected) {
           ctx.beginPath();
-          ctx.arc(px, py, r + 4, 0, Math.PI * 2);
+          ctx.arc(px, py, r + 6, 0, Math.PI * 2);
+          ctx.shadowColor = isSelected ? '#ffffff' : PLAYER_COLORS[colorIdx];
+          ctx.shadowBlur = 15;
           ctx.fillStyle = isSelected
-            ? 'rgba(255,255,255,0.6)'
-            : 'rgba(255,255,255,0.3)';
+            ? 'rgba(255,255,255,0.8)'
+            : 'rgba(255,255,255,0.4)';
           ctx.fill();
+          ctx.shadowBlur = 0; // reset
         }
 
-        // Piece circle
-        ctx.beginPath();
-        ctx.arc(px, py, r, 0, Math.PI * 2);
-        ctx.fillStyle = PLAYER_COLORS[colorIdx];
-        ctx.fill();
-        ctx.strokeStyle = 'white';
-        ctx.lineWidth = 2;
-        ctx.stroke();
+        // Piece shadow
+        ctx.shadowColor = 'rgba(0,0,0,0.6)';
+        ctx.shadowBlur = 6;
+        ctx.shadowOffsetY = 3;
 
-        // Avatar or number
+        // Avatar or colored circle
         const img = avatarImagesRef.current[player.user_id];
         if (img?.complete && img?.naturalWidth > 0) {
-          ctx.save();
+          // Draw avatar
           ctx.beginPath();
-          ctx.arc(px, py, r - 2, 0, Math.PI * 2);
+          ctx.arc(px, py, r, 0, Math.PI * 2);
+          ctx.closePath();
+          
+          // Fill background just in case image has transparency
+          ctx.fillStyle = PLAYER_COLORS[colorIdx];
+          ctx.fill();
+
+          ctx.save();
           ctx.clip();
-          ctx.drawImage(img, px - r + 2, py - r + 2, (r - 2) * 2, (r - 2) * 2);
+          ctx.drawImage(img, px - r, py - r, r * 2, r * 2);
           ctx.restore();
         } else {
+          // Fallback piece
+          const pieceGrad = ctx.createRadialGradient(px - r*0.3, py - r*0.3, r*0.1, px, py, r);
+          pieceGrad.addColorStop(0, homeColors[colorIdx].grad1);
+          pieceGrad.addColorStop(1, homeColors[colorIdx].grad2);
+          
+          ctx.beginPath();
+          ctx.arc(px, py, r, 0, Math.PI * 2);
+          ctx.fillStyle = pieceGrad;
+          ctx.fill();
+
           ctx.fillStyle = 'white';
-          ctx.font = `bold ${r * 0.9}px sans-serif`;
+          ctx.font = `bold ${r}px sans-serif`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
+          ctx.shadowColor = 'rgba(0,0,0,0.5)';
+          ctx.shadowBlur = 2;
           ctx.fillText(pieceIdx + 1, px, py + 1);
         }
+
+        // Reset shadow for borders and gloss
+        ctx.shadowColor = 'rgba(0,0,0,0)';
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetY = 0;
+
+        // Professional border
+        ctx.beginPath();
+        ctx.arc(px, py, r, 0, Math.PI * 2);
+        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+        ctx.stroke();
+        
+        ctx.beginPath();
+        ctx.arc(px, py, r - 1.5, 0, Math.PI * 2);
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = PLAYER_COLORS[colorIdx];
+        ctx.stroke();
+
+        // Glossy reflection overlay
+        ctx.beginPath();
+        ctx.arc(px, py - r * 0.3, r * 0.6, 0, Math.PI * 2);
+        const glossGrad = ctx.createLinearGradient(px, py - r, px, py);
+        glossGrad.addColorStop(0, 'rgba(255,255,255,0.5)');
+        glossGrad.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = glossGrad;
+        ctx.fill();
+
+        ctx.restore();
       });
     });
   };
@@ -785,7 +893,7 @@ export default function LudoGame({
     const x = (e.clientX - rect.left) * scaleX;
     const y = (e.clientY - rect.top) * scaleY;
     const cellSize = canvas.width / 15;
-    const hitRadius = cellSize * 0.38;
+    const hitRadius = cellSize * 0.42;
 
     for (const pieceNum of movablePieces) {
       const piecePos = getPieceCanvasPosition(myPlayerLocal, pieceNum - 1, cellSize, players);
