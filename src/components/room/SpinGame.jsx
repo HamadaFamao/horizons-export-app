@@ -408,9 +408,21 @@ export default function SpinGame({
     // Use actual seat_number - 1 for angle calculation
     // since wheel slots are 0-indexed but seat_numbers are 1-indexed
     const winnerSeatIdx = winnerPlayer.seat_number - 1;
-    const winnerAngle = winnerSeatIdx * anglePerSlice;
-    const extraSpins = (5 + Math.floor(Math.random() * 5)) * 2 * Math.PI;
-    const targetRotation = extraSpins + (2 * Math.PI - winnerAngle - anglePerSlice / 2);
+
+    // Angle of the middle of the winner's slice
+    const winnerMidAngle = winnerSeatIdx * anglePerSlice + anglePerSlice / 2;
+
+    // The pointer is at the TOP = -Math.PI / 2 in canvas coords
+    // We need winnerMidAngle + rotation = -Math.PI / 2 (mod 2π)
+    // So rotation = -Math.PI / 2 - winnerMidAngle
+    const pointerAngle = -Math.PI / 2;
+
+    // Normalize to positive
+    const targetAngle = ((pointerAngle - winnerMidAngle) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+
+    // Add extra full spins for animation
+    const extraSpins = (6 + Math.floor(Math.random() * 4)) * 2 * Math.PI;
+    const targetRotation = extraSpins + targetAngle;
 
     // Animate spin
     const duration = 5000;
