@@ -10430,7 +10430,8 @@ useEffect(() => {
             if (largeGiftBannerTimerRef.current) {
               clearTimeout(largeGiftBannerTimerRef.current);
             }
-            setLargeGiftBanner({
+
+            const bannerData = {
               senderName: winnerName,
               senderAvatar: winnerAvatar,
               receiverName: `🪙 ${winnerCoins.toLocaleString()}`,
@@ -10440,10 +10441,37 @@ useEffect(() => {
               isToAll: false,
               roomId: roomId,
               isGlobal: winnerCoins >= 50000,
-            });
+            };
+
+            setLargeGiftBanner(bannerData);
             largeGiftBannerTimerRef.current = setTimeout(() => {
               setLargeGiftBanner(null);
             }, 10000);
+
+            // Broadcast to all rooms
+            const globalCh = supabase
+              .channel('global_large_gifts')
+              .subscribe();
+
+            setTimeout(() => {
+              globalCh.send({
+                type: 'broadcast',
+                event: 'large_gift_banner',
+                payload: {
+                  room_id: roomId,
+                  sender_name: winnerName,
+                  sender_avatar: winnerAvatar,
+                  receiver_name: `🪙 ${winnerCoins.toLocaleString()}`,
+                  receiver_avatar: null,
+                  gift_name: '🎲 Race Winner',
+                  gift_icon: null,
+                  animation_url: null,
+                  is_to_all: false,
+                  is_global: winnerCoins >= 50000,
+                  ts: Date.now(),
+                },
+              });
+            }, 500);
           }
         }}
       />
