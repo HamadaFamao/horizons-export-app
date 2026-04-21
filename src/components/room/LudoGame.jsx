@@ -9,58 +9,49 @@ const FALLBACK_AVATAR =
 const MAX_PLAYERS_OPTIONS = [2, 3, 4];
 const ENTRY_COST_OPTIONS = [100, 200, 500, 1000, 5000, 10000];
 
-// Player colors: Red, Blue, Green, Yellow
-const PLAYER_COLORS = ['#ef4444', '#3b82f6', '#22c55e', '#f59e0b'];
-const PLAYER_LIGHT_COLORS = ['#fca5a5', '#93c5fd', '#86efac', '#fcd34d'];
-const PLAYER_DARK_COLORS = ['#991b1b', '#1e40af', '#15803d', '#b45309'];
+// Player colors: Red (Bottom), Blue (Right), Yellow (Top), Green (Left)
+const PLAYER_COLORS = ['#ef4444', '#3b82f6', '#f59e0b', '#22c55e'];
+const PLAYER_LIGHT_COLORS = ['#fca5a5', '#93c5fd', '#fcd34d', '#86efac'];
+const PLAYER_DARK_COLORS = ['#991b1b', '#1e40af', '#b45309', '#15803d'];
 
 // Safe squares on the main track (0-51)
-const SAFE_SQUARES = [0, 8, 13, 21, 26, 34, 39, 47];
+// Includes start squares (0, 13, 26, 39) and star squares (6, 19, 32, 45)
+const SAFE_SQUARES = [0, 6, 13, 19, 26, 32, 39, 45];
 
-// Each player's starting position on main track
+// Each player's starting position offset on the main track
 const START_POSITIONS = [0, 13, 26, 39];
-
-// Home column positions (52-56) per player
-// After position 51, pieces enter their home column
-const HOME_ENTRY = [51, 12, 25, 38];
 
 // Ludo board: 15x15 grid
 // Track cells (row, col) for positions 0-51
 const TRACK_CELLS = [
-  // Bottom row going right (Red start area) - positions 0-5
-  [14,6],[13,6],[12,6],[11,6],[10,6],[9,6],
-  // Right column going up - positions 6-11  
-  [8,5],[8,4],[8,3],[8,2],[8,1],[8,0],
-  // Top row going right - positions 12-17
-  [7,0],[6,0],[6,1],[6,2],[6,3],[6,4],
-  // Going right and up - positions 18-23
-  [6,5],[5,5],[4,5],[3,5],[2,5],[1,5],
-  // Top middle - positions 24-29
-  [0,5],[0,6],[0,7],[0,8],[0,9],[1,9],
-  // Right side going down - positions 30-35
-  [2,9],[3,9],[4,9],[5,9],[6,9],[6,10],
-  // positions 36-41
-  [6,11],[6,12],[6,13],[6,14],[7,14],[8,14],
-  // positions 42-47
-  [8,13],[8,12],[8,11],[8,10],[8,9],[9,9],
-  // positions 48-51
-  [10,9],[11,9],[12,9],[13,9],
+  // Red start to Blue start (0-12)
+  [13,8],[12,8],[11,8],[10,8],[9,8],
+  [8,9],[8,10],[8,11],[8,12],[8,13],[8,14],[7,14],[6,14],
+  // Blue start to Yellow start (13-25)
+  [6,13],[6,12],[6,11],[6,10],[6,9],
+  [5,8],[4,8],[3,8],[2,8],[1,8],[0,8],[0,7],[0,6],
+  // Yellow start to Green start (26-38)
+  [1,6],[2,6],[3,6],[4,6],[5,6],
+  [6,5],[6,4],[6,3],[6,2],[6,1],[6,0],[7,0],[8,0],
+  // Green start to Red start (39-51)
+  [8,1],[8,2],[8,3],[8,4],[8,5],
+  [9,6],[10,6],[11,6],[12,6],[13,6],[14,6],[14,7],[14,8]
 ];
 
 // Home column cells per player
 const HOME_COLUMNS = [
-  [[13,7],[12,7],[11,7],[10,7],[9,7]], // Red
-  [[7,1],[7,2],[7,3],[7,4],[7,5]],     // Blue  
-  [[1,7],[2,7],[3,7],[4,7],[5,7]],     // Green
-  [[7,13],[7,12],[7,11],[7,10],[7,9]], // Yellow
+  [[13,7],[12,7],[11,7],[10,7],[9,7]], // 0: Red (Bottom)
+  [[7,13],[7,12],[7,11],[7,10],[7,9]], // 1: Blue (Right)
+  [[1,7],[2,7],[3,7],[4,7],[5,7]],     // 2: Yellow (Top)
+  [[7,1],[7,2],[7,3],[7,4],[7,5]],     // 3: Green (Left)
 ];
 
 // Home base positions (4 pieces in home)
 const HOME_BASES = [
-  [[12,2],[12,3],[13,2],[13,3]],   // Red
-  [[1,2],[1,3],[2,2],[2,3]],       // Blue (adjusted)
-  [[1,11],[1,12],[2,11],[2,12]],   // Green
-  [[12,11],[12,12],[13,11],[13,12]], // Yellow
+  [[11,2],[11,3],[12,2],[12,3]],     // 0: Red (Bottom-Left)
+  [[11,11],[11,12],[12,11],[12,12]], // 1: Blue (Bottom-Right)
+  [[2,11],[2,12],[3,11],[3,12]],     // 2: Yellow (Top-Right)
+  [[2,2],[2,3],[3,2],[3,3]],         // 3: Green (Top-Left)
 ];
 
 export default function LudoGame({
@@ -239,11 +230,6 @@ export default function LudoGame({
     return merged;
   };
 
-  const getCellPixel = (row, col, cellSize) => ({
-    x: col * cellSize + cellSize / 2,
-    y: row * cellSize + cellSize / 2,
-  });
-
   const drawBoard = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -260,17 +246,17 @@ export default function LudoGame({
 
     // Draw home bases (corners)
     const homeColors = [
-      { bg: '#fca5a5', border: '#ef4444' }, // Red - bottom left
-      { bg: '#93c5fd', border: '#3b82f6' }, // Blue - top left
-      { bg: '#86efac', border: '#22c55e' }, // Green - top right
-      { bg: '#fcd34d', border: '#f59e0b' }, // Yellow - bottom right
+      { bg: '#fca5a5', border: '#ef4444' }, // 0: Red
+      { bg: '#93c5fd', border: '#3b82f6' }, // 1: Blue
+      { bg: '#fcd34d', border: '#f59e0b' }, // 2: Yellow
+      { bg: '#86efac', border: '#22c55e' }, // 3: Green
     ];
 
     const homeRects = [
-      { r: 9, c: 0, w: 6, h: 6 },   // Red
-      { r: 0, c: 0, w: 6, h: 6 },   // Blue
-      { r: 0, c: 9, w: 6, h: 6 },   // Green
-      { r: 9, c: 9, w: 6, h: 6 },   // Yellow
+      { r: 9, c: 0, w: 6, h: 6 },   // 0: Red (Bottom-Left)
+      { r: 9, c: 9, w: 6, h: 6 },   // 1: Blue (Bottom-Right)
+      { r: 0, c: 9, w: 6, h: 6 },   // 2: Yellow (Top-Right)
+      { r: 0, c: 0, w: 6, h: 6 },   // 3: Green (Top-Left)
     ];
 
     homeRects.forEach((rect, i) => {
@@ -314,8 +300,8 @@ export default function LudoGame({
       // Color start squares
       if (i === 0) cellColor = '#fca5a5';      // Red start
       if (i === 13) cellColor = '#93c5fd';     // Blue start
-      if (i === 26) cellColor = '#86efac';     // Green start
-      if (i === 39) cellColor = '#fcd34d';     // Yellow start
+      if (i === 26) cellColor = '#fcd34d';     // Yellow start
+      if (i === 39) cellColor = '#86efac';     // Green start
       
       // Safe squares
       if (SAFE_SQUARES.includes(i) && i !== 0 && i !== 13 && i !== 26 && i !== 39) {
@@ -351,19 +337,67 @@ export default function LudoGame({
       });
     });
 
+    // Draw arrows
+    const arrows = [
+      { r: 14, c: 7, color: '#ef4444', dir: 'up' },
+      { r: 7, c: 14, color: '#3b82f6', dir: 'left' },
+      { r: 0, c: 7, color: '#f59e0b', dir: 'down' },
+      { r: 7, c: 0, color: '#22c55e', dir: 'right' },
+    ];
+    arrows.forEach(({ r, c, color, dir }) => {
+      const cx = c * cellSize + cellSize / 2;
+      const cy = r * cellSize + cellSize / 2;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      const s = cellSize * 0.15;
+      const l = cellSize * 0.35;
+      if (dir === 'up') {
+        ctx.moveTo(cx, cy - l);
+        ctx.lineTo(cx - s*2, cy);
+        ctx.lineTo(cx - s, cy);
+        ctx.lineTo(cx - s, cy + l);
+        ctx.lineTo(cx + s, cy + l);
+        ctx.lineTo(cx + s, cy);
+        ctx.lineTo(cx + s*2, cy);
+      } else if (dir === 'down') {
+        ctx.moveTo(cx, cy + l);
+        ctx.lineTo(cx - s*2, cy);
+        ctx.lineTo(cx - s, cy);
+        ctx.lineTo(cx - s, cy - l);
+        ctx.lineTo(cx + s, cy - l);
+        ctx.lineTo(cx + s, cy);
+        ctx.lineTo(cx + s*2, cy);
+      } else if (dir === 'left') {
+        ctx.moveTo(cx - l, cy);
+        ctx.lineTo(cx, cy - s*2);
+        ctx.lineTo(cx, cy - s);
+        ctx.lineTo(cx + l, cy - s);
+        ctx.lineTo(cx + l, cy + s);
+        ctx.lineTo(cx, cy + s);
+        ctx.lineTo(cx, cy + s*2);
+      } else if (dir === 'right') {
+        ctx.moveTo(cx + l, cy);
+        ctx.lineTo(cx, cy - s*2);
+        ctx.lineTo(cx, cy - s);
+        ctx.lineTo(cx - l, cy - s);
+        ctx.lineTo(cx - l, cy + s);
+        ctx.lineTo(cx, cy + s);
+        ctx.lineTo(cx, cy + s*2);
+      }
+      ctx.fill();
+    });
+
     // Center finishing square
     ctx.fillStyle = '#0f172a';
     ctx.fillRect(6 * cellSize, 6 * cellSize, 3 * cellSize, 3 * cellSize);
     
     // Draw triangle in center for each color
-    const centerX = 7.5 * cellSize;
-    const centerY = 7.5 * cellSize;
-    const triColors = ['#ef4444', '#3b82f6', '#22c55e', '#f59e0b'];
+    const triColors = ['#ef4444', '#3b82f6', '#f59e0b', '#22c55e'];
     const triPoints = [
-      [[6,6],[9,6],[7.5,7.5]],   // top - blue
-      [[9,6],[9,9],[7.5,7.5]],   // right - green
-      [[9,9],[6,9],[7.5,7.5]],   // bottom - yellow
-      [[6,9],[6,6],[7.5,7.5]],   // left - red
+      [[9,6],[9,9],[7.5,7.5]],   // 0: Red (bottom)
+      [[6,9],[9,9],[7.5,7.5]],   // 1: Blue (right)
+      [[6,6],[6,9],[7.5,7.5]],   // 2: Yellow (top)
+      [[6,6],[9,6],[7.5,7.5]],   // 3: Green (left)
     ];
     triPoints.forEach((pts, i) => {
       ctx.beginPath();
@@ -393,23 +427,32 @@ export default function LudoGame({
           px = baseCol * cellSize + cellSize / 2;
           py = baseRow * cellSize + cellSize / 2;
         } else {
-          // On track or home column
-          if (pos < 52) {
-            // On main track
-            // Adjust position based on player's starting offset
+          if (pos < 51) {
+            // On main track (0-50)
             const adjustedPos = (pos + START_POSITIONS[colorIdx]) % 52;
             if (!TRACK_CELLS[adjustedPos]) return;
             const [row, col] = TRACK_CELLS[adjustedPos];
             px = col * cellSize + cellSize / 2;
             py = row * cellSize + cellSize / 2;
-          } else {
-            // In home column (52-56)
-            const homeColIdx = pos - 52;
+          } else if (pos < 56) {
+            // In home column (51-55)
+            const homeColIdx = pos - 51;
             const homeCol = HOME_COLUMNS[colorIdx];
             if (!homeCol || !homeCol[homeColIdx]) return;
             const [row, col] = homeCol[homeColIdx];
             px = col * cellSize + cellSize / 2;
             py = row * cellSize + cellSize / 2;
+          } else if (pos >= 56) {
+            // Center triangle (almost finished)
+            const centerOffsets = [
+              [8.2, 7.5], // Red (bottom)
+              [7.5, 8.2], // Blue (right)
+              [6.8, 7.5], // Yellow (top)
+              [7.5, 6.8], // Green (left)
+            ];
+            const [row, col] = centerOffsets[colorIdx];
+            px = col * cellSize;
+            py = row * cellSize;
           }
         }
 
