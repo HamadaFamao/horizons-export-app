@@ -771,6 +771,21 @@ export default function LudoGame({
         return;
       }
 
+      // Turn passed automatically (all pieces in home, no 6)
+      if (data.turn_passed) {
+        setMessage('🎲 Need a 6 to start! Turn passed.');
+        setTimeout(() => setMessage(''), 2000);
+        await loadPlayers(currentSession.id);
+        const { data: sd } = await supabase
+          .from('room_ludo_sessions')
+          .select('*')
+          .eq('id', currentSession.id)
+          .single();
+        if (sd) setCurrentSession(sd);
+        setRolling(false);
+        return;
+      }
+
       // Step 2: Find movable pieces
       const myPlayer = players.find(
         p => String(p.user_id) === String(user.id)
