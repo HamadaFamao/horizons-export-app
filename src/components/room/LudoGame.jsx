@@ -44,6 +44,29 @@ const HOME_BASES = [
   [[1,1],[1,3],[3,1],[3,3]],         // 3: Green (Top-Left)
 ];
 
+const HOME_BASE_NUDGES = [
+  [0.18, 0.18],
+  [-0.18, 0.18],
+  [0.18, -0.18],
+  [-0.18, -0.18],
+];
+
+const PIECE_STACK_OFFSETS = [
+  [0, 0],
+  [-8, -8],
+  [8, -8],
+  [-8, 8],
+  [8, 8],
+];
+
+function getPieceStackOffset(index) {
+  if (PIECE_STACK_OFFSETS[index]) return PIECE_STACK_OFFSETS[index];
+  const overflowIndex = index - PIECE_STACK_OFFSETS.length;
+  const angle = (overflowIndex / 6) * Math.PI * 2;
+  const radius = 11 + Math.floor(overflowIndex / 6) * 4;
+  return [Math.cos(angle) * radius, Math.sin(angle) * radius];
+}
+
 // Visual seat layouts: maps seat order → color index for 2/3/4 players
 const VISUAL_SEAT_LAYOUTS = {
   2: [0, 2],      // Red + Yellow (diagonal)
@@ -86,10 +109,19 @@ export default function LudoGame({
   const [showResult, setShowResult] = useState(false);
   const [consecutiveSixes, setConsecutiveSixes] = useState(0);
   const [message, setMessage] = useState('');
+  const [finishToast, setFinishToast] = useState('');
+  const [recentFinishedUserId, setRecentFinishedUserId] = useState(null);
   const canvasRef = useRef(null);
   const channelRef = useRef(null);
   const resultFiredRef = useRef(false);
   const avatarImagesRef = useRef({});
+  const finishFxTimerRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (finishFxTimerRef.current) clearTimeout(finishFxTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!open || !roomId) return;
@@ -279,9 +311,10 @@ export default function LudoGame({
       const homeBase = HOME_BASES[colorIdx];
       if (!homeBase || !homeBase[pieceIndex]) return null;
       const [baseRow, baseCol] = homeBase[pieceIndex];
+      const [nudgeX = 0, nudgeY = 0] = HOME_BASE_NUDGES[pieceIndex] || [0, 0];
       return {
-        x: baseCol * cellSize + cellSize / 2,
-        y: baseRow * cellSize + cellSize / 2,
+        x: (baseCol + 0.5 + nudgeX) * cellSize,
+        y: (baseRow + 0.5 + nudgeY) * cellSize,
         colorIdx,
         isFinished: false,
       };
@@ -551,17 +584,33 @@ export default function LudoGame({
     });
 
     // Draw pieces on board
-    players.forEach((player, playerIdx) => {
+    const drawablePieces = [];
+    players.forEach((player) => {
       const pieces = [player.piece1, player.piece2, player.piece3, player.piece4];
-      
       pieces.forEach((pos, pieceIdx) => {
         const piecePos = getPieceCanvasPosition(player, pieceIdx, cellSize, players);
         if (!piecePos || piecePos.isFinished) return;
+        drawablePieces.push({ player, pieceIdx, piecePos });
+      });
+    });
 
-        const { x: px, y: py, colorIdx } = piecePos;
+    const stackedByCell = new Map();
+    drawablePieces.forEach((item) => {
+      const key = `${Math.round(item.piecePos.x)}_${Math.round(item.piecePos.y)}`;
+      if (!stackedByCell.has(key)) stackedByCell.set(key, []);
+      stackedByCell.get(key).push(item);
+    });
 
-        // INCREASED PIECE RADIUS for better visibility
-        const r = cellSize * 0.42; 
+    stackedByCell.forEach((cellPieces) => {
+      cellPieces.forEach((item, stackIndex) => {
+        const { player, pieceIdx, piecePos } = item;
+        const { x, y, colorIdx } = piecePos;
+        const [offX, offY] = getPieceStackOffset(stackIndex);
+        const px = x + offX;
+        const py = y + offY;
+
+        // Slightly bigger radius while keeping board proportions intact
+        const r = cellSize * 0.45;
         const isMyPiece = String(player.user_id) === String(user?.id);
         const isMovable = isMyPiece && movablePieces.includes(pieceIdx + 1);
         const isSelected = isMyPiece && selectedPiece === pieceIdx + 1;
@@ -756,9 +805,9 @@ export default function LudoGame({
       const movable = getMovablePieces(myPlayerNow, roll);
 
       if (movable.length === 0) {
-        setMessage('No valid move.');
-        setTimeout(() => setMessage(''), 1500);
-        await refreshSession();
+        setMessage('No valid move. Turn passed.');
+        setTimeout(() => setMessage(''), 1700);
+        await passTurnToNextPlayer();
         return;
       }
 
@@ -780,18 +829,82 @@ export default function LudoGame({
   };
 
   const refreshSession = async () => {
-    await loadPlayers(currentSession.id);
+    const refreshedPlayers = await loadPlayers(currentSession.id);
     const { data: sd } = await supabase
       .from('room_ludo_sessions')
       .select('*')
       .eq('id', currentSession.id)
       .single();
     if (sd) setCurrentSession(sd);
+    return { players: refreshedPlayers || [], session: sd || null };
+  };
+
+  const passTurnToNextPlayer = async () => {
+    if (!currentSession?.id) {
+      await refreshSession();
+      return;
+    }
+
+    const sorted = [...players].sort((a, b) => a.seat_number - b.seat_number);
+    if (sorted.length < 2) {
+      await refreshSession();
+      return;
+    }
+
+    const currentTurnUserId = currentSession.current_turn_user_id || user?.id;
+    const currentIdx = sorted.findIndex(
+      p => String(p.user_id) === String(currentTurnUserId)
+    );
+    const baseIdx = currentIdx >= 0 ? currentIdx : sorted.findIndex(
+      p => String(p.user_id) === String(user?.id)
+    );
+
+    if (baseIdx < 0) {
+      await refreshSession();
+      return;
+    }
+
+    const nextPlayer = sorted[(baseIdx + 1) % sorted.length];
+    if (!nextPlayer?.user_id) {
+      await refreshSession();
+      return;
+    }
+
+    if (String(nextPlayer.user_id) === String(currentTurnUserId)) {
+      await refreshSession();
+      return;
+    }
+
+    const { error } = await supabase
+      .from('room_ludo_sessions')
+      .update({
+        current_turn_user_id: nextPlayer.user_id,
+      })
+      .eq('id', currentSession.id)
+      .eq('status', 'playing')
+      .eq('current_turn_user_id', currentTurnUserId);
+
+    if (error) {
+      await refreshSession();
+      return;
+    }
+
+    setCurrentSession(prev => (
+      prev
+        ? { ...prev, current_turn_user_id: nextPlayer.user_id }
+        : prev
+    ));
+    await refreshSession();
   };
 
   // ─── MOVE PIECE ──────────────────────────────
   const movePiece = async (pieceNumber) => {
     if (!currentSession?.id || !user?.id) return;
+
+    const myPlayerBefore = players.find(
+      p => String(p.user_id) === String(user.id)
+    );
+    const beforeFinished = Number(myPlayerBefore?.pieces_finished || 0);
 
     try {
       const { data, error } = await supabase.rpc('move_ludo_piece', {
@@ -802,11 +915,11 @@ export default function LudoGame({
 
 if (error) throw error;
 if (!data?.success) throw new Error(data?.error || 'Failed to move');
-console.log('MOVE RESULT', data);
 
       setMovablePieces([]);
       setSelectedPiece(null);
 
+  // UI-only feedback from server result; no local capture/home mutation here.
       if (data.bumped) {
         setMessage('💥 You sent an opponent home!');
         setTimeout(() => setMessage(''), 1800);
@@ -818,7 +931,26 @@ console.log('MOVE RESULT', data);
       }
 
       onCoinsUpdated?.();
-      await refreshSession();
+      const refreshed = await refreshSession();
+      const myPlayerAfter = (refreshed.players || []).find(
+        p => String(p.user_id) === String(user.id)
+      );
+      const afterFinished = Number(
+        myPlayerAfter?.pieces_finished ?? data?.pieces_finished ?? beforeFinished
+      );
+
+      if (afterFinished > beforeFinished) {
+        setFinishToast('🎉 Piece finished!');
+        setMessage('🎉 Piece finished!');
+        setRecentFinishedUserId(String(user.id));
+
+        if (finishFxTimerRef.current) clearTimeout(finishFxTimerRef.current);
+        finishFxTimerRef.current = setTimeout(() => {
+          setFinishToast('');
+          setRecentFinishedUserId(null);
+          setMessage('');
+        }, 1800);
+      }
     } catch (err) {
       alert(err.message || 'Failed to move piece');
     }
@@ -847,14 +979,39 @@ console.log('MOVE RESULT', data);
     const x = (e.clientX - rect.left) * scaleX;
     const y = (e.clientY - rect.top) * scaleY;
     const cellSize = canvas.width / 15;
-    const hitRadius = cellSize * 0.42;
+    const hitRadius = cellSize * 0.62;
+
+    const stackedByCell = new Map();
+    players.forEach((player) => {
+      const pieces = [player.piece1, player.piece2, player.piece3, player.piece4];
+      pieces.forEach((pos, pieceIdx) => {
+        const piecePos = getPieceCanvasPosition(player, pieceIdx, cellSize, players);
+        if (!piecePos || piecePos.isFinished) return;
+        const key = `${Math.round(piecePos.x)}_${Math.round(piecePos.y)}`;
+        if (!stackedByCell.has(key)) stackedByCell.set(key, []);
+        stackedByCell.get(key).push({ player, pieceIdx, piecePos });
+      });
+    });
+
+    const movablePieceOffsetMap = new Map();
+    stackedByCell.forEach((cellPieces) => {
+      cellPieces.forEach((item, stackIndex) => {
+        if (String(item.player.user_id) !== String(user?.id)) return;
+        if (!movablePieces.includes(item.pieceIdx + 1)) return;
+        movablePieceOffsetMap.set(item.pieceIdx + 1, getPieceStackOffset(stackIndex));
+      });
+    });
 
     for (const pieceNum of movablePieces) {
       const piecePos = getPieceCanvasPosition(myPlayerLocal, pieceNum - 1, cellSize, players);
       if (!piecePos || piecePos.isFinished) continue;
 
-      const dx = x - piecePos.x;
-      const dy = y - piecePos.y;
+      const [offX, offY] = movablePieceOffsetMap.get(pieceNum) || [0, 0];
+      const px = piecePos.x + offX;
+      const py = piecePos.y + offY;
+
+      const dx = x - px;
+      const dy = y - py;
       if (dx * dx + dy * dy <= hitRadius * hitRadius) {
         handlePieceSelect(pieceNum);
         return;
@@ -1094,7 +1251,21 @@ console.log('MOVE RESULT', data);
               )}
 
               {/* Board */}
-              <div className="relative bg-slate-800 rounded-xl p-1.5 border border-white/5">
+              <div
+                className={`relative bg-slate-800 rounded-xl p-1.5 border border-white/5 transition-all duration-300 ${
+                  recentFinishedUserId ? 'animate-pulse' : ''
+                }`}
+                style={{
+                  boxShadow: recentFinishedUserId
+                    ? '0 0 0 2px rgba(251,191,36,0.45), 0 0 24px rgba(251,191,36,0.35)'
+                    : undefined,
+                }}
+              >
+                {finishToast && (
+                  <div className="pointer-events-none absolute left-1/2 top-2 z-20 -translate-x-1/2 rounded-full bg-amber-400/95 px-3 py-1 text-xs font-black text-slate-900 shadow-lg animate-bounce">
+                    {finishToast}
+                  </div>
+                )}
                 <canvas
                   ref={canvasRef}
                   width={600}
@@ -1114,11 +1285,12 @@ console.log('MOVE RESULT', data);
                     const colorIdx = getRelativeVisualSeat(p, players);
                     const isCurrentTurn = String(currentSession.current_turn_user_id) === String(p.user_id);
                     const piecesFinished = p.pieces_finished || 0;
+                    const isFinishFx = String(recentFinishedUserId) === String(p.user_id);
                     return (
                       <div
                         key={p.id}
                         className={`absolute ${overlayPositions[colorIdx]} flex flex-col items-center gap-0.5
-                          rounded-xl p-1.5 backdrop-blur-sm transition`}
+                          rounded-xl p-1.5 backdrop-blur-sm transition ${isFinishFx ? 'animate-bounce' : ''}`}
                         style={{
                           background: isCurrentTurn
                             ? `${PLAYER_COLORS[colorIdx]}44`
@@ -1126,6 +1298,9 @@ console.log('MOVE RESULT', data);
                           outline: isCurrentTurn
                             ? `2px solid ${PLAYER_COLORS[colorIdx]}`
                             : 'none',
+                          boxShadow: isFinishFx
+                            ? `0 0 0 2px ${PLAYER_COLORS[colorIdx]}, 0 0 18px ${PLAYER_COLORS[colorIdx]}cc`
+                            : undefined,
                         }}
                       >
                         <img
@@ -1138,11 +1313,14 @@ console.log('MOVE RESULT', data);
                         <div className="text-white text-[9px] font-bold max-w-[56px] truncate text-center leading-tight">
                           {p.name}
                         </div>
+                        <div className="text-white/90 text-[10px] font-black leading-tight">
+                          {piecesFinished}/4 finished
+                        </div>
                         <div className="flex gap-0.5">
                           {[0,1,2,3].map(i => (
                             <div
                               key={i}
-                              className="w-1.5 h-1.5 rounded-full border"
+                              className="w-[10px] h-[10px] rounded-full border-2 shadow"
                               style={{
                                 backgroundColor: i < piecesFinished
                                   ? PLAYER_COLORS[colorIdx]
