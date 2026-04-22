@@ -84,6 +84,7 @@ export default function LudoGame({
   const [winner, setWinner] = useState(null);
   const [winnerCoins, setWinnerCoins] = useState(0);
   const [showResult, setShowResult] = useState(false);
+  const [consecutiveSixes, setConsecutiveSixes] = useState(0);
   const [message, setMessage] = useState('');
   const canvasRef = useRef(null);
   const channelRef = useRef(null);
@@ -701,17 +702,16 @@ export default function LudoGame({
     setSelectedPiece(null);
     setMessage('');
 
-    let count = 0;
+    let tick = 0;
     const interval = setInterval(() => {
       setDiceDisplay(Math.floor(Math.random() * 6) + 1);
-      count++;
-      if (count > 8) {
-        clearInterval(interval);
-        setDiceAnimating(false);
-      }
+      tick++;
     }, 80);
 
     try {
+      await new Promise((resolve) => setTimeout(resolve, 850));
+      clearInterval(interval);
+
       const { data, error } = await supabase.rpc('get_ludo_roll', {
         p_session_id: currentSession.id,
         p_user_id: user.id,
@@ -721,8 +721,14 @@ export default function LudoGame({
       if (!data?.success) throw new Error(data?.error || 'Failed to roll');
 
       const roll = Number(data.roll || 0);
-      setLastRoll(roll);
+
+      setDiceAnimating(false);
       setDiceDisplay(roll);
+      setLastRoll(roll);
+
+      if (typeof data.consecutive_sixes === 'number') {
+        setConsecutiveSixes(data.consecutive_sixes);
+      }
 
       const myPlayerNow = players.find(
         p => String(p.user_id) === String(user.id)
@@ -764,8 +770,11 @@ export default function LudoGame({
       setMovablePieces(movable);
       setMessage('Tap a highlighted piece to move.');
     } catch (err) {
+      clearInterval(interval);
+      setDiceAnimating(false);
       alert(err.message || 'Failed to roll');
     } finally {
+      clearInterval(interval);
       setRolling(false);
     }
   };
