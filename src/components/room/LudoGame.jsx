@@ -720,6 +720,7 @@ export default function LudoGame({
     return movable;
   };
 
+  // ─── DICE ROLL ───────────────────────────────
   const rollDice = async () => {
     if (!currentSession?.id || !user?.id) return;
     if (String(currentSession.current_turn_user_id) !== String(user.id)) return;
@@ -742,142 +743,265 @@ export default function LudoGame({
       }
     }, 80);
 
-    try {
-      // Step 1: Just roll the dice
-      const { data, error } = await supabase.rpc('get_ludo_roll', {
-        p_session_id: currentSession.id,
-        p_user_id: user.id,
-      });
-
-      if (error) throw error;
-      if (!data?.success) throw new Error(data?.error || 'Failed to roll');
-
-      const roll = data.roll;
-      setLastRoll(roll);
+    // Generate roll on frontend
+    const roll = Math.floor(Math.random() * 6) + 1;
+    
+    setTimeout(async () => {
       setDiceDisplay(roll);
+      setLastRoll(roll);
 
-      // Triple 6: lost turn
-      if (data.triple_six) {
-        setMessage('🚫 Triple 6! Turn lost!');
-        setTimeout(() => setMessage(''), 2500);
-        await loadPlayers(currentSession.id);
-        const { data: sd } = await supabase
-          .from('room_ludo_sessions')
-          .select('*')
-          .eq('id', currentSession.id)
-          .single();
-        if (sd) setCurrentSession(sd);
-        setRolling(false);
-        return;
-      }
-
-      // Turn passed automatically (all pieces in home, no 6)
-      if (data.turn_passed) {
-        setMessage('🎲 Need a 6 to start! Turn passed.');
-        setTimeout(() => setMessage(''), 2000);
-        await loadPlayers(currentSession.id);
-        const { data: sd } = await supabase
-          .from('room_ludo_sessions')
-          .select('*')
-          .eq('id', currentSession.id)
-          .single();
-        if (sd) setCurrentSession(sd);
-        setRolling(false);
-        return;
-      }
-
-      // Step 2: Find movable pieces
       const myPlayer = players.find(
         p => String(p.user_id) === String(user.id)
       );
       if (!myPlayer) { setRolling(false); return; }
 
-      const movable = getMovablePieces(myPlayer, roll);
+      const allInHome = 
+        myPlayer.piece1 === -1 &&
+        myPlayer.piece2 === -1 &&
+        myPlayer.piece3 === -1 &&
+        myPlayer.piece4 === -1;
 
-      if (movable.length === 0) {
-        // No pieces can move - pass turn
-        setMessage(roll === 6
-          ? '🎲 Got 6 but no piece can exit! Turn passed.'
-          : 'No pieces can move! Turn passed.'
-        );
+      const newConsecutiveSixes = roll === 6
+        ? (currentSession.consecutive_sixes || 0) + 1
+        : 0;
+
+      // ── Triple 6 rule ──
+      if (roll === 6 && newConsecutiveSixes >= 3) {
+        setMessage('🚫 Three 6s in a row! Turn lost!');
         setTimeout(() => setMessage(''), 2500);
 
-        // Pass turn via move with a dummy
-        // Actually just reload session which already moved to next player
-        await loadPlayers(currentSession.id);
-        const { data: sd } = await supabase
+        const nextId = getNextPlayerId();
+        await supabase
           .from('room_ludo_sessions')
-          .select('*')
-          .eq('id', currentSession.id)
-          .single();
-        if (sd) setCurrentSession(sd);
+          .update({
+            current_turn_user_id: nextId,
+            consecutive_sixes: 0,
+            last_roll: 0,
+          })
+          .eq('id', currentSession.id);
+
+        await refreshSession();
         setRolling(false);
         return;
       }
 
+      // ── All pieces in home + not 6 → pass turn ──
+      if (allInHome && roll !== 6) {
+        setMessage('🎲 Need a 6 to start! Turn passed.');
+        setTimeout(() => setMessage(''), 2000);
+
+        const nextId = getNextPlayerId();
+        await supabase
+          .from('room_ludo_sessions')
+          .update({
+            current_turn_user_id: nextId,
+            consecutive_sixes: 0,
+            last_roll: 0,
+          })
+          .eq('id', currentSession.id);
+
+        await refreshSession();
+        setRolling(false);
+        return;
+      }
+
+      // ── Find movable pieces ──
+      const movable = getMovablePieces(myPlayer, roll);
+
+      if (movable.length === 0) {
+        // No valid moves → pass turn
+        setMessage('No pieces can move! Turn passed.');
+        setTimeout(() => setMessage(''), 2000);
+
+        const nextId = roll === 6
+          ? String(user.id)  // Keep turn if got 6 but somehow no moves
+          : getNextPlayerId();
+
+        await supabase
+          .from('room_ludo_sessions')
+          .update({
+            current_turn_user_id: nextId,
+            consecutive_sixes: roll === 6 ? newConsecutiveSixes : 0,
+            last_roll: roll,
+          })
+          .eq('id', currentSession.id);
+
+        await refreshSession();
+        setRolling(false);
+        return;
+      }
+
+      // Save roll to session
+      await supabase
+        .from('room_ludo_sessions')
+        .update({
+          consecutive_sixes: newConsecutiveSixes,
+          last_roll: roll,
+        })
+        .eq('id', currentSession.id);
+
       if (movable.length === 1) {
-        // Auto move the only option
-        await movePiece(movable[0], roll);
+        // Auto move
+        await movePiece(movable[0], roll, newConsecutiveSixes);
       } else {
-        // Multiple options: let player choose
+        // Player chooses
         setMovablePieces(movable);
         if (roll === 6) {
-          setMessage('🎲 Choose: move a piece or bring a new one out!');
+          setMessage('🎲 Got 6! Choose a piece to move or bring out!');
         } else {
-          setMessage('Tap a highlighted piece to move!');
+          setMessage('Choose a piece to move!');
         }
       }
 
-    } catch (err) {
-      alert(err.message || 'Failed to roll');
-    } finally {
       setRolling(false);
-    }
+    }, 900);
   };
 
-  const movePiece = async (pieceNumber, roll) => {
-    try {
-      const { data, error } = await supabase.rpc('move_ludo_piece', {
-        p_session_id: currentSession.id,
-        p_user_id: user.id,
-        p_piece_number: pieceNumber,
-      });
+  // ─── HELPERS ─────────────────────────────────
+  const getNextPlayerId = () => {
+    const sorted = [...players].sort(
+      (a, b) => a.seat_number - b.seat_number
+    );
+    const myPlayer = sorted.find(
+      p => String(p.user_id) === String(user.id)
+    );
+    if (!myPlayer) return sorted[0]?.user_id;
 
-      if (error) throw error;
-      if (!data?.success) throw new Error(data?.error || 'Failed to move');
+    const myIdx = sorted.findIndex(
+      p => String(p.user_id) === String(user.id)
+    );
+    const nextIdx = (myIdx + 1) % sorted.length;
+    return sorted[nextIdx].user_id;
+  };
 
-      setMovablePieces([]);
-      setSelectedPiece(null);
-      setMessage('');
+  const refreshSession = async () => {
+    await loadPlayers(currentSession.id);
+    const { data: sd } = await supabase
+      .from('room_ludo_sessions')
+      .select('*')
+      .eq('id', currentSession.id)
+      .single();
+    if (sd) setCurrentSession(sd);
+  };
 
-      if (data.bumped) {
-        setMessage('💥 You sent a piece home!');
-        setTimeout(() => setMessage(''), 2000);
-      }
+  // ─── MOVE PIECE ──────────────────────────────
+  const movePiece = async (pieceNumber, roll, consecSixes) => {
+    const myPlayer = players.find(
+      p => String(p.user_id) === String(user.id)
+    );
+    if (!myPlayer) return;
 
-      if (data.extra_turn) {
-        const sixes = data.consecutive_sixes || 0;
-        if (sixes === 1) {
-          setMessage('🎲 Rolled 6! Play again!');
-        } else if (sixes === 2) {
-          setMessage('🎲🎲 Two 6s in a row! Last chance!');
-        }
-        setTimeout(() => setMessage(''), 2000);
-      }
+    const pieceKey = `piece${pieceNumber}`;
+    const currentPos = myPlayer[pieceKey];
 
-      onCoinsUpdated?.();
-      await loadPlayers(currentSession.id);
-
-      const { data: sessionData } = await supabase
-        .from('room_ludo_sessions')
-        .select('*')
-        .eq('id', currentSession.id)
-        .single();
-      if (sessionData) setCurrentSession(sessionData);
-
-    } catch (err) {
-      alert(err.message || 'Failed to move piece');
+    // Calculate new position
+    let newPos;
+    if (currentPos === -1 && roll === 6) {
+      newPos = 0; // Exit home
+    } else if (currentPos === -1) {
+      setMessage('Need 6 to exit home!');
+      setTimeout(() => setMessage(''), 1500);
+      return;
+    } else {
+      newPos = currentPos + roll;
     }
+
+    // Overshoot check
+    if (newPos > 57) {
+      setMessage('Cannot move: would overshoot!');
+      setTimeout(() => setMessage(''), 1500);
+      return;
+    }
+    if (newPos > 56 && newPos < 57) newPos = newPos;
+    if (newPos >= 57) newPos = 57;
+
+    // Update pieces locally
+    const updatedPieces = {
+      piece1: myPlayer.piece1,
+      piece2: myPlayer.piece2,
+      piece3: myPlayer.piece3,
+      piece4: myPlayer.piece4,
+    };
+    updatedPieces[pieceKey] = newPos;
+
+    const piecesFinished =
+      (updatedPieces.piece1 === 57 ? 1 : 0) +
+      (updatedPieces.piece2 === 57 ? 1 : 0) +
+      (updatedPieces.piece3 === 57 ? 1 : 0) +
+      (updatedPieces.piece4 === 57 ? 1 : 0);
+
+    // Check bump
+    let bumpedUserId = null;
+    let bumpedPieceNum = null;
+    const SAFE = [0, 8, 13, 21, 26, 34, 39, 47];
+
+    if (newPos >= 0 && newPos <= 51 && !SAFE.includes(newPos)) {
+      for (const opponent of players) {
+        if (String(opponent.user_id) === String(user.id)) continue;
+        const oppPieces = [
+          opponent.piece1,
+          opponent.piece2,
+          opponent.piece3,
+          opponent.piece4,
+        ];
+        const hitIdx = oppPieces.findIndex(p => p === newPos);
+        if (hitIdx !== -1) {
+          bumpedUserId = opponent.user_id;
+          bumpedPieceNum = hitIdx + 1;
+          break;
+        }
+      }
+    }
+
+    // Determine next turn
+    const isWinner = piecesFinished === 4;
+    const extraTurnNow = roll === 6 && !isWinner;
+    const nextTurnId = extraTurnNow
+      ? String(user.id)
+      : getNextPlayerId();
+    const nextConsecSixes = extraTurnNow
+      ? (consecSixes ?? currentSession.consecutive_sixes ?? 0)
+      : 0;
+
+    // Save to DB
+    const { data, error } = await supabase.rpc('save_ludo_move', {
+      p_session_id: currentSession.id,
+      p_user_id: user.id,
+      p_piece1: updatedPieces.piece1,
+      p_piece2: updatedPieces.piece2,
+      p_piece3: updatedPieces.piece3,
+      p_piece4: updatedPieces.piece4,
+      p_pieces_finished: piecesFinished,
+      p_next_turn_user_id: nextTurnId,
+      p_consecutive_sixes: nextConsecSixes,
+      p_last_roll: extraTurnNow ? roll : 0,
+      p_winner: isWinner,
+      p_bumped_user_id: bumpedUserId,
+      p_bumped_piece: bumpedPieceNum,
+    });
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    setMovablePieces([]);
+    setSelectedPiece(null);
+
+    if (bumpedUserId) {
+      setMessage('💥 You sent an opponent home!');
+      setTimeout(() => setMessage(''), 2000);
+    }
+
+    if (extraTurnNow) {
+      const sixes = nextConsecSixes;
+      if (sixes === 1) setMessage('🎲 Rolled 6! Play again!');
+      else if (sixes === 2) setMessage('🎲🎲 Two 6s! Last bonus turn!');
+      setTimeout(() => setMessage(''), 2000);
+    }
+
+    onCoinsUpdated?.();
+    await refreshSession();
   };
   const handlePieceSelect = async (pieceNumber) => {
     if (!movablePieces.includes(pieceNumber)) return;
