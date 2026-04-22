@@ -743,12 +743,10 @@ export default function LudoGame({
     }, 80);
 
     try {
-      // Call RPC with piece_number=0 just to get the roll
-      // We'll call again with actual piece when player selects
-      const { data, error } = await supabase.rpc('roll_ludo_dice', {
+      // Step 1: Just roll the dice
+      const { data, error } = await supabase.rpc('get_ludo_roll', {
         p_session_id: currentSession.id,
         p_user_id: user.id,
-        p_piece_number: 0, // 0 = just roll, don't move yet
       });
 
       if (error) throw error;
@@ -758,10 +756,9 @@ export default function LudoGame({
       setLastRoll(roll);
       setDiceDisplay(roll);
 
-      // Triple 6 rule
+      // Triple 6: lost turn
       if (data.triple_six) {
         setMessage('🚫 Triple 6! Turn lost!');
-        setConsecutiveSixes(0);
         setTimeout(() => setMessage(''), 2500);
         await loadPlayers(currentSession.id);
         const { data: sd } = await supabase
@@ -770,39 +767,28 @@ export default function LudoGame({
           .eq('id', currentSession.id)
           .single();
         if (sd) setCurrentSession(sd);
+        setRolling(false);
         return;
       }
 
-      setConsecutiveSixes(data.consecutive_sixes || 0);
-
-      // No pieces moved yet - find movable pieces
-      if (!data.moved) {
-        if (data.reason === 'need_6_to_exit') {
-          setMessage('🎲 Need a 6 to exit home!');
-          setTimeout(() => setMessage(''), 2000);
-          await loadPlayers(currentSession.id);
-          const { data: sd } = await supabase
-            .from('room_ludo_sessions')
-            .select('*')
-            .eq('id', currentSession.id)
-            .single();
-          if (sd) setCurrentSession(sd);
-          return;
-        }
-        return;
-      }
-
-      // Find movable pieces from current player state
+      // Step 2: Find movable pieces
       const myPlayer = players.find(
         p => String(p.user_id) === String(user.id)
       );
-      if (!myPlayer) return;
+      if (!myPlayer) { setRolling(false); return; }
 
       const movable = getMovablePieces(myPlayer, roll);
 
       if (movable.length === 0) {
-        setMessage('No pieces can move!');
-        setTimeout(() => setMessage(''), 2000);
+        // No pieces can move - pass turn
+        setMessage(roll === 6
+          ? '🎲 Got 6 but no piece can exit! Turn passed.'
+          : 'No pieces can move! Turn passed.'
+        );
+        setTimeout(() => setMessage(''), 2500);
+
+        // Pass turn via move with a dummy
+        // Actually just reload session which already moved to next player
         await loadPlayers(currentSession.id);
         const { data: sd } = await supabase
           .from('room_ludo_sessions')
@@ -810,17 +796,20 @@ export default function LudoGame({
           .eq('id', currentSession.id)
           .single();
         if (sd) setCurrentSession(sd);
+        setRolling(false);
         return;
       }
 
       if (movable.length === 1) {
+        // Auto move the only option
         await movePiece(movable[0], roll);
       } else {
+        // Multiple options: let player choose
         setMovablePieces(movable);
         if (roll === 6) {
-          setMessage('🎲 Choose: move a piece or exit a new one!');
+          setMessage('🎲 Choose: move a piece or bring a new one out!');
         } else {
-          setMessage('Tap a piece to move!');
+          setMessage('Tap a highlighted piece to move!');
         }
       }
 
@@ -833,49 +822,32 @@ export default function LudoGame({
 
   const movePiece = async (pieceNumber, roll) => {
     try {
-      const myPlayerLocal = players.find(
-        p => String(p.user_id) === String(user?.id)
-      );
-      if (!myPlayerLocal) return;
-
-      const pieceKey = `piece${pieceNumber}`;
-      const currentPos = myPlayerLocal[pieceKey];
-      const nextPos = getLogicalNextPos(currentPos, roll || lastRoll);
-
-      if (nextPos === null || nextPos > 57) {
-        setMessage('Cannot move this piece!');
-        setTimeout(() => setMessage(''), 1200);
-        return;
-      }
-
-      const { data, error } = await supabase.rpc('roll_ludo_dice', {
+      const { data, error } = await supabase.rpc('move_ludo_piece', {
         p_session_id: currentSession.id,
         p_user_id: user.id,
         p_piece_number: pieceNumber,
       });
 
       if (error) throw error;
-      if (!data?.success) throw new Error(data?.error || 'Failed');
+      if (!data?.success) throw new Error(data?.error || 'Failed to move');
 
       setMovablePieces([]);
       setSelectedPiece(null);
       setMessage('');
 
-      if (data.extra_turn) {
-        const sixes = data.consecutive_sixes || 0;
-        setConsecutiveSixes(sixes);
-        if (sixes === 1) {
-          setMessage('🎲 Rolled 6! Play again!');
-        } else if (sixes === 2) {
-          setMessage('🎲🎲 Two 6s! One more chance!');
-        }
+      if (data.bumped) {
+        setMessage('💥 You sent a piece home!');
         setTimeout(() => setMessage(''), 2000);
       }
 
-      if (data.triple_six) {
-        setMessage('🚫 Triple 6! Turn lost!');
-        setConsecutiveSixes(0);
-        setTimeout(() => setMessage(''), 2500);
+      if (data.extra_turn) {
+        const sixes = data.consecutive_sixes || 0;
+        if (sixes === 1) {
+          setMessage('🎲 Rolled 6! Play again!');
+        } else if (sixes === 2) {
+          setMessage('🎲🎲 Two 6s in a row! Last chance!');
+        }
+        setTimeout(() => setMessage(''), 2000);
       }
 
       onCoinsUpdated?.();
