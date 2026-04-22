@@ -36,19 +36,12 @@ const HOME_COLUMNS = [
   [[7,1],[7,2],[7,3],[7,4],[7,5]],     // 3: Green (Left)
 ];
 
-// Home base positions (4 pieces per player in home corner)
+// Home base positions (4 pieces per player in home corner) — decimal grid units
 const HOME_BASES = [
-  [[10,1],[10,3],[12,1],[12,3]],     // 0: Red (Bottom-Left)
-  [[10,11],[10,13],[12,11],[12,13]], // 1: Blue (Bottom-Right)
-  [[1,11],[1,13],[3,11],[3,13]],     // 2: Yellow (Top-Right)
-  [[1,1],[1,3],[3,1],[3,3]],         // 3: Green (Top-Left)
-];
-
-const HOME_BASE_NUDGES = [
-  [0.18, 0.18],
-  [-0.18, 0.18],
-  [0.18, -0.18],
-  [-0.18, -0.18],
+  [[10.6,1.9],[10.6,4.1],[12.8,1.9],[12.8,4.1]],   // 0: Red (Bottom-Left)
+  [[10.6,10.9],[10.6,13.1],[12.8,10.9],[12.8,13.1]], // 1: Blue (Bottom-Right)
+  [[1.9,10.9],[1.9,13.1],[4.1,10.9],[4.1,13.1]],     // 2: Yellow (Top-Right)
+  [[1.9,1.9],[1.9,4.1],[4.1,1.9],[4.1,4.1]],         // 3: Green (Top-Left)
 ];
 
 const PIECE_STACK_OFFSETS = [
@@ -116,10 +109,15 @@ export default function LudoGame({
   const resultFiredRef = useRef(false);
   const avatarImagesRef = useRef({});
   const finishFxTimerRef = useRef(null);
+  const turnTimerRef = useRef(null);
+  const autoPlayedTurnRef = useRef(false);
+  const autoActionStateRef = useRef({});
+  const [turnTimeLeft, setTurnTimeLeft] = useState(12);
 
   useEffect(() => {
     return () => {
       if (finishFxTimerRef.current) clearTimeout(finishFxTimerRef.current);
+      if (turnTimerRef.current) clearInterval(turnTimerRef.current);
     };
   }, []);
 
@@ -127,6 +125,61 @@ export default function LudoGame({
     if (!open || !roomId) return;
     loadSession();
   }, [open, roomId]);
+
+  // ─── Turn countdown timer ────────────────────
+  useEffect(() => {
+    const isMine =
+      String(currentSession?.current_turn_user_id) === String(user?.id);
+
+    if (!isMine || currentSession?.status !== 'playing' || !open) {
+      setTurnTimeLeft(12);
+      if (turnTimerRef.current) {
+        clearInterval(turnTimerRef.current);
+        turnTimerRef.current = null;
+      }
+      return;
+    }
+
+    // New turn — reset
+    setTurnTimeLeft(12);
+    autoPlayedTurnRef.current = false;
+    if (turnTimerRef.current) clearInterval(turnTimerRef.current);
+
+    let remaining = 12;
+    turnTimerRef.current = setInterval(() => {
+      remaining -= 1;
+      setTurnTimeLeft(remaining);
+
+      if (remaining <= 0) {
+        clearInterval(turnTimerRef.current);
+        turnTimerRef.current = null;
+
+        if (autoPlayedTurnRef.current) return;
+        autoPlayedTurnRef.current = true;
+
+        const {
+          lastRoll: lr,
+          movablePieces: mp,
+          rolling: r,
+          rollDice: rd,
+          handlePieceSelect: hps,
+        } = autoActionStateRef.current;
+
+        if (!lr && !r) {
+          rd();
+        } else if (mp && mp.length > 0) {
+          hps(mp[0]);
+        }
+      }
+    }, 1000);
+
+    return () => {
+      if (turnTimerRef.current) {
+        clearInterval(turnTimerRef.current);
+        turnTimerRef.current = null;
+      }
+    };
+  }, [currentSession?.current_turn_user_id, currentSession?.status, open]);
 
   // Realtime
   useEffect(() => {
@@ -311,10 +364,10 @@ export default function LudoGame({
       const homeBase = HOME_BASES[colorIdx];
       if (!homeBase || !homeBase[pieceIndex]) return null;
       const [baseRow, baseCol] = homeBase[pieceIndex];
-      const [nudgeX = 0, nudgeY = 0] = HOME_BASE_NUDGES[pieceIndex] || [0, 0];
+      // Coordinates are already decimal-centered — multiply directly by cellSize
       return {
-        x: (baseCol + 0.5 + nudgeX) * cellSize,
-        y: (baseRow + 0.5 + nudgeY) * cellSize,
+        x: baseCol * cellSize,
+        y: baseRow * cellSize,
         colorIdx,
         isFinished: false,
       };
@@ -1127,6 +1180,9 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
   const isMyTurn = String(currentSession?.current_turn_user_id) === String(user?.id);
   const netPrize = Math.floor((currentSession?.entry_cost || 0) * players.length * 0.9);
 
+  // Keep autoAction ref in sync with latest closures every render
+  autoActionStateRef.current = { lastRoll, movablePieces, rolling, rollDice, handlePieceSelect };
+
   // Dice dots positions
   const DOT_POSITIONS = {
     1: [[50,50]],
@@ -1276,21 +1332,30 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                 {/* Player card overlays around board corners */}
                 {currentSession.status === 'playing' && (() => {
                   const overlayPositions = [
-  'bottom-8 left-1',
-  'bottom-8 right-1',
-  'top-8 right-1',
-  'top-8 left-1',
+  'bottom-3 left-[-6px]',
+  'bottom-3 right-[-6px]',
+  'top-3 right-[-6px]',
+  'top-3 left-[-6px]',
 ];
                   return players.map((p) => {
                     const colorIdx = getRelativeVisualSeat(p, players);
                     const isCurrentTurn = String(currentSession.current_turn_user_id) === String(p.user_id);
                     const piecesFinished = p.pieces_finished || 0;
                     const isFinishFx = String(recentFinishedUserId) === String(p.user_id);
+
+                    // Determine which roll value to display for this player's card
+                    const isMe = String(p.user_id) === String(user?.id);
+                    const cardRoll = isCurrentTurn
+                      ? (isMe
+                          ? (lastRoll || currentSession.last_roll || null)
+                          : (currentSession.last_roll > 0 ? currentSession.last_roll : null))
+                      : null;
+
                     return (
                       <div
                         key={p.id}
                         className={`absolute ${overlayPositions[colorIdx]} flex flex-col items-center gap-0.5
-                          rounded-xl p-1.5 backdrop-blur-sm transition ${isFinishFx ? 'animate-bounce' : ''}`}
+                          rounded-xl p-1 backdrop-blur-sm transition max-w-[58px] ${isFinishFx ? 'animate-bounce' : ''}`}
                         style={{
                           background: isCurrentTurn
                             ? `${PLAYER_COLORS[colorIdx]}44`
@@ -1330,8 +1395,23 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                             />
                           ))}
                         </div>
+                        {/* Mini dice badge — shown only for the current-turn player */}
                         {isCurrentTurn && (
-                          <div className="text-[10px] animate-bounce">🎲</div>
+                          <div
+                            className="flex items-center gap-0.5 rounded-full px-1 py-0.5 mt-0.5"
+                            style={{ background: `${PLAYER_COLORS[colorIdx]}cc` }}
+                          >
+                            <span className="text-[9px] leading-none">🎲</span>
+                            {cardRoll ? (
+                              <span className="text-white text-[9px] font-black leading-none">
+                                {cardRoll}
+                              </span>
+                            ) : (
+                              <span className="text-white/70 text-[8px] leading-none animate-pulse">
+                                …
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
                     );
@@ -1344,54 +1424,115 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                 <div className="flex items-center gap-2">
                   {/* Dice */}
                   <div className="shrink-0">
-                    {lastRoll || diceAnimating ? (
-                      <div
-                        onClick={isMyTurn && !rolling && !movablePieces.length ? rollDice : undefined}
-                        className={`relative w-14 h-14 rounded-2xl border-b-4 border-r-2
-                          flex items-center justify-center
-                          ${isMyTurn && !rolling && !movablePieces.length
-                            ? 'cursor-pointer active:scale-90 animate-bounce'
-                            : 'cursor-default'
-                          }
-                          ${diceAnimating ? 'animate-spin' : ''}
-                        `}
-                        style={{
-                          background: 'linear-gradient(135deg, #fff, #e2e8f0)',
-                          borderColor: PLAYER_COLORS[myColorIdx],
-                          boxShadow: isMyTurn
-                            ? `0 4px 12px rgba(0,0,0,0.4), 0 0 15px ${PLAYER_COLORS[myColorIdx]}66`
-                            : '0 4px 8px rgba(0,0,0,0.3)',
-                        }}
-                      >
-                        {(DOT_POSITIONS[diceDisplay || lastRoll] || DOT_POSITIONS[1]).map(
-                          ([dx, dy], di) => (
-                            <div
-                              key={di}
-                              className="absolute w-2 h-2 rounded-full"
+                    {/* Countdown SVG ring wrapper */}
+                    <div className="relative">
+                      {/* Radial countdown ring — visible only on my turn */}
+                      {isMyTurn && !diceAnimating && (() => {
+                        const circ = 2 * Math.PI * 29;
+                        const offset = circ * (1 - turnTimeLeft / 12);
+                        const urgentColor = turnTimeLeft <= 4
+                          ? '#ef4444'
+                          : turnTimeLeft <= 8
+                            ? '#f59e0b'
+                            : PLAYER_COLORS[myColorIdx];
+                        return (
+                          <svg
+                            width="64" height="64"
+                            viewBox="0 0 64 64"
+                            className="pointer-events-none"
+                            style={{
+                              position: 'absolute',
+                              top: '-4px', left: '-4px',
+                              zIndex: 10,
+                            }}
+                          >
+                            {/* Track */}
+                            <circle
+                              cx="32" cy="32" r="29"
+                              fill="none"
+                              stroke="rgba(255,255,255,0.12)"
+                              strokeWidth="3"
+                            />
+                            {/* Progress */}
+                            <circle
+                              cx="32" cy="32" r="29"
+                              fill="none"
+                              stroke={urgentColor}
+                              strokeWidth="3"
+                              strokeLinecap="round"
+                              strokeDasharray={circ.toFixed(2)}
+                              strokeDashoffset={offset.toFixed(2)}
                               style={{
-                                left: `${dx}%`,
-                                top: `${dy}%`,
-                                transform: 'translate(-50%,-50%)',
-                                backgroundColor: PLAYER_COLORS[myColorIdx],
+                                transform: 'rotate(-90deg)',
+                                transformOrigin: '32px 32px',
+                                transition: 'stroke-dashoffset 0.95s linear, stroke 0.3s',
                               }}
                             />
-                          )
-                        )}
-                        {isMyTurn && !rolling && !movablePieces.length && (
-                          <div className="absolute -top-1 -right-1 w-3 h-3
-                            rounded-full bg-emerald-400 animate-ping" />
-                        )}
-                      </div>
-                    ) : (
-                      <div
-                        onClick={isMyTurn && !rolling ? rollDice : undefined}
-                        className={`w-14 h-14 rounded-2xl border-2 flex items-center
-                          justify-center text-2xl
-                          ${isMyTurn ? 'cursor-pointer animate-bounce border-emerald-400' : 'border-white/10 opacity-30'}`}
-                      >
-                        🎲
-                      </div>
-                    )}
+                            {/* Countdown number */}
+                            <text
+                              x="32" y="-5"
+                              textAnchor="middle"
+                              dominantBaseline="middle"
+                              fontSize="8"
+                              fontWeight="bold"
+                              fill={urgentColor}
+                              style={{ transform: 'rotate(90deg)', transformOrigin: '32px -5px' }}
+                            >
+                              {turnTimeLeft}
+                            </text>
+                          </svg>
+                        );
+                      })()}
+
+                      {lastRoll || diceAnimating ? (
+                        <div
+                          onClick={isMyTurn && !rolling && !movablePieces.length ? rollDice : undefined}
+                          className={`relative w-14 h-14 rounded-2xl border-b-4 border-r-2
+                            flex items-center justify-center
+                            ${isMyTurn && !rolling && !movablePieces.length
+                              ? 'cursor-pointer active:scale-90 animate-bounce'
+                              : 'cursor-default'
+                            }
+                            ${diceAnimating ? 'animate-spin' : ''}
+                          `}
+                          style={{
+                            background: 'linear-gradient(135deg, #fff, #e2e8f0)',
+                            borderColor: PLAYER_COLORS[myColorIdx],
+                            boxShadow: isMyTurn
+                              ? `0 4px 12px rgba(0,0,0,0.4), 0 0 15px ${PLAYER_COLORS[myColorIdx]}66`
+                              : '0 4px 8px rgba(0,0,0,0.3)',
+                          }}
+                        >
+                          {(DOT_POSITIONS[diceDisplay || lastRoll] || DOT_POSITIONS[1]).map(
+                            ([dx, dy], di) => (
+                              <div
+                                key={di}
+                                className="absolute w-2 h-2 rounded-full"
+                                style={{
+                                  left: `${dx}%`,
+                                  top: `${dy}%`,
+                                  transform: 'translate(-50%,-50%)',
+                                  backgroundColor: PLAYER_COLORS[myColorIdx],
+                                }}
+                              />
+                            )
+                          )}
+                          {isMyTurn && !rolling && !movablePieces.length && (
+                            <div className="absolute -top-1 -right-1 w-3 h-3
+                              rounded-full bg-emerald-400 animate-ping" />
+                          )}
+                        </div>
+                      ) : (
+                        <div
+                          onClick={isMyTurn && !rolling ? rollDice : undefined}
+                          className={`w-14 h-14 rounded-2xl border-2 flex items-center
+                            justify-center text-2xl
+                            ${isMyTurn ? 'cursor-pointer animate-bounce border-emerald-400' : 'border-white/10 opacity-30'}`}
+                        >
+                          🎲
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Players hidden during playing — shown as overlays on board */}
