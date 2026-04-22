@@ -793,6 +793,8 @@ export default function LudoGame({
 
 if (error) throw error;
 if (!data?.success) throw new Error(data?.error || 'Failed to move');
+console.log('MOVE RESULT', data);
+alert(`roll=${data.roll} | new_pos=${data.new_pos} | extra_turn=${data.extra_turn} | bumped=${data.bumped}`);
 
       setMovablePieces([]);
       setSelectedPiece(null);
