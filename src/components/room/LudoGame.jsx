@@ -1097,11 +1097,11 @@ alert(`roll=${data.roll} | new_pos=${data.new_pos} | extra_turn=${data.extra_tur
                 {/* Player card overlays around board corners */}
                 {currentSession.status === 'playing' && (() => {
                   const overlayPositions = [
-                    'bottom-2 left-2',   // 0: Red bottom-left
-                    'bottom-2 right-2',  // 1: Blue bottom-right
-                    'top-2 right-2',     // 2: Yellow top-right
-                    'top-2 left-2',      // 3: Green top-left
-                  ];
+  'bottom-8 left-1',
+  'bottom-8 right-1',
+  'top-8 right-1',
+  'top-8 left-1',
+];
                   return players.map((p) => {
                     const colorIdx = getRelativeVisualSeat(p, players);
                     const isCurrentTurn = String(currentSession.current_turn_user_id) === String(p.user_id);
