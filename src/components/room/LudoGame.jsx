@@ -880,38 +880,37 @@ export default function LudoGame({
         setConsecutiveSixes(data.consecutive_sixes);
       }
 
-      if (data.triple_six) {
-        setMessage('🚫 Three 6s! Turn lost.');
+      if (data.triple_six || data.turn_passed) {
+        setDiceAnimating(false);
+        setDiceDisplay(roll);
+        setLastRoll(roll);
+        if (data.triple_six) {
+          setMessage('🚫 Three 6s! Turn lost.');
+        } else {
+          setMessage(data.all_in_home ? '🎲 Need 6 to start. Turn passed.' : 'Turn passed.');
+        }
         setTimeout(() => setMessage(''), 2000);
-        
-        await supabase
-          .from('room_ludo_sessions')
-          .update({
-            display_roll: roll,
-            display_roll_user_id: user.id,
-            last_roll: roll,
-          })
-          .eq('id', currentSession.id);
-        
-        await wait(DICE_REVEAL_DELAY);
-        await refreshSession();
-        return;
-      }
 
-      if (data.turn_passed) {
-        setMessage(data.all_in_home ? '🎲 Need 6 to start. Turn passed.' : 'Turn passed.');
-        setTimeout(() => setMessage(''), 2000);
-        
+        await wait(DICE_REVEAL_DELAY);
+
+        const sortedPass = [...players].sort((a, b) => a.seat_number - b.seat_number);
+        const passCurrentIdx = sortedPass.findIndex(
+          p => String(p.user_id) === String(user.id)
+        );
+        const passNextPlayer = passCurrentIdx >= 0
+          ? sortedPass[(passCurrentIdx + 1) % sortedPass.length]
+          : null;
+
         await supabase
           .from('room_ludo_sessions')
           .update({
             display_roll: roll,
             display_roll_user_id: user.id,
             last_roll: roll,
+            ...(passNextPlayer?.user_id ? { current_turn_user_id: passNextPlayer.user_id } : {}),
           })
           .eq('id', currentSession.id);
-        
-        await wait(DICE_REVEAL_DELAY);
+
         await refreshSession();
         return;
       }
@@ -931,18 +930,28 @@ export default function LudoGame({
       if (movable.length === 0) {
         setMessage('No valid move. Turn passed.');
         setTimeout(() => setMessage(''), 1700);
-        
+
+        await wait(DICE_REVEAL_DELAY);
+
+        const sortedNoMove = [...players].sort((a, b) => a.seat_number - b.seat_number);
+        const noMoveCurrentIdx = sortedNoMove.findIndex(
+          p => String(p.user_id) === String(user.id)
+        );
+        const noMoveNextPlayer = noMoveCurrentIdx >= 0
+          ? sortedNoMove[(noMoveCurrentIdx + 1) % sortedNoMove.length]
+          : null;
+
         await supabase
           .from('room_ludo_sessions')
           .update({
             display_roll: roll,
             display_roll_user_id: user.id,
             last_roll: roll,
+            ...(noMoveNextPlayer?.user_id ? { current_turn_user_id: noMoveNextPlayer.user_id } : {}),
           })
           .eq('id', currentSession.id);
-        
-        await wait(DICE_REVEAL_DELAY);
-        await passTurnToNextPlayer();
+
+        await refreshSession();
         return;
       }
 
