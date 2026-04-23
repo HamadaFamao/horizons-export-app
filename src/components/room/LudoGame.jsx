@@ -1364,99 +1364,116 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                 />
                 {/* Player card overlays around board corners */}
                 {currentSession.status === 'playing' && (() => {
-                  // positions: bottom-left, bottom-right, top-right, top-left (by colorIdx 0..3)
-                  const overlayPositions = [
-                    'bottom-0 left-0 translate-y-[80%] -translate-x-[10%]',
-                    'bottom-0 right-0 translate-y-[80%] translate-x-[10%]',
-                    'top-0 right-0 -translate-y-[80%] translate-x-[10%]',
-                    'top-0 left-0 -translate-y-[80%] -translate-x-[10%]',
+                  // Wrapper positions (outer flex group): bottom-left, bottom-right, top-right, top-left
+                  const wrapperPositions = [
+                    'bottom-0 left-0 translate-y-[90%] -translate-x-[5%]',
+                    'bottom-0 right-0 translate-y-[90%] translate-x-[5%]',
+                    'top-0 right-0 -translate-y-[90%] translate-x-[5%]',
+                    'top-0 left-0 -translate-y-[90%] -translate-x-[5%]',
                   ];
+                  // For colorIdx 0 (bottom-left) and 3 (top-left): dice goes to the RIGHT → flex-row
+                  // For colorIdx 1 (bottom-right) and 2 (top-right): dice goes to the LEFT → flex-row-reverse
+                  const diceOnRight = [true, false, false, true];
+
                   return players.map((p) => {
                     const colorIdx = getRelativeVisualSeat(p, players);
                     const isCurrentTurn = String(currentSession.current_turn_user_id) === String(p.user_id);
                     const piecesFinished = p.pieces_finished || 0;
                     const isFinishFx = String(recentFinishedUserId) === String(p.user_id);
 
-                    // Determine which roll value to display for this player's card
-                    const isMe = String(p.user_id) === String(user?.id);
-                    const cardRoll = isCurrentTurn
-                      ? (isMe
-                          ? (lastRoll || currentSession.last_roll || null)
-                          : (currentSession.last_roll > 0 ? currentSession.last_roll : null))
+                    // Dice value: always derived from session realtime data only
+                    const cardRoll = isCurrentTurn && (currentSession.last_roll > 0)
+                      ? currentSession.last_roll
                       : null;
+
+                    const flexDir = diceOnRight[colorIdx] ? 'row' : 'row-reverse';
 
                     return (
                       <div
                         key={p.id}
-                        className={`absolute ${overlayPositions[colorIdx]} flex flex-col items-center gap-0.5
-                          rounded-xl p-1.5 backdrop-blur-sm transition max-w-[68px] ${isFinishFx ? 'animate-bounce' : ''}`}
-                        style={{
-                          background: isCurrentTurn
-                            ? `${PLAYER_COLORS[colorIdx]}44`
-                            : 'rgba(0,0,0,0.55)',
-                          outline: isCurrentTurn
-                            ? `2px solid ${PLAYER_COLORS[colorIdx]}`
-                            : 'none',
-                          boxShadow: isFinishFx
-                            ? `0 0 0 2px ${PLAYER_COLORS[colorIdx]}, 0 0 18px ${PLAYER_COLORS[colorIdx]}cc`
-                            : undefined,
-                        }}
+                        className={`absolute ${wrapperPositions[colorIdx]} z-10 ${isFinishFx ? 'animate-bounce' : ''}`}
+                        style={{ display: 'flex', flexDirection: flexDir, alignItems: 'center', gap: '4px' }}
                       >
-                        <img
-                          src={p.avatar_url || FALLBACK_AVATAR}
-                          alt={p.name}
-                          className="w-8 h-8 rounded-full object-cover"
-                          style={{ border: `2px solid ${PLAYER_COLORS[colorIdx]}` }}
-                          onError={e => e.currentTarget.src = FALLBACK_AVATAR}
-                        />
-                        <div className="text-white text-[9px] font-bold max-w-[56px] truncate text-center leading-tight">
-                          {p.name}
+                        {/* Player info card */}
+                        <div
+                          className="flex flex-col items-center gap-0.5 rounded-xl p-1.5 backdrop-blur-sm transition"
+                          style={{
+                            background: isCurrentTurn
+                              ? `${PLAYER_COLORS[colorIdx]}44`
+                              : 'rgba(0,0,0,0.55)',
+                            outline: isCurrentTurn
+                              ? `2px solid ${PLAYER_COLORS[colorIdx]}`
+                              : 'none',
+                            boxShadow: isFinishFx
+                              ? `0 0 0 2px ${PLAYER_COLORS[colorIdx]}, 0 0 18px ${PLAYER_COLORS[colorIdx]}cc`
+                              : undefined,
+                            maxWidth: '60px',
+                          }}
+                        >
+                          <img
+                            src={p.avatar_url || FALLBACK_AVATAR}
+                            alt={p.name}
+                            className="w-8 h-8 rounded-full object-cover"
+                            style={{ border: `2px solid ${PLAYER_COLORS[colorIdx]}` }}
+                            onError={e => e.currentTarget.src = FALLBACK_AVATAR}
+                          />
+                          <div className="text-white text-[9px] font-bold max-w-[56px] truncate text-center leading-tight">
+                            {p.name}
+                          </div>
+                          <div className="text-white/90 text-[10px] font-black leading-tight">
+                            {piecesFinished}/4
+                          </div>
+                          <div className="flex gap-0.5">
+                            {[0,1,2,3].map(i => (
+                              <div
+                                key={i}
+                                className="w-[9px] h-[9px] rounded-full border-2 shadow"
+                                style={{
+                                  backgroundColor: i < piecesFinished
+                                    ? PLAYER_COLORS[colorIdx]
+                                    : 'transparent',
+                                  borderColor: PLAYER_COLORS[colorIdx],
+                                }}
+                              />
+                            ))}
+                          </div>
                         </div>
-                        <div className="text-white/90 text-[10px] font-black leading-tight">
-                          {piecesFinished}/4 finished
-                        </div>
-                        <div className="flex gap-0.5">
-                          {[0,1,2,3].map(i => (
-                            <div
-                              key={i}
-                              className="w-[10px] h-[10px] rounded-full border-2 shadow"
-                              style={{
-                                backgroundColor: i < piecesFinished
-                                  ? PLAYER_COLORS[colorIdx]
-                                  : 'transparent',
-                                borderColor: PLAYER_COLORS[colorIdx],
-                              }}
-                            />
-                          ))}
-                        </div>
-                        {/* Dice badge — shown for the current-turn player */}
+
+                        {/* Dice — beside the card, only shown when it's this player's turn */}
                         {isCurrentTurn && (
                           <div
-                            className="flex items-center justify-center gap-1 rounded-lg px-2 py-1 mt-0.5"
+                            className="flex flex-col items-center justify-center rounded-xl"
                             style={{
-                              background: 'rgba(255,255,255,0.15)',
+                              width: '44px',
+                              height: '44px',
+                              background: cardRoll
+                                ? 'linear-gradient(135deg,#fff,#e2e8f0)'
+                                : 'rgba(255,255,255,0.08)',
                               border: `2px solid ${PLAYER_COLORS[colorIdx]}`,
-                              minWidth: '42px',
+                              boxShadow: `0 2px 8px rgba(0,0,0,0.5), 0 0 10px ${PLAYER_COLORS[colorIdx]}55`,
+                              flexShrink: 0,
                             }}
                           >
-                            <span style={{ fontSize: '16px', lineHeight: 1 }}>🎲</span>
                             {cardRoll ? (
-                              <span
-                                className="font-black leading-none"
-                                style={{
-                                  fontSize: '20px',
-                                  color: PLAYER_COLORS[colorIdx],
-                                  textShadow: '0 1px 3px rgba(0,0,0,0.8)',
-                                }}
-                              >
-                                {cardRoll}
-                              </span>
+                              <>
+                                <span style={{ fontSize: '11px', lineHeight: 1 }}>🎲</span>
+                                <span
+                                  className="font-black leading-none"
+                                  style={{
+                                    fontSize: '22px',
+                                    color: PLAYER_COLORS[colorIdx],
+                                    textShadow: '0 1px 3px rgba(0,0,0,0.4)',
+                                  }}
+                                >
+                                  {cardRoll}
+                                </span>
+                              </>
                             ) : (
                               <span
-                                className="font-black leading-none animate-pulse"
-                                style={{ fontSize: '16px', color: 'rgba(255,255,255,0.6)' }}
+                                className="animate-pulse"
+                                style={{ fontSize: '22px', lineHeight: 1 }}
                               >
-                                ?
+                                🎲
                               </span>
                             )}
                           </div>
