@@ -1215,8 +1215,9 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
     const animateDice = isTurnMine && diceAnimating;
     const showDots = animateDice || sessionRoll > 0;
     const dotValue = animateDice
-      ? (diceDisplay || 1)
+      ? (typeof diceDisplay === 'number' && diceDisplay > 0 ? diceDisplay : null)
       : (sessionRoll > 0 ? sessionRoll : null);
+    const dotPattern = dotValue ? DOT_POSITIONS[dotValue] : null;
 
     const diceNode = showDots ? (
       <div
@@ -1230,7 +1231,7 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
           boxShadow: `0 4px 10px rgba(0,0,0,0.4), 0 0 12px ${PLAYER_COLORS[colorIdx]}55`,
         }}
       >
-        {(DOT_POSITIONS[dotValue] || DOT_POSITIONS[1]).map(([dx, dy], di) => (
+        {(dotPattern || []).map(([dx, dy], di) => (
           <div
             key={di}
             className="absolute w-2 h-2 rounded-full"
