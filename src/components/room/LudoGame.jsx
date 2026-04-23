@@ -795,8 +795,6 @@ export default function LudoGame({
   };
 
   // ─── DICE ROLL ───────────────────────────────
-  const AUTO_MOVE_DELAY_MS = 1000;
-
   const rollDice = async () => {
     if (!currentSession?.id || !user?.id) return;
     if (!isMyTurn || rolling) return;
@@ -868,8 +866,6 @@ export default function LudoGame({
       }
 
       if (movable.length === 1) {
-        setMessage('Moving...');
-        await new Promise((resolve) => setTimeout(resolve, AUTO_MOVE_DELAY_MS));
         await movePiece(movable[0]);
         return;
       }
