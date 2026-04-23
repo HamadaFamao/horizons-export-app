@@ -1189,36 +1189,38 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
     handlePieceSelect,
   };
 
-  const getDiceFaceValueForPlayer = (player) => {
-    if (!player) return 0;
-
-    const isDisplayOwner =
-      String(player.user_id) === String(currentSession?.display_roll_user_id);
-
-    if (!isDisplayOwner) return 0;
-
-    const finalValue = Number(currentSession?.display_roll || 0);
-    return finalValue >= 1 && finalValue <= 6 ? finalValue : 0;
+  const isDiceOwnerPlayer = (player) => {
+    return String(player?.user_id) === String(currentSession?.current_turn_user_id);
   };
 
-  const renderDiceSlot = (player, side = 'right') => {
+  const getVisibleDiceValueForPlayer = (player) => {
+    const isTurnPlayer = isDiceOwnerPlayer(player);
+    if (!isTurnPlayer) return 0;
+
+    const isLocalTurnPlayer =
+      String(player?.user_id) === String(user?.id) &&
+      String(currentSession?.current_turn_user_id) === String(user?.id);
+
+    if (isLocalTurnPlayer && diceAnimating && diceDisplay >= 1 && diceDisplay <= 6) {
+      return diceDisplay;
+    }
+
+    const finalRoll = Number(currentSession?.display_roll || 0);
+    return finalRoll >= 1 && finalRoll <= 6 ? finalRoll : 0;
+  };
+
+  const renderDiceSlot = (player) => {
     if (!player || currentSession?.status !== 'playing') return null;
 
-    const isCurrentTurnPlayer =
-      String(currentSession?.current_turn_user_id) === String(player.user_id);
+    const isCurrentTurnPlayer = isDiceOwnerPlayer(player);
     if (!isCurrentTurnPlayer) return null;
 
     const colorIdx = getRelativeVisualSeat(player, players);
     const sessionRoll = currentSession?.last_roll ?? 0;
     const isTurnMine = String(player.user_id) === String(user?.id) && isMyTurn;
     const canRoll = isTurnMine && !rolling && sessionRoll === 0 && movablePieces.length === 0;
-    const faceValue = getDiceFaceValueForPlayer(player);
+    const faceValue = getVisibleDiceValueForPlayer(player);
     const hasFaceValue = faceValue >= 1 && faceValue <= 6;
-    const isDisplayOwner =
-      String(currentSession?.display_roll_user_id) === String(player.user_id);
-    const isTurnOwner =
-      String(currentSession?.current_turn_user_id) === String(player.user_id);
-    const debugText = `${isDisplayOwner ? 'OWNER' : 'NO'} | roll: ${Number(currentSession?.display_roll || 0)} | ${isTurnOwner ? 'TURN' : 'WAIT'}`;
 
     const diceNode = (
       <div
@@ -1246,14 +1248,7 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
       </div>
     );
 
-    return (
-      <div className="shrink-0 flex flex-col items-center gap-1">
-        {diceNode}
-        <div className="max-w-[92px] text-center text-[8px] font-bold leading-tight text-white/70">
-          {debugText}
-        </div>
-      </div>
-    );
+    return <div className="shrink-0">{diceNode}</div>;
   };
 
   if (!open) return null;
