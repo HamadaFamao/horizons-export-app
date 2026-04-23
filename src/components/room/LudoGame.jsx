@@ -883,6 +883,16 @@ export default function LudoGame({
       if (data.triple_six) {
         setMessage('🚫 Three 6s! Turn lost.');
         setTimeout(() => setMessage(''), 2000);
+        
+        await supabase
+          .from('room_ludo_sessions')
+          .update({
+            display_roll: roll,
+            display_roll_user_id: user.id,
+            last_roll: roll,
+          })
+          .eq('id', currentSession.id);
+        
         await wait(DICE_REVEAL_DELAY);
         await refreshSession();
         return;
@@ -891,6 +901,16 @@ export default function LudoGame({
       if (data.turn_passed) {
         setMessage(data.all_in_home ? '🎲 Need 6 to start. Turn passed.' : 'Turn passed.');
         setTimeout(() => setMessage(''), 2000);
+        
+        await supabase
+          .from('room_ludo_sessions')
+          .update({
+            display_roll: roll,
+            display_roll_user_id: user.id,
+            last_roll: roll,
+          })
+          .eq('id', currentSession.id);
+        
         await wait(DICE_REVEAL_DELAY);
         await refreshSession();
         return;
@@ -911,7 +931,18 @@ export default function LudoGame({
       if (movable.length === 0) {
         setMessage('No valid move. Turn passed.');
         setTimeout(() => setMessage(''), 1700);
+        
+        await supabase
+          .from('room_ludo_sessions')
+          .update({
+            display_roll: roll,
+            display_roll_user_id: user.id,
+            last_roll: roll,
+          })
+          .eq('id', currentSession.id);
+        
         await wait(DICE_REVEAL_DELAY);
+        await passTurnToNextPlayer();
         return;
       }
 
