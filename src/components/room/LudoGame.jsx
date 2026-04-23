@@ -1385,11 +1385,12 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                   return players.map((p) => {
                     const colorIdx = getRelativeVisualSeat(p, players);
                     const isCurrentTurn = String(currentSession.current_turn_user_id) === String(p.user_id);
+                    const isMe = String(p.user_id) === String(user?.id);
                     const piecesFinished = p.pieces_finished || 0;
                     const isFinishFx = String(recentFinishedUserId) === String(p.user_id);
 
-                    // Dice value: always derived from session realtime data only
-                    const cardRoll = isCurrentTurn && (currentSession.last_roll > 0)
+                    // Dice value for opponent overlay only — always from session realtime
+                    const cardRoll = !isMe && isCurrentTurn && (currentSession.last_roll > 0)
                       ? currentSession.last_roll
                       : null;
 
@@ -1446,28 +1447,28 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                           </div>
                         </div>
 
-                        {/* Dice — beside the card, only shown when it's this player's turn */}
-                        {isCurrentTurn && (
+                        {/* Passive display dice — opponents only, no onClick */}
+                        {!isMe && isCurrentTurn && (
                           <div
-                            className="flex flex-col items-center justify-center rounded-xl"
+                            className="flex flex-col items-center justify-center rounded-xl pointer-events-none"
                             style={{
-                              width: '44px',
-                              height: '44px',
+                              width: '40px',
+                              height: '40px',
                               background: cardRoll
                                 ? 'linear-gradient(135deg,#fff,#e2e8f0)'
                                 : 'rgba(255,255,255,0.08)',
                               border: `2px solid ${PLAYER_COLORS[colorIdx]}`,
-                              boxShadow: `0 2px 8px rgba(0,0,0,0.5), 0 0 10px ${PLAYER_COLORS[colorIdx]}55`,
+                              boxShadow: `0 2px 8px rgba(0,0,0,0.5), 0 0 8px ${PLAYER_COLORS[colorIdx]}55`,
                               flexShrink: 0,
                             }}
                           >
                             {cardRoll ? (
                               <>
-                                <span style={{ fontSize: '11px', lineHeight: 1 }}>🎲</span>
+                                <span style={{ fontSize: '10px', lineHeight: 1 }}>🎲</span>
                                 <span
                                   className="font-black leading-none"
                                   style={{
-                                    fontSize: '22px',
+                                    fontSize: '20px',
                                     color: PLAYER_COLORS[colorIdx],
                                     textShadow: '0 1px 3px rgba(0,0,0,0.4)',
                                   }}
@@ -1476,10 +1477,7 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                                 </span>
                               </>
                             ) : (
-                              <span
-                                className="animate-pulse"
-                                style={{ fontSize: '22px', lineHeight: 1 }}
-                              >
+                              <span className="animate-pulse" style={{ fontSize: '20px', lineHeight: 1 }}>
                                 🎲
                               </span>
                             )}
@@ -1491,13 +1489,11 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                 })()}
               </div>
 
-              {/* Dice + Players */}
+              {/* Main dice — centered bar below board, independent of player cards */}
               {currentSession.status === 'playing' && (
-                <div className="flex items-center gap-2">
-                  {/* Dice */}
-                  <div className="shrink-0">
-                    {/* Countdown SVG ring wrapper */}
-                    <div className="relative">
+                <div className="flex justify-center items-center py-2">
+                  {/* Countdown SVG ring wrapper */}
+                  <div className="relative inline-flex items-center justify-center">
                       {/* Radial countdown ring — visible only on my turn */}
                       {isMyTurn && !diceAnimating && (() => {
                         const circ = 2 * Math.PI * 29;
@@ -1617,10 +1613,7 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                           </div>
                         );
                       })()}
-                    </div>
                   </div>
-
-                  {/* Players hidden during playing — shown as overlays on board */}
                 </div>
               )}
 
