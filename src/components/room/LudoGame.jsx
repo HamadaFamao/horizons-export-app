@@ -154,12 +154,12 @@ export default function LudoGame({
       setRemoteDiceDisplay(Math.floor(Math.random() * 6) + 1);
       count++;
 
-      if (count >= 10) {
+      if (count >= 16) {
         clearInterval(interval);
         setRemoteDiceDisplay(roll);
         setRemoteDiceAnimating(false);
       }
-    }, 70);
+    }, 90);
 
     return () => clearInterval(interval);
   }, [
@@ -801,6 +801,9 @@ export default function LudoGame({
     });
   };
 
+  const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+  const DICE_REVEAL_DELAY = 1400;
+
   const getLogicalNextPos = (pos, roll) => {
     if (pos === 57) return null;
 
@@ -880,6 +883,7 @@ export default function LudoGame({
       if (data.triple_six) {
         setMessage('🚫 Three 6s! Turn lost.');
         setTimeout(() => setMessage(''), 2000);
+        await wait(DICE_REVEAL_DELAY);
         await refreshSession();
         return;
       }
@@ -887,6 +891,7 @@ export default function LudoGame({
       if (data.turn_passed) {
         setMessage(data.all_in_home ? '🎲 Need 6 to start. Turn passed.' : 'Turn passed.');
         setTimeout(() => setMessage(''), 2000);
+        await wait(DICE_REVEAL_DELAY);
         await refreshSession();
         return;
       }
@@ -906,10 +911,12 @@ export default function LudoGame({
       if (movable.length === 0) {
         setMessage('No valid move. Turn passed.');
         setTimeout(() => setMessage(''), 1700);
+        await wait(DICE_REVEAL_DELAY);
         return;
       }
 
       if (movable.length === 1) {
+        await wait(DICE_REVEAL_DELAY);
         await movePiece(movable[0]);
         return;
       }
