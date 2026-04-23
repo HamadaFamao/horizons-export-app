@@ -846,6 +846,10 @@ export default function LudoGame({
     if (!currentSession?.id || !user?.id) return;
     if (!isMyTurn || rolling) return;
 
+    // Capture session identifiers before any awaits to avoid stale closure
+    const sessionId = currentSession.id;
+    const currentTurnUserId = currentSession.current_turn_user_id;
+
     setRolling(true);
     setDiceAnimating(true);
     setMovablePieces([]);
@@ -863,7 +867,7 @@ export default function LudoGame({
       clearInterval(interval);
 
       const { data, error } = await supabase.rpc('get_ludo_roll', {
-        p_session_id: currentSession.id,
+        p_session_id: sessionId,
         p_user_id: user.id,
       });
 
@@ -872,6 +876,7 @@ export default function LudoGame({
 
       const roll = Number(data.roll || 0);
 
+      // Show result immediately for local player
       setDiceAnimating(false);
       setDiceDisplay(roll);
       setLastRoll(roll);
@@ -880,10 +885,8 @@ export default function LudoGame({
         setConsecutiveSixes(data.consecutive_sixes);
       }
 
+      // ── Pass-turn branch (triple six or no valid start) ──
       if (data.triple_six || data.turn_passed) {
-        setDiceAnimating(false);
-        setDiceDisplay(roll);
-        setLastRoll(roll);
         if (data.triple_six) {
           setMessage('🚫 Three 6s! Turn lost.');
         } else {
@@ -895,7 +898,7 @@ export default function LudoGame({
 
         const sortedPass = [...players].sort((a, b) => a.seat_number - b.seat_number);
         const passCurrentIdx = sortedPass.findIndex(
-          p => String(p.user_id) === String(user.id)
+          p => String(p.user_id) === String(currentTurnUserId)
         );
         const passNextPlayer = passCurrentIdx >= 0
           ? sortedPass[(passCurrentIdx + 1) % sortedPass.length]
@@ -909,24 +912,22 @@ export default function LudoGame({
             last_roll: roll,
             ...(passNextPlayer?.user_id ? { current_turn_user_id: passNextPlayer.user_id } : {}),
           })
-          .eq('id', currentSession.id);
+          .eq('id', sessionId);
 
         await refreshSession();
         return;
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 700));
-
-      const refreshed = await refreshSession();
-      const refreshedRoll = Number(refreshed?.session?.last_roll ?? roll ?? 0);
-      const myPlayerNow = (refreshed?.players || []).find(
+      // ── Normal path: compute movable from current players state (no mid-function refresh) ──
+      const myPlayerNow = players.find(
         p => String(p.user_id) === String(user.id)
       );
 
       if (!myPlayerNow) return;
 
-      const movable = getMovablePieces(myPlayerNow, refreshedRoll);
+      const movable = getMovablePieces(myPlayerNow, roll);
 
+      // ── No valid move: pass turn ──
       if (movable.length === 0) {
         setMessage('No valid move. Turn passed.');
         setTimeout(() => setMessage(''), 1700);
@@ -935,7 +936,7 @@ export default function LudoGame({
 
         const sortedNoMove = [...players].sort((a, b) => a.seat_number - b.seat_number);
         const noMoveCurrentIdx = sortedNoMove.findIndex(
-          p => String(p.user_id) === String(user.id)
+          p => String(p.user_id) === String(currentTurnUserId)
         );
         const noMoveNextPlayer = noMoveCurrentIdx >= 0
           ? sortedNoMove[(noMoveCurrentIdx + 1) % sortedNoMove.length]
@@ -949,18 +950,20 @@ export default function LudoGame({
             last_roll: roll,
             ...(noMoveNextPlayer?.user_id ? { current_turn_user_id: noMoveNextPlayer.user_id } : {}),
           })
-          .eq('id', currentSession.id);
+          .eq('id', sessionId);
 
         await refreshSession();
         return;
       }
 
+      // ── Single movable piece: auto move after delay ──
       if (movable.length === 1) {
         await wait(DICE_REVEAL_DELAY);
         await movePiece(movable[0]);
         return;
       }
 
+      // ── Multiple choices: show options, no refresh here ──
       setMovablePieces(movable);
       setMessage('Tap a highlighted piece to move.');
     } catch (err) {
