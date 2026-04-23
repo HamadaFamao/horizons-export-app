@@ -107,53 +107,77 @@ ADD COLUMN IF NOT EXISTS display_roll_user_id uuid;
 
 DO $$
 DECLARE
+  v_function_name text;
   v_oid oid;
   v_def text;
   v_new_def text;
 BEGIN
-  SELECT p.oid
-    INTO v_oid
-  FROM pg_proc p
-  JOIN pg_namespace n ON n.oid = p.pronamespace
-  WHERE n.nspname = 'public'
-    AND p.proname = 'get_ludo_roll'
-  ORDER BY p.oid DESC
-  LIMIT 1;
+  FOREACH v_function_name IN ARRAY ARRAY['get_ludo_roll', 'roll_ludo_dice']
+  LOOP
+    SELECT p.oid
+      INTO v_oid
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+      AND p.proname = v_function_name
+    ORDER BY p.oid DESC
+    LIMIT 1;
 
-  IF v_oid IS NOT NULL THEN
+    IF v_oid IS NULL THEN
+      CONTINUE;
+    END IF;
+
     SELECT pg_get_functiondef(v_oid) INTO v_def;
+    v_new_def := v_def;
 
+    -- Remove any previous injected display-roll update so reinjection stays idempotent.
     v_new_def := regexp_replace(
-      v_def,
+      v_new_def,
+      'UPDATE\\s+public\\.room_ludo_sessions\\s+SET\\s+display_roll\\s*=\\s*v_roll,\\s*display_roll_user_id\\s*=\\s*p_user_id\\s+WHERE\\s+id\\s*=\\s*p_session_id\\s*;',
+      '',
+      'gi'
+    );
+
+    -- Ensure session update that stores the logical last_roll also stores display fields.
+    v_new_def := regexp_replace(
+      v_new_def,
       'last_roll\\s*=\\s*v_roll',
       'last_roll = v_roll, display_roll = v_roll, display_roll_user_id = p_user_id',
       'i'
     );
 
+    -- If the function does not update last_roll directly, inject a session display update right after v_roll is generated.
+    IF v_new_def !~* 'display_roll\\s*=\\s*v_roll' THEN
+      v_new_def := regexp_replace(
+        v_new_def,
+        '(v_roll\\s*:=\\s*[^;]+;)',
+        E'\\1\n\n  UPDATE public.room_ludo_sessions\n  SET display_roll = v_roll,\n      display_roll_user_id = p_user_id\n  WHERE id = p_session_id;',
+        'i'
+      );
+    END IF;
+
     IF v_new_def <> v_def THEN
       EXECUTE v_new_def;
     END IF;
-  END IF;
+  END LOOP;
 END
 $$;
 
 DO $$
 DECLARE
-  v_oid oid;
+  v_rec record;
   v_def text;
   v_new_def text;
 BEGIN
-  SELECT p.oid
-    INTO v_oid
-  FROM pg_proc p
-  JOIN pg_namespace n ON n.oid = p.pronamespace
-  WHERE n.nspname = 'public'
-    AND p.proname = 'move_ludo_piece'
-  ORDER BY p.oid DESC
-  LIMIT 1;
-
-  IF v_oid IS NOT NULL THEN
-    SELECT pg_get_functiondef(v_oid) INTO v_def;
+  FOR v_rec IN
+    SELECT p.oid, p.proname
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+      AND p.proname IN ('move_ludo_piece', 'get_ludo_roll', 'roll_ludo_dice')
+    ORDER BY p.oid DESC
+  LOOP
+    SELECT pg_get_functiondef(v_rec.oid) INTO v_def;
     v_new_def := v_def;
 
     v_new_def := regexp_replace(
@@ -177,9 +201,30 @@ BEGIN
       'gi'
     );
 
+    v_new_def := regexp_replace(
+      v_new_def,
+      'display_roll\\s*=\\s*0\\s*,?',
+      '',
+      'gi'
+    );
+
+    v_new_def := regexp_replace(
+      v_new_def,
+      'display_roll\\s*=\\s*null\\s*,?',
+      '',
+      'gi'
+    );
+
+    v_new_def := regexp_replace(
+      v_new_def,
+      'display_roll_user_id\\s*=\\s*null\\s*,?',
+      '',
+      'gi'
+    );
+
     IF v_new_def <> v_def THEN
       EXECUTE v_new_def;
     END IF;
-  END IF;
+  END LOOP;
 END
 $$;
