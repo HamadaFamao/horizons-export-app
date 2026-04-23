@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { Loader2, X } from 'lucide-react';
+import { Loader2, X, Settings } from 'lucide-react';
 
 const FALLBACK_AVATAR =
   "data:image/svg+xml;utf8," +
@@ -104,13 +104,14 @@ export default function LudoGame({
   const [message, setMessage] = useState('');
   const [finishToast, setFinishToast] = useState('');
   const [recentFinishedUserId, setRecentFinishedUserId] = useState(null);
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const canvasRef = useRef(null);
   const channelRef = useRef(null);
   const resultFiredRef = useRef(false);
   const avatarImagesRef = useRef({});
   const finishFxTimerRef = useRef(null);
   const turnTimerRef = useRef(null);
-  const autoPlayedTurnRef = useRef(false);
+  const autoPlayedTurnKeyRef = useRef(null);
   const autoActionStateRef = useRef({});
   const [turnTimeLeft, setTurnTimeLeft] = useState(12);
 
@@ -140,9 +141,14 @@ export default function LudoGame({
       return;
     }
 
+    // Unique key for this specific turn state
+    const turnKey =
+      String(currentSession?.current_turn_user_id) +
+      '-' + String(currentSession?.last_roll ?? 0) +
+      '-' + String(currentSession?.id);
+
     // New turn — reset
     setTurnTimeLeft(12);
-    autoPlayedTurnRef.current = false;
     if (turnTimerRef.current) clearInterval(turnTimerRef.current);
 
     let remaining = 12;
@@ -154,8 +160,9 @@ export default function LudoGame({
         clearInterval(turnTimerRef.current);
         turnTimerRef.current = null;
 
-        if (autoPlayedTurnRef.current) return;
-        autoPlayedTurnRef.current = true;
+        // Don't auto-play the same turn key twice
+        if (autoPlayedTurnKeyRef.current === turnKey) return;
+        autoPlayedTurnKeyRef.current = turnKey;
 
         const {
           lastRoll: lr,
@@ -179,7 +186,7 @@ export default function LudoGame({
         turnTimerRef.current = null;
       }
     };
-  }, [currentSession?.current_turn_user_id, currentSession?.status, open]);
+  }, [currentSession?.current_turn_user_id, currentSession?.last_roll, currentSession?.status, open]);
 
   // Realtime
   useEffect(() => {
@@ -1200,7 +1207,7 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
 
   return (
     <div className="fixed inset-0 z-[85] flex items-end sm:items-center justify-center"
-      onClick={onClose}>
+      onClick={() => { setShowSettingsMenu(false); onClose(); }}>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div
         className="relative w-full max-w-md bg-slate-900 rounded-t-3xl sm:rounded-3xl
@@ -1226,6 +1233,32 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                 {(userCoins || 0).toLocaleString()}
               </span>
             </div>
+            {/* Settings button — visible when a session exists */}
+            {currentSession && canModerate && ['waiting','playing'].includes(currentSession.status) && (
+              <div className="relative">
+                <button
+                  onClick={() => setShowSettingsMenu(v => !v)}
+                  className="text-white/50 hover:text-white p-0.5"
+                >
+                  <Settings className="w-5 h-5" />
+                </button>
+                {showSettingsMenu && (
+                  <div
+                    className="absolute right-0 top-7 z-50 bg-slate-800 border border-white/10
+                      rounded-xl shadow-xl min-w-[140px] overflow-hidden"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <button
+                      onClick={() => { setShowSettingsMenu(false); cancelSession(); }}
+                      className="w-full text-left px-4 py-2.5 text-rose-400 font-bold text-sm
+                        hover:bg-rose-500/10 transition"
+                    >
+                      🚫 Cancel Game
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
             <button onClick={onClose} className="text-white/50 hover:text-white">
               <X className="w-5 h-5" />
             </button>
@@ -1331,12 +1364,13 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                 />
                 {/* Player card overlays around board corners */}
                 {currentSession.status === 'playing' && (() => {
+                  // positions: bottom-left, bottom-right, top-right, top-left (by colorIdx 0..3)
                   const overlayPositions = [
-  'bottom-3 left-[-6px]',
-  'bottom-3 right-[-6px]',
-  'top-3 right-[-6px]',
-  'top-3 left-[-6px]',
-];
+                    'bottom-0 left-0 translate-y-[80%] -translate-x-[10%]',
+                    'bottom-0 right-0 translate-y-[80%] translate-x-[10%]',
+                    'top-0 right-0 -translate-y-[80%] translate-x-[10%]',
+                    'top-0 left-0 -translate-y-[80%] -translate-x-[10%]',
+                  ];
                   return players.map((p) => {
                     const colorIdx = getRelativeVisualSeat(p, players);
                     const isCurrentTurn = String(currentSession.current_turn_user_id) === String(p.user_id);
@@ -1355,7 +1389,7 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                       <div
                         key={p.id}
                         className={`absolute ${overlayPositions[colorIdx]} flex flex-col items-center gap-0.5
-                          rounded-xl p-1 backdrop-blur-sm transition max-w-[58px] ${isFinishFx ? 'animate-bounce' : ''}`}
+                          rounded-xl p-1.5 backdrop-blur-sm transition max-w-[68px] ${isFinishFx ? 'animate-bounce' : ''}`}
                         style={{
                           background: isCurrentTurn
                             ? `${PLAYER_COLORS[colorIdx]}44`
@@ -1395,20 +1429,34 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                             />
                           ))}
                         </div>
-                        {/* Mini dice badge — shown only for the current-turn player */}
+                        {/* Dice badge — shown for the current-turn player */}
                         {isCurrentTurn && (
                           <div
-                            className="flex items-center gap-0.5 rounded-full px-1 py-0.5 mt-0.5"
-                            style={{ background: `${PLAYER_COLORS[colorIdx]}cc` }}
+                            className="flex items-center justify-center gap-1 rounded-lg px-2 py-1 mt-0.5"
+                            style={{
+                              background: 'rgba(255,255,255,0.15)',
+                              border: `2px solid ${PLAYER_COLORS[colorIdx]}`,
+                              minWidth: '42px',
+                            }}
                           >
-                            <span className="text-[9px] leading-none">🎲</span>
+                            <span style={{ fontSize: '16px', lineHeight: 1 }}>🎲</span>
                             {cardRoll ? (
-                              <span className="text-white text-[9px] font-black leading-none">
+                              <span
+                                className="font-black leading-none"
+                                style={{
+                                  fontSize: '20px',
+                                  color: PLAYER_COLORS[colorIdx],
+                                  textShadow: '0 1px 3px rgba(0,0,0,0.8)',
+                                }}
+                              >
                                 {cardRoll}
                               </span>
                             ) : (
-                              <span className="text-white/70 text-[8px] leading-none animate-pulse">
-                                …
+                              <span
+                                className="font-black leading-none animate-pulse"
+                                style={{ fontSize: '16px', color: 'rgba(255,255,255,0.6)' }}
+                              >
+                                ?
                               </span>
                             )}
                           </div>
@@ -1600,15 +1648,6 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                       text-white font-black text-xs disabled:opacity-50
                       active:scale-95 transition">
                     🎯 Start Ludo
-                  </button>
-                )}
-
-                {canModerate && ['waiting','playing'].includes(currentSession.status) && (
-                  <button onClick={cancelSession}
-                    className="px-3 py-2.5 rounded-xl border border-rose-500/40
-                      text-rose-400 font-bold text-xs bg-rose-500/5
-                      active:scale-95 transition">
-                    Cancel
                   </button>
                 )}
               </div>
