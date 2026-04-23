@@ -95,6 +95,8 @@ export default function LudoGame({
   const [lastRoll, setLastRoll] = useState(null);
   const [diceAnimating, setDiceAnimating] = useState(false);
   const [diceDisplay, setDiceDisplay] = useState(null);
+  const [remoteDiceAnimating, setRemoteDiceAnimating] = useState(false);
+  const [remoteDiceDisplay, setRemoteDiceDisplay] = useState(0);
   const [selectedPiece, setSelectedPiece] = useState(null);
   const [movablePieces, setMovablePieces] = useState([]);
   const [winner, setWinner] = useState(null);
@@ -108,6 +110,7 @@ export default function LudoGame({
   const canvasRef = useRef(null);
   const channelRef = useRef(null);
   const resultFiredRef = useRef(false);
+  const lastSeenRollRef = useRef(null);
   const avatarImagesRef = useRef({});
   const finishFxTimerRef = useRef(null);
   const turnTimerRef = useRef(null);
@@ -125,6 +128,47 @@ export default function LudoGame({
     if (!open || !roomId) return;
     loadSession();
   }, [open, roomId]);
+
+  useEffect(() => {
+    if (!currentSession?.id) return;
+
+    const roll = Number(currentSession.display_roll || 0);
+    const turnUserId = currentSession.current_turn_user_id;
+
+    if (roll < 1 || roll > 6 || !turnUserId) return;
+
+    const key = `${turnUserId}-${roll}-${currentSession.last_roll || 0}`;
+
+    if (lastSeenRollRef.current === key) return;
+    lastSeenRollRef.current = key;
+
+    const isLocalTurn =
+      String(turnUserId) === String(user?.id);
+
+    if (isLocalTurn) return;
+
+    setRemoteDiceAnimating(true);
+
+    let count = 0;
+    const interval = setInterval(() => {
+      setRemoteDiceDisplay(Math.floor(Math.random() * 6) + 1);
+      count++;
+
+      if (count >= 10) {
+        clearInterval(interval);
+        setRemoteDiceDisplay(roll);
+        setRemoteDiceAnimating(false);
+      }
+    }, 70);
+
+    return () => clearInterval(interval);
+  }, [
+    currentSession?.id,
+    currentSession?.display_roll,
+    currentSession?.current_turn_user_id,
+    currentSession?.last_roll,
+    user?.id,
+  ]);
 
   // ─── Turn countdown timer ────────────────────
   useEffect(() => {
@@ -1207,6 +1251,10 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
       return diceDisplay;
     }
 
+    if (!isLocalTurnPlayer && remoteDiceAnimating && remoteDiceDisplay >= 1 && remoteDiceDisplay <= 6) {
+      return remoteDiceDisplay;
+    }
+
     const finalRoll = Number(currentSession?.display_roll || 0);
     return finalRoll >= 1 && finalRoll <= 6 ? finalRoll : 0;
   };
@@ -1220,16 +1268,18 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
     const colorIdx = getRelativeVisualSeat(player, players);
     const sessionRoll = currentSession?.last_roll ?? 0;
     const isTurnMine = String(player.user_id) === String(user?.id) && isMyTurn;
+    const isLocalTurnPlayer = String(player.user_id) === String(user?.id);
     const canRoll = isTurnMine && !rolling && sessionRoll === 0 && movablePieces.length === 0;
     const faceValue = getVisibleDiceValueForPlayer(player);
     const hasFaceValue = faceValue >= 1 && faceValue <= 6;
+    const isRemotePulse = !isLocalTurnPlayer && remoteDiceAnimating;
 
     const diceNode = (
       <div
         onClick={canRoll ? rollDice : undefined}
         className={`relative w-12 h-12 rounded-2xl border-b-4 border-r-2 flex items-center justify-center ${
           canRoll ? 'cursor-pointer active:scale-90' : 'cursor-default'
-        }`}
+        } ${isRemotePulse ? 'animate-pulse' : ''}`}
         style={{
           background: 'linear-gradient(135deg,#fff,#e2e8f0)',
           borderColor: PLAYER_COLORS[colorIdx],
