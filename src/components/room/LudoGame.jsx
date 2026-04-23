@@ -833,15 +833,6 @@ export default function LudoGame({
         setConsecutiveSixes(data.consecutive_sixes);
       }
 
-      const myPlayerNow = players.find(
-        p => String(p.user_id) === String(user.id)
-      );
-
-      if (!myPlayerNow) {
-        await refreshSession();
-        return;
-      }
-
       if (data.triple_six) {
         setMessage('🚫 Three 6s! Turn lost.');
         setTimeout(() => setMessage(''), 2000);
@@ -856,12 +847,19 @@ export default function LudoGame({
         return;
       }
 
-      const movable = getMovablePieces(myPlayerNow, roll);
+      const refreshed = await refreshSession();
+      const refreshedRoll = Number(refreshed?.session?.last_roll ?? roll ?? 0);
+      const myPlayerNow = (refreshed?.players || []).find(
+        p => String(p.user_id) === String(user.id)
+      );
+
+      if (!myPlayerNow) return;
+
+      const movable = getMovablePieces(myPlayerNow, refreshedRoll);
 
       if (movable.length === 0) {
         setMessage('No valid move. Turn passed.');
         setTimeout(() => setMessage(''), 1700);
-        await passTurnToNextPlayer();
         return;
       }
 
