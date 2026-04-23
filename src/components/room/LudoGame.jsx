@@ -847,6 +847,8 @@ export default function LudoGame({
         return;
       }
 
+      await new Promise((resolve) => setTimeout(resolve, 700));
+
       const refreshed = await refreshSession();
       const refreshedRoll = Number(refreshed?.session?.last_roll ?? roll ?? 0);
       const myPlayerNow = (refreshed?.players || []).find(
