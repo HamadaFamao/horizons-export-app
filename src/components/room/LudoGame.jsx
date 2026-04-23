@@ -165,16 +165,16 @@ export default function LudoGame({
         autoPlayedTurnKeyRef.current = turnKey;
 
         const {
-          lastRoll: lr,
+          sessionLastRoll: slr,
           movablePieces: mp,
           rolling: r,
           rollDice: rd,
           handlePieceSelect: hps,
         } = autoActionStateRef.current;
 
-        if (!lr && !r) {
+        if (!slr && !r) {
           rd();
-        } else if (mp && mp.length > 0) {
+        } else if (slr > 0 && mp && mp.length > 0) {
           hps(mp[0]);
         }
       }
@@ -1188,7 +1188,14 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
   const netPrize = Math.floor((currentSession?.entry_cost || 0) * players.length * 0.9);
 
   // Keep autoAction ref in sync with latest closures every render
-  autoActionStateRef.current = { lastRoll, movablePieces, rolling, rollDice, handlePieceSelect };
+  autoActionStateRef.current = {
+    lastRoll,
+    sessionLastRoll: currentSession?.last_roll ?? 0,
+    movablePieces,
+    rolling,
+    rollDice,
+    handlePieceSelect,
+  };
 
   // Dice dots positions
   const DOT_POSITIONS = {
@@ -1549,54 +1556,67 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                         );
                       })()}
 
-                      {lastRoll || diceAnimating ? (
-                        <div
-                          onClick={isMyTurn && !rolling && !movablePieces.length ? rollDice : undefined}
-                          className={`relative w-14 h-14 rounded-2xl border-b-4 border-r-2
-                            flex items-center justify-center
-                            ${isMyTurn && !rolling && !movablePieces.length
-                              ? 'cursor-pointer active:scale-90 animate-bounce'
-                              : 'cursor-default'
-                            }
-                            ${diceAnimating ? 'animate-spin' : ''}
-                          `}
-                          style={{
-                            background: 'linear-gradient(135deg, #fff, #e2e8f0)',
-                            borderColor: PLAYER_COLORS[myColorIdx],
-                            boxShadow: isMyTurn
-                              ? `0 4px 12px rgba(0,0,0,0.4), 0 0 15px ${PLAYER_COLORS[myColorIdx]}66`
-                              : '0 4px 8px rgba(0,0,0,0.3)',
-                          }}
-                        >
-                          {(DOT_POSITIONS[diceDisplay || lastRoll] || DOT_POSITIONS[1]).map(
-                            ([dx, dy], di) => (
-                              <div
-                                key={di}
-                                className="absolute w-2 h-2 rounded-full"
-                                style={{
-                                  left: `${dx}%`,
-                                  top: `${dy}%`,
-                                  transform: 'translate(-50%,-50%)',
-                                  backgroundColor: PLAYER_COLORS[myColorIdx],
-                                }}
-                              />
-                            )
-                          )}
-                          {isMyTurn && !rolling && !movablePieces.length && (
-                            <div className="absolute -top-1 -right-1 w-3 h-3
-                              rounded-full bg-emerald-400 animate-ping" />
-                          )}
-                        </div>
-                      ) : (
-                        <div
-                          onClick={isMyTurn && !rolling ? rollDice : undefined}
-                          className={`w-14 h-14 rounded-2xl border-2 flex items-center
-                            justify-center text-2xl
-                            ${isMyTurn ? 'cursor-pointer animate-bounce border-emerald-400' : 'border-white/10 opacity-30'}`}
-                        >
-                          🎲
-                        </div>
-                      )}
+                      {(() => {
+                        // canRoll: my turn, no roll yet, not currently rolling, no pieces waiting
+                        const sessionRoll = currentSession?.last_roll ?? 0;
+                        const canRoll = isMyTurn && !rolling && sessionRoll === 0 && movablePieces.length === 0;
+                        // show dots: animating OR (my turn and there's a roll result to show)
+                        const showDots = diceAnimating || (isMyTurn && (sessionRoll > 0 || lastRoll > 0));
+                        const dotValue = diceAnimating
+                          ? (diceDisplay || 1)
+                          : (sessionRoll > 0 ? sessionRoll : lastRoll || 1);
+
+                        if (showDots) {
+                          return (
+                            <div
+                              onClick={canRoll ? rollDice : undefined}
+                              className={`relative w-14 h-14 rounded-2xl border-b-4 border-r-2
+                                flex items-center justify-center
+                                ${canRoll ? 'cursor-pointer active:scale-90 animate-bounce' : 'cursor-default'}
+                                ${diceAnimating ? 'animate-spin' : ''}
+                              `}
+                              style={{
+                                background: 'linear-gradient(135deg, #fff, #e2e8f0)',
+                                borderColor: PLAYER_COLORS[myColorIdx],
+                                boxShadow: isMyTurn
+                                  ? `0 4px 12px rgba(0,0,0,0.4), 0 0 15px ${PLAYER_COLORS[myColorIdx]}66`
+                                  : '0 4px 8px rgba(0,0,0,0.3)',
+                              }}
+                            >
+                              {(DOT_POSITIONS[dotValue] || DOT_POSITIONS[1]).map(([dx, dy], di) => (
+                                <div
+                                  key={di}
+                                  className="absolute w-2 h-2 rounded-full"
+                                  style={{
+                                    left: `${dx}%`,
+                                    top: `${dy}%`,
+                                    transform: 'translate(-50%,-50%)',
+                                    backgroundColor: PLAYER_COLORS[myColorIdx],
+                                  }}
+                                />
+                              ))}
+                              {canRoll && (
+                                <div className="absolute -top-1 -right-1 w-3 h-3
+                                  rounded-full bg-emerald-400 animate-ping" />
+                              )}
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div
+                            onClick={canRoll ? rollDice : undefined}
+                            className={`w-14 h-14 rounded-2xl border-2 flex items-center
+                              justify-center text-2xl
+                              ${canRoll
+                                ? 'cursor-pointer animate-bounce border-emerald-400'
+                                : 'border-white/10 opacity-30 cursor-default'
+                              }`}
+                          >
+                            🎲
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
 
