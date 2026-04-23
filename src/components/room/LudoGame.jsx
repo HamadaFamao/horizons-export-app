@@ -1199,16 +1199,25 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
     6: [[25,20],[75,20],[25,50],[75,50],[25,80],[75,80]],
   };
 
-  const getRenderedDiceValue = (player) => {
-    if (!player) return null;
+  const getDiceFaceValueForPlayer = (player) => {
+    if (!player) return 0;
 
-    const displayRollUserId = currentSession?.display_roll_user_id;
-    if (String(player.user_id) !== String(displayRollUserId)) return null;
+    const isDisplayOwner =
+      String(player.user_id) === String(currentSession?.display_roll_user_id);
 
-    const displayRoll = Number(currentSession?.display_roll || 0);
-    if (displayRoll >= 1 && displayRoll <= 6) return displayRoll;
+    if (!isDisplayOwner) return 0;
 
-    return null;
+    if (
+      String(player.user_id) === String(user?.id) &&
+      diceAnimating &&
+      diceDisplay >= 1 &&
+      diceDisplay <= 6
+    ) {
+      return diceDisplay;
+    }
+
+    const finalValue = Number(currentSession?.display_roll || 0);
+    return finalValue >= 1 && finalValue <= 6 ? finalValue : 0;
   };
 
   const renderDiceSlot = (player, side = 'right') => {
@@ -1223,15 +1232,11 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
     const isTurnMine = String(player.user_id) === String(user?.id) && isMyTurn;
     const canRoll = isTurnMine && !rolling && sessionRoll === 0 && movablePieces.length === 0;
     const animateDice = isTurnMine && diceAnimating;
-    const serverValue = getRenderedDiceValue(player);
-    const showServerValue = serverValue !== null;
-    const showDots = animateDice || showServerValue;
-    const dotValue = animateDice
-      ? (typeof diceDisplay === 'number' && diceDisplay > 0 ? diceDisplay : null)
-      : serverValue;
-    const dotPattern = dotValue >= 1 && dotValue <= 6 ? DOT_POSITIONS[dotValue] : null;
+    const faceValue = getDiceFaceValueForPlayer(player);
+    const hasFaceValue = faceValue >= 1 && faceValue <= 6;
+    const dotPattern = hasFaceValue ? DOT_POSITIONS[faceValue] : [];
 
-    const diceNode = showDots ? (
+    const diceNode = hasFaceValue ? (
       <div
         onClick={canRoll ? rollDice : undefined}
         className={`relative w-12 h-12 rounded-2xl border-b-4 border-r-2 flex items-center justify-center ${
@@ -1243,7 +1248,7 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
           boxShadow: `0 4px 10px rgba(0,0,0,0.4), 0 0 12px ${PLAYER_COLORS[colorIdx]}55`,
         }}
       >
-        {(dotPattern || []).map(([dx, dy], di) => (
+        {dotPattern.map(([dx, dy], di) => (
           <div
             key={di}
             className="absolute w-2 h-2 rounded-full"
@@ -1270,9 +1275,7 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
         style={{
           background: 'linear-gradient(135deg, rgba(255,255,255,0.2), rgba(148,163,184,0.18))',
         }}
-      >
-        <div className="w-2 h-2 rounded-full bg-white/25" />
-      </div>
+      />
     );
 
     return (
