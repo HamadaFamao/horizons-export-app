@@ -111,7 +111,6 @@ export default function LudoGame({
   const avatarImagesRef = useRef({});
   const finishFxTimerRef = useRef(null);
   const turnTimerRef = useRef(null);
-  const autoPlayedTurnKeyRef = useRef(null);
   const autoActionStateRef = useRef({});
   const [turnTimeLeft, setTurnTimeLeft] = useState(12);
 
@@ -141,17 +140,14 @@ export default function LudoGame({
       return;
     }
 
-    // Unique key for this specific turn state
-    const turnKey =
-      String(currentSession?.current_turn_user_id) +
-      '-' + String(currentSession?.last_roll ?? 0) +
-      '-' + String(currentSession?.id);
-
-    // New turn — reset
+    // Reset timer for this new turn/roll state
     setTurnTimeLeft(12);
     if (turnTimerRef.current) clearInterval(turnTimerRef.current);
 
     let remaining = 12;
+    // Local flag per effect instance — resets automatically when deps change
+    let actionFired = false;
+
     turnTimerRef.current = setInterval(() => {
       remaining -= 1;
       setTurnTimeLeft(remaining);
@@ -159,10 +155,8 @@ export default function LudoGame({
       if (remaining <= 0) {
         clearInterval(turnTimerRef.current);
         turnTimerRef.current = null;
-
-        // Don't auto-play the same turn key twice
-        if (autoPlayedTurnKeyRef.current === turnKey) return;
-        autoPlayedTurnKeyRef.current = turnKey;
+        if (actionFired) return;
+        actionFired = true;
 
         const {
           sessionLastRoll: slr,
@@ -1330,21 +1324,118 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                 </div>
               </div>
 
-              {/* Status */}
-              {currentSession.status === 'playing' && (
-                <div className={`text-center py-1.5 rounded-xl text-xs font-black ${
-                  isMyTurn
-                    ? 'bg-emerald-500 text-white animate-pulse'
-                    : 'bg-white/5 text-white/50 border border-white/10'
-                }`}>
-                  {isMyTurn
-                    ? message || '🎯 YOUR TURN!'
-                    : `⏳ ${players.find(p =>
-                        String(p.user_id) === String(currentSession.current_turn_user_id)
-                      )?.name || 'Player'}'s turn`
-                  }
-                </div>
-              )}
+              {/* Status bar + shared dice */}
+              {currentSession.status === 'playing' && (() => {
+                const sessionRoll = currentSession?.last_roll ?? 0;
+                const canRoll = isMyTurn && !rolling && sessionRoll === 0 && movablePieces.length === 0;
+                // Whose turn color to use for the dice dots
+                const activeTurnPlayer = players.find(p => String(p.user_id) === String(currentSession.current_turn_user_id));
+                const activeTurnColorIdx = activeTurnPlayer ? getRelativeVisualSeat(activeTurnPlayer, players) : 0;
+                // Dot value: animation uses local diceDisplay; settled uses session roll
+                const dotValue = diceAnimating
+                  ? (diceDisplay || 1)
+                  : (sessionRoll > 0 ? sessionRoll : null);
+                const showDots = diceAnimating || sessionRoll > 0;
+
+                // Countdown ring dimensions
+                const circ = 2 * Math.PI * 22;
+                const offset = circ * (1 - turnTimeLeft / 12);
+                const urgentColor = turnTimeLeft <= 4
+                  ? '#ef4444'
+                  : turnTimeLeft <= 8
+                    ? '#f59e0b'
+                    : PLAYER_COLORS[activeTurnColorIdx];
+
+                return (
+                  <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl ${
+                    isMyTurn
+                      ? 'bg-emerald-600/80 animate-pulse'
+                      : 'bg-white/5 border border-white/10'
+                  }`}>
+                    {/* Status text */}
+                    <div className="flex-1 text-xs font-black text-white truncate">
+                      {isMyTurn
+                        ? message || '🎯 YOUR TURN!'
+                        : `⏳ ${activeTurnPlayer?.name || 'Player'}'s turn`
+                      }
+                    </div>
+
+                    {/* Single shared dice */}
+                    <div className="relative shrink-0 inline-flex items-center justify-center">
+                      {/* Countdown ring — only on my turn */}
+                      {isMyTurn && !diceAnimating && (
+                        <svg
+                          width="52" height="52"
+                          viewBox="0 0 52 52"
+                          className="pointer-events-none absolute inset-0"
+                          style={{ zIndex: 10 }}
+                        >
+                          <circle cx="26" cy="26" r="22" fill="none"
+                            stroke="rgba(255,255,255,0.12)" strokeWidth="3" />
+                          <circle cx="26" cy="26" r="22" fill="none"
+                            stroke={urgentColor} strokeWidth="3"
+                            strokeLinecap="round"
+                            strokeDasharray={circ.toFixed(2)}
+                            strokeDashoffset={offset.toFixed(2)}
+                            style={{
+                              transform: 'rotate(-90deg)',
+                              transformOrigin: '26px 26px',
+                              transition: 'stroke-dashoffset 0.95s linear, stroke 0.3s',
+                            }}
+                          />
+                          <text x="26" y="26" textAnchor="middle"
+                            dominantBaseline="central"
+                            fontSize="9" fontWeight="bold" fill={urgentColor}>
+                            {turnTimeLeft}
+                          </text>
+                        </svg>
+                      )}
+
+                      {showDots ? (
+                        <div
+                          onClick={canRoll ? rollDice : undefined}
+                          className={`relative w-12 h-12 rounded-2xl border-b-4 border-r-2
+                            flex items-center justify-center
+                            ${canRoll ? 'cursor-pointer active:scale-90' : 'cursor-default'}
+                            ${diceAnimating ? 'animate-spin' : ''}
+                          `}
+                          style={{
+                            background: 'linear-gradient(135deg,#fff,#e2e8f0)',
+                            borderColor: PLAYER_COLORS[activeTurnColorIdx],
+                            boxShadow: `0 4px 10px rgba(0,0,0,0.4), 0 0 12px ${PLAYER_COLORS[activeTurnColorIdx]}55`,
+                          }}
+                        >
+                          {(DOT_POSITIONS[dotValue] || DOT_POSITIONS[1]).map(([dx, dy], di) => (
+                            <div key={di} className="absolute w-2 h-2 rounded-full"
+                              style={{
+                                left: `${dx}%`, top: `${dy}%`,
+                                transform: 'translate(-50%,-50%)',
+                                backgroundColor: PLAYER_COLORS[activeTurnColorIdx],
+                              }}
+                            />
+                          ))}
+                          {canRoll && (
+                            <div className="absolute -top-1 -right-1 w-3 h-3
+                              rounded-full bg-emerald-400 animate-ping" />
+                          )}
+                        </div>
+                      ) : (
+                        <div
+                          onClick={canRoll ? rollDice : undefined}
+                          className={`w-12 h-12 rounded-2xl border-2 flex items-center
+                            justify-center text-2xl
+                            ${canRoll
+                              ? 'cursor-pointer animate-bounce border-emerald-400'
+                              : 'border-white/20 opacity-50 cursor-default'
+                            }`}
+                        >
+                          🎲
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Board */}
               <div
@@ -1371,38 +1462,26 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                 />
                 {/* Player card overlays around board corners */}
                 {currentSession.status === 'playing' && (() => {
-                  // Wrapper positions (outer flex group): bottom-left, bottom-right, top-right, top-left
+                  // Wrapper positions: bottom-left, bottom-right, top-right, top-left (by colorIdx)
                   const wrapperPositions = [
                     'bottom-0 left-0 translate-y-[90%] -translate-x-[5%]',
                     'bottom-0 right-0 translate-y-[90%] translate-x-[5%]',
                     'top-0 right-0 -translate-y-[90%] translate-x-[5%]',
                     'top-0 left-0 -translate-y-[90%] -translate-x-[5%]',
                   ];
-                  // For colorIdx 0 (bottom-left) and 3 (top-left): dice goes to the RIGHT → flex-row
-                  // For colorIdx 1 (bottom-right) and 2 (top-right): dice goes to the LEFT → flex-row-reverse
-                  const diceOnRight = [true, false, false, true];
 
                   return players.map((p) => {
                     const colorIdx = getRelativeVisualSeat(p, players);
                     const isCurrentTurn = String(currentSession.current_turn_user_id) === String(p.user_id);
-                    const isMe = String(p.user_id) === String(user?.id);
                     const piecesFinished = p.pieces_finished || 0;
                     const isFinishFx = String(recentFinishedUserId) === String(p.user_id);
-
-                    // Dice value for opponent overlay only — always from session realtime
-                    const cardRoll = !isMe && isCurrentTurn && (currentSession.last_roll > 0)
-                      ? currentSession.last_roll
-                      : null;
-
-                    const flexDir = diceOnRight[colorIdx] ? 'row' : 'row-reverse';
 
                     return (
                       <div
                         key={p.id}
                         className={`absolute ${wrapperPositions[colorIdx]} z-10 ${isFinishFx ? 'animate-bounce' : ''}`}
-                        style={{ display: 'flex', flexDirection: flexDir, alignItems: 'center', gap: '4px' }}
                       >
-                        {/* Player info card */}
+                        {/* Player info card — info only, no dice */}
                         <div
                           className="flex flex-col items-center gap-0.5 rounded-xl p-1.5 backdrop-blur-sm transition"
                           style={{
@@ -1446,176 +1525,11 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                             ))}
                           </div>
                         </div>
-
-                        {/* Passive display dice — opponents only, no onClick */}
-                        {!isMe && isCurrentTurn && (
-                          <div
-                            className="flex flex-col items-center justify-center rounded-xl pointer-events-none"
-                            style={{
-                              width: '40px',
-                              height: '40px',
-                              background: cardRoll
-                                ? 'linear-gradient(135deg,#fff,#e2e8f0)'
-                                : 'rgba(255,255,255,0.08)',
-                              border: `2px solid ${PLAYER_COLORS[colorIdx]}`,
-                              boxShadow: `0 2px 8px rgba(0,0,0,0.5), 0 0 8px ${PLAYER_COLORS[colorIdx]}55`,
-                              flexShrink: 0,
-                            }}
-                          >
-                            {cardRoll ? (
-                              <>
-                                <span style={{ fontSize: '10px', lineHeight: 1 }}>🎲</span>
-                                <span
-                                  className="font-black leading-none"
-                                  style={{
-                                    fontSize: '20px',
-                                    color: PLAYER_COLORS[colorIdx],
-                                    textShadow: '0 1px 3px rgba(0,0,0,0.4)',
-                                  }}
-                                >
-                                  {cardRoll}
-                                </span>
-                              </>
-                            ) : (
-                              <span className="animate-pulse" style={{ fontSize: '20px', lineHeight: 1 }}>
-                                🎲
-                              </span>
-                            )}
-                          </div>
-                        )}
                       </div>
                     );
                   });
                 })()}
               </div>
-
-              {/* Main dice — centered bar below board, independent of player cards */}
-              {currentSession.status === 'playing' && (
-                <div className="flex justify-center items-center py-2">
-                  {/* Countdown SVG ring wrapper */}
-                  <div className="relative inline-flex items-center justify-center">
-                      {/* Radial countdown ring — visible only on my turn */}
-                      {isMyTurn && !diceAnimating && (() => {
-                        const circ = 2 * Math.PI * 29;
-                        const offset = circ * (1 - turnTimeLeft / 12);
-                        const urgentColor = turnTimeLeft <= 4
-                          ? '#ef4444'
-                          : turnTimeLeft <= 8
-                            ? '#f59e0b'
-                            : PLAYER_COLORS[myColorIdx];
-                        return (
-                          <svg
-                            width="64" height="64"
-                            viewBox="0 0 64 64"
-                            className="pointer-events-none"
-                            style={{
-                              position: 'absolute',
-                              top: '-4px', left: '-4px',
-                              zIndex: 10,
-                            }}
-                          >
-                            {/* Track */}
-                            <circle
-                              cx="32" cy="32" r="29"
-                              fill="none"
-                              stroke="rgba(255,255,255,0.12)"
-                              strokeWidth="3"
-                            />
-                            {/* Progress */}
-                            <circle
-                              cx="32" cy="32" r="29"
-                              fill="none"
-                              stroke={urgentColor}
-                              strokeWidth="3"
-                              strokeLinecap="round"
-                              strokeDasharray={circ.toFixed(2)}
-                              strokeDashoffset={offset.toFixed(2)}
-                              style={{
-                                transform: 'rotate(-90deg)',
-                                transformOrigin: '32px 32px',
-                                transition: 'stroke-dashoffset 0.95s linear, stroke 0.3s',
-                              }}
-                            />
-                            {/* Countdown number */}
-                            <text
-                              x="32" y="-5"
-                              textAnchor="middle"
-                              dominantBaseline="middle"
-                              fontSize="8"
-                              fontWeight="bold"
-                              fill={urgentColor}
-                              style={{ transform: 'rotate(90deg)', transformOrigin: '32px -5px' }}
-                            >
-                              {turnTimeLeft}
-                            </text>
-                          </svg>
-                        );
-                      })()}
-
-                      {(() => {
-                        // canRoll: my turn, no roll yet, not currently rolling, no pieces waiting
-                        const sessionRoll = currentSession?.last_roll ?? 0;
-                        const canRoll = isMyTurn && !rolling && sessionRoll === 0 && movablePieces.length === 0;
-                        // show dots: animating OR (my turn and there's a roll result to show)
-                        const showDots = diceAnimating || (isMyTurn && (sessionRoll > 0 || lastRoll > 0));
-                        const dotValue = diceAnimating
-                          ? (diceDisplay || 1)
-                          : (sessionRoll > 0 ? sessionRoll : lastRoll || 1);
-
-                        if (showDots) {
-                          return (
-                            <div
-                              onClick={canRoll ? rollDice : undefined}
-                              className={`relative w-14 h-14 rounded-2xl border-b-4 border-r-2
-                                flex items-center justify-center
-                                ${canRoll ? 'cursor-pointer active:scale-90 animate-bounce' : 'cursor-default'}
-                                ${diceAnimating ? 'animate-spin' : ''}
-                              `}
-                              style={{
-                                background: 'linear-gradient(135deg, #fff, #e2e8f0)',
-                                borderColor: PLAYER_COLORS[myColorIdx],
-                                boxShadow: isMyTurn
-                                  ? `0 4px 12px rgba(0,0,0,0.4), 0 0 15px ${PLAYER_COLORS[myColorIdx]}66`
-                                  : '0 4px 8px rgba(0,0,0,0.3)',
-                              }}
-                            >
-                              {(DOT_POSITIONS[dotValue] || DOT_POSITIONS[1]).map(([dx, dy], di) => (
-                                <div
-                                  key={di}
-                                  className="absolute w-2 h-2 rounded-full"
-                                  style={{
-                                    left: `${dx}%`,
-                                    top: `${dy}%`,
-                                    transform: 'translate(-50%,-50%)',
-                                    backgroundColor: PLAYER_COLORS[myColorIdx],
-                                  }}
-                                />
-                              ))}
-                              {canRoll && (
-                                <div className="absolute -top-1 -right-1 w-3 h-3
-                                  rounded-full bg-emerald-400 animate-ping" />
-                              )}
-                            </div>
-                          );
-                        }
-
-                        return (
-                          <div
-                            onClick={canRoll ? rollDice : undefined}
-                            className={`w-14 h-14 rounded-2xl border-2 flex items-center
-                              justify-center text-2xl
-                              ${canRoll
-                                ? 'cursor-pointer animate-bounce border-emerald-400'
-                                : 'border-white/10 opacity-30 cursor-default'
-                              }`}
-                          >
-                            🎲
-                          </div>
-                        );
-                      })()}
-                  </div>
-                </div>
-              )}
 
               {/* Waiting: players list */}
               {currentSession.status === 'waiting' && (
