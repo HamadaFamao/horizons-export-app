@@ -180,7 +180,7 @@ export default function LudoGame({
         turnTimerRef.current = null;
       }
     };
-  }, [currentSession?.current_turn_user_id, currentSession?.last_roll, currentSession?.status, open]);
+  }, [currentSession?.id, currentSession?.current_turn_user_id, currentSession?.last_roll, currentSession?.status, open]);
 
   // Realtime
   useEffect(() => {
@@ -1201,8 +1201,70 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
     6: [[25,20],[75,20],[25,50],[75,50],[25,80],[75,80]],
   };
 
-  const myPlayer = players.find(p => String(p.user_id) === String(user?.id));
-  const myColorIdx = myPlayer ? getRelativeVisualSeat(myPlayer, players) : 0;
+  const renderDiceSlot = (player, side = 'right') => {
+    if (!player || currentSession?.status !== 'playing') return null;
+
+    const isCurrentTurnPlayer =
+      String(currentSession?.current_turn_user_id) === String(player.user_id);
+    if (!isCurrentTurnPlayer) return null;
+
+    const colorIdx = getRelativeVisualSeat(player, players);
+    const sessionRoll = currentSession?.last_roll ?? 0;
+    const isTurnMine = String(player.user_id) === String(user?.id) && isMyTurn;
+    const canRoll = isTurnMine && !rolling && sessionRoll === 0 && movablePieces.length === 0;
+    const animateDice = isTurnMine && diceAnimating;
+    const showDots = animateDice || sessionRoll > 0;
+    const dotValue = animateDice
+      ? (diceDisplay || 1)
+      : (sessionRoll > 0 ? sessionRoll : null);
+
+    const diceNode = showDots ? (
+      <div
+        onClick={canRoll ? rollDice : undefined}
+        className={`relative w-12 h-12 rounded-2xl border-b-4 border-r-2 flex items-center justify-center ${
+          canRoll ? 'cursor-pointer active:scale-90' : 'cursor-default'
+        } ${animateDice ? 'animate-spin' : ''}`}
+        style={{
+          background: 'linear-gradient(135deg,#fff,#e2e8f0)',
+          borderColor: PLAYER_COLORS[colorIdx],
+          boxShadow: `0 4px 10px rgba(0,0,0,0.4), 0 0 12px ${PLAYER_COLORS[colorIdx]}55`,
+        }}
+      >
+        {(DOT_POSITIONS[dotValue] || DOT_POSITIONS[1]).map(([dx, dy], di) => (
+          <div
+            key={di}
+            className="absolute w-2 h-2 rounded-full"
+            style={{
+              left: `${dx}%`,
+              top: `${dy}%`,
+              transform: 'translate(-50%,-50%)',
+              backgroundColor: PLAYER_COLORS[colorIdx],
+            }}
+          />
+        ))}
+        {canRoll && (
+          <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-400 animate-ping" />
+        )}
+      </div>
+    ) : (
+      <div
+        onClick={canRoll ? rollDice : undefined}
+        className={`w-12 h-12 rounded-2xl border-2 flex items-center justify-center text-2xl ${
+          canRoll
+            ? 'cursor-pointer animate-bounce border-emerald-400'
+            : 'border-white/20 opacity-50 cursor-default'
+        }`}
+      >
+        🎲
+      </div>
+    );
+
+    return (
+      <div className="shrink-0">
+        {diceNode}
+      </div>
+    );
+  };
 
   if (!open) return null;
 
@@ -1324,27 +1386,9 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                 </div>
               </div>
 
-              {/* Status bar + shared dice */}
+              {/* Status bar */}
               {currentSession.status === 'playing' && (() => {
-                const sessionRoll = currentSession?.last_roll ?? 0;
-                const canRoll = isMyTurn && !rolling && sessionRoll === 0 && movablePieces.length === 0;
-                // Whose turn color to use for the dice dots
                 const activeTurnPlayer = players.find(p => String(p.user_id) === String(currentSession.current_turn_user_id));
-                const activeTurnColorIdx = activeTurnPlayer ? getRelativeVisualSeat(activeTurnPlayer, players) : 0;
-                // Dot value: animation uses local diceDisplay; settled uses session roll
-                const dotValue = diceAnimating
-                  ? (diceDisplay || 1)
-                  : (sessionRoll > 0 ? sessionRoll : null);
-                const showDots = diceAnimating || sessionRoll > 0;
-
-                // Countdown ring dimensions
-                const circ = 2 * Math.PI * 22;
-                const offset = circ * (1 - turnTimeLeft / 12);
-                const urgentColor = turnTimeLeft <= 4
-                  ? '#ef4444'
-                  : turnTimeLeft <= 8
-                    ? '#f59e0b'
-                    : PLAYER_COLORS[activeTurnColorIdx];
 
                 return (
                   <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl ${
@@ -1359,80 +1403,11 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                         : `⏳ ${activeTurnPlayer?.name || 'Player'}'s turn`
                       }
                     </div>
-
-                    {/* Single shared dice */}
-                    <div className="relative shrink-0 inline-flex items-center justify-center">
-                      {/* Countdown ring — only on my turn */}
-                      {isMyTurn && !diceAnimating && (
-                        <svg
-                          width="52" height="52"
-                          viewBox="0 0 52 52"
-                          className="pointer-events-none absolute inset-0"
-                          style={{ zIndex: 10 }}
-                        >
-                          <circle cx="26" cy="26" r="22" fill="none"
-                            stroke="rgba(255,255,255,0.12)" strokeWidth="3" />
-                          <circle cx="26" cy="26" r="22" fill="none"
-                            stroke={urgentColor} strokeWidth="3"
-                            strokeLinecap="round"
-                            strokeDasharray={circ.toFixed(2)}
-                            strokeDashoffset={offset.toFixed(2)}
-                            style={{
-                              transform: 'rotate(-90deg)',
-                              transformOrigin: '26px 26px',
-                              transition: 'stroke-dashoffset 0.95s linear, stroke 0.3s',
-                            }}
-                          />
-                          <text x="26" y="26" textAnchor="middle"
-                            dominantBaseline="central"
-                            fontSize="9" fontWeight="bold" fill={urgentColor}>
-                            {turnTimeLeft}
-                          </text>
-                        </svg>
-                      )}
-
-                      {showDots ? (
-                        <div
-                          onClick={canRoll ? rollDice : undefined}
-                          className={`relative w-12 h-12 rounded-2xl border-b-4 border-r-2
-                            flex items-center justify-center
-                            ${canRoll ? 'cursor-pointer active:scale-90' : 'cursor-default'}
-                            ${diceAnimating ? 'animate-spin' : ''}
-                          `}
-                          style={{
-                            background: 'linear-gradient(135deg,#fff,#e2e8f0)',
-                            borderColor: PLAYER_COLORS[activeTurnColorIdx],
-                            boxShadow: `0 4px 10px rgba(0,0,0,0.4), 0 0 12px ${PLAYER_COLORS[activeTurnColorIdx]}55`,
-                          }}
-                        >
-                          {(DOT_POSITIONS[dotValue] || DOT_POSITIONS[1]).map(([dx, dy], di) => (
-                            <div key={di} className="absolute w-2 h-2 rounded-full"
-                              style={{
-                                left: `${dx}%`, top: `${dy}%`,
-                                transform: 'translate(-50%,-50%)',
-                                backgroundColor: PLAYER_COLORS[activeTurnColorIdx],
-                              }}
-                            />
-                          ))}
-                          {canRoll && (
-                            <div className="absolute -top-1 -right-1 w-3 h-3
-                              rounded-full bg-emerald-400 animate-ping" />
-                          )}
-                        </div>
-                      ) : (
-                        <div
-                          onClick={canRoll ? rollDice : undefined}
-                          className={`w-12 h-12 rounded-2xl border-2 flex items-center
-                            justify-center text-2xl
-                            ${canRoll
-                              ? 'cursor-pointer animate-bounce border-emerald-400'
-                              : 'border-white/20 opacity-50 cursor-default'
-                            }`}
-                        >
-                          🎲
-                        </div>
-                      )}
-                    </div>
+                    {isMyTurn && (
+                      <div className="text-[11px] font-black text-white/90 shrink-0">
+                        {turnTimeLeft}s
+                      </div>
+                    )}
                   </div>
                 );
               })()}
@@ -1469,61 +1444,70 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                     'top-0 right-0 -translate-y-[90%] translate-x-[5%]',
                     'top-0 left-0 -translate-y-[90%] -translate-x-[5%]',
                   ];
+                  const diceSideByColorIdx = ['right', 'left', 'left', 'right'];
 
                   return players.map((p) => {
                     const colorIdx = getRelativeVisualSeat(p, players);
                     const isCurrentTurn = String(currentSession.current_turn_user_id) === String(p.user_id);
                     const piecesFinished = p.pieces_finished || 0;
                     const isFinishFx = String(recentFinishedUserId) === String(p.user_id);
+                    const diceSide = diceSideByColorIdx[colorIdx] || 'right';
+
+                    const playerCard = (
+                      <div
+                        className="flex flex-col items-center gap-0.5 rounded-xl p-1.5 backdrop-blur-sm transition"
+                        style={{
+                          background: isCurrentTurn
+                            ? `${PLAYER_COLORS[colorIdx]}44`
+                            : 'rgba(0,0,0,0.55)',
+                          outline: isCurrentTurn
+                            ? `2px solid ${PLAYER_COLORS[colorIdx]}`
+                            : 'none',
+                          boxShadow: isFinishFx
+                            ? `0 0 0 2px ${PLAYER_COLORS[colorIdx]}, 0 0 18px ${PLAYER_COLORS[colorIdx]}cc`
+                            : undefined,
+                          maxWidth: '60px',
+                        }}
+                      >
+                        <img
+                          src={p.avatar_url || FALLBACK_AVATAR}
+                          alt={p.name}
+                          className="w-8 h-8 rounded-full object-cover"
+                          style={{ border: `2px solid ${PLAYER_COLORS[colorIdx]}` }}
+                          onError={e => e.currentTarget.src = FALLBACK_AVATAR}
+                        />
+                        <div className="text-white text-[9px] font-bold max-w-[56px] truncate text-center leading-tight">
+                          {p.name}
+                        </div>
+                        <div className="text-white/90 text-[10px] font-black leading-tight">
+                          {piecesFinished}/4
+                        </div>
+                        <div className="flex gap-0.5">
+                          {[0,1,2,3].map(i => (
+                            <div
+                              key={i}
+                              className="w-[9px] h-[9px] rounded-full border-2 shadow"
+                              style={{
+                                backgroundColor: i < piecesFinished
+                                  ? PLAYER_COLORS[colorIdx]
+                                  : 'transparent',
+                                borderColor: PLAYER_COLORS[colorIdx],
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    );
 
                     return (
                       <div
                         key={p.id}
                         className={`absolute ${wrapperPositions[colorIdx]} z-10 ${isFinishFx ? 'animate-bounce' : ''}`}
                       >
-                        {/* Player info card — info only, no dice */}
-                        <div
-                          className="flex flex-col items-center gap-0.5 rounded-xl p-1.5 backdrop-blur-sm transition"
-                          style={{
-                            background: isCurrentTurn
-                              ? `${PLAYER_COLORS[colorIdx]}44`
-                              : 'rgba(0,0,0,0.55)',
-                            outline: isCurrentTurn
-                              ? `2px solid ${PLAYER_COLORS[colorIdx]}`
-                              : 'none',
-                            boxShadow: isFinishFx
-                              ? `0 0 0 2px ${PLAYER_COLORS[colorIdx]}, 0 0 18px ${PLAYER_COLORS[colorIdx]}cc`
-                              : undefined,
-                            maxWidth: '60px',
-                          }}
-                        >
-                          <img
-                            src={p.avatar_url || FALLBACK_AVATAR}
-                            alt={p.name}
-                            className="w-8 h-8 rounded-full object-cover"
-                            style={{ border: `2px solid ${PLAYER_COLORS[colorIdx]}` }}
-                            onError={e => e.currentTarget.src = FALLBACK_AVATAR}
-                          />
-                          <div className="text-white text-[9px] font-bold max-w-[56px] truncate text-center leading-tight">
-                            {p.name}
-                          </div>
-                          <div className="text-white/90 text-[10px] font-black leading-tight">
-                            {piecesFinished}/4
-                          </div>
-                          <div className="flex gap-0.5">
-                            {[0,1,2,3].map(i => (
-                              <div
-                                key={i}
-                                className="w-[9px] h-[9px] rounded-full border-2 shadow"
-                                style={{
-                                  backgroundColor: i < piecesFinished
-                                    ? PLAYER_COLORS[colorIdx]
-                                    : 'transparent',
-                                  borderColor: PLAYER_COLORS[colorIdx],
-                                }}
-                              />
-                            ))}
-                          </div>
+                        <div className="flex items-center gap-1.5">
+                          {diceSide === 'left' && renderDiceSlot(p, 'left')}
+                          {playerCard}
+                          {diceSide === 'right' && renderDiceSlot(p, 'right')}
                         </div>
                       </div>
                     );
