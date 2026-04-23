@@ -99,3 +99,87 @@ BEGIN
   );
 END;
 $$;
+
+-- LUDO: display roll persistence patch
+ALTER TABLE public.room_ludo_sessions
+ADD COLUMN IF NOT EXISTS display_roll integer,
+ADD COLUMN IF NOT EXISTS display_roll_user_id uuid;
+
+DO $$
+DECLARE
+  v_oid oid;
+  v_def text;
+  v_new_def text;
+BEGIN
+  SELECT p.oid
+    INTO v_oid
+  FROM pg_proc p
+  JOIN pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname = 'public'
+    AND p.proname = 'get_ludo_roll'
+  ORDER BY p.oid DESC
+  LIMIT 1;
+
+  IF v_oid IS NOT NULL THEN
+    SELECT pg_get_functiondef(v_oid) INTO v_def;
+
+    v_new_def := regexp_replace(
+      v_def,
+      'last_roll\\s*=\\s*v_roll',
+      'last_roll = v_roll, display_roll = v_roll, display_roll_user_id = p_user_id',
+      'i'
+    );
+
+    IF v_new_def <> v_def THEN
+      EXECUTE v_new_def;
+    END IF;
+  END IF;
+END
+$$;
+
+DO $$
+DECLARE
+  v_oid oid;
+  v_def text;
+  v_new_def text;
+BEGIN
+  SELECT p.oid
+    INTO v_oid
+  FROM pg_proc p
+  JOIN pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname = 'public'
+    AND p.proname = 'move_ludo_piece'
+  ORDER BY p.oid DESC
+  LIMIT 1;
+
+  IF v_oid IS NOT NULL THEN
+    SELECT pg_get_functiondef(v_oid) INTO v_def;
+    v_new_def := v_def;
+
+    v_new_def := regexp_replace(
+      v_new_def,
+      ',\\s*display_roll\\s*=\\s*0',
+      '',
+      'gi'
+    );
+
+    v_new_def := regexp_replace(
+      v_new_def,
+      ',\\s*display_roll\\s*=\\s*null',
+      '',
+      'gi'
+    );
+
+    v_new_def := regexp_replace(
+      v_new_def,
+      ',\\s*display_roll_user_id\\s*=\\s*null',
+      '',
+      'gi'
+    );
+
+    IF v_new_def <> v_def THEN
+      EXECUTE v_new_def;
+    END IF;
+  END IF;
+END
+$$;

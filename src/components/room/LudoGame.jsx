@@ -1210,13 +1210,19 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
 
     const colorIdx = getRelativeVisualSeat(player, players);
     const sessionRoll = currentSession?.last_roll ?? 0;
+    const displayRoll = currentSession?.display_roll ?? 0;
+    const displayRollUserId = currentSession?.display_roll_user_id;
     const isTurnMine = String(player.user_id) === String(user?.id) && isMyTurn;
     const canRoll = isTurnMine && !rolling && sessionRoll === 0 && movablePieces.length === 0;
     const animateDice = isTurnMine && diceAnimating;
-    const showDots = animateDice || sessionRoll > 0;
+    const showServerValue =
+      String(player.user_id) === String(displayRollUserId) &&
+      typeof displayRoll === 'number' &&
+      displayRoll > 0;
+    const showDots = animateDice || showServerValue;
     const dotValue = animateDice
       ? (typeof diceDisplay === 'number' && diceDisplay > 0 ? diceDisplay : null)
-      : (sessionRoll > 0 ? sessionRoll : null);
+      : (showServerValue ? displayRoll : null);
     const dotPattern = dotValue ? DOT_POSITIONS[dotValue] : null;
 
     const diceNode = showDots ? (
