@@ -1189,16 +1189,6 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
     handlePieceSelect,
   };
 
-  // Dice dots positions
-  const DOT_POSITIONS = {
-    1: [[50,50]],
-    2: [[25,25],[75,75]],
-    3: [[25,25],[50,50],[75,75]],
-    4: [[25,25],[75,25],[25,75],[75,75]],
-    5: [[25,25],[75,25],[50,50],[25,75],[75,75]],
-    6: [[25,20],[75,20],[25,50],[75,50],[25,80],[75,80]],
-  };
-
   const getDiceFaceValueForPlayer = (player) => {
     if (!player) return 0;
 
@@ -1206,15 +1196,6 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
       String(player.user_id) === String(currentSession?.display_roll_user_id);
 
     if (!isDisplayOwner) return 0;
-
-    if (
-      String(player.user_id) === String(user?.id) &&
-      diceAnimating &&
-      diceDisplay >= 1 &&
-      diceDisplay <= 6
-    ) {
-      return diceDisplay;
-    }
 
     const finalValue = Number(currentSession?.display_roll || 0);
     return finalValue >= 1 && finalValue <= 6 ? finalValue : 0;
@@ -1231,56 +1212,46 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
     const sessionRoll = currentSession?.last_roll ?? 0;
     const isTurnMine = String(player.user_id) === String(user?.id) && isMyTurn;
     const canRoll = isTurnMine && !rolling && sessionRoll === 0 && movablePieces.length === 0;
-    const animateDice = isTurnMine && diceAnimating;
     const faceValue = getDiceFaceValueForPlayer(player);
     const hasFaceValue = faceValue >= 1 && faceValue <= 6;
-    const dotPattern = hasFaceValue ? DOT_POSITIONS[faceValue] : [];
+    const isDisplayOwner =
+      String(currentSession?.display_roll_user_id) === String(player.user_id);
+    const isTurnOwner =
+      String(currentSession?.current_turn_user_id) === String(player.user_id);
+    const debugText = `${isDisplayOwner ? 'OWNER' : 'NO'} | roll: ${Number(currentSession?.display_roll || 0)} | ${isTurnOwner ? 'TURN' : 'WAIT'}`;
 
-    const diceNode = hasFaceValue ? (
+    const diceNode = (
       <div
         onClick={canRoll ? rollDice : undefined}
         className={`relative w-12 h-12 rounded-2xl border-b-4 border-r-2 flex items-center justify-center ${
           canRoll ? 'cursor-pointer active:scale-90' : 'cursor-default'
-        } ${animateDice ? 'animate-spin' : ''}`}
+        }`}
         style={{
           background: 'linear-gradient(135deg,#fff,#e2e8f0)',
           borderColor: PLAYER_COLORS[colorIdx],
           boxShadow: `0 4px 10px rgba(0,0,0,0.4), 0 0 12px ${PLAYER_COLORS[colorIdx]}55`,
         }}
       >
-        {dotPattern.map(([dx, dy], di) => (
+        {hasFaceValue && (
           <div
-            key={di}
-            className="absolute w-2 h-2 rounded-full"
-            style={{
-              left: `${dx}%`,
-              top: `${dy}%`,
-              transform: 'translate(-50%,-50%)',
-              backgroundColor: PLAYER_COLORS[colorIdx],
-            }}
-          />
-        ))}
+            className="text-xl font-black leading-none"
+            style={{ color: PLAYER_COLORS[colorIdx] }}
+          >
+            {faceValue}
+          </div>
+        )}
         {canRoll && (
           <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-400 animate-ping" />
         )}
       </div>
-    ) : (
-      <div
-        onClick={canRoll ? rollDice : undefined}
-        className={`w-12 h-12 rounded-2xl border-2 flex items-center justify-center ${
-          canRoll
-            ? 'cursor-pointer animate-bounce border-emerald-400'
-            : 'border-white/20 opacity-50 cursor-default'
-        }`}
-        style={{
-          background: 'linear-gradient(135deg, rgba(255,255,255,0.2), rgba(148,163,184,0.18))',
-        }}
-      />
     );
 
     return (
-      <div className="shrink-0">
+      <div className="shrink-0 flex flex-col items-center gap-1">
         {diceNode}
+        <div className="max-w-[92px] text-center text-[8px] font-bold leading-tight text-white/70">
+          {debugText}
+        </div>
       </div>
     );
   };
