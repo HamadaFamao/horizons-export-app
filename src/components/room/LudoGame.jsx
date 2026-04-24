@@ -392,9 +392,11 @@ export default function LudoGame({
     return layout[relativeIndex] ?? 0;
   };
 
-  const getPlayerColorIndex = (player) => {
+  const getPlayerColorIndex = (player, playersList = players) => {
+    const totalPlayers = Number(currentSession?.max_players || playersList.length || 4);
+    const layout = VISUAL_SEAT_LAYOUTS[totalPlayers] || [0, 1, 2, 3];
     const seatIdx = Math.max(0, Number(player?.seat_number || 1) - 1);
-    return seatIdx % PLAYER_COLORS.length;
+    return layout[seatIdx] ?? seatIdx;
   };
 
   const getPieceCanvasPosition = (player, pieceIndex, cellSize, playersList = players) => {
@@ -469,6 +471,14 @@ export default function LudoGame({
     const CELLS = 15;
     const cellSize = W / CELLS;
 
+    // Helper to map visual index to real player color
+    const getVisualColorIndex = (visualIdx) => {
+      const playerAtVisual = players.find(p =>
+        getRelativeVisualSeat(p, players) === visualIdx
+      );
+      return playerAtVisual ? getPlayerColorIndex(playerAtVisual, players) : visualIdx;
+    };
+
     ctx.clearRect(0, 0, W, W);
 
     // Background with radial gradient
@@ -494,6 +504,7 @@ export default function LudoGame({
     ];
 
     homeRects.forEach((rect, i) => {
+      const realColorIdx = getVisualColorIndex(i);
       const x = rect.c * cellSize;
       const y = rect.r * cellSize;
       const w = rect.w * cellSize;
@@ -503,14 +514,14 @@ export default function LudoGame({
       ctx.save();
       ctx.shadowColor = 'rgba(0,0,0,0.5)';
       ctx.shadowBlur = 10;
-      ctx.fillStyle = homeColors[i].border;
+      ctx.fillStyle = homeColors[realColorIdx].border;
       ctx.fillRect(x, y, w, h);
       ctx.restore();
 
       // Inner area with gradient
       const innerGrad = ctx.createLinearGradient(x, y, x + w, y + h);
-      innerGrad.addColorStop(0, homeColors[i].grad1);
-      innerGrad.addColorStop(1, homeColors[i].grad2);
+      innerGrad.addColorStop(0, homeColors[realColorIdx].grad1);
+      innerGrad.addColorStop(1, homeColors[realColorIdx].grad2);
       
       ctx.fillStyle = innerGrad;
       ctx.fillRect(
@@ -551,7 +562,8 @@ export default function LudoGame({
       const startIdx = startIndices.indexOf(i);
       
       if (startIdx !== -1) {
-        cellColor = homeColors[startIdx].grad1;
+        const realColorIdx = getVisualColorIndex(startIdx);
+        cellColor = homeColors[realColorIdx].grad1;
         isStart = true;
       } else if (SAFE_SQUARES.includes(i)) {
         cellColor = '#e2e8f0';
@@ -590,18 +602,19 @@ export default function LudoGame({
 
     // Draw home columns
     HOME_COLUMNS.forEach((col, playerIdx) => {
+      const realColorIdx = getVisualColorIndex(playerIdx);
       col.forEach(([row, c]) => {
         const x = c * cellSize;
         const y = row * cellSize;
         
         const grad = ctx.createLinearGradient(x, y, x + cellSize, y + cellSize);
-        grad.addColorStop(0, homeColors[playerIdx].grad1 + '80');
-        grad.addColorStop(1, homeColors[playerIdx].grad2 + '80');
+        grad.addColorStop(0, homeColors[realColorIdx].grad1 + '80');
+        grad.addColorStop(1, homeColors[realColorIdx].grad2 + '80');
         
         ctx.fillStyle = grad;
         ctx.fillRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
         
-        ctx.strokeStyle = homeColors[playerIdx].border + '60';
+        ctx.strokeStyle = homeColors[realColorIdx].border + '60';
         ctx.lineWidth = 1;
         ctx.strokeRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
       });
@@ -609,12 +622,14 @@ export default function LudoGame({
 
     // Draw arrows
     const arrows = [
-      { r: 14, c: 7, color: '#ef4444', dir: 'up' },
-      { r: 7, c: 14, color: '#3b82f6', dir: 'left' },
-      { r: 0, c: 7, color: '#f59e0b', dir: 'down' },
-      { r: 7, c: 0, color: '#22c55e', dir: 'right' },
+      { r: 14, c: 7, colorIdx: 0, dir: 'up' },
+      { r: 7, c: 14, colorIdx: 1, dir: 'left' },
+      { r: 0, c: 7, colorIdx: 2, dir: 'down' },
+      { r: 7, c: 0, colorIdx: 3, dir: 'right' },
     ];
-    arrows.forEach(({ r, c, color, dir }) => {
+    arrows.forEach(({ r, c, colorIdx, dir }) => {
+      const realColorIdx = getVisualColorIndex(colorIdx);
+      const color = PLAYER_COLORS[realColorIdx];
       const cx = c * cellSize + cellSize / 2;
       const cy = r * cellSize + cellSize / 2;
       
@@ -667,26 +682,27 @@ export default function LudoGame({
     ctx.fillRect(6 * cellSize, 6 * cellSize, 3 * cellSize, 3 * cellSize);
     
     // Draw triangle in center for each color
-    const triColors = ['#ef4444', '#3b82f6', '#f59e0b', '#22c55e'];
     const triPoints = [
-      [[9,6],[9,9],[7.5,7.5]],   // 0: Red (bottom)
-      [[6,9],[9,9],[7.5,7.5]],   // 1: Blue (right)
-      [[6,6],[6,9],[7.5,7.5]],   // 2: Yellow (top)
-      [[6,6],[9,6],[7.5,7.5]],   // 3: Green (left)
+      [[9,6],[9,9],[7.5,7.5]],   // 0: bottom
+      [[6,9],[9,9],[7.5,7.5]],   // 1: right
+      [[6,6],[6,9],[7.5,7.5]],   // 2: top
+      [[6,6],[9,6],[7.5,7.5]],   // 3: left
     ];
     triPoints.forEach((pts, i) => {
+      const realColorIdx = getVisualColorIndex(i);
       ctx.beginPath();
       ctx.moveTo(pts[0][1] * cellSize, pts[0][0] * cellSize);
       ctx.lineTo(pts[1][1] * cellSize, pts[1][0] * cellSize);
       ctx.lineTo(pts[2][1] * cellSize, pts[2][0] * cellSize);
       ctx.closePath();
       
+      const triColor = PLAYER_COLORS[realColorIdx];
       const grad = ctx.createLinearGradient(
         pts[0][1] * cellSize, pts[0][0] * cellSize,
         pts[2][1] * cellSize, pts[2][0] * cellSize
       );
-      grad.addColorStop(0, triColors[i] + 'ee');
-      grad.addColorStop(1, triColors[i] + '66');
+      grad.addColorStop(0, triColor + 'ee');
+      grad.addColorStop(1, triColor + '66');
       
       ctx.fillStyle = grad;
       ctx.fill();
