@@ -91,6 +91,7 @@ export default function LudoGame({
   const [teamMode, setTeamMode] = useState(false);
   const [entryCost, setEntryCost] = useState(100);
   const [teamAssignments, setTeamAssignments] = useState({});
+  const [selectedTeamPlayerId, setSelectedTeamPlayerId] = useState(null);
   const [joining, setJoining] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [rolling, setRolling] = useState(false);
@@ -141,6 +142,7 @@ export default function LudoGame({
   useEffect(() => {
     if (currentSession?.status === 'playing' || !currentSession?.id) {
       setTeamAssignments({});
+      setSelectedTeamPlayerId(null);
     }
   }, [currentSession?.id, currentSession?.status]);
 
@@ -1374,40 +1376,82 @@ export default function LudoGame({
   const togglePlayerTeam = (userId) => {
     const userIdStr = String(userId);
     const player = players.find(p => String(p.user_id) === userIdStr);
+    if (!player) return;
+
     const current = getLudoTeam(player);
     const teamA = getTeamPlayers('A');
     const teamB = getTeamPlayers('B');
+    const isBothTeamsFull = teamA.length === 2 && teamB.length === 2;
 
-    if (current === 'A') {
-      // Move A -> B only if Team B has an available slot.
-      if (teamB.length >= 2) return;
-      setTeamAssignments(prev => ({
-        ...prev,
-        [userIdStr]: 'B',
-      }));
-    } else if (current === 'B') {
-      // Move B -> A only if Team A has an available slot.
-      if (teamA.length >= 2) return;
-      setTeamAssignments(prev => ({
-        ...prev,
-        [userIdStr]: 'A',
-      }));
-    } else {
-      // Fallback path for any unassigned entry.
+    // When teams are not full, keep direct move behavior with capacity checks.
+    if (!isBothTeamsFull) {
+      if (current === 'A') {
+        if (teamB.length >= 2) return;
+        setTeamAssignments(prev => ({
+          ...prev,
+          [userIdStr]: 'B',
+        }));
+        setSelectedTeamPlayerId(null);
+        return;
+      }
+
+      if (current === 'B') {
+        if (teamA.length >= 2) return;
+        setTeamAssignments(prev => ({
+          ...prev,
+          [userIdStr]: 'A',
+        }));
+        setSelectedTeamPlayerId(null);
+        return;
+      }
+
       if (teamA.length < 2) {
         setTeamAssignments(prev => ({
           ...prev,
           [userIdStr]: 'A',
         }));
+        setSelectedTeamPlayerId(null);
         return;
       }
+
       if (teamB.length < 2) {
         setTeamAssignments(prev => ({
           ...prev,
           [userIdStr]: 'B',
         }));
+        setSelectedTeamPlayerId(null);
       }
+      return;
     }
+
+    // Both teams are full (2v2): first click selects, second click on opposite team swaps.
+    if (!selectedTeamPlayerId) {
+      setSelectedTeamPlayerId(userIdStr);
+      return;
+    }
+
+    const selectedIdStr = String(selectedTeamPlayerId);
+    const selectedPlayer = players.find(p => String(p.user_id) === selectedIdStr);
+    if (!selectedPlayer) {
+      setSelectedTeamPlayerId(userIdStr);
+      return;
+    }
+
+    const selectedTeam = getLudoTeam(selectedPlayer);
+
+    // Clicking another player on the same team just changes selection.
+    if (selectedTeam === current) {
+      setSelectedTeamPlayerId(userIdStr);
+      return;
+    }
+
+    // Swap teams between selected and clicked players.
+    setTeamAssignments(prev => ({
+      ...prev,
+      [selectedIdStr]: current,
+      [userIdStr]: selectedTeam,
+    }));
+    setSelectedTeamPlayerId(null);
   };
 
   // Helper: Assign teams randomly based on seat order
@@ -1420,6 +1464,7 @@ export default function LudoGame({
     assignments[String(sorted[2].user_id)] = 'A'; // Seat 3 → Team A
     assignments[String(sorted[3].user_id)] = 'B'; // Seat 4 → Team B
     setTeamAssignments(assignments);
+    setSelectedTeamPlayerId(null);
   };
 
   // Helper: Check if teams are complete (2 players in each)
@@ -1874,13 +1919,14 @@ export default function LudoGame({
                       <div className="flex flex-col gap-2">
                         {getTeamPlayers('A').map(p => {
                           const colorIdx = getPlayerColorIndex(p);
+                          const isSelected = String(selectedTeamPlayerId) === String(p.user_id);
                           return (
                             <button
                               key={p.id}
                               onClick={() => togglePlayerTeam(p.user_id)}
-                              className="flex items-center gap-2 bg-cyan-400/10 hover:bg-cyan-400/20
+                              className={`flex items-center gap-2 bg-cyan-400/10 hover:bg-cyan-400/20
                                 border border-cyan-400/30 rounded-lg px-2 py-2 transition cursor-pointer
-                                active:scale-95"
+                                active:scale-95 ${isSelected ? 'ring-2 ring-white scale-[1.02]' : ''}`}
                             >
                               <div className="w-2.5 h-2.5 rounded-full shrink-0"
                                 style={{ backgroundColor: PLAYER_COLORS[colorIdx] }} />
@@ -1915,13 +1961,14 @@ export default function LudoGame({
                       <div className="flex flex-col gap-2">
                         {getTeamPlayers('B').map(p => {
                           const colorIdx = getPlayerColorIndex(p);
+                          const isSelected = String(selectedTeamPlayerId) === String(p.user_id);
                           return (
                             <button
                               key={p.id}
                               onClick={() => togglePlayerTeam(p.user_id)}
-                              className="flex items-center gap-2 bg-violet-400/10 hover:bg-violet-400/20
+                              className={`flex items-center gap-2 bg-violet-400/10 hover:bg-violet-400/20
                                 border border-violet-400/30 rounded-lg px-2 py-2 transition cursor-pointer
-                                active:scale-95"
+                                active:scale-95 ${isSelected ? 'ring-2 ring-white scale-[1.02]' : ''}`}
                             >
                               <div className="w-2.5 h-2.5 rounded-full shrink-0"
                                 style={{ backgroundColor: PLAYER_COLORS[colorIdx] }} />
