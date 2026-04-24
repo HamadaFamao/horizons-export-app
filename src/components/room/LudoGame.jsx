@@ -1556,74 +1556,78 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
 
               {/* Playing layout: top row + board + bottom row */}
               {currentSession.status === 'playing' && (() => {
-                const diceSideByColorIdx = ['right', 'right', 'right', 'right'];
+                const PLAYER_CARD_SLOT_BY_COLOR = {
+                  0: 'bottom-left',
+                  1: 'bottom-right',
+                  2: 'top-right',
+                  3: 'top-left',
+                };
 
-                const renderPlayerRow = (visualIndices, reverseOrder = false) => {
-                  const rowPlayers = players
-                    .filter((p) => visualIndices.includes(getRelativeVisualSeat(p, players)))
-                    .sort((a, b) => getRelativeVisualSeat(a, players) - getRelativeVisualSeat(b, players));
-                  const orderedPlayers = reverseOrder ? [...rowPlayers].reverse() : rowPlayers;
-                  if (rowPlayers.length === 0) return null;
+                const renderPlayerWithDice = (p) => {
+                  if (!p) return null;
+                  const colorIdx = getPlayerColorIndex(p);
+                  const isCurrentTurn = String(currentSession.current_turn_user_id) === String(p.user_id);
+                  const piecesFinished = p.pieces_finished || 0;
+                  const isFinishFx = String(recentFinishedUserId) === String(p.user_id);
+
                   return (
-                    <div className="flex items-center justify-between px-1">
-                      {orderedPlayers.map((p) => {
-                        const visualIdx = getRelativeVisualSeat(p, players);
-                        const colorIdx = getPlayerColorIndex(p);
-                        const isCurrentTurn = String(currentSession.current_turn_user_id) === String(p.user_id);
-                        const piecesFinished = p.pieces_finished || 0;
-                        const isFinishFx = String(recentFinishedUserId) === String(p.user_id);
-
-                        const playerCard = (
-                          <div
-                            className="flex flex-col items-center gap-0.5 rounded-xl p-1 backdrop-blur-sm transition"
-                            style={{
-                              background: isCurrentTurn ? `${PLAYER_COLORS[colorIdx]}44` : 'rgba(0,0,0,0.55)',
-                              outline: isCurrentTurn ? `2px solid ${PLAYER_COLORS[colorIdx]}` : 'none',
-                              boxShadow: isFinishFx ? `0 0 0 2px ${PLAYER_COLORS[colorIdx]}, 0 0 18px ${PLAYER_COLORS[colorIdx]}cc` : undefined,
-                              maxWidth: '60px',
-                            }}
-                          >
-                            <img
-                              src={p.avatar_url || FALLBACK_AVATAR}
-                              alt={p.name}
-                              className="w-7 h-7 rounded-full object-cover"
-                              style={{ border: `2px solid ${PLAYER_COLORS[colorIdx]}` }}
-                              onError={e => e.currentTarget.src = FALLBACK_AVATAR}
+                    <div key={p.id} className={`flex items-center gap-2 ${isFinishFx ? 'animate-bounce' : ''}`}>
+                      <div
+                        className="flex flex-col items-center gap-0.5 rounded-xl p-1 backdrop-blur-sm transition"
+                        style={{
+                          background: isCurrentTurn ? `${PLAYER_COLORS[colorIdx]}44` : 'rgba(0,0,0,0.55)',
+                          outline: isCurrentTurn ? `2px solid ${PLAYER_COLORS[colorIdx]}` : 'none',
+                          boxShadow: isFinishFx ? `0 0 0 2px ${PLAYER_COLORS[colorIdx]}, 0 0 18px ${PLAYER_COLORS[colorIdx]}cc` : undefined,
+                          maxWidth: '60px',
+                        }}
+                      >
+                        <img
+                          src={p.avatar_url || FALLBACK_AVATAR}
+                          alt={p.name}
+                          className="w-7 h-7 rounded-full object-cover"
+                          style={{ border: `2px solid ${PLAYER_COLORS[colorIdx]}` }}
+                          onError={e => e.currentTarget.src = FALLBACK_AVATAR}
+                        />
+                        <div className="text-white text-[9px] font-bold max-w-[56px] truncate text-center leading-tight">
+                          {p.name}
+                        </div>
+                        <div className="flex gap-0.5">
+                          {[0,1,2,3].map(i => (
+                            <div
+                              key={i}
+                              className="w-[9px] h-[9px] rounded-full border-2 shadow"
+                              style={{
+                                backgroundColor: i < piecesFinished ? PLAYER_COLORS[colorIdx] : 'transparent',
+                                borderColor: PLAYER_COLORS[colorIdx],
+                              }}
                             />
-                            <div className="text-white text-[9px] font-bold max-w-[56px] truncate text-center leading-tight">
-                              {p.name}
-                            </div>
-                            <div className="flex gap-0.5">
-                              {[0,1,2,3].map(i => (
-                                <div
-                                  key={i}
-                                  className="w-[9px] h-[9px] rounded-full border-2 shadow"
-                                  style={{
-                                    backgroundColor: i < piecesFinished ? PLAYER_COLORS[colorIdx] : 'transparent',
-                                    borderColor: PLAYER_COLORS[colorIdx],
-                                  }}
-                                />
-                              ))}
-                            </div>
-                          </div>
-                        );
-
-                        return (
-                          <div key={p.id} className={`flex items-center gap-2 ${isFinishFx ? 'animate-bounce' : ''}`}>
-                            {playerCard}
-                            {renderDiceSlot(p, diceSideByColorIdx[visualIdx])}
-                          </div>
-                        );
-                      })}
+                          ))}
+                        </div>
+                      </div>
+                      {renderDiceSlot(p, 'right')}
                     </div>
                   );
                 };
 
+                const playerCards = players.map((p) => {
+                  const colorIdx = getPlayerColorIndex(p);
+                  const slot = PLAYER_CARD_SLOT_BY_COLOR[colorIdx];
+                  return { player: p, colorIdx, slot };
+                });
+
+                const topLeft = playerCards.find(x => x.slot === 'top-left')?.player;
+                const topRight = playerCards.find(x => x.slot === 'top-right')?.player;
+                const bottomLeft = playerCards.find(x => x.slot === 'bottom-left')?.player;
+                const bottomRight = playerCards.find(x => x.slot === 'bottom-right')?.player;
+
                 return (
                   <>
-                    {/* Top players: visualIdx 2 & 3 (reversed order only) */}
+                    {/* Top players: fixed by real home slot */}
                     <div className="mt-2">
-                      {renderPlayerRow([2, 3], players.length !== 2)}
+                      <div className="flex items-center justify-between px-1">
+                        <div className="flex-1 flex justify-start">{renderPlayerWithDice(topLeft)}</div>
+                        <div className="flex-1 flex justify-end">{renderPlayerWithDice(topRight)}</div>
+                      </div>
                     </div>
 
                     {/* Board */}
@@ -1655,9 +1659,12 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                       </div>
                     </div>
 
-                    {/* Bottom players: visualIdx 0 & 1 */}
+                    {/* Bottom players: fixed by real home slot */}
                     <div className="mt-2">
-                      {renderPlayerRow([0, 1])}
+                      <div className="flex items-center justify-between px-1">
+                        <div className="flex-1 flex justify-start">{renderPlayerWithDice(bottomLeft)}</div>
+                        <div className="flex-1 flex justify-end">{renderPlayerWithDice(bottomRight)}</div>
+                      </div>
                     </div>
                   </>
                 );
