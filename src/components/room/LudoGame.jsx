@@ -392,6 +392,11 @@ export default function LudoGame({
     return layout[relativeIndex] ?? 0;
   };
 
+  const getPlayerColorIndex = (player) => {
+    const seatIdx = Math.max(0, Number(player?.seat_number || 1) - 1);
+    return seatIdx % PLAYER_COLORS.length;
+  };
+
   const getPieceCanvasPosition = (player, pieceIndex, cellSize, playersList = players) => {
     const pieces = [player.piece1, player.piece2, player.piece3, player.piece4];
     const pos = pieces[pieceIndex];
@@ -1306,7 +1311,7 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
 
     if (!isDisplayRollOwner && !isCurrentTurnPlayer) return null;
 
-    const colorIdx = getRelativeVisualSeat(player, players);
+    const colorIdx = getPlayerColorIndex(player);
     const sessionRoll = Number(currentSession?.last_roll || 0);
 
     const isTurnMine = pid === String(user?.id) && isMyTurn;
@@ -1562,11 +1567,12 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                   const diceSideByColorIdx = ['right', 'left', 'left', 'right'];
 
                   return players.map((p) => {
-                    const colorIdx = getRelativeVisualSeat(p, players);
+                    const visualIdx = getRelativeVisualSeat(p, players);
+                    const colorIdx = getPlayerColorIndex(p);
                     const isCurrentTurn = String(currentSession.current_turn_user_id) === String(p.user_id);
                     const piecesFinished = p.pieces_finished || 0;
                     const isFinishFx = String(recentFinishedUserId) === String(p.user_id);
-                    const diceSide = diceSideByColorIdx[colorIdx] || 'right';
+                    const diceSide = diceSideByColorIdx[visualIdx] || 'right';
 
                     const playerCard = (
                       <div
@@ -1617,7 +1623,7 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                     return (
                       <div
                         key={p.id}
-                        className={`absolute ${wrapperPositions[colorIdx]} z-10 ${isFinishFx ? 'animate-bounce' : ''}`}
+                        className={`absolute ${wrapperPositions[visualIdx]} z-10 ${isFinishFx ? 'animate-bounce' : ''}`}
                       >
                         <div className="flex items-center gap-1.5">
                           {diceSide === 'left' && renderDiceSlot(p, 'left')}
@@ -1634,7 +1640,7 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
               {currentSession.status === 'waiting' && (
                 <div className="grid grid-cols-2 gap-1.5">
                   {players.map(p => {
-                    const colorIdx = getRelativeVisualSeat(p, players);
+                    const colorIdx = getPlayerColorIndex(p);
                     return (
                       <div key={p.id}
                         className="flex items-center gap-2 bg-white/5
