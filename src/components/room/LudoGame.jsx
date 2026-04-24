@@ -90,6 +90,7 @@ export default function LudoGame({
   const [maxPlayers, setMaxPlayers] = useState(4);
   const [teamMode, setTeamMode] = useState(false);
   const [entryCost, setEntryCost] = useState(100);
+  const [teamAssignments, setTeamAssignments] = useState({});
   const [joining, setJoining] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [rolling, setRolling] = useState(false);
@@ -135,6 +136,13 @@ export default function LudoGame({
     if (!open || !roomId) return;
     loadSession();
   }, [open, roomId]);
+
+  // Reset team assignments when session status changes
+  useEffect(() => {
+    if (currentSession?.status === 'playing' || !currentSession?.id) {
+      setTeamAssignments({});
+    }
+  }, [currentSession?.id, currentSession?.status]);
 
   useEffect(() => {
     if (!currentSession?.id) return;
@@ -1220,10 +1228,40 @@ export default function LudoGame({
 
   const startGame = async () => {
     if (!currentSession?.id || !canModerate) return;
-    if (players.length < 2) {
-      alert('Need at least 2 players');
-      return;
+    
+    // Validate team mode requirements
+    if (isTeamMode()) {
+      if (players.length !== 4) {
+        alert('Team mode requires exactly 4 players');
+        return;
+      }
+      if (!areTeamsComplete()) {
+        alert('Please complete teams: 2 players in Team A and 2 players in Team B');
+        return;
+      }
+      // Update player team_key in database
+      try {
+        for (const player of players) {
+          const team = getLudoTeam(player);
+          if (team) {
+            await supabase
+              .from('room_ludo_players')
+              .update({ team_key: team })
+              .eq('id', player.id);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to update team assignments:', err);
+        alert('Failed to save team assignments');
+        return;
+      }
+    } else {
+      if (players.length < 2) {
+        alert('Need at least 2 players');
+        return;
+      }
     }
+
     const firstPlayer = players[0];
     await supabase
       .from('room_ludo_sessions')
@@ -1306,6 +1344,17 @@ export default function LudoGame({
   const netPrize = Math.floor((currentSession?.entry_cost || 0) * players.length * 0.9);
 
   function getLudoTeam(player) {
+    if (!player) return null;
+    // 1. Check if player has explicit team_key from database
+    if (player.team_key && (player.team_key === 'A' || player.team_key === 'B')) {
+      return player.team_key;
+    }
+    // 2. Check if player is in teamAssignments (UI state)
+    const assignment = teamAssignments[String(player.user_id)];
+    if (assignment && (assignment === 'A' || assignment === 'B')) {
+      return assignment;
+    }
+    // 3. Fallback to seat-based assignment
     const seat = Number(player?.seat_number || 0);
     if (!seat) return null;
     return seat === 1 || seat === 3 ? 'A' : 'B';
@@ -1315,6 +1364,72 @@ export default function LudoGame({
     if (Number(currentSession?.max_players || 0) !== 4) return false;
     return currentSession?.team_mode === true;
   }
+
+  // Helper: Get players in a specific team
+  const getTeamPlayers = (teamLetter) => {
+    return players.filter(p => getLudoTeam(p) === teamLetter);
+  };
+
+  // Helper: Toggle player between teams
+  const togglePlayerTeam = (userId) => {
+    const userIdStr = String(userId);
+    const current = teamAssignments[userIdStr];
+    const teamA = getTeamPlayers('A');
+    const teamB = getTeamPlayers('B');
+
+    if (current === 'A') {
+      // Moving from A to B
+      if (teamB.length >= 2) return; // Team B is full
+      setTeamAssignments(prev => ({
+        ...prev,
+        [userIdStr]: 'B',
+      }));
+    } else if (current === 'B') {
+      // Moving from B to A
+      if (teamA.length >= 2) return; // Team A is full
+      setTeamAssignments(prev => ({
+        ...prev,
+        [userIdStr]: 'A',
+      }));
+    } else {
+      // Not assigned yet; assign to the team with fewer players
+      if (teamA.length < teamB.length) {
+        if (teamA.length < 2) {
+          setTeamAssignments(prev => ({
+            ...prev,
+            [userIdStr]: 'A',
+          }));
+        }
+      } else {
+        if (teamB.length < 2) {
+          setTeamAssignments(prev => ({
+            ...prev,
+            [userIdStr]: 'B',
+          }));
+        }
+      }
+    }
+  };
+
+  // Helper: Assign teams randomly based on seat order
+  const assignRandomTeams = () => {
+    if (players.length !== 4) return;
+    const sorted = [...players].sort((a, b) => a.seat_number - b.seat_number);
+    const assignments = {};
+    assignments[String(sorted[0].user_id)] = 'A'; // Seat 1 → Team A
+    assignments[String(sorted[1].user_id)] = 'B'; // Seat 2 → Team B
+    assignments[String(sorted[2].user_id)] = 'A'; // Seat 3 → Team A
+    assignments[String(sorted[3].user_id)] = 'B'; // Seat 4 → Team B
+    setTeamAssignments(assignments);
+  };
+
+  // Helper: Check if teams are complete (2 players in each)
+  const areTeamsComplete = () => {
+    if (!isTeamMode() || players.length !== 4) return false;
+    const teamA = getTeamPlayers('A');
+    const teamB = getTeamPlayers('B');
+    return teamA.length === 2 && teamB.length === 2;
+  };
 
   // Keep autoAction ref in sync with latest closures every render
   autoActionStateRef.current = {
@@ -1743,8 +1858,118 @@ export default function LudoGame({
                 </div>
               )}
 
-              {/* Waiting: players list */}
-              {currentSession.status === 'waiting' && (
+              {/* Waiting: players list or team selection */}
+              {currentSession.status === 'waiting' && isTeamMode() && players.length === 4 ? (
+                <div className="flex flex-col gap-3">
+                  <div className="text-center text-white/70 text-xs font-bold uppercase tracking-wider">
+                    🎯 Assign Teams
+                  </div>
+                  
+                  {/* Team Selection Grid */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Team A */}
+                    <div className="bg-cyan-500/10 border-2 border-cyan-500/30 rounded-xl p-3">
+                      <div className="text-cyan-300 font-bold text-sm text-center mb-2">
+                        Team A
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        {getTeamPlayers('A').map(p => {
+                          const colorIdx = getPlayerColorIndex(p);
+                          return (
+                            <button
+                              key={p.id}
+                              onClick={() => togglePlayerTeam(p.user_id)}
+                              className="flex items-center gap-2 bg-cyan-400/10 hover:bg-cyan-400/20
+                                border border-cyan-400/30 rounded-lg px-2 py-2 transition cursor-pointer
+                                active:scale-95"
+                            >
+                              <div className="w-2.5 h-2.5 rounded-full shrink-0"
+                                style={{ backgroundColor: PLAYER_COLORS[colorIdx] }} />
+                              <img
+                                src={p.avatar_url || FALLBACK_AVATAR}
+                                alt={p.name}
+                                className="w-6 h-6 rounded-full object-cover"
+                                onError={e => e.currentTarget.src = FALLBACK_AVATAR}
+                              />
+                              <span className="text-white text-xs font-bold truncate flex-1">
+                                {p.name}
+                              </span>
+                              {String(p.user_id) === String(user?.id) && (
+                                <span className="text-amber-300 text-[8px] shrink-0">You</span>
+                              )}
+                            </button>
+                          );
+                        })}
+                        {getTeamPlayers('A').length < 2 && (
+                          <div className="flex items-center justify-center py-3 text-white/40 text-xs">
+                            {2 - getTeamPlayers('A').length} slot{2 - getTeamPlayers('A').length !== 1 ? 's' : ''} available
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Team B */}
+                    <div className="bg-violet-500/10 border-2 border-violet-500/30 rounded-xl p-3">
+                      <div className="text-violet-300 font-bold text-sm text-center mb-2">
+                        Team B
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        {getTeamPlayers('B').map(p => {
+                          const colorIdx = getPlayerColorIndex(p);
+                          return (
+                            <button
+                              key={p.id}
+                              onClick={() => togglePlayerTeam(p.user_id)}
+                              className="flex items-center gap-2 bg-violet-400/10 hover:bg-violet-400/20
+                                border border-violet-400/30 rounded-lg px-2 py-2 transition cursor-pointer
+                                active:scale-95"
+                            >
+                              <div className="w-2.5 h-2.5 rounded-full shrink-0"
+                                style={{ backgroundColor: PLAYER_COLORS[colorIdx] }} />
+                              <img
+                                src={p.avatar_url || FALLBACK_AVATAR}
+                                alt={p.name}
+                                className="w-6 h-6 rounded-full object-cover"
+                                onError={e => e.currentTarget.src = FALLBACK_AVATAR}
+                              />
+                              <span className="text-white text-xs font-bold truncate flex-1">
+                                {p.name}
+                              </span>
+                              {String(p.user_id) === String(user?.id) && (
+                                <span className="text-amber-300 text-[8px] shrink-0">You</span>
+                              )}
+                            </button>
+                          );
+                        })}
+                        {getTeamPlayers('B').length < 2 && (
+                          <div className="flex items-center justify-center py-3 text-white/40 text-xs">
+                            {2 - getTeamPlayers('B').length} slot{2 - getTeamPlayers('B').length !== 1 ? 's' : ''} available
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Random Teams Button */}
+                  <button
+                    onClick={assignRandomTeams}
+                    className="w-full py-2 rounded-lg bg-white/10 hover:bg-white/20
+                      border border-white/20 text-white font-bold text-xs
+                      active:scale-95 transition"
+                  >
+                    🔀 Random Teams
+                  </button>
+
+                  {/* Status Message */}
+                  <div className="text-center text-white/50 text-[10px]">
+                    {areTeamsComplete() ? (
+                      <span className="text-green-400">✓ Teams ready</span>
+                    ) : (
+                      <span>Assign {4 - players.length === 0 ? (2 - getTeamPlayers('A').length) + (2 - getTeamPlayers('B').length) : 0} more player{((2 - getTeamPlayers('A').length) + (2 - getTeamPlayers('B').length)) !== 1 ? 's' : ''}</span>
+                    )}
+                  </div>
+                </div>
+              ) : (
                 <div className="grid grid-cols-2 gap-1.5">
                   {players.map(p => {
                     const colorIdx = getPlayerColorIndex(p);
@@ -1799,7 +2024,7 @@ export default function LudoGame({
                 )}
 
                 {canModerate && currentSession.status === 'waiting' && (
-                  <button onClick={startGame} disabled={players.length < 2}
+                  <button onClick={startGame} disabled={isTeamMode() ? !areTeamsComplete() : players.length < 2}
                     className="flex-1 py-2.5 rounded-xl bg-blue-500
                       text-white font-black text-xs disabled:opacity-50
                       active:scale-95 transition">
