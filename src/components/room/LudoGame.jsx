@@ -1296,36 +1296,111 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
     const isLocalTurnPlayer = pid === String(user?.id);
     const canRoll = isTurnMine && !rolling && sessionRoll === 0 && movablePieces.length === 0;
     const faceValue = getVisibleDiceValueForPlayer(player);
-    const hasFaceValue = faceValue >= 1 && faceValue <= 6;
-    const isRemotePulse = !isLocalTurnPlayer && remoteDiceAnimating;
+    const isRollingNow = isLocalTurnPlayer ? diceAnimating : remoteDiceAnimating;
 
     const diceNode = (
+      <Dice3D
+        value={faceValue}
+        color={PLAYER_COLORS[colorIdx]}
+        rolling={isRollingNow}
+        clickable={canRoll}
+        onClick={rollDice}
+      />
+    );
+
+    return <div className="shrink-0">{diceNode}</div>;
+  };
+
+  const Dice3D = ({ value, color, rolling: rollingNow, clickable, onClick }) => {
+    const normalizedValue = Number(value);
+    const displayValue = normalizedValue >= 1 && normalizedValue <= 6 ? normalizedValue : 0;
+
+    const faceTransforms = {
+      1: 'rotateY(0deg) rotateX(0deg)',
+      2: 'rotateY(-90deg) rotateX(0deg)',
+      3: 'rotateX(-90deg) rotateY(0deg)',
+      4: 'rotateX(90deg) rotateY(0deg)',
+      5: 'rotateY(90deg) rotateX(0deg)',
+      6: 'rotateY(180deg) rotateX(0deg)',
+    };
+
+    const cubeTransform = rollingNow
+      ? 'rotateX(-720deg) rotateY(720deg) rotateZ(360deg)'
+      : faceTransforms[displayValue] || faceTransforms[1];
+
+    const pipLayouts = {
+      1: [5],
+      2: [1, 9],
+      3: [1, 5, 9],
+      4: [1, 3, 7, 9],
+      5: [1, 3, 5, 7, 9],
+      6: [1, 3, 4, 6, 7, 9],
+    };
+
+    const Face = ({ n, transform }) => {
+      const pips = pipLayouts[n] || [];
+      return (
+        <div
+          className="absolute w-10 h-10 rounded-xl border border-slate-200 bg-white"
+          style={{
+            transform,
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.7), inset 0 -2px 6px rgba(2,6,23,0.14)',
+          }}
+        >
+          <div className="grid grid-cols-3 grid-rows-3 w-full h-full p-1">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((cell) => (
+              <div key={`${n}-${cell}`} className="flex items-center justify-center">
+                {pips.includes(cell) ? (
+                  <span
+                    className="w-1.5 h-1.5 rounded-full"
+                    style={{ background: color }}
+                  />
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    };
+
+    return (
       <div
-        onClick={canRoll ? rollDice : undefined}
-        className={`relative w-12 h-12 rounded-2xl border-b-4 border-r-2 flex items-center justify-center ${
-          canRoll ? 'cursor-pointer active:scale-90' : 'cursor-default'
-        } ${isRemotePulse ? 'animate-pulse' : ''}`}
-        style={{
-          background: 'linear-gradient(135deg,#fff,#e2e8f0)',
-          borderColor: PLAYER_COLORS[colorIdx],
-          boxShadow: `0 4px 10px rgba(0,0,0,0.4), 0 0 12px ${PLAYER_COLORS[colorIdx]}55`,
-        }}
+        onClick={clickable ? onClick : undefined}
+        className={`relative w-12 h-12 flex items-center justify-center ${
+          clickable ? 'cursor-pointer active:scale-90' : 'cursor-default'
+        }`}
+        style={{ perspective: '600px' }}
       >
-        {hasFaceValue && (
-          <div
-            className="text-xl font-black leading-none"
-            style={{ color: PLAYER_COLORS[colorIdx] }}
-          >
-            {faceValue}
+        <div
+          className="relative w-10 h-10"
+          style={{
+            transformStyle: 'preserve-3d',
+            transform: cubeTransform,
+            transition: rollingNow ? 'transform 900ms linear' : 'transform 280ms ease-out',
+            filter: `drop-shadow(0 6px 10px rgba(0,0,0,0.35)) drop-shadow(0 0 10px ${color}55)`,
+          }}
+        >
+          <Face n={1} transform="translateZ(20px)" />
+          <Face n={2} transform="rotateY(90deg) translateZ(20px)" />
+          <Face n={5} transform="rotateY(-90deg) translateZ(20px)" />
+          <Face n={6} transform="rotateY(180deg) translateZ(20px)" />
+          <Face n={3} transform="rotateX(90deg) translateZ(20px)" />
+          <Face n={4} transform="rotateX(-90deg) translateZ(20px)" />
+        </div>
+
+        {displayValue === 0 && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <span className="text-sm opacity-60" style={{ color }}>
+              🎲
+            </span>
           </div>
         )}
-        {canRoll && (
+
+        {clickable && (
           <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-400 animate-ping" />
         )}
       </div>
     );
-
-    return <div className="shrink-0">{diceNode}</div>;
   };
 
   if (!open) return null;
