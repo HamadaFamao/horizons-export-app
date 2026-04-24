@@ -1345,16 +1345,16 @@ export default function LudoGame({
 
   function getLudoTeam(player) {
     if (!player) return null;
-    // 1. Check if player has explicit team_key from database
-    if (player.team_key && (player.team_key === 'A' || player.team_key === 'B')) {
-      return player.team_key;
-    }
-    // 2. Check if player is in teamAssignments (UI state)
+    // 1. Check UI overrides first so manual team selection updates instantly.
     const assignment = teamAssignments[String(player.user_id)];
     if (assignment && (assignment === 'A' || assignment === 'B')) {
       return assignment;
     }
-    // 3. Fallback to seat-based assignment
+    // 2. Then use explicit team_key from database if present.
+    if (player.team_key && (player.team_key === 'A' || player.team_key === 'B')) {
+      return player.team_key;
+    }
+    // 3. Fallback to seat-based assignment.
     const seat = Number(player?.seat_number || 0);
     if (!seat) return null;
     return seat === 1 || seat === 3 ? 'A' : 'B';
@@ -1373,40 +1373,39 @@ export default function LudoGame({
   // Helper: Toggle player between teams
   const togglePlayerTeam = (userId) => {
     const userIdStr = String(userId);
-    const current = teamAssignments[userIdStr];
+    const player = players.find(p => String(p.user_id) === userIdStr);
+    const current = getLudoTeam(player);
     const teamA = getTeamPlayers('A');
     const teamB = getTeamPlayers('B');
 
     if (current === 'A') {
-      // Moving from A to B
-      if (teamB.length >= 2) return; // Team B is full
+      // Move A -> B only if Team B has an available slot.
+      if (teamB.length >= 2) return;
       setTeamAssignments(prev => ({
         ...prev,
         [userIdStr]: 'B',
       }));
     } else if (current === 'B') {
-      // Moving from B to A
-      if (teamA.length >= 2) return; // Team A is full
+      // Move B -> A only if Team A has an available slot.
+      if (teamA.length >= 2) return;
       setTeamAssignments(prev => ({
         ...prev,
         [userIdStr]: 'A',
       }));
     } else {
-      // Not assigned yet; assign to the team with fewer players
-      if (teamA.length < teamB.length) {
-        if (teamA.length < 2) {
-          setTeamAssignments(prev => ({
-            ...prev,
-            [userIdStr]: 'A',
-          }));
-        }
-      } else {
-        if (teamB.length < 2) {
-          setTeamAssignments(prev => ({
-            ...prev,
-            [userIdStr]: 'B',
-          }));
-        }
+      // Fallback path for any unassigned entry.
+      if (teamA.length < 2) {
+        setTeamAssignments(prev => ({
+          ...prev,
+          [userIdStr]: 'A',
+        }));
+        return;
+      }
+      if (teamB.length < 2) {
+        setTeamAssignments(prev => ({
+          ...prev,
+          [userIdStr]: 'B',
+        }));
       }
     }
   };
