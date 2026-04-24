@@ -1299,28 +1299,36 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
     const isRollingNow = isLocalTurnPlayer ? diceAnimating : remoteDiceAnimating;
 
     const diceNode = (
-      <Dice3D
-        value={faceValue}
-        color={PLAYER_COLORS[colorIdx]}
-        rolling={isRollingNow}
-        clickable={canRoll}
-        onClick={rollDice}
-      />
+      <div
+        onClick={canRoll ? rollDice : undefined}
+        className={`w-20 h-20 flex items-center justify-center ${canRoll ? 'active:scale-95' : ''}`}
+        style={{
+          touchAction: 'manipulation',
+          cursor: canRoll ? 'pointer' : 'default',
+          zIndex: 30,
+          pointerEvents: 'auto',
+        }}
+      >
+        <Dice3D
+          value={faceValue}
+          color={PLAYER_COLORS[colorIdx]}
+          rolling={isRollingNow}
+        />
+      </div>
     );
 
     return <div className="shrink-0">{diceNode}</div>;
   };
 
-  const Dice3D = ({ value, color, rolling: rollingNow, clickable, onClick }) => {
+  const Dice3D = ({ value, color, rolling: rollingNow }) => {
     const normalizedValue = Number(value);
     const displayValue = normalizedValue >= 1 && normalizedValue <= 6 ? normalizedValue : 0;
 
     return (
       <div
-        onClick={clickable ? onClick : undefined}
         className={`w-12 h-12 rounded-2xl border-2 flex items-center justify-center font-black leading-none select-none ${
-          clickable ? 'cursor-pointer active:scale-95' : 'cursor-default'
-        } ${rollingNow ? 'animate-spin' : ''}`}
+          rollingNow ? 'animate-spin' : ''
+        }`}
         style={{
           background: '#ffffff',
           borderColor: color,
