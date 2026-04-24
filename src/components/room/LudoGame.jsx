@@ -1623,7 +1623,7 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                   <>
                     {/* Top players: visualIdx 2 & 3 (reversed order only) */}
                     <div className="mt-2">
-                      {renderPlayerRow([2, 3], true)}
+                      {renderPlayerRow([2, 3], players.length !== 2)}
                     </div>
 
                     {/* Board */}
