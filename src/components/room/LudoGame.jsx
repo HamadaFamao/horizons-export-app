@@ -88,7 +88,7 @@ export default function LudoGame({
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [maxPlayers, setMaxPlayers] = useState(4);
-  const [teamModeEnabled, setTeamModeEnabled] = useState(false);
+  const [teamMode, setTeamMode] = useState(false);
   const [entryCost, setEntryCost] = useState(100);
   const [joining, setJoining] = useState(false);
   const [leaving, setLeaving] = useState(false);
@@ -118,10 +118,6 @@ export default function LudoGame({
   const autoActionStateRef = useRef({});
   const [turnTimeLeft, setTurnTimeLeft] = useState(12);
 
-  // TODO: Add DB support in `room_ludo_sessions` for `team_mode boolean` OR
-  // `game_mode text` before enabling 2v2 session creation from frontend.
-  const TEAM_MODE_CREATE_ENABLED = false;
-
   useEffect(() => {
     return () => {
       if (finishFxTimerRef.current) clearTimeout(finishFxTimerRef.current);
@@ -130,10 +126,10 @@ export default function LudoGame({
   }, []);
 
   useEffect(() => {
-    if (maxPlayers !== 4 && teamModeEnabled) {
-      setTeamModeEnabled(false);
+    if (maxPlayers !== 4 && teamMode) {
+      setTeamMode(false);
     }
-  }, [maxPlayers, teamModeEnabled]);
+  }, [maxPlayers, teamMode]);
 
   useEffect(() => {
     if (!open || !roomId) return;
@@ -1286,11 +1282,8 @@ export default function LudoGame({
         max_players: maxPlayers,
         entry_cost: entryCost,
         status: 'waiting',
+        team_mode: maxPlayers === 4 && teamMode,
       };
-
-      if (TEAM_MODE_CREATE_ENABLED && maxPlayers === 4 && teamModeEnabled) {
-        payload.team_mode = true;
-      }
 
       const { data, error } = await supabase
         .from('room_ludo_sessions')
@@ -1320,7 +1313,7 @@ export default function LudoGame({
 
   function isTeamMode() {
     if (Number(currentSession?.max_players || 0) !== 4) return false;
-    return currentSession?.team_mode === true || currentSession?.game_mode === '2v2';
+    return currentSession?.team_mode === true;
   }
 
   // Keep autoAction ref in sync with latest closures every render
@@ -1847,28 +1840,23 @@ export default function LudoGame({
                   </div>
                   <button
                     onClick={() => {
-                      if (maxPlayers !== 4 || !TEAM_MODE_CREATE_ENABLED) return;
-                      setTeamModeEnabled(v => !v);
+                      if (maxPlayers !== 4) return;
+                      setTeamMode(v => !v);
                     }}
-                    disabled={maxPlayers !== 4 || !TEAM_MODE_CREATE_ENABLED}
+                    disabled={maxPlayers !== 4}
                     className={`w-full py-2.5 rounded-xl font-bold text-xs active:scale-95 transition ${
-                      maxPlayers === 4 && TEAM_MODE_CREATE_ENABLED
-                        ? (teamModeEnabled
+                      maxPlayers === 4
+                        ? (teamMode
                           ? 'bg-cyan-500 text-white'
                           : 'bg-white/10 text-white/80 hover:bg-white/20')
                         : 'bg-white/5 text-white/40 cursor-not-allowed'
                     }`}
                   >
-                    Team 2v2 {teamModeEnabled ? 'ON' : 'OFF'}
+                    Team 2v2 {teamMode ? 'ON' : 'OFF'}
                   </button>
                   {maxPlayers !== 4 && (
                     <div className="text-[10px] text-white/45 mt-1">
                       Team mode is available only with 4 players.
-                    </div>
-                  )}
-                  {!TEAM_MODE_CREATE_ENABLED && (
-                    <div className="text-[10px] text-amber-300/80 mt-1">
-                      SQL required: add `team_mode` (boolean) or `game_mode` ('2v2') column.
                     </div>
                   )}
                 </div>
