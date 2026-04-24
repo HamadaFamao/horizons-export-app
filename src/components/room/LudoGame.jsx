@@ -1243,39 +1243,57 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
   };
 
   const isDiceOwnerPlayer = (player) => {
-    return String(player?.user_id) === String(currentSession?.current_turn_user_id);
+    // Show dice slot for the player who owns the last roll OR the current turn player
+    const displayRollUserId = currentSession?.display_roll_user_id;
+    const currentTurnUserId = currentSession?.current_turn_user_id;
+    const displayRoll = Number(currentSession?.display_roll || 0);
+    const pid = String(player?.user_id);
+    if (displayRoll > 0 && displayRollUserId && String(displayRollUserId) === pid) return true;
+    if (String(currentTurnUserId) === pid) return true;
+    return false;
   };
 
   const getVisibleDiceValueForPlayer = (player) => {
-    const isTurnPlayer = isDiceOwnerPlayer(player);
-    if (!isTurnPlayer) return 0;
+    const pid = String(player?.user_id);
+    const displayRollUserId = String(currentSession?.display_roll_user_id || '');
+    const displayRoll = Number(currentSession?.display_roll || 0);
 
-    const isLocalTurnPlayer =
-      String(player?.user_id) === String(user?.id) &&
-      String(currentSession?.current_turn_user_id) === String(user?.id);
+    // Only the display_roll owner sees the last rolled number
+    const isDisplayRollOwner = displayRollUserId && displayRollUserId === pid && displayRoll > 0;
+    if (!isDisplayRollOwner) return 0;
 
-    if (isLocalTurnPlayer && diceAnimating && diceDisplay >= 1 && diceDisplay <= 6) {
+    // Animation overrides for local player
+    const isLocalPlayer = pid === String(user?.id);
+    if (isLocalPlayer && diceAnimating && diceDisplay >= 1 && diceDisplay <= 6) {
       return diceDisplay;
     }
-
-    if (!isLocalTurnPlayer && remoteDiceAnimating && remoteDiceDisplay >= 1 && remoteDiceDisplay <= 6) {
+    if (!isLocalPlayer && remoteDiceAnimating && remoteDiceDisplay >= 1 && remoteDiceDisplay <= 6) {
       return remoteDiceDisplay;
     }
 
-    const finalRoll = Number(currentSession?.display_roll || 0);
-    return finalRoll >= 1 && finalRoll <= 6 ? finalRoll : 0;
+    return displayRoll >= 1 && displayRoll <= 6 ? displayRoll : 0;
   };
 
   const renderDiceSlot = (player) => {
     if (!player || currentSession?.status !== 'playing') return null;
 
-    const isCurrentTurnPlayer = isDiceOwnerPlayer(player);
-    if (!isCurrentTurnPlayer) return null;
+    const pid = String(player.user_id);
+    const displayRollUserId = String(currentSession?.display_roll_user_id || '');
+    const currentTurnUserId = String(currentSession?.current_turn_user_id || '');
+    const displayRoll = Number(currentSession?.display_roll || 0);
+
+    // Show dice slot only when:
+    // - this player owns the last roll (display_roll > 0 and display_roll_user_id matches), OR
+    // - this player is the current turn player (to show the empty/clickable die)
+    const isDisplayRollOwner = displayRoll > 0 && displayRollUserId === pid;
+    const isCurrentTurnPlayer = currentTurnUserId === pid;
+    if (!isDisplayRollOwner && !isCurrentTurnPlayer) return null;
 
     const colorIdx = getRelativeVisualSeat(player, players);
     const sessionRoll = currentSession?.last_roll ?? 0;
-    const isTurnMine = String(player.user_id) === String(user?.id) && isMyTurn;
-    const isLocalTurnPlayer = String(player.user_id) === String(user?.id);
+    // clickable only for the current turn player (not just display_roll owner)
+    const isTurnMine = pid === String(user?.id) && isMyTurn;
+    const isLocalTurnPlayer = pid === String(user?.id);
     const canRoll = isTurnMine && !rolling && sessionRoll === 0 && movablePieces.length === 0;
     const faceValue = getVisibleDiceValueForPlayer(player);
     const hasFaceValue = faceValue >= 1 && faceValue <= 6;
