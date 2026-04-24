@@ -1266,7 +1266,13 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
       return diceDisplay;
     }
 
-    if (displayRollUserId === pid && remoteDiceAnimating && remoteDiceDisplay >= 1 && remoteDiceDisplay <= 6) {
+    if (
+      currentTurnUserId === pid &&
+      displayRollUserId === pid &&
+      remoteDiceAnimating &&
+      remoteDiceDisplay >= 1 &&
+      remoteDiceDisplay <= 6
+    ) {
       return remoteDiceDisplay;
     }
 
@@ -1300,7 +1306,7 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
     const hasValue = faceValue >= 1 && faceValue <= 6;
 
     const isLocalDice = pid === String(user?.id) && isCurrentTurnPlayer;
-    const isRollingNow = isLocalDice ? diceAnimating : remoteDiceAnimating;
+    const isRollingNow = isCurrentTurnPlayer && (isLocalDice ? diceAnimating : remoteDiceAnimating);
     const showSettledValue = !isRollingNow && hasValue;
 
     return (
