@@ -1044,18 +1044,18 @@ export default function LudoGame({
 
     try {
       const { data, error } = await supabase.rpc('move_ludo_piece', {
-  p_session_id: currentSession.id,
-  p_user_id: user.id,
-  p_piece_number: pieceNumber,
-});
+        p_session_id: currentSession.id,
+        p_user_id: user.id,
+        p_piece_number: pieceNumber,
+      });
 
-if (error) throw error;
-if (!data?.success) throw new Error(data?.error || 'Failed to move');
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Failed to move');
 
       setMovablePieces([]);
       setSelectedPiece(null);
 
-  // UI-only feedback from server result; no local capture/home mutation here.
+      // UI-only feedback from server result; no local capture/home mutation here.
       if (data.bumped) {
         setMessage('💥 You sent an opponent home!');
         setTimeout(() => setMessage(''), 1800);
@@ -1091,6 +1091,7 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
       alert(err.message || 'Failed to move piece');
     }
   };
+
   const handlePieceSelect = async (pieceNumber) => {
     if (!movablePieces.includes(pieceNumber)) return;
     setSelectedPiece(pieceNumber);
@@ -1496,7 +1497,7 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
           </div>
         </div>
 
-        <div className={`flex-1 p-3 ${currentSession?.status === 'playing' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+        <div className={`flex-1 px-3 pt-1 pb-8 ${currentSession?.status === 'playing' ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'}`}>
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-white/50" />
@@ -1522,7 +1523,7 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
               </div>
             </div>
           ) : currentSession ? (
-            <div className={`flex flex-col ${currentSession?.status === 'playing' ? 'gap-1.5 mt-2' : 'gap-2'}`}>
+            <div className={`flex flex-col flex-1 ${currentSession?.status === 'playing' ? 'gap-1 mt-0' : 'gap-2'}`}>
               {/* Info bar */}
               <div className="flex items-center justify-between
                 bg-slate-800 border border-white/10 rounded-xl px-3 py-1.5">
@@ -1624,7 +1625,7 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                 return (
                   <>
                     {/* Top players: fixed by real home slot */}
-                    <div className="mt-2">
+                    <div className="mt-1">
                       <div className="flex items-center justify-between px-1">
                         <div className="flex-1 flex justify-start">{renderPlayerWithDice(topLeft)}</div>
                         <div className="flex-1 flex justify-end">{renderPlayerWithDice(topRight)}</div>
@@ -1632,16 +1633,16 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                     </div>
 
                     {/* Board */}
-                    <div className="mt-3">
+                    <div className="mt-1.5 flex-1 flex flex-col justify-center min-h-0">
                       {finishToast && (
-                        <div className="mb-2 flex justify-center">
+                        <div className="mb-2 flex justify-center shrink-0">
                           <div className="pointer-events-none rounded-full bg-amber-400/95 px-3 py-1 text-xs font-black text-slate-900 shadow-lg animate-bounce">
                             {finishToast}
                           </div>
                         </div>
                       )}
                       <div
-                        className={`bg-slate-800 rounded-xl p-1.5 border border-white/5 transition-all duration-300 ${
+                        className={`bg-slate-800 rounded-xl p-1.5 border border-white/5 transition-all duration-300 mx-auto w-full max-w-[500px] shrink min-h-0 flex items-center justify-center ${
                           recentFinishedUserId ? 'animate-pulse' : ''
                         }`}
                         style={{
@@ -1655,13 +1656,13 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                           width={600}
                           height={600}
                           onClick={handleCanvasClick}
-                          className="w-full max-h-[49dvh] aspect-square rounded-lg object-contain"
+                          className="w-full max-h-[50dvh] aspect-square rounded-lg object-contain"
                         />
                       </div>
                     </div>
 
                     {/* Bottom players: fixed by real home slot */}
-                    <div className="mt-2">
+                    <div className="mt-1.5">
                       <div className="flex items-center justify-between px-1">
                         <div className="flex-1 flex justify-start">{renderPlayerWithDice(bottomLeft)}</div>
                         <div className="flex-1 flex justify-end">{renderPlayerWithDice(bottomRight)}</div>
@@ -1674,7 +1675,7 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
               {/* Board (non-playing) */}
               {currentSession.status !== 'playing' && (
                 <div
-                  className={`relative bg-slate-800 rounded-xl p-1.5 border border-white/5 transition-all duration-300 ${
+                  className={`relative bg-slate-800 rounded-xl p-1.5 border border-white/5 transition-all duration-300 mx-auto w-full max-w-[500px] ${
                     recentFinishedUserId ? 'animate-pulse' : ''
                   }`}
                   style={{
