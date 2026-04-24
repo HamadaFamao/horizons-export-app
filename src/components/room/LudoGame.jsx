@@ -1410,7 +1410,7 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div
         className="relative w-full max-w-md bg-slate-900 rounded-t-3xl sm:rounded-3xl
-          shadow-2xl flex flex-col overflow-hidden max-h-[95vh]"
+          shadow-2xl flex flex-col overflow-hidden h-[95dvh] max-h-[95dvh]"
         onClick={e => e.stopPropagation()}
       >
         {/* Handle */}
@@ -1464,7 +1464,7 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-3">
+        <div className={`flex-1 p-3 ${currentSession?.status === 'playing' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-white/50" />
@@ -1490,10 +1490,10 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
               </div>
             </div>
           ) : currentSession ? (
-            <div className="flex flex-col gap-2">
+            <div className={`flex flex-col ${currentSession?.status === 'playing' ? 'gap-1.5' : 'gap-2'}`}>
               {/* Info bar */}
               <div className="flex items-center justify-between
-                bg-slate-800 border border-white/10 rounded-xl px-3 py-2">
+                bg-slate-800 border border-white/10 rounded-xl px-3 py-1.5">
                 <div className="text-center">
                   <div className="text-white/40 text-[9px] uppercase font-bold">Entry</div>
                   <div className="text-amber-400 font-black text-xs">
@@ -1527,7 +1527,7 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                 const activeTurnPlayer = players.find(p => String(p.user_id) === String(currentSession.current_turn_user_id));
 
                 return (
-                  <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl ${
+                  <div className={`flex items-center gap-2 px-3 py-1 rounded-xl ${
                     isMyTurn
                       ? 'bg-emerald-600/80 animate-pulse'
                       : 'bg-white/5 border border-white/10'
@@ -1557,6 +1557,7 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                   boxShadow: recentFinishedUserId
                     ? '0 0 0 2px rgba(251,191,36,0.45), 0 0 24px rgba(251,191,36,0.35)'
                     : undefined,
+                  maxHeight: currentSession?.status === 'playing' ? '60dvh' : undefined,
                 }}
               >
                 {finishToast && (
@@ -1569,7 +1570,7 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                   width={600}
                   height={600}
                   onClick={handleCanvasClick}
-                  className="w-full aspect-square rounded-lg"
+                  className="w-full max-h-[58dvh] aspect-square rounded-lg object-contain"
                 />
                 {/* Player card overlays around board corners */}
                 {currentSession.status === 'playing' && (() => {
