@@ -1522,42 +1522,18 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                 </div>
               </div>
 
-              {/* Status bar */}
-              {currentSession.status === 'playing' && (() => {
-                const activeTurnPlayer = players.find(p => String(p.user_id) === String(currentSession.current_turn_user_id));
-
-                return (
-                  <div className={`flex items-center gap-2 px-3 py-1 rounded-xl ${
-                    isMyTurn
-                      ? 'bg-emerald-600/80 animate-pulse'
-                      : 'bg-white/5 border border-white/10'
-                  }`}>
-                    {/* Status text */}
-                    <div className="flex-1 text-xs font-black text-white truncate">
-                      {isMyTurn
-                        ? message || '🎯 YOUR TURN!'
-                        : `⏳ ${activeTurnPlayer?.name || 'Player'}'s turn`
-                      }
-                    </div>
-                    {isMyTurn && (
-                      <div className="text-[11px] font-black text-white/90 shrink-0">
-                        {turnTimeLeft}s
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-
               {/* Board */}
               <div
                 className={`relative bg-slate-800 rounded-xl p-1.5 border border-white/5 transition-all duration-300 ${
+                  currentSession?.status === 'playing' ? 'mt-2' : ''
+                } ${
                   recentFinishedUserId ? 'animate-pulse' : ''
                 }`}
                 style={{
                   boxShadow: recentFinishedUserId
                     ? '0 0 0 2px rgba(251,191,36,0.45), 0 0 24px rgba(251,191,36,0.35)'
                     : undefined,
-                  maxHeight: currentSession?.status === 'playing' ? '60dvh' : undefined,
+                  maxHeight: currentSession?.status === 'playing' ? '64dvh' : undefined,
                 }}
               >
                 {finishToast && (
@@ -1570,14 +1546,14 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                   width={600}
                   height={600}
                   onClick={handleCanvasClick}
-                  className="w-full max-h-[58dvh] aspect-square rounded-lg object-contain"
+                  className="w-full max-h-[62dvh] aspect-square rounded-lg object-contain"
                 />
                 {/* Player card overlays around board corners */}
                 {currentSession.status === 'playing' && (() => {
                   // Wrapper positions: bottom-left, bottom-right, top-right, top-left (by colorIdx)
                   const wrapperPositions = [
-                    'bottom-0 left-0 translate-y-[90%] -translate-x-[5%]',
-                    'bottom-0 right-0 translate-y-[90%] translate-x-[5%]',
+                    'bottom-0 left-0 translate-y-[105%] -translate-x-[5%]',
+                    'bottom-0 right-0 translate-y-[105%] translate-x-[5%]',
                     'top-0 right-0 -translate-y-[90%] translate-x-[5%]',
                     'top-0 left-0 -translate-y-[90%] -translate-x-[5%]',
                   ];
