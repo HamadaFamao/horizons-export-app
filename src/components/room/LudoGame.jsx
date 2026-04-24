@@ -1254,24 +1254,27 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
   };
 
   const getVisibleDiceValueForPlayer = (player) => {
-    const pid = String(player?.user_id);
+    const pid = String(player?.user_id || '');
+    const myId = String(user?.id || '');
+    const currentTurnUserId = String(currentSession?.current_turn_user_id || '');
     const displayRollUserId = String(currentSession?.display_roll_user_id || '');
     const displayRoll = Number(currentSession?.display_roll || 0);
 
-    // Only the display_roll owner sees the last rolled number
-    const isDisplayRollOwner = displayRollUserId && displayRollUserId === pid && displayRoll > 0;
-    if (!isDisplayRollOwner) return 0;
+    const isLocalCurrentTurn = pid === myId && currentTurnUserId === myId;
 
-    // Animation overrides for local player
-    const isLocalPlayer = pid === String(user?.id);
-    if (isLocalPlayer && diceAnimating && diceDisplay >= 1 && diceDisplay <= 6) {
+    if (isLocalCurrentTurn && diceAnimating && diceDisplay >= 1 && diceDisplay <= 6) {
       return diceDisplay;
     }
-    if (!isLocalPlayer && remoteDiceAnimating && remoteDiceDisplay >= 1 && remoteDiceDisplay <= 6) {
+
+    if (displayRollUserId === pid && remoteDiceAnimating && remoteDiceDisplay >= 1 && remoteDiceDisplay <= 6) {
       return remoteDiceDisplay;
     }
 
-    return displayRoll >= 1 && displayRoll <= 6 ? displayRoll : 0;
+    if (displayRollUserId === pid && displayRoll >= 1 && displayRoll <= 6) {
+      return displayRoll;
+    }
+
+    return 0;
   };
 
   const renderDiceSlot = (player) => {
@@ -1282,63 +1285,68 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
     const currentTurnUserId = String(currentSession?.current_turn_user_id || '');
     const displayRoll = Number(currentSession?.display_roll || 0);
 
-    // Show dice slot only when:
-    // - this player owns the last roll (display_roll > 0 and display_roll_user_id matches), OR
-    // - this player is the current turn player (to show the empty/clickable die)
     const isDisplayRollOwner = displayRoll > 0 && displayRollUserId === pid;
     const isCurrentTurnPlayer = currentTurnUserId === pid;
+
     if (!isDisplayRollOwner && !isCurrentTurnPlayer) return null;
 
     const colorIdx = getRelativeVisualSeat(player, players);
-    const sessionRoll = currentSession?.last_roll ?? 0;
-    // clickable only for the current turn player (not just display_roll owner)
-    const isTurnMine = pid === String(user?.id) && isMyTurn;
-    const isLocalTurnPlayer = pid === String(user?.id);
-    const canRoll = isTurnMine && !rolling && sessionRoll === 0 && movablePieces.length === 0;
-    const faceValue = getVisibleDiceValueForPlayer(player);
-    const isRollingNow = isLocalTurnPlayer ? diceAnimating : remoteDiceAnimating;
+    const sessionRoll = Number(currentSession?.last_roll || 0);
 
-    const diceNode = (
-      <div
-        onClick={canRoll ? rollDice : undefined}
-        className={`w-20 h-20 flex items-center justify-center ${canRoll ? 'active:scale-95' : ''}`}
+    const isTurnMine = pid === String(user?.id) && isMyTurn;
+    const canRoll = isTurnMine && !rolling && sessionRoll === 0 && movablePieces.length === 0;
+
+    const faceValue = getVisibleDiceValueForPlayer(player);
+    const hasValue = faceValue >= 1 && faceValue <= 6;
+
+    const isLocalDice = pid === String(user?.id) && isCurrentTurnPlayer;
+    const isRollingNow = isLocalDice ? diceAnimating : remoteDiceAnimating;
+
+    return (
+      <button
+        type="button"
+        disabled={!canRoll}
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          if (canRoll) rollDice();
+        }}
+        onClick={(e) => {
+          e.stopPropagation();
+        }}
+        className={`relative z-[80] w-20 h-20 flex items-center justify-center select-none ${
+          canRoll ? 'cursor-pointer active:scale-95' : 'cursor-default'
+        }`}
         style={{
           touchAction: 'manipulation',
-          cursor: canRoll ? 'pointer' : 'default',
-          zIndex: 30,
+          WebkitTapHighlightColor: 'transparent',
           pointerEvents: 'auto',
         }}
       >
-        <Dice3D
-          value={faceValue}
-          color={PLAYER_COLORS[colorIdx]}
-          rolling={isRollingNow}
-        />
-      </div>
-    );
+        <div
+          className={`w-12 h-12 rounded-2xl border-2 flex items-center justify-center bg-white shadow-lg ${
+            isRollingNow ? 'animate-bounce' : ''
+          }`}
+          style={{
+            borderColor: PLAYER_COLORS[colorIdx],
+            boxShadow: `0 4px 12px rgba(0,0,0,0.45), 0 0 12px ${PLAYER_COLORS[colorIdx]}55`,
+          }}
+        >
+          {hasValue ? (
+            <span
+              className="text-2xl font-black leading-none"
+              style={{ color: PLAYER_COLORS[colorIdx] }}
+            >
+              {faceValue}
+            </span>
+          ) : (
+            <span className="text-xl opacity-70">🎲</span>
+          )}
+        </div>
 
-    return <div className="shrink-0">{diceNode}</div>;
-  };
-
-  const Dice3D = ({ value, color, rolling: rollingNow }) => {
-    const normalizedValue = Number(value);
-    const displayValue = normalizedValue >= 1 && normalizedValue <= 6 ? normalizedValue : 0;
-
-    return (
-      <div
-        className={`w-12 h-12 rounded-2xl border-2 flex items-center justify-center font-black leading-none select-none ${
-          rollingNow ? 'animate-spin' : ''
-        }`}
-        style={{
-          background: '#ffffff',
-          borderColor: color,
-          color,
-          boxShadow: `0 4px 10px rgba(0,0,0,0.35), 0 0 10px ${color}44`,
-          fontSize: displayValue > 0 ? '1.4rem' : '1.05rem',
-        }}
-      >
-        {displayValue > 0 ? displayValue : '🎲'}
-      </div>
+        {canRoll && (
+          <span className="absolute top-3 right-3 w-3 h-3 rounded-full bg-emerald-400 animate-ping" />
+        )}
+      </button>
     );
   };
 
