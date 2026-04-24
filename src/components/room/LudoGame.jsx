@@ -1490,7 +1490,7 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
               </div>
             </div>
           ) : currentSession ? (
-            <div className={`flex flex-col ${currentSession?.status === 'playing' ? 'gap-1.5' : 'gap-2'}`}>
+            <div className={`flex flex-col ${currentSession?.status === 'playing' ? 'gap-1.5 mt-3' : 'gap-2'}`}>
               {/* Info bar */}
               <div className="flex items-center justify-between
                 bg-slate-800 border border-white/10 rounded-xl px-3 py-1.5">
@@ -1554,8 +1554,8 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                   const wrapperPositions = [
                     'bottom-0 left-0 translate-y-[105%] -translate-x-[5%]',
                     'bottom-0 right-0 translate-y-[105%] translate-x-[5%]',
-                    'top-0 right-0 -translate-y-[90%] translate-x-[5%]',
-                    'top-0 left-0 -translate-y-[90%] -translate-x-[5%]',
+                    'top-0 right-0 -translate-y-[55%] translate-x-[5%]',
+                    'top-0 left-0 -translate-y-[55%] -translate-x-[5%]',
                   ];
                   const diceSideByColorIdx = ['right', 'left', 'left', 'right'];
 
@@ -1569,7 +1569,7 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
 
                     const playerCard = (
                       <div
-                        className="flex flex-col items-center gap-0.5 rounded-xl p-1.5 backdrop-blur-sm transition"
+                        className="flex flex-col items-center gap-0.5 rounded-xl p-1 backdrop-blur-sm transition"
                         style={{
                           background: isCurrentTurn
                             ? `${PLAYER_COLORS[colorIdx]}44`
@@ -1586,15 +1586,12 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                         <img
                           src={p.avatar_url || FALLBACK_AVATAR}
                           alt={p.name}
-                          className="w-8 h-8 rounded-full object-cover"
+                          className="w-7 h-7 rounded-full object-cover"
                           style={{ border: `2px solid ${PLAYER_COLORS[colorIdx]}` }}
                           onError={e => e.currentTarget.src = FALLBACK_AVATAR}
                         />
                         <div className="text-white text-[9px] font-bold max-w-[56px] truncate text-center leading-tight">
                           {p.name}
-                        </div>
-                        <div className="text-white/90 text-[10px] font-black leading-tight">
-                          {piecesFinished}/4
                         </div>
                         <div className="flex gap-0.5">
                           {[0,1,2,3].map(i => (
