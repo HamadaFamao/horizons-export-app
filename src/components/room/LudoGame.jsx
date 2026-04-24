@@ -1556,22 +1556,18 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
 
               {/* Playing layout: top row + board + bottom row */}
               {currentSession.status === 'playing' && (() => {
-                const VISUAL_POSITION_MAP = [0, 2, 1, 3];
                 const diceSideByColorIdx = ['right', 'right', 'right', 'right'];
 
-                const renderPlayerRow = (fixedIndices) => {
+                const renderPlayerRow = (visualIndices, reverseOrder = false) => {
                   const rowPlayers = players
-                    .map((p) => {
-                      const visualIdx = getRelativeVisualSeat(p, players);
-                      const fixedIdx = VISUAL_POSITION_MAP[visualIdx] ?? visualIdx;
-                      return { p, visualIdx, fixedIdx };
-                    })
-                    .filter(({ fixedIdx }) => fixedIndices.includes(fixedIdx))
-                    .sort((a, b) => a.fixedIdx - b.fixedIdx);
+                    .filter((p) => visualIndices.includes(getRelativeVisualSeat(p, players)))
+                    .sort((a, b) => getRelativeVisualSeat(a, players) - getRelativeVisualSeat(b, players));
+                  const orderedPlayers = reverseOrder ? [...rowPlayers].reverse() : rowPlayers;
                   if (rowPlayers.length === 0) return null;
                   return (
                     <div className="flex items-center justify-between px-1">
-                      {rowPlayers.map(({ p, fixedIdx }) => {
+                      {orderedPlayers.map((p) => {
+                        const visualIdx = getRelativeVisualSeat(p, players);
                         const colorIdx = getPlayerColorIndex(p);
                         const isCurrentTurn = String(currentSession.current_turn_user_id) === String(p.user_id);
                         const piecesFinished = p.pieces_finished || 0;
@@ -1615,7 +1611,7 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                         return (
                           <div key={p.id} className={`flex items-center gap-2 ${isFinishFx ? 'animate-bounce' : ''}`}>
                             {playerCard}
-                            {renderDiceSlot(p, diceSideByColorIdx[fixedIdx])}
+                            {renderDiceSlot(p, diceSideByColorIdx[visualIdx])}
                           </div>
                         );
                       })}
@@ -1625,9 +1621,9 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
 
                 return (
                   <>
-                    {/* Top players: fixed visual slots 1 & 2 */}
+                    {/* Top players: visualIdx 2 & 3 (reversed order only) */}
                     <div className="mt-2">
-                      {renderPlayerRow([1, 2])}
+                      {renderPlayerRow([2, 3], true)}
                     </div>
 
                     {/* Board */}
@@ -1659,9 +1655,9 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                       </div>
                     </div>
 
-                    {/* Bottom players: fixed visual slots 0 & 3 */}
+                    {/* Bottom players: visualIdx 0 & 1 */}
                     <div className="mt-2">
-                      {renderPlayerRow([0, 3])}
+                      {renderPlayerRow([0, 1])}
                     </div>
                   </>
                 );
