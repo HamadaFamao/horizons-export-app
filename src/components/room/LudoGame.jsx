@@ -1340,23 +1340,24 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
         }}
       >
         <div
-          className="w-12 h-12 rounded-2xl border-2 flex items-center justify-center bg-white shadow-lg"
+          className="w-14 h-14 rounded-2xl border-2 flex items-center justify-center shadow-lg"
           style={{
             borderColor: PLAYER_COLORS[colorIdx],
-            boxShadow: `0 4px 12px rgba(0,0,0,0.45), 0 0 12px ${PLAYER_COLORS[colorIdx]}55`,
+            background: `linear-gradient(135deg, ${PLAYER_COLORS[colorIdx]}22, ${PLAYER_COLORS[colorIdx]}55)`,
+            boxShadow: `0 4px 12px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.25), 0 0 12px ${PLAYER_COLORS[colorIdx]}55`,
             transformOrigin: 'center center',
             animation: isRollingNow ? 'ludoDiceSingleSpin 850ms cubic-bezier(0.22, 1, 0.36, 1) 1 both' : 'none',
           }}
         >
           {showSettledValue ? (
             <span
-              className="text-2xl font-black leading-none"
+              className="text-3xl font-black leading-none"
               style={{ color: PLAYER_COLORS[colorIdx] }}
             >
               {faceValue}
             </span>
           ) : (
-            <span className="text-xl opacity-70">🎲</span>
+            <span className="text-2xl opacity-80">🎲</span>
           )}
         </div>
 
