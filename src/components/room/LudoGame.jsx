@@ -1315,90 +1315,21 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
     const normalizedValue = Number(value);
     const displayValue = normalizedValue >= 1 && normalizedValue <= 6 ? normalizedValue : 0;
 
-    const faceTransforms = {
-      1: 'rotateY(0deg) rotateX(0deg)',
-      2: 'rotateY(-90deg) rotateX(0deg)',
-      3: 'rotateX(-90deg) rotateY(0deg)',
-      4: 'rotateX(90deg) rotateY(0deg)',
-      5: 'rotateY(90deg) rotateX(0deg)',
-      6: 'rotateY(180deg) rotateX(0deg)',
-    };
-
-    const cubeTransform = rollingNow
-      ? 'rotateX(-720deg) rotateY(720deg) rotateZ(360deg)'
-      : faceTransforms[displayValue] || faceTransforms[1];
-
-    const pipLayouts = {
-      1: [5],
-      2: [1, 9],
-      3: [1, 5, 9],
-      4: [1, 3, 7, 9],
-      5: [1, 3, 5, 7, 9],
-      6: [1, 3, 4, 6, 7, 9],
-    };
-
-    const Face = ({ n, transform }) => {
-      const pips = pipLayouts[n] || [];
-      return (
-        <div
-          className="absolute w-10 h-10 rounded-xl border border-slate-200 bg-white"
-          style={{
-            transform,
-            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.7), inset 0 -2px 6px rgba(2,6,23,0.14)',
-          }}
-        >
-          <div className="grid grid-cols-3 grid-rows-3 w-full h-full p-1">
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((cell) => (
-              <div key={`${n}-${cell}`} className="flex items-center justify-center">
-                {pips.includes(cell) ? (
-                  <span
-                    className="w-1.5 h-1.5 rounded-full"
-                    style={{ background: color }}
-                  />
-                ) : null}
-              </div>
-            ))}
-          </div>
-        </div>
-      );
-    };
-
     return (
       <div
         onClick={clickable ? onClick : undefined}
-        className={`relative w-12 h-12 flex items-center justify-center ${
-          clickable ? 'cursor-pointer active:scale-90' : 'cursor-default'
-        }`}
-        style={{ perspective: '600px' }}
+        className={`w-12 h-12 rounded-2xl border-2 flex items-center justify-center font-black leading-none select-none ${
+          clickable ? 'cursor-pointer active:scale-95' : 'cursor-default'
+        } ${rollingNow ? 'animate-spin' : ''}`}
+        style={{
+          background: '#ffffff',
+          borderColor: color,
+          color,
+          boxShadow: `0 4px 10px rgba(0,0,0,0.35), 0 0 10px ${color}44`,
+          fontSize: displayValue > 0 ? '1.4rem' : '1.05rem',
+        }}
       >
-        <div
-          className="relative w-10 h-10"
-          style={{
-            transformStyle: 'preserve-3d',
-            transform: cubeTransform,
-            transition: rollingNow ? 'transform 900ms linear' : 'transform 280ms ease-out',
-            filter: `drop-shadow(0 6px 10px rgba(0,0,0,0.35)) drop-shadow(0 0 10px ${color}55)`,
-          }}
-        >
-          <Face n={1} transform="translateZ(20px)" />
-          <Face n={2} transform="rotateY(90deg) translateZ(20px)" />
-          <Face n={5} transform="rotateY(-90deg) translateZ(20px)" />
-          <Face n={6} transform="rotateY(180deg) translateZ(20px)" />
-          <Face n={3} transform="rotateX(90deg) translateZ(20px)" />
-          <Face n={4} transform="rotateX(-90deg) translateZ(20px)" />
-        </div>
-
-        {displayValue === 0 && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <span className="text-sm opacity-60" style={{ color }}>
-              🎲
-            </span>
-          </div>
-        )}
-
-        {clickable && (
-          <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-400 animate-ping" />
-        )}
+        {displayValue > 0 ? displayValue : '🎲'}
       </div>
     );
   };
