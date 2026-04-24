@@ -1524,8 +1524,6 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
 
               {/* Playing layout: top row + board + bottom row */}
               {currentSession.status === 'playing' && (() => {
-                const diceSideByVisualIdx = ['right', 'left', 'left', 'right'];
-
                 const renderPlayerRow = (visualIndices) => {
                   const rowPlayers = players
                     .filter(p => visualIndices.includes(getRelativeVisualSeat(p, players)))
@@ -1534,12 +1532,10 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                   return (
                     <div className="flex items-center justify-between px-1">
                       {rowPlayers.map(p => {
-                        const visualIdx = getRelativeVisualSeat(p, players);
                         const colorIdx = getPlayerColorIndex(p);
                         const isCurrentTurn = String(currentSession.current_turn_user_id) === String(p.user_id);
                         const piecesFinished = p.pieces_finished || 0;
                         const isFinishFx = String(recentFinishedUserId) === String(p.user_id);
-                        const diceSide = diceSideByVisualIdx[visualIdx] || 'right';
 
                         const playerCard = (
                           <div
@@ -1577,10 +1573,9 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                         );
 
                         return (
-                          <div key={p.id} className={`flex items-center gap-1 ${isFinishFx ? 'animate-bounce' : ''}`}>
-                            {diceSide === 'left' && renderDiceSlot(p, 'left')}
+                          <div key={p.id} className={`flex items-center gap-2 ${isFinishFx ? 'animate-bounce' : ''}`}>
                             {playerCard}
-                            {diceSide === 'right' && renderDiceSlot(p, 'right')}
+                            {renderDiceSlot(p, 'right')}
                           </div>
                         );
                       })}
@@ -1591,35 +1586,43 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                 return (
                   <>
                     {/* Top players: visualIdx 2 & 3 */}
-                    {renderPlayerRow([2, 3])}
+                    <div className="mt-2">
+                      {renderPlayerRow([2, 3])}
+                    </div>
 
                     {/* Board */}
-                    <div
-                      className={`relative bg-slate-800 rounded-xl p-1.5 border border-white/5 transition-all duration-300 ${
-                        recentFinishedUserId ? 'animate-pulse' : ''
-                      }`}
-                      style={{
-                        boxShadow: recentFinishedUserId
-                          ? '0 0 0 2px rgba(251,191,36,0.45), 0 0 24px rgba(251,191,36,0.35)'
-                          : undefined,
-                      }}
-                    >
+                    <div className="mt-3">
                       {finishToast && (
-                        <div className="pointer-events-none absolute left-1/2 top-2 z-20 -translate-x-1/2 rounded-full bg-amber-400/95 px-3 py-1 text-xs font-black text-slate-900 shadow-lg animate-bounce">
-                          {finishToast}
+                        <div className="mb-2 flex justify-center">
+                          <div className="pointer-events-none rounded-full bg-amber-400/95 px-3 py-1 text-xs font-black text-slate-900 shadow-lg animate-bounce">
+                            {finishToast}
+                          </div>
                         </div>
                       )}
-                      <canvas
-                        ref={canvasRef}
-                        width={600}
-                        height={600}
-                        onClick={handleCanvasClick}
-                        className="w-full max-h-[52dvh] aspect-square rounded-lg object-contain"
-                      />
+                      <div
+                        className={`bg-slate-800 rounded-xl p-1.5 border border-white/5 transition-all duration-300 ${
+                          recentFinishedUserId ? 'animate-pulse' : ''
+                        }`}
+                        style={{
+                          boxShadow: recentFinishedUserId
+                            ? '0 0 0 2px rgba(251,191,36,0.45), 0 0 24px rgba(251,191,36,0.35)'
+                            : undefined,
+                        }}
+                      >
+                        <canvas
+                          ref={canvasRef}
+                          width={600}
+                          height={600}
+                          onClick={handleCanvasClick}
+                          className="w-full max-h-[49dvh] aspect-square rounded-lg object-contain"
+                        />
+                      </div>
                     </div>
 
                     {/* Bottom players: visualIdx 0 & 1 */}
-                    {renderPlayerRow([0, 1])}
+                    <div className="mt-2">
+                      {renderPlayerRow([0, 1])}
+                    </div>
                   </>
                 );
               })()}
