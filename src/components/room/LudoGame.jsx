@@ -1301,6 +1301,7 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
 
     const isLocalDice = pid === String(user?.id) && isCurrentTurnPlayer;
     const isRollingNow = isLocalDice ? diceAnimating : remoteDiceAnimating;
+    const showSettledValue = !isRollingNow && hasValue;
 
     return (
       <button
@@ -1323,15 +1324,15 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
         }}
       >
         <div
-          className={`w-12 h-12 rounded-2xl border-2 flex items-center justify-center bg-white shadow-lg ${
-            isRollingNow ? 'animate-bounce' : ''
-          }`}
+          className="w-12 h-12 rounded-2xl border-2 flex items-center justify-center bg-white shadow-lg"
           style={{
             borderColor: PLAYER_COLORS[colorIdx],
             boxShadow: `0 4px 12px rgba(0,0,0,0.45), 0 0 12px ${PLAYER_COLORS[colorIdx]}55`,
+            transformOrigin: 'center center',
+            animation: isRollingNow ? 'ludoDiceSingleSpin 850ms cubic-bezier(0.22, 1, 0.36, 1) 1 both' : 'none',
           }}
         >
-          {hasValue ? (
+          {showSettledValue ? (
             <span
               className="text-2xl font-black leading-none"
               style={{ color: PLAYER_COLORS[colorIdx] }}
@@ -1355,6 +1356,19 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
   return (
     <div className="fixed inset-0 z-[85] flex items-end sm:items-center justify-center"
       onClick={() => { setShowSettingsMenu(false); onClose(); }}>
+      <style>{`
+        @keyframes ludoDiceSingleSpin {
+          0% {
+            transform: rotate(0deg) scale(1);
+          }
+          70% {
+            transform: rotate(300deg) scale(1.04);
+          }
+          100% {
+            transform: rotate(360deg) scale(1);
+          }
+        }
+      `}</style>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div
         className="relative w-full max-w-md bg-slate-900 rounded-t-3xl sm:rounded-3xl
