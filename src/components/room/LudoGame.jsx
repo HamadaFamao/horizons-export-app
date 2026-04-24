@@ -1490,7 +1490,7 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
               </div>
             </div>
           ) : currentSession ? (
-            <div className={`flex flex-col ${currentSession?.status === 'playing' ? 'gap-1.5 mt-6' : 'gap-2'}`}>
+            <div className={`flex flex-col ${currentSession?.status === 'playing' ? 'gap-1.5 mt-2' : 'gap-2'}`}>
               {/* Info bar */}
               <div className="flex items-center justify-between
                 bg-slate-800 border border-white/10 rounded-xl px-3 py-1.5">
@@ -1522,109 +1522,134 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                 </div>
               </div>
 
-              {/* Board */}
-              <div
-                className={`relative bg-slate-800 rounded-xl p-1.5 border border-white/5 transition-all duration-300 ${
-                  currentSession?.status === 'playing' ? 'mt-2' : ''
-                } ${
-                  recentFinishedUserId ? 'animate-pulse' : ''
-                }`}
-                style={{
-                  boxShadow: recentFinishedUserId
-                    ? '0 0 0 2px rgba(251,191,36,0.45), 0 0 24px rgba(251,191,36,0.35)'
-                    : undefined,
-                  maxHeight: currentSession?.status === 'playing' ? '64dvh' : undefined,
-                }}
-              >
-                {finishToast && (
-                  <div className="pointer-events-none absolute left-1/2 top-2 z-20 -translate-x-1/2 rounded-full bg-amber-400/95 px-3 py-1 text-xs font-black text-slate-900 shadow-lg animate-bounce">
-                    {finishToast}
-                  </div>
-                )}
-                <canvas
-                  ref={canvasRef}
-                  width={600}
-                  height={600}
-                  onClick={handleCanvasClick}
-                  className="w-full max-h-[62dvh] aspect-square rounded-lg object-contain"
-                />
-                {/* Player card overlays around board corners */}
-                {currentSession.status === 'playing' && (() => {
-                  // Wrapper positions: bottom-left, bottom-right, top-right, top-left (by colorIdx)
-                  const wrapperPositions = [
-                    'bottom-0 left-0 translate-y-[105%] -translate-x-[5%]',
-                    'bottom-0 right-0 translate-y-[105%] translate-x-[5%]',
-                    'top-0 right-0 -translate-y-[95%] translate-x-[5%]',
-                    'top-0 left-0 -translate-y-[95%] -translate-x-[5%]',
-                  ];
-                  const diceSideByColorIdx = ['right', 'left', 'left', 'right'];
+              {/* Playing layout: top row + board + bottom row */}
+              {currentSession.status === 'playing' && (() => {
+                const diceSideByVisualIdx = ['right', 'left', 'left', 'right'];
 
-                  return players.map((p) => {
-                    const visualIdx = getRelativeVisualSeat(p, players);
-                    const colorIdx = getPlayerColorIndex(p);
-                    const isCurrentTurn = String(currentSession.current_turn_user_id) === String(p.user_id);
-                    const piecesFinished = p.pieces_finished || 0;
-                    const isFinishFx = String(recentFinishedUserId) === String(p.user_id);
-                    const diceSide = diceSideByColorIdx[visualIdx] || 'right';
+                const renderPlayerRow = (visualIndices) => {
+                  const rowPlayers = players
+                    .filter(p => visualIndices.includes(getRelativeVisualSeat(p, players)))
+                    .sort((a, b) => getRelativeVisualSeat(a, players) - getRelativeVisualSeat(b, players));
+                  if (rowPlayers.length === 0) return null;
+                  return (
+                    <div className="flex items-center justify-between px-1">
+                      {rowPlayers.map(p => {
+                        const visualIdx = getRelativeVisualSeat(p, players);
+                        const colorIdx = getPlayerColorIndex(p);
+                        const isCurrentTurn = String(currentSession.current_turn_user_id) === String(p.user_id);
+                        const piecesFinished = p.pieces_finished || 0;
+                        const isFinishFx = String(recentFinishedUserId) === String(p.user_id);
+                        const diceSide = diceSideByVisualIdx[visualIdx] || 'right';
 
-                    const playerCard = (
-                      <div
-                        className="flex flex-col items-center gap-0.5 rounded-xl p-1 backdrop-blur-sm transition"
-                        style={{
-                          background: isCurrentTurn
-                            ? `${PLAYER_COLORS[colorIdx]}44`
-                            : 'rgba(0,0,0,0.55)',
-                          outline: isCurrentTurn
-                            ? `2px solid ${PLAYER_COLORS[colorIdx]}`
-                            : 'none',
-                          boxShadow: isFinishFx
-                            ? `0 0 0 2px ${PLAYER_COLORS[colorIdx]}, 0 0 18px ${PLAYER_COLORS[colorIdx]}cc`
-                            : undefined,
-                          maxWidth: '60px',
-                        }}
-                      >
-                        <img
-                          src={p.avatar_url || FALLBACK_AVATAR}
-                          alt={p.name}
-                          className="w-7 h-7 rounded-full object-cover"
-                          style={{ border: `2px solid ${PLAYER_COLORS[colorIdx]}` }}
-                          onError={e => e.currentTarget.src = FALLBACK_AVATAR}
-                        />
-                        <div className="text-white text-[9px] font-bold max-w-[56px] truncate text-center leading-tight">
-                          {p.name}
-                        </div>
-                        <div className="flex gap-0.5">
-                          {[0,1,2,3].map(i => (
-                            <div
-                              key={i}
-                              className="w-[9px] h-[9px] rounded-full border-2 shadow"
-                              style={{
-                                backgroundColor: i < piecesFinished
-                                  ? PLAYER_COLORS[colorIdx]
-                                  : 'transparent',
-                                borderColor: PLAYER_COLORS[colorIdx],
-                              }}
+                        const playerCard = (
+                          <div
+                            className="flex flex-col items-center gap-0.5 rounded-xl p-1 backdrop-blur-sm transition"
+                            style={{
+                              background: isCurrentTurn ? `${PLAYER_COLORS[colorIdx]}44` : 'rgba(0,0,0,0.55)',
+                              outline: isCurrentTurn ? `2px solid ${PLAYER_COLORS[colorIdx]}` : 'none',
+                              boxShadow: isFinishFx ? `0 0 0 2px ${PLAYER_COLORS[colorIdx]}, 0 0 18px ${PLAYER_COLORS[colorIdx]}cc` : undefined,
+                              maxWidth: '60px',
+                            }}
+                          >
+                            <img
+                              src={p.avatar_url || FALLBACK_AVATAR}
+                              alt={p.name}
+                              className="w-7 h-7 rounded-full object-cover"
+                              style={{ border: `2px solid ${PLAYER_COLORS[colorIdx]}` }}
+                              onError={e => e.currentTarget.src = FALLBACK_AVATAR}
                             />
-                          ))}
-                        </div>
-                      </div>
-                    );
+                            <div className="text-white text-[9px] font-bold max-w-[56px] truncate text-center leading-tight">
+                              {p.name}
+                            </div>
+                            <div className="flex gap-0.5">
+                              {[0,1,2,3].map(i => (
+                                <div
+                                  key={i}
+                                  className="w-[9px] h-[9px] rounded-full border-2 shadow"
+                                  style={{
+                                    backgroundColor: i < piecesFinished ? PLAYER_COLORS[colorIdx] : 'transparent',
+                                    borderColor: PLAYER_COLORS[colorIdx],
+                                  }}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        );
 
-                    return (
-                      <div
-                        key={p.id}
-                        className={`absolute ${wrapperPositions[visualIdx]} z-10 ${isFinishFx ? 'animate-bounce' : ''}`}
-                      >
-                        <div className="flex items-center gap-1.5">
-                          {diceSide === 'left' && renderDiceSlot(p, 'left')}
-                          {playerCard}
-                          {diceSide === 'right' && renderDiceSlot(p, 'right')}
+                        return (
+                          <div key={p.id} className={`flex items-center gap-1 ${isFinishFx ? 'animate-bounce' : ''}`}>
+                            {diceSide === 'left' && renderDiceSlot(p, 'left')}
+                            {playerCard}
+                            {diceSide === 'right' && renderDiceSlot(p, 'right')}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                };
+
+                return (
+                  <>
+                    {/* Top players: visualIdx 2 & 3 */}
+                    {renderPlayerRow([2, 3])}
+
+                    {/* Board */}
+                    <div
+                      className={`relative bg-slate-800 rounded-xl p-1.5 border border-white/5 transition-all duration-300 ${
+                        recentFinishedUserId ? 'animate-pulse' : ''
+                      }`}
+                      style={{
+                        boxShadow: recentFinishedUserId
+                          ? '0 0 0 2px rgba(251,191,36,0.45), 0 0 24px rgba(251,191,36,0.35)'
+                          : undefined,
+                      }}
+                    >
+                      {finishToast && (
+                        <div className="pointer-events-none absolute left-1/2 top-2 z-20 -translate-x-1/2 rounded-full bg-amber-400/95 px-3 py-1 text-xs font-black text-slate-900 shadow-lg animate-bounce">
+                          {finishToast}
                         </div>
-                      </div>
-                    );
-                  });
-                })()}
-              </div>
+                      )}
+                      <canvas
+                        ref={canvasRef}
+                        width={600}
+                        height={600}
+                        onClick={handleCanvasClick}
+                        className="w-full max-h-[52dvh] aspect-square rounded-lg object-contain"
+                      />
+                    </div>
+
+                    {/* Bottom players: visualIdx 0 & 1 */}
+                    {renderPlayerRow([0, 1])}
+                  </>
+                );
+              })()}
+
+              {/* Board (non-playing) */}
+              {currentSession.status !== 'playing' && (
+                <div
+                  className={`relative bg-slate-800 rounded-xl p-1.5 border border-white/5 transition-all duration-300 ${
+                    recentFinishedUserId ? 'animate-pulse' : ''
+                  }`}
+                  style={{
+                    boxShadow: recentFinishedUserId
+                      ? '0 0 0 2px rgba(251,191,36,0.45), 0 0 24px rgba(251,191,36,0.35)'
+                      : undefined,
+                  }}
+                >
+                  {finishToast && (
+                    <div className="pointer-events-none absolute left-1/2 top-2 z-20 -translate-x-1/2 rounded-full bg-amber-400/95 px-3 py-1 text-xs font-black text-slate-900 shadow-lg animate-bounce">
+                      {finishToast}
+                    </div>
+                  )}
+                  <canvas
+                    ref={canvasRef}
+                    width={600}
+                    height={600}
+                    onClick={handleCanvasClick}
+                    className="w-full aspect-square rounded-lg"
+                  />
+                </div>
+              )}
 
               {/* Waiting: players list */}
               {currentSession.status === 'waiting' && (
