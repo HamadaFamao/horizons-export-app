@@ -1233,6 +1233,24 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
     }
   };
 
+  const resignSession = async () => {
+    if (!currentSession?.id || !user?.id) return;
+    try {
+      // TODO: requires resign_ludo_game RPC to exist in Supabase.
+      const { data, error } = await supabase.rpc('resign_ludo_game', {
+        p_session_id: currentSession.id,
+        p_user_id: user.id,
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Failed to resign');
+      onCoinsUpdated?.();
+      await refreshSession();
+      setShowSettingsMenu(false);
+    } catch (err) {
+      alert(err.message || 'Failed to resign');
+    }
+  };
+
   const createSession = async () => {
     if (!canModerate || !roomId || !user?.id) return;
     setCreating(true);
@@ -1432,8 +1450,11 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                 {(userCoins || 0).toLocaleString()}
               </span>
             </div>
-            {/* Settings button — visible when a session exists */}
-            {currentSession && canModerate && ['waiting','playing'].includes(currentSession.status) && (
+            {/* Settings button — visible only for waiting moderators or playing participants */}
+            {currentSession && (
+              ((canModerate && currentSession.status === 'waiting') ||
+                (isJoined && currentSession.status === 'playing'))
+            ) && (
               <div className="relative">
                 <button
                   onClick={() => setShowSettingsMenu(v => !v)}
@@ -1447,13 +1468,24 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
                       rounded-xl shadow-xl min-w-[140px] overflow-hidden"
                     onClick={e => e.stopPropagation()}
                   >
-                    <button
-                      onClick={() => { setShowSettingsMenu(false); cancelSession(); }}
-                      className="w-full text-left px-4 py-2.5 text-rose-400 font-bold text-sm
-                        hover:bg-rose-500/10 transition"
-                    >
-                      🚫 Cancel Game
-                    </button>
+                    {currentSession.status === 'waiting' && canModerate && (
+                      <button
+                        onClick={() => { setShowSettingsMenu(false); cancelSession(); }}
+                        className="w-full text-left px-4 py-2.5 text-rose-400 font-bold text-sm
+                          hover:bg-rose-500/10 transition"
+                      >
+                        🚫 Cancel Game
+                      </button>
+                    )}
+                    {currentSession.status === 'playing' && isJoined && (
+                      <button
+                        onClick={resignSession}
+                        className="w-full text-left px-4 py-2.5 text-amber-300 font-bold text-sm
+                          hover:bg-amber-500/10 transition"
+                      >
+                        🚪 Resign Game
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
