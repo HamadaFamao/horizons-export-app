@@ -133,17 +133,27 @@ export default function LudoGame({
     if (!currentSession?.id) return;
 
     const roll = Number(currentSession.display_roll || 0);
-    const turnUserId = currentSession.current_turn_user_id;
+    const turnUserId = String(currentSession.current_turn_user_id || '');
+    const displayRollUserId = String(currentSession.display_roll_user_id || '');
 
-    if (roll < 1 || roll > 6 || !turnUserId) return;
+    if (roll < 1 || roll > 6 || !turnUserId || !displayRollUserId) {
+      setRemoteDiceAnimating(false);
+      return;
+    }
 
-    const key = `${turnUserId}-${roll}-${currentSession.last_roll || 0}`;
+    // Do not animate for the next player before they press roll.
+    if (turnUserId !== displayRollUserId) {
+      setRemoteDiceAnimating(false);
+      return;
+    }
+
+    const key = `${displayRollUserId}-${roll}-${currentSession.last_roll || 0}`;
 
     if (lastSeenRollRef.current === key) return;
     lastSeenRollRef.current = key;
 
     const isLocalTurn =
-      String(turnUserId) === String(user?.id);
+      displayRollUserId === String(user?.id);
 
     if (isLocalTurn) return;
 
