@@ -1490,7 +1490,7 @@ if (!data?.success) throw new Error(data?.error || 'Failed to move');
               </div>
             </div>
           ) : currentSession ? (
-            <div className={`flex flex-col ${currentSession?.status === 'playing' ? 'gap-1.5 mt-3' : 'gap-2'}`}>
+            <div className={`flex flex-col ${currentSession?.status === 'playing' ? 'gap-1.5 mt-5' : 'gap-2'}`}>
               {/* Info bar */}
               <div className="flex items-center justify-between
                 bg-slate-800 border border-white/10 rounded-xl px-3 py-1.5">
