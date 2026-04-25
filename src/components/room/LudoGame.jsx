@@ -122,6 +122,9 @@ export default function LudoGame({
   const finishFxTimerRef = useRef(null);
   const turnTimerRef = useRef(null);
   const autoActionStateRef = useRef({});
+  // Prevents the realtime room_ludo_players subscription from reloading players
+  // while saveTeams is mid-flight (temp seats 100+ would crash color lookups).
+  const savingTeamsRef = useRef(false);
   const [turnTimeLeft, setTurnTimeLeft] = useState(12);
 
   useEffect(() => {
@@ -312,7 +315,8 @@ export default function LudoGame({
         schema: 'public',
         table: 'room_ludo_players',
       }, () => {
-        if (currentSession?.id) loadPlayers(currentSession.id);
+        // Skip reload while saveTeams is writing temp seats to avoid crash.
+        if (currentSession?.id && !savingTeamsRef.current) loadPlayers(currentSession.id);
       })
       .subscribe();
 
@@ -414,11 +418,21 @@ export default function LudoGame({
     return layout[relativeIndex] ?? 0;
   };
 
+  // Clamps any seat/visual index to 0-3, handling temporary seats (100+) safely.
+  const normalizeColorIndex = (idx) => {
+    const n = Number(idx);
+    if (!Number.isFinite(n)) return 0;
+    return ((n % 4) + 4) % 4;
+  };
+
   const getPlayerColorIndex = (player, playersList = players) => {
+    let seat = Number(player?.seat_number || 1);
+    // During saveTeams phase 1, DB may briefly hold temporary seats like 101-104.
+    if (seat > 100) seat = seat - 100;
     const totalPlayers = Number(currentSession?.max_players || playersList.length || 4);
     const layout = VISUAL_SEAT_LAYOUTS[totalPlayers] || [0, 1, 2, 3];
-    const seatIdx = Math.max(0, Number(player?.seat_number || 1) - 1);
-    return layout[seatIdx] ?? seatIdx;
+    const seatIdx = Math.max(0, seat - 1);
+    return normalizeColorIndex(layout[seatIdx] ?? seatIdx);
   };
 
   const getPieceCanvasPosition = (player, pieceIndex, cellSize, playersList = players) => {
@@ -498,7 +512,9 @@ export default function LudoGame({
       const playerAtVisual = players.find(p =>
         getRelativeVisualSeat(p, players) === visualIdx
       );
-      return playerAtVisual ? getPlayerColorIndex(playerAtVisual, players) : visualIdx;
+      return normalizeColorIndex(
+        playerAtVisual ? getPlayerColorIndex(playerAtVisual, players) : visualIdx
+      );
     };
 
     ctx.clearRect(0, 0, W, W);
@@ -755,7 +771,8 @@ export default function LudoGame({
     stackedByCell.forEach((cellPieces) => {
       cellPieces.forEach((item, stackIndex) => {
         const { player, pieceIdx, piecePos } = item;
-        const { x, y, colorIdx } = piecePos;
+        const { x, y, colorIdx: rawColorIdx } = piecePos;
+        const colorIdx = normalizeColorIndex(rawColorIdx);
         const [offX, offY] = getPieceStackOffset(stackIndex);
         const px = x + offX;
         const py = y + offY;
@@ -1453,6 +1470,7 @@ export default function LudoGame({
   const saveTeams = async () => {
     if (!currentSession?.id || !teamsDirty || savingTeams) return;
     setSavingTeams(true);
+    savingTeamsRef.current = true;
     try {
       // Phase 1: move every player to a temporary seat (100+intended) so no two
       // rows ever share the same intended seat_number during the transition.
@@ -1482,6 +1500,7 @@ export default function LudoGame({
       console.error(err);
       alert(err.message || 'Failed to save teams');
     } finally {
+      savingTeamsRef.current = false;
       setSavingTeams(false);
     }
   };
