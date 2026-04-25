@@ -2195,6 +2195,10 @@ export default function LudoGame({
                   const piecesFinished = p.pieces_finished || 0;
                   const isFinishFx = String(recentFinishedUserId) === String(p.user_id);
                   const diceSide = diceSideByVisualIdx[visualIdx] || 'right';
+                  const isAutoForViewer = isTeamMode() && (p.left_at || p.is_left) && (() => {
+                    const me = players.find(pl => String(pl.user_id) === String(user?.id));
+                    return me && String(me.user_id) !== String(p.user_id) && getEffectiveTeam(me) === getEffectiveTeam(p);
+                  })();
 
                   const playerCard = (
                     <div
@@ -2217,20 +2221,19 @@ export default function LudoGame({
                         {p.name}
                       </div>
                       {isTeamMode() && team && (
-                        <div className={`text-[9px] font-black leading-tight px-1.5 py-[1px] rounded-full ${
-                          team === 'A'
-                            ? 'bg-cyan-400/20 text-cyan-200 border border-cyan-300/40'
-                            : 'bg-violet-400/20 text-violet-200 border border-violet-300/40'
-                        }`}>
-                          {team}
-                        </div>
-                      )}
-                      {isTeamMode() && (p.left_at || p.is_left) && (() => {
-                        const me = players.find(pl => String(pl.user_id) === String(user?.id));
-                        return me && String(me.user_id) !== String(p.user_id) && getEffectiveTeam(me) === getEffectiveTeam(p);
-                      })() && (
-                        <div className="text-[9px] font-black leading-tight px-1.5 py-[1px] rounded-full bg-white/10 text-amber-200 border border-amber-300/40">
-                          Auto
+                        <div className="relative">
+                          <div className={`text-[9px] font-black leading-tight px-1.5 py-[1px] rounded-full ${
+                            team === 'A'
+                              ? 'bg-cyan-400/20 text-cyan-200 border border-cyan-300/40'
+                              : 'bg-violet-400/20 text-violet-200 border border-violet-300/40'
+                          }`}>
+                            {team}
+                          </div>
+                          {isAutoForViewer && (
+                            <span className="pointer-events-none absolute -top-[2px] -right-[2px] text-[7px] leading-none font-black px-1 py-[1px] rounded bg-amber-900/95 text-amber-100 border border-amber-400/50">
+                              Auto
+                            </span>
+                          )}
                         </div>
                       )}
                       <div className="flex gap-0.5">
