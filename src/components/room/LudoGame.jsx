@@ -123,6 +123,8 @@ export default function LudoGame({
   const turnTimerRef = useRef(null);
   const autoActionStateRef = useRef({});
   const teamEliminationHandledRef = useRef(false);
+  const previousPlayersRef = useRef([]);
+  const leftTurnActionRef = useRef({ inFlight: false, key: '' });
   // Prevents the realtime room_ludo_players subscription from reloading players
   // while saveTeams is mid-flight (temp seats 100+ would crash color lookups).
   const savingTeamsRef = useRef(false);
@@ -214,8 +216,14 @@ export default function LudoGame({
 
   // ─── Turn countdown timer ────────────────────
   useEffect(() => {
+    const myPlayer = players.find(
+      p => String(p.user_id) === String(user?.id)
+    );
     const isMine =
-      String(currentSession?.current_turn_user_id) === String(user?.id);
+      String(currentSession?.current_turn_user_id) === String(user?.id) &&
+      !!myPlayer &&
+      !myPlayer.left_at &&
+      !myPlayer.is_left;
 
     if (!isMine || currentSession?.status !== 'playing' || !open) {
       setTurnTimeLeft(12);
@@ -267,6 +275,56 @@ export default function LudoGame({
       }
     };
   }, [currentSession?.id, currentSession?.current_turn_user_id, currentSession?.last_roll, currentSession?.status, open]);
+
+  const isPlayerLeft = (player) => Boolean(player?.left_at || player?.is_left);
+  const getActivePlayersList = (playersList = players) =>
+    (playersList || []).filter(p => !p.refunded_at && !isPlayerLeft(p));
+  const getVisiblePlayersList = (playersList = players, sessionArg = currentSession) => {
+    const isTeamSession =
+      Number(sessionArg?.max_players || 0) === 4 &&
+      sessionArg?.team_mode === true;
+    if (isTeamSession) return (playersList || []).filter(p => !p.refunded_at);
+    return getActivePlayersList(playersList);
+  };
+
+  // Emit local resign notifications with mode-specific messaging.
+  useEffect(() => {
+    if (!currentSession?.id) {
+      previousPlayersRef.current = players;
+      return;
+    }
+
+    const prevMap = new Map(
+      (previousPlayersRef.current || []).map(p => [String(p.user_id), p])
+    );
+    const me = players.find(p => String(p.user_id) === String(user?.id));
+
+    players.forEach((p) => {
+      const prev = prevMap.get(String(p.user_id));
+      const justResigned =
+        !!prev &&
+        !prev.left_at &&
+        !prev.is_left &&
+        (p.left_at || p.is_left);
+
+      if (!justResigned) return;
+
+      if (isTeamMode()) {
+        if (!me || isPlayerLeft(me)) return;
+        const sameTeam = getEffectiveTeam(me) === getEffectiveTeam(p);
+        const isSelf = String(me.user_id) === String(p.user_id);
+        if (!sameTeam || isSelf) return;
+
+        setMessage(`Your teammate ${p.name || 'A player'} resigned. Their turns will be auto-played.`);
+        setTimeout(() => setMessage(''), 2600);
+      } else {
+        setMessage(`${p.name || 'A player'} resigned from Ludo.`);
+        setTimeout(() => setMessage(''), 2200);
+      }
+    });
+
+    previousPlayersRef.current = players;
+  }, [players, currentSession?.id, currentSession?.team_mode, currentSession?.max_players, user?.id]);
 
   // Realtime
   useEffect(() => {
@@ -495,7 +553,7 @@ export default function LudoGame({
     if (!sessionArg?.id || sessionArg?.status !== 'playing') return;
     if (!(Number(sessionArg?.max_players || 0) === 4 && sessionArg?.team_mode === true)) return;
 
-    const activePlayers = (playersList || []).filter(p => !p.left_at && !p.is_left);
+    const activePlayers = (playersList || []).filter(p => !p.refunded_at && !p.left_at && !p.is_left);
     const teamAPlayers = activePlayers.filter(p => getEffectiveTeam(p) === 'A');
     const teamBPlayers = activePlayers.filter(p => getEffectiveTeam(p) === 'B');
 
@@ -616,14 +674,15 @@ export default function LudoGame({
     const W = canvas.width;
     const CELLS = 15;
     const cellSize = W / CELLS;
+    const boardPlayers = getVisiblePlayersList(players, currentSession);
 
     // Helper to map visual index to real player color
     const getVisualColorIndex = (visualIdx) => {
-      const playerAtVisual = players.find(p =>
-        getRelativeVisualSeat(p, players) === visualIdx
+      const playerAtVisual = boardPlayers.find(p =>
+        getRelativeVisualSeat(p, boardPlayers) === visualIdx
       );
       return normalizeColorIndex(
-        playerAtVisual ? getPlayerColorIndex(playerAtVisual, players) : visualIdx
+        playerAtVisual ? getPlayerColorIndex(playerAtVisual, boardPlayers) : visualIdx
       );
     };
 
@@ -862,10 +921,10 @@ export default function LudoGame({
 
     // Draw pieces on board
     const drawablePieces = [];
-    players.forEach((player) => {
+    boardPlayers.forEach((player) => {
       const pieces = [player.piece1, player.piece2, player.piece3, player.piece4];
       pieces.forEach((pos, pieceIdx) => {
-        const piecePos = getPieceCanvasPosition(player, pieceIdx, cellSize, players);
+        const piecePos = getPieceCanvasPosition(player, pieceIdx, cellSize, boardPlayers);
         if (!piecePos || piecePos.isFinished) return;
         drawablePieces.push({ player, pieceIdx, piecePos });
       });
@@ -1125,13 +1184,132 @@ export default function LudoGame({
     return { players: refreshedPlayers || [], session: sd || null };
   };
 
+  const forceAdvanceTurnFromLeft = async (leftUserId, sessionArg = currentSession, playersList = players) => {
+    if (!sessionArg?.id || !leftUserId) return false;
+
+    const sorted = [...(playersList || [])].sort((a, b) => a.seat_number - b.seat_number);
+    const currentPlayer = sorted.find(p => String(p.user_id) === String(leftUserId));
+    if (!currentPlayer) return false;
+
+    const candidates = isTeamMode()
+      ? sorted.filter(p => String(p.user_id) !== String(leftUserId))
+      : sorted.filter(p => !isPlayerLeft(p));
+    if (candidates.length === 0) return false;
+
+    const nextPlayer =
+      candidates.find(p => p.seat_number > currentPlayer.seat_number) ||
+      candidates[0];
+    if (!nextPlayer?.user_id) return false;
+
+    const { error } = await supabase
+      .from('room_ludo_sessions')
+      .update({
+        current_turn_user_id: nextPlayer.user_id,
+        last_roll: 0,
+        display_roll: null,
+        display_roll_user_id: null,
+      })
+      .eq('id', sessionArg.id)
+      .eq('status', 'playing')
+      .eq('current_turn_user_id', leftUserId);
+
+    return !error;
+  };
+
+  const autoPlayLeftTurn = async (leftPlayer, sessionArg = currentSession) => {
+    if (!leftPlayer?.user_id || !sessionArg?.id) return;
+
+    const { data: rollData, error: rollError } = await supabase.rpc('get_ludo_roll', {
+      p_session_id: sessionArg.id,
+      p_user_id: leftPlayer.user_id,
+    });
+
+    if (rollError || !rollData?.success) {
+      await forceAdvanceTurnFromLeft(leftPlayer.user_id, sessionArg, players);
+      return;
+    }
+
+    if (rollData.triple_six || rollData.turn_passed) {
+      await refreshSession();
+      return;
+    }
+
+    const refreshed = await refreshSession();
+    const latestPlayers = refreshed?.players || players;
+    const latestSession = refreshed?.session || sessionArg;
+    const latestLeft = latestPlayers.find(
+      p => String(p.user_id) === String(leftPlayer.user_id)
+    );
+    if (!latestLeft) return;
+
+    const rollVal = Number(latestSession?.last_roll ?? rollData.roll ?? 0);
+    const movable = getMovablePieces(latestLeft, rollVal);
+    if (movable.length > 0) {
+      await supabase.rpc('move_ludo_piece', {
+        p_session_id: sessionArg.id,
+        p_user_id: leftPlayer.user_id,
+        p_piece_number: movable[0],
+      });
+    }
+
+    await refreshSession();
+  };
+
+  // Handle turns for resigned players:
+  // - Classic mode: skip forever.
+  // - Team mode: auto-play resigned teammate turns.
+  useEffect(() => {
+    if (!open || currentSession?.status !== 'playing' || !currentSession?.id) return;
+
+    const turnUserId = String(currentSession?.current_turn_user_id || '');
+    if (!turnUserId) return;
+
+    const me = players.find(p => String(p.user_id) === String(user?.id));
+    if (!me || isPlayerLeft(me)) return;
+
+    const turnPlayer = players.find(p => String(p.user_id) === turnUserId);
+    if (!turnPlayer || !isPlayerLeft(turnPlayer)) return;
+
+    const key = `${currentSession.id}:${turnUserId}:${currentSession.last_roll || 0}:${currentSession.display_roll || 0}`;
+    if (leftTurnActionRef.current.inFlight || leftTurnActionRef.current.key === key) return;
+
+    leftTurnActionRef.current.inFlight = true;
+    leftTurnActionRef.current.key = key;
+
+    (async () => {
+      try {
+        if (isTeamMode()) {
+          await autoPlayLeftTurn(turnPlayer, currentSession);
+        } else {
+          await forceAdvanceTurnFromLeft(turnUserId, currentSession, players);
+          await refreshSession();
+        }
+      } catch (err) {
+        console.error('Failed to process resigned turn:', err);
+      } finally {
+        leftTurnActionRef.current.inFlight = false;
+      }
+    })();
+  }, [
+    open,
+    currentSession?.id,
+    currentSession?.status,
+    currentSession?.current_turn_user_id,
+    currentSession?.last_roll,
+    currentSession?.display_roll,
+    players,
+    user?.id,
+  ]);
+
   const passTurnToNextPlayer = async () => {
     if (!currentSession?.id) {
       await refreshSession();
       return;
     }
 
-    const sorted = [...players].sort((a, b) => a.seat_number - b.seat_number);
+    const sorted = isTeamMode()
+      ? [...players].sort((a, b) => a.seat_number - b.seat_number)
+      : [...players].filter(p => !isPlayerLeft(p)).sort((a, b) => a.seat_number - b.seat_number);
     if (sorted.length < 2) {
       await refreshSession();
       return;
@@ -1271,7 +1449,9 @@ export default function LudoGame({
     if (!isMyTurn || rolling) return;
     if (!movablePieces.length) return;
 
-    const myPlayerLocal = players.find(
+    const boardPlayers = getVisiblePlayersList(players, currentSession);
+
+    const myPlayerLocal = boardPlayers.find(
       p => String(p.user_id) === String(user?.id)
     );
     if (!myPlayerLocal) return;
@@ -1288,10 +1468,10 @@ export default function LudoGame({
     const hitRadius = cellSize * 0.62;
 
     const stackedByCell = new Map();
-    players.forEach((player) => {
+    boardPlayers.forEach((player) => {
       const pieces = [player.piece1, player.piece2, player.piece3, player.piece4];
       pieces.forEach((pos, pieceIdx) => {
-        const piecePos = getPieceCanvasPosition(player, pieceIdx, cellSize, players);
+        const piecePos = getPieceCanvasPosition(player, pieceIdx, cellSize, boardPlayers);
         if (!piecePos || piecePos.isFinished) return;
         const key = `${Math.round(piecePos.x)}_${Math.round(piecePos.y)}`;
         if (!stackedByCell.has(key)) stackedByCell.set(key, []);
@@ -1309,7 +1489,7 @@ export default function LudoGame({
     });
 
     for (const pieceNum of movablePieces) {
-      const piecePos = getPieceCanvasPosition(myPlayerLocal, pieceNum - 1, cellSize, players);
+      const piecePos = getPieceCanvasPosition(myPlayerLocal, pieceNum - 1, cellSize, boardPlayers);
       if (!piecePos || piecePos.isFinished) continue;
 
       const [offX, offY] = movablePieceOffsetMap.get(pieceNum) || [0, 0];
@@ -1400,13 +1580,13 @@ export default function LudoGame({
         .eq('id', currentSession.id);
       return; // done — skip the non-team-mode update below
     } else {
-      if (players.length < 2) {
+      if (getActivePlayersList(players).length < 2) {
         alert('Need at least 2 players');
         return;
       }
     }
 
-    const firstPlayer = players[0];
+    const firstPlayer = getActivePlayersList(players)[0];
     await supabase
       .from('room_ludo_sessions')
       .update({
@@ -1499,9 +1679,13 @@ export default function LudoGame({
     }
   };
 
-  const isJoined = players.some(p => String(p.user_id) === String(user?.id));
-  const isFull = players.length >= (currentSession?.max_players || 0);
-  const isMyTurn = String(currentSession?.current_turn_user_id) === String(user?.id);
+  const visiblePlayers = getVisiblePlayersList(players, currentSession);
+  const activePlayers = getActivePlayersList(players);
+  const isJoined = activePlayers.some(p => String(p.user_id) === String(user?.id));
+  const isFull = activePlayers.length >= (currentSession?.max_players || 0);
+  const isMyTurn =
+    String(currentSession?.current_turn_user_id) === String(user?.id) &&
+    isJoined;
   const netPrize = Math.floor((currentSession?.entry_cost || 0) * players.length * 0.9);
 
   // Returns the planned seat number for a player.
@@ -1952,7 +2136,7 @@ export default function LudoGame({
                 <div className="text-center">
                   <div className="text-white/40 text-[9px] uppercase font-bold">Players</div>
                   <div className="text-white font-black text-xs">
-                    {players.length}/{currentSession.max_players}
+                    {visiblePlayers.length}/{currentSession.max_players}
                   </div>
                 </div>
                 <div className="text-center">
@@ -1975,9 +2159,9 @@ export default function LudoGame({
               {currentSession.status === 'playing' && (() => {
                 const diceSideByVisualIdx = ['right', 'left', 'left', 'right'];
 
-                const playersWithVisuals = players.map((p) => {
-                  const visualIdx = getRelativeVisualSeat(p, players);
-                  const colorIdx = getPlayerColorIndex(p);
+                const playersWithVisuals = visiblePlayers.map((p) => {
+                  const visualIdx = getRelativeVisualSeat(p, visiblePlayers);
+                  const colorIdx = getPlayerColorIndex(p, visiblePlayers);
                   return { player: p, visualIdx, colorIdx };
                 });
 
@@ -2017,6 +2201,11 @@ export default function LudoGame({
                             : 'bg-violet-400/20 text-violet-200 border border-violet-300/40'
                         }`}>
                           {team}
+                        </div>
+                      )}
+                      {isTeamMode() && (p.left_at || p.is_left) && (
+                        <div className="text-[9px] font-black leading-tight px-1.5 py-[1px] rounded-full bg-white/10 text-amber-200 border border-amber-300/40">
+                          Auto
                         </div>
                       )}
                       <div className="flex gap-0.5">
@@ -2166,6 +2355,11 @@ export default function LudoGame({
                               {String(p.user_id) === String(user?.id) && (
                                 <span className="text-amber-300 text-[8px] shrink-0">You</span>
                               )}
+                              {(p.left_at || p.is_left) && (
+                                <span className="text-amber-200 text-[8px] shrink-0 px-1 py-[1px] rounded-full bg-white/10 border border-amber-300/40">
+                                  Auto
+                                </span>
+                              )}
                               <span className="text-white/30 text-[7px] shrink-0 font-mono">
                                 s:{effSeat}
                               </span>
@@ -2211,6 +2405,11 @@ export default function LudoGame({
                               </span>
                               {String(p.user_id) === String(user?.id) && (
                                 <span className="text-amber-300 text-[8px] shrink-0">You</span>
+                              )}
+                              {(p.left_at || p.is_left) && (
+                                <span className="text-amber-200 text-[8px] shrink-0 px-1 py-[1px] rounded-full bg-white/10 border border-amber-300/40">
+                                  Auto
+                                </span>
                               )}
                               <span className="text-white/30 text-[7px] shrink-0 font-mono">
                                 s:{effSeat}
@@ -2262,7 +2461,7 @@ export default function LudoGame({
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-1.5">
-                  {players.map(p => {
+                  {visiblePlayers.map(p => {
                     const colorIdx = getPlayerColorIndex(p);
                     return (
                       <div key={p.id}
@@ -2279,8 +2478,13 @@ export default function LudoGame({
                         <span className="text-white text-xs font-bold truncate">
                           {p.name}
                         </span>
+                        {isTeamMode() && (p.left_at || p.is_left) && (
+                          <span className="text-amber-200 text-[9px] shrink-0 px-1.5 py-[1px] rounded-full bg-white/10 border border-amber-300/40 ml-auto">
+                            Auto
+                          </span>
+                        )}
                         {String(p.user_id) === String(user?.id) && (
-                          <span className="text-amber-300 text-[9px] ml-auto shrink-0">You</span>
+                          <span className="text-amber-300 text-[9px] shrink-0">You</span>
                         )}
                       </div>
                     );
@@ -2315,7 +2519,7 @@ export default function LudoGame({
                 )}
 
                 {canModerate && currentSession.status === 'waiting' && (
-                  <button onClick={startGame} disabled={isTeamMode() ? !areTeamsComplete() : players.length < 2}
+                  <button onClick={startGame} disabled={isTeamMode() ? !areTeamsComplete() : activePlayers.length < 2}
                     className="flex-1 py-2.5 rounded-xl bg-blue-500
                       text-white font-black text-xs disabled:opacity-50
                       active:scale-95 transition">
