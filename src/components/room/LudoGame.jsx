@@ -2062,8 +2062,11 @@ export default function LudoGame({
 
     const isDisplayRollOwner = displayRoll > 0 && displayRollUserId === pid;
     const isCurrentTurnPlayer = currentTurnUserId === pid;
+    const shouldShowDice = isDisplayRollOwner || isCurrentTurnPlayer;
 
-    if (!isDisplayRollOwner && !isCurrentTurnPlayer) return null;
+    if (!shouldShowDice) {
+      return <div className="w-16 h-16 sm:w-20 sm:h-20 shrink-0 invisible" aria-hidden="true" />;
+    }
 
     const colorIdx = getPlayerColorIndex(player);
     const sessionRoll = Number(currentSession?.last_roll || 0);
@@ -2453,7 +2456,7 @@ export default function LudoGame({
                   );
 
                   return (
-                    <div key={p.id} className={`flex items-center gap-1 sm:gap-2 ${isFinishFx ? 'animate-bounce' : ''}`}>
+                    <div key={p.id} className={`flex items-center gap-1 sm:gap-2 min-h-[64px] sm:min-h-[80px] ${isFinishFx ? 'animate-bounce' : ''}`}>
                       {diceSide === 'left' && renderDiceSlot(p)}
                       {playerCard}
                       {diceSide === 'right' && renderDiceSlot(p)}
@@ -2469,7 +2472,7 @@ export default function LudoGame({
                 return (
                   <>
                     {/* Top players: fixed by real home slot */}
-                    <div className="mt-1 shrink-0">
+                    <div className="mt-1 shrink-0 min-h-[64px] sm:min-h-[80px]">
                       <div className="flex items-center justify-between px-1">
                         <div className="flex-1 flex justify-start">{renderPlayerWithDice(topLeft)}</div>
                         <div className="flex-1 flex justify-end">{renderPlayerWithDice(topRight)}</div>
@@ -2529,7 +2532,7 @@ export default function LudoGame({
                     </div>
 
                     {/* Bottom players: fixed by real home slot */}
-                    <div className="mt-1 shrink-0">
+                    <div className="mt-1 shrink-0 min-h-[64px] sm:min-h-[80px]">
                       <div className="flex items-center justify-between px-1">
                         <div className="flex-1 flex justify-start">{renderPlayerWithDice(bottomLeft)}</div>
                         <div className="flex-1 flex justify-end">{renderPlayerWithDice(bottomRight)}</div>
@@ -2711,7 +2714,7 @@ export default function LudoGame({
                     )}
                   </div>
                 </div>
-              ) : !(isTeamMode() && currentSession.status === 'playing') ? (
+              ) : currentSession.status !== 'playing' ? (
                 <div className="grid grid-cols-2 gap-1.5">
                   {visiblePlayers.map(p => {
                     const colorIdx = getPlayerColorIndex(p);
