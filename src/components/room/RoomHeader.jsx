@@ -202,6 +202,16 @@ export default function RoomHeader({
   onGlobalMsgClick,
 }) {
   const [showRoomCard, setShowRoomCard] = useState(false);
+  const isLudoTeamBanner =
+    largeGiftBanner?.giftName === '🎯 Ludo Winner' &&
+    Array.isArray(largeGiftBanner?.teamWinnerNames) &&
+    largeGiftBanner.teamWinnerNames.length > 0;
+  const teamWinnerNames = isLudoTeamBanner
+    ? largeGiftBanner.teamWinnerNames.slice(0, 2)
+    : [];
+  const teamWinnerAvatars = isLudoTeamBanner && Array.isArray(largeGiftBanner?.teamWinnerAvatars)
+    ? largeGiftBanner.teamWinnerAvatars
+    : [];
 
   return (
     <>
@@ -309,13 +319,27 @@ export default function RoomHeader({
                 </>
               ) : (
                 <>
-                  <img
-                    src={largeGiftBanner.receiverAvatar || ''}
-                    alt={largeGiftBanner.receiverName}
-                    className="w-7 h-7 rounded-full object-cover
-                      border-2 border-rose-400/60 shrink-0 inline-block"
-                    onError={e => e.currentTarget.style.display='none'}
-                  />
+                  {isLudoTeamBanner ? (
+                    <div className="inline-flex items-center -space-x-2 shrink-0">
+                      {teamWinnerNames.map((name, idx) => (
+                        <img
+                          key={`team_banner_winner_${idx}`}
+                          src={teamWinnerAvatars[idx] || FALLBACK_AVATAR}
+                          alt={name}
+                          className="w-6 h-6 rounded-full object-cover border-2 border-rose-300/80 inline-block"
+                          onError={e => (e.currentTarget.src = FALLBACK_AVATAR)}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <img
+                      src={largeGiftBanner.receiverAvatar || ''}
+                      alt={largeGiftBanner.receiverName}
+                      className="w-7 h-7 rounded-full object-cover
+                        border-2 border-rose-400/60 shrink-0 inline-block"
+                      onError={e => e.currentTarget.style.display='none'}
+                    />
+                  )}
                   <span className="text-rose-300 font-bold text-sm">
                     {largeGiftBanner.receiverName}
                   </span>
@@ -358,13 +382,27 @@ export default function RoomHeader({
                 </>
               ) : (
                 <>
-                  <img
-                    src={largeGiftBanner.receiverAvatar || ''}
-                    alt={largeGiftBanner.receiverName}
-                    className="w-7 h-7 rounded-full object-cover
-                      border-2 border-rose-400/60 shrink-0 inline-block"
-                    onError={e => e.currentTarget.style.display='none'}
-                  />
+                  {isLudoTeamBanner ? (
+                    <div className="inline-flex items-center -space-x-2 shrink-0">
+                      {teamWinnerNames.map((name, idx) => (
+                        <img
+                          key={`team_banner_repeat_winner_${idx}`}
+                          src={teamWinnerAvatars[idx] || FALLBACK_AVATAR}
+                          alt={name}
+                          className="w-6 h-6 rounded-full object-cover border-2 border-rose-300/80 inline-block"
+                          onError={e => (e.currentTarget.src = FALLBACK_AVATAR)}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <img
+                      src={largeGiftBanner.receiverAvatar || ''}
+                      alt={largeGiftBanner.receiverName}
+                      className="w-7 h-7 rounded-full object-cover
+                        border-2 border-rose-400/60 shrink-0 inline-block"
+                      onError={e => e.currentTarget.style.display='none'}
+                    />
+                  )}
                   <span className="text-rose-300 font-bold text-sm">
                     {largeGiftBanner.receiverName}
                   </span>

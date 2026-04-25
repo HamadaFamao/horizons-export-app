@@ -400,6 +400,7 @@ export default function RoomChat({
                   if (m.type === "spin_result") {
                     if (m.game_type === 'ludo_team' && m.winner_team) {
                       const teamNames = Array.isArray(m.winning_team_names) ? m.winning_team_names.filter(Boolean) : [];
+                      const teamAvatars = Array.isArray(m.winning_team_avatars) ? m.winning_team_avatars : [];
                       const namesText = teamNames.length > 1
                         ? `${teamNames.slice(0, -1).join(', ')} and ${teamNames.slice(-1)[0]}`
                         : (teamNames[0] || 'The winning team');
@@ -415,6 +416,21 @@ export default function RoomChat({
                         >
                           <span className="text-xl shrink-0">🎯</span>
                           <div className="flex-1 min-w-0 text-xs">
+                            {teamNames.length > 0 && (
+                              <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                                {teamNames.slice(0, 2).map((name, idx) => (
+                                  <div key={`${m.id}_winner_${idx}`} className="inline-flex items-center gap-1.5 rounded-full bg-white/10 border border-white/15 px-2 py-0.5">
+                                    <img
+                                      src={teamAvatars[idx] || FALLBACK_AVATAR}
+                                      alt={name}
+                                      onError={e => e.currentTarget.src = FALLBACK_AVATAR}
+                                      className="w-6 h-6 rounded-full object-cover border border-amber-300/60 shrink-0"
+                                    />
+                                    <span className="text-[11px] font-bold text-amber-100 truncate max-w-[90px]">{name}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                             <span className="text-amber-300 font-black break-words">{announcementText}</span>
                           </div>
                           <div className="text-white/30 text-[10px] shrink-0">
