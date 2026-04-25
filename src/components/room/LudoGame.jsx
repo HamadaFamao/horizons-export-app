@@ -2164,14 +2164,11 @@ export default function LudoGame({
               {/* Team 2v2 only: persistent teammate-resigned banner in safe area between info and board */}
               {isTeamMode() && currentSession.status === 'playing' && resignedTeammateName && (
                 <div className="shrink-0 mt-1">
-                  <div className="w-full h-8 rounded-xl border border-amber-400/30 bg-amber-900/45 text-amber-100 shadow-md flex items-center justify-center px-2">
+                  <div className="w-full h-7 rounded-xl border border-amber-400/30 bg-amber-900/45 text-amber-100 shadow-md flex items-center justify-center px-2">
                     <span className="text-sm mr-1.5">🤖</span>
-                    <p className="text-[10px] sm:text-[11px] font-semibold text-center truncate">
-                      Your teammate {resignedTeammateName} left. You are now playing with Auto support.
+                    <p className="text-[10px] font-semibold text-center truncate">
+                      Your teammate {resignedTeammateName} left. Auto support is active.
                     </p>
-                  </div>
-                  <div className="w-full text-center text-[9px] text-amber-300/90 font-semibold mt-0.5">
-                    DEBUG teammate resigned: {resignedTeammateName}
                   </div>
                 </div>
               )}
