@@ -435,7 +435,26 @@ export default function LudoGame({
               const w = ps.find(p =>
                 String(p.user_id) === String(s.winner_id)
               );
-              if (!w) return;
+              if (!w) {
+                resultFiredRef.current = false;
+                return;
+              }
+
+              // Defensive guard: classic mode should only end when winner has all 4 pieces.
+              if (Number(w.pieces_finished || 0) < 4) {
+                resultFiredRef.current = false;
+                setCurrentSession(prev => (
+                  prev
+                    ? {
+                        ...s,
+                        status: 'playing',
+                        winner_id: null,
+                        winner_coins: 0,
+                      }
+                    : prev
+                ));
+                return;
+              }
 
               setWinner(w);
               setWinnerCoins(s.winner_coins || 0);
@@ -658,15 +677,25 @@ export default function LudoGame({
     if (typeof pos !== 'number') return null;
 
     const colorIdx = getRelativeVisualSeat(player, playersList);
-    const finishedOffsets = [
-      [8.2, 7.5],
-      [7.5, 8.2],
-      [6.8, 7.5],
-      [7.5, 6.8],
+    const finishedTriangleSlots = [
+      // Red (bottom triangle)
+      [[8.35, 7.2], [8.35, 7.8], [8.7, 7.35], [8.7, 7.65]],
+      // Blue (right triangle)
+      [[7.2, 8.35], [7.8, 8.35], [7.35, 8.7], [7.65, 8.7]],
+      // Yellow (top triangle)
+      [[6.65, 7.2], [6.65, 7.8], [6.3, 7.35], [6.3, 7.65]],
+      // Green (left triangle)
+      [[7.2, 6.65], [7.8, 6.65], [7.35, 6.3], [7.65, 6.3]],
     ];
 
     if (pos === 57) {
-      const [row, col] = finishedOffsets[colorIdx] || [7.5, 7.5];
+      const finishedPieceIndices = pieces
+        .map((piecePos, idx) => ({ piecePos, idx }))
+        .filter(item => item.piecePos === 57)
+        .map(item => item.idx);
+      const slotIndex = Math.max(0, finishedPieceIndices.indexOf(pieceIndex));
+      const slots = finishedTriangleSlots[colorIdx] || [[7.5, 7.5]];
+      const [row, col] = slots[Math.min(slotIndex, slots.length - 1)] || [7.5, 7.5];
       return {
         x: col * cellSize,
         y: row * cellSize,
@@ -974,7 +1003,7 @@ export default function LudoGame({
       const pieces = [player.piece1, player.piece2, player.piece3, player.piece4];
       pieces.forEach((pos, pieceIdx) => {
         const piecePos = getPieceCanvasPosition(player, pieceIdx, cellSize, boardPlayers);
-        if (!piecePos || piecePos.isFinished) return;
+        if (!piecePos) return;
         drawablePieces.push({ player, pieceIdx, piecePos });
       });
     });
