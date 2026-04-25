@@ -28,6 +28,14 @@ const SAFE_SQUARES = [0, 8, 13, 21, 26, 34, 39, 47];
 // Start position on track per color: Red=39, Blue=26, Yellow=13, Green=0
 const START_POSITIONS = [39, 26, 13, 0];
 
+// Relative logical index of each player's home-entry arrow square.
+// When a piece is on 50, its next step must enter the colored home lane.
+const HOME_ENTRY_LOGICAL_INDEX = 50;
+
+// Absolute track indices of the colored home-entry arrows for each player.
+// Red=[14,7], Blue=[7,14], Yellow=[0,7], Green=[7,0]
+const HOME_ENTRY_TRACK_INDICES = [37, 24, 11, 50];
+
 // Home column cells per player (5 cells, positions 52-56 relative)
 const HOME_COLUMNS = [
   [[13,7],[12,7],[11,7],[10,7],[9,7]], // 0: Red (Bottom)
@@ -1206,10 +1214,11 @@ export default function LudoGame({
       return roll === 6 ? 0 : null;
     }
 
-    if (pos >= 0 && pos <= 51) {
+    if (pos >= 0 && pos <= HOME_ENTRY_LOGICAL_INDEX) {
       const target = pos + roll;
-      if (target <= 51) return target;
-      if (target <= 57) return 52 + (target - 52);
+      if (target <= HOME_ENTRY_LOGICAL_INDEX) return target;
+      if (target <= 56) return 52 + (target - (HOME_ENTRY_LOGICAL_INDEX + 1));
+      if (target === 57) return 57;
       return null;
     }
 
