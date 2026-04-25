@@ -122,6 +122,7 @@ export default function LudoGame({
   const finishFxTimerRef = useRef(null);
   const turnTimerRef = useRef(null);
   const autoActionStateRef = useRef({});
+  const teamEliminationHandledRef = useRef(false);
   // Prevents the realtime room_ludo_players subscription from reloading players
   // while saveTeams is mid-flight (temp seats 100+ would crash color lookups).
   const savingTeamsRef = useRef(false);
@@ -139,6 +140,12 @@ export default function LudoGame({
       setTeamMode(false);
     }
   }, [maxPlayers, teamMode]);
+
+  useEffect(() => {
+    if (currentSession?.status === 'playing') {
+      teamEliminationHandledRef.current = false;
+    }
+  }, [currentSession?.id, currentSession?.status]);
 
   useEffect(() => {
     if (!open || !roomId) return;
@@ -409,6 +416,9 @@ export default function LudoGame({
   const endGame = async (winningTeam, sessionArg = currentSession) => {
     if (!sessionArg?.id || !winningTeam) return;
     if (sessionArg.status === 'finished') return;
+    if (teamEliminationHandledRef.current) return;
+
+    teamEliminationHandledRef.current = true;
 
     const { error } = await supabase
       .from('room_ludo_sessions')
@@ -421,6 +431,7 @@ export default function LudoGame({
       .eq('status', 'playing');
 
     if (error) {
+      teamEliminationHandledRef.current = false;
       console.error('Failed to end team game:', error);
       return;
     }
@@ -461,6 +472,41 @@ export default function LudoGame({
       await endGame('A', sessionArg);
     }
   };
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+
+    const simulateEliminatedTeamCheck = async () => {
+      const mockPlayers = [
+        { user_id: 'a1', seat_number: 1, left_at: null, is_left: false },
+        { user_id: 'b1', seat_number: 2, left_at: null, is_left: false },
+        { user_id: 'a2', seat_number: 3, left_at: new Date().toISOString(), is_left: true },
+        { user_id: 'b2', seat_number: 4, left_at: null, is_left: false },
+      ];
+
+      const mockSession = {
+        id: currentSession?.id,
+        status: 'playing',
+        max_players: 4,
+        team_mode: true,
+      };
+
+      if (!mockSession.id) {
+        console.log('[LudoTest] Open a live session first to run elimination simulation.');
+        return;
+      }
+
+      teamEliminationHandledRef.current = false;
+      await maybeEndGameForEliminatedTeam(mockPlayers, mockSession);
+      await maybeEndGameForEliminatedTeam(mockPlayers, mockSession);
+      console.log('[LudoTest] Team elimination simulated twice; finish update should be applied once.');
+    };
+
+    window.__simulateLudoTeamElimination = simulateEliminatedTeamCheck;
+    return () => {
+      delete window.__simulateLudoTeamElimination;
+    };
+  }, [currentSession?.id, maybeEndGameForEliminatedTeam]);
 
   const getRelativeVisualSeat = (player, playersList = players) => {
     const totalPlayers = playersList.length;
