@@ -1218,16 +1218,11 @@ export default function LudoGame({
     setSelectedPiece(null);
     setMessage('');
 
-    let tick = 0;
     const interval = setInterval(() => {
       setDiceDisplay(Math.floor(Math.random() * 6) + 1);
-      tick++;
     }, 70);
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 620));
-      clearInterval(interval);
-
       const { data, error } = await supabase.rpc('get_ludo_roll', {
         p_session_id: currentSession.id,
         p_user_id: user.id,
@@ -1236,11 +1231,12 @@ export default function LudoGame({
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Failed to roll');
 
-      const roll = Number(data.roll || 0);
+      const finalRoll = Number(data.roll || 0);
 
+      clearInterval(interval);
       setDiceAnimating(false);
-      setDiceDisplay(roll);
-      setLastRoll(roll);
+      setDiceDisplay(finalRoll);
+      setLastRoll(finalRoll);
 
       if (typeof data.consecutive_sixes === 'number') {
         setConsecutiveSixes(data.consecutive_sixes);
@@ -1270,14 +1266,13 @@ export default function LudoGame({
       await new Promise((resolve) => setTimeout(resolve, 700));
 
       const refreshed = await refreshSession();
-      const refreshedRoll = Number(refreshed?.session?.last_roll ?? roll ?? 0);
       const myPlayerNow = (refreshed?.players || []).find(
         p => String(p.user_id) === String(user.id)
       );
 
       if (!myPlayerNow) return;
 
-      const movable = getMovablePieces(myPlayerNow, refreshedRoll);
+      const movable = getMovablePieces(myPlayerNow, finalRoll);
 
       if (movable.length === 0) {
         setMessage('No valid move. Turn passed.');
@@ -2068,7 +2063,7 @@ export default function LudoGame({
 
     const isLocalCurrentTurn = pid === myId && currentTurnUserId === myId;
 
-    if (isLocalCurrentTurn && diceAnimating && diceDisplay >= 1 && diceDisplay <= 6) {
+    if (isLocalCurrentTurn && diceDisplay >= 1 && diceDisplay <= 6) {
       return diceDisplay;
     }
 
