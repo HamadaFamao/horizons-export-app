@@ -1013,13 +1013,18 @@ export default function LudoGame({
             existingAnim.toY !== py;
 
           if (targetChanged) {
-            const duration = Math.max(150, Math.min(300, moveDistance * 4));
+            // ~25% longer than before (min 190ms, max 375ms) so each tile step
+            // is clearly readable. The 15ms delay staggers steps so consecutive
+            // moves don't blur into one another.
+            const STEP_DELAY_MS = 15;
+            const stepDelay = existingAnim ? STEP_DELAY_MS : 0;
+            const duration = Math.max(190, Math.min(375, moveDistance * 5));
             pieceMoveAnimRef.current[pieceKey] = {
-              fromX: prevPos.x,
-              fromY: prevPos.y,
+              fromX: existingAnim ? existingAnim.fromX + (existingAnim.toX - existingAnim.fromX) * Math.max(0, Math.min(1, (nowTs - existingAnim.start) / existingAnim.duration)) : prevPos.x,
+              fromY: existingAnim ? existingAnim.fromY + (existingAnim.toY - existingAnim.fromY) * Math.max(0, Math.min(1, (nowTs - existingAnim.start) / existingAnim.duration)) : prevPos.y,
               toX: px,
               toY: py,
-              start: nowTs,
+              start: nowTs + stepDelay,
               duration,
             };
           }
@@ -1030,7 +1035,8 @@ export default function LudoGame({
         const activeAnim = pieceMoveAnimRef.current[pieceKey];
         if (activeAnim) {
           const t = Math.max(0, Math.min(1, (nowTs - activeAnim.start) / activeAnim.duration));
-          const eased = 1 - Math.pow(1 - t, 3);
+          // Ease-out quadratic (power 2.5) — gentler entry, smooth deceleration
+          const eased = t < 0 ? 0 : 1 - Math.pow(1 - t, 2.5);
           drawX = activeAnim.fromX + (activeAnim.toX - activeAnim.fromX) * eased;
           drawY = activeAnim.fromY + (activeAnim.toY - activeAnim.fromY) * eased;
 
