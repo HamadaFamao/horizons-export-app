@@ -113,6 +113,9 @@ export default function LudoGame({
   const [message, setMessage] = useState('');
   const [resignedTeammateName, setResignedTeammateName] = useState(null);
   const [autoHeaderGlow, setAutoHeaderGlow] = useState(false);
+  const [turnPulseUserId, setTurnPulseUserId] = useState(null);
+  const [diceResultPulseKey, setDiceResultPulseKey] = useState('');
+  const [diceSixGlowKey, setDiceSixGlowKey] = useState('');
   const [finishToast, setFinishToast] = useState('');
   const [recentFinishedUserId, setRecentFinishedUserId] = useState(null);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
@@ -121,12 +124,17 @@ export default function LudoGame({
   const resultFiredRef = useRef(false);
   const lastSeenRollRef = useRef(null);
   const avatarImagesRef = useRef({});
+  const pieceMoveAnimRef = useRef({});
+  const lastPieceCanvasPosRef = useRef({});
+  const boardAnimFrameRef = useRef(null);
   const finishFxTimerRef = useRef(null);
   const turnTimerRef = useRef(null);
   const autoActionStateRef = useRef({});
   const teamEliminationHandledRef = useRef(false);
   const previousPlayersRef = useRef([]);
   const previousResignedTeammateRef = useRef(null);
+  const previousTurnUserIdRef = useRef(null);
+  const previousDiceResultKeyRef = useRef('');
   const leftTurnActionRef = useRef({ inFlight: false, key: '' });
   // Prevents the realtime room_ludo_players subscription from reloading players
   // while saveTeams is mid-flight (temp seats 100+ would crash color lookups).
@@ -137,6 +145,7 @@ export default function LudoGame({
     return () => {
       if (finishFxTimerRef.current) clearTimeout(finishFxTimerRef.current);
       if (turnTimerRef.current) clearInterval(turnTimerRef.current);
+      if (boardAnimFrameRef.current) cancelAnimationFrame(boardAnimFrameRef.current);
     };
   }, []);
 
@@ -215,6 +224,39 @@ export default function LudoGame({
     currentSession?.current_turn_user_id,
     currentSession?.last_roll,
     user?.id,
+  ]);
+
+  useEffect(() => {
+    if (currentSession?.status !== 'playing') {
+      previousDiceResultKeyRef.current = '';
+      setDiceResultPulseKey('');
+      setDiceSixGlowKey('');
+      return;
+    }
+
+    const rollVal = Number(currentSession?.display_roll || 0);
+    const rollUserId = String(currentSession?.display_roll_user_id || '');
+    const sessionRoll = Number(currentSession?.last_roll || 0);
+    if (rollVal < 1 || rollVal > 6 || !rollUserId) return;
+
+    const rollKey = `${rollUserId}-${rollVal}-${sessionRoll}`;
+    if (previousDiceResultKeyRef.current === rollKey) return;
+    previousDiceResultKeyRef.current = rollKey;
+
+    setDiceResultPulseKey(rollKey);
+
+    if (rollVal === 6) {
+      setDiceSixGlowKey(rollKey);
+      const sixTimer = setTimeout(() => {
+        setDiceSixGlowKey(prev => (prev === rollKey ? '' : prev));
+      }, 500);
+      return () => clearTimeout(sixTimer);
+    }
+  }, [
+    currentSession?.status,
+    currentSession?.display_roll,
+    currentSession?.display_roll_user_id,
+    currentSession?.last_roll,
   ]);
 
   // ─── Turn countdown timer ────────────────────
@@ -943,6 +985,10 @@ export default function LudoGame({
       stackedByCell.get(key).push(item);
     });
 
+    const nowTs = performance.now();
+    let needsMoveAnimationFrame = false;
+    const seenPieceKeys = new Set();
+
     stackedByCell.forEach((cellPieces) => {
       cellPieces.forEach((item, stackIndex) => {
         const { player, pieceIdx, piecePos } = item;
@@ -951,6 +997,51 @@ export default function LudoGame({
         const [offX, offY] = getPieceStackOffset(stackIndex);
         const px = x + offX;
         const py = y + offY;
+        const pieceKey = `${player.user_id}-${pieceIdx}`;
+        seenPieceKeys.add(pieceKey);
+
+        const prevPos = lastPieceCanvasPosRef.current[pieceKey];
+        const existingAnim = pieceMoveAnimRef.current[pieceKey];
+        const moveDistance = prevPos
+          ? Math.hypot(px - prevPos.x, py - prevPos.y)
+          : 0;
+
+        if (prevPos && moveDistance > 1) {
+          const targetChanged =
+            !existingAnim ||
+            existingAnim.toX !== px ||
+            existingAnim.toY !== py;
+
+          if (targetChanged) {
+            const duration = Math.max(150, Math.min(300, moveDistance * 4));
+            pieceMoveAnimRef.current[pieceKey] = {
+              fromX: prevPos.x,
+              fromY: prevPos.y,
+              toX: px,
+              toY: py,
+              start: nowTs,
+              duration,
+            };
+          }
+        }
+
+        let drawX = px;
+        let drawY = py;
+        const activeAnim = pieceMoveAnimRef.current[pieceKey];
+        if (activeAnim) {
+          const t = Math.max(0, Math.min(1, (nowTs - activeAnim.start) / activeAnim.duration));
+          const eased = 1 - Math.pow(1 - t, 3);
+          drawX = activeAnim.fromX + (activeAnim.toX - activeAnim.fromX) * eased;
+          drawY = activeAnim.fromY + (activeAnim.toY - activeAnim.fromY) * eased;
+
+          if (t < 1) {
+            needsMoveAnimationFrame = true;
+          } else {
+            delete pieceMoveAnimRef.current[pieceKey];
+          }
+        }
+
+        lastPieceCanvasPosRef.current[pieceKey] = { x: px, y: py };
 
         // Slightly bigger radius while keeping board proportions intact
         const r = cellSize * 0.45;
@@ -963,14 +1054,23 @@ export default function LudoGame({
         // Glow for movable pieces
         if (isMovable || isSelected) {
           ctx.beginPath();
-          ctx.arc(px, py, r + 6, 0, Math.PI * 2);
+          ctx.arc(drawX, drawY, r + 6, 0, Math.PI * 2);
           ctx.shadowColor = isSelected ? '#ffffff' : PLAYER_COLORS[colorIdx];
-          ctx.shadowBlur = 15;
+          ctx.shadowBlur = isSelected ? 15 : 8;
           ctx.fillStyle = isSelected
             ? 'rgba(255,255,255,0.8)'
-            : 'rgba(255,255,255,0.4)';
+            : 'rgba(255,255,255,0.18)';
           ctx.fill();
           ctx.shadowBlur = 0; // reset
+
+          // Soft ring for available moves to improve move readability.
+          if (isMovable) {
+            ctx.beginPath();
+            ctx.arc(drawX, drawY, r + 8, 0, Math.PI * 2);
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = 'rgba(255,255,255,0.30)';
+            ctx.stroke();
+          }
         }
 
         // Piece shadow
@@ -983,7 +1083,7 @@ export default function LudoGame({
         if (img?.complete && img?.naturalWidth > 0) {
           // Draw avatar
           ctx.beginPath();
-          ctx.arc(px, py, r, 0, Math.PI * 2);
+          ctx.arc(drawX, drawY, r, 0, Math.PI * 2);
           ctx.closePath();
           
           // Fill background just in case image has transparency
@@ -992,7 +1092,7 @@ export default function LudoGame({
 
           ctx.save();
           ctx.clip();
-          ctx.drawImage(img, px - r, py - r, r * 2, r * 2);
+          ctx.drawImage(img, drawX - r, drawY - r, r * 2, r * 2);
           ctx.restore();
         } else {
           // Fallback piece
@@ -1001,7 +1101,7 @@ export default function LudoGame({
           pieceGrad.addColorStop(1, homeColors[colorIdx].grad2);
           
           ctx.beginPath();
-          ctx.arc(px, py, r, 0, Math.PI * 2);
+          ctx.arc(drawX, drawY, r, 0, Math.PI * 2);
           ctx.fillStyle = pieceGrad;
           ctx.fill();
 
@@ -1011,7 +1111,7 @@ export default function LudoGame({
           ctx.textBaseline = 'middle';
           ctx.shadowColor = 'rgba(0,0,0,0.5)';
           ctx.shadowBlur = 2;
-          ctx.fillText(pieceIdx + 1, px, py + 1);
+          ctx.fillText(pieceIdx + 1, drawX, drawY + 1);
         }
 
         // Reset shadow for borders and gloss
@@ -1021,21 +1121,21 @@ export default function LudoGame({
 
         // Professional border
         ctx.beginPath();
-        ctx.arc(px, py, r, 0, Math.PI * 2);
+        ctx.arc(drawX, drawY, r, 0, Math.PI * 2);
         ctx.lineWidth = 2.5;
         ctx.strokeStyle = 'rgba(255,255,255,0.9)';
         ctx.stroke();
         
         ctx.beginPath();
-        ctx.arc(px, py, r - 1.5, 0, Math.PI * 2);
+        ctx.arc(drawX, drawY, r - 1.5, 0, Math.PI * 2);
         ctx.lineWidth = 1.5;
         ctx.strokeStyle = PLAYER_COLORS[colorIdx];
         ctx.stroke();
 
         // Glossy reflection overlay
         ctx.beginPath();
-        ctx.arc(px, py - r * 0.3, r * 0.6, 0, Math.PI * 2);
-        const glossGrad = ctx.createLinearGradient(px, py - r, px, py);
+        ctx.arc(drawX, drawY - r * 0.3, r * 0.6, 0, Math.PI * 2);
+        const glossGrad = ctx.createLinearGradient(drawX, drawY - r, drawX, drawY);
         glossGrad.addColorStop(0, 'rgba(255,255,255,0.5)');
         glossGrad.addColorStop(1, 'rgba(255,255,255,0)');
         ctx.fillStyle = glossGrad;
@@ -1044,6 +1144,21 @@ export default function LudoGame({
         ctx.restore();
       });
     });
+
+    // Clean stale cached piece positions/animations for pieces no longer drawn.
+    Object.keys(lastPieceCanvasPosRef.current).forEach((key) => {
+      if (!seenPieceKeys.has(key)) delete lastPieceCanvasPosRef.current[key];
+    });
+    Object.keys(pieceMoveAnimRef.current).forEach((key) => {
+      if (!seenPieceKeys.has(key)) delete pieceMoveAnimRef.current[key];
+    });
+
+    if (needsMoveAnimationFrame && !boardAnimFrameRef.current) {
+      boardAnimFrameRef.current = requestAnimationFrame(() => {
+        boardAnimFrameRef.current = null;
+        drawBoard();
+      });
+    }
   };
 
   const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -1744,6 +1859,24 @@ export default function LudoGame({
     return () => clearTimeout(glowTimer);
   }, [resignedTeammateName]);
 
+  useEffect(() => {
+    if (currentSession?.status !== 'playing') {
+      previousTurnUserIdRef.current = null;
+      setTurnPulseUserId(null);
+      return;
+    }
+
+    const turnUserId = String(currentSession?.current_turn_user_id || '');
+    if (!turnUserId) return;
+
+    if (previousTurnUserIdRef.current === turnUserId) return;
+    previousTurnUserIdRef.current = turnUserId;
+
+    setTurnPulseUserId(turnUserId);
+    const pulseTimer = setTimeout(() => setTurnPulseUserId(null), 360);
+    return () => clearTimeout(pulseTimer);
+  }, [currentSession?.status, currentSession?.current_turn_user_id]);
+
   const getTeamPlayers = (teamLetter) => {
     return players.filter(p => getEffectiveTeam(p) === teamLetter);
   };
@@ -1943,7 +2076,11 @@ export default function LudoGame({
 
     const isLocalDice = pid === String(user?.id) && isCurrentTurnPlayer;
     const isRollingNow = isCurrentTurnPlayer && (isLocalDice ? diceAnimating : remoteDiceAnimating);
+    const isTurnPulseDice = isCurrentTurnPlayer && String(turnPulseUserId || '') === pid && !isRollingNow;
     const showSettledValue = !isRollingNow && hasValue;
+    const resultRollKey = `${displayRollUserId}-${displayRoll}-${sessionRoll}`;
+    const isResultPulse = showSettledValue && displayRollUserId === pid && diceResultPulseKey === resultRollKey;
+    const isSixGlow = !isRollingNow && displayRollUserId === pid && displayRoll === 6 && diceSixGlowKey === resultRollKey;
 
     return (
       <button
@@ -1970,15 +2107,21 @@ export default function LudoGame({
           style={{
             borderColor: PLAYER_COLORS[colorIdx],
             background: `linear-gradient(135deg, ${PLAYER_COLORS[colorIdx]}22, ${PLAYER_COLORS[colorIdx]}55)`,
-            boxShadow: `0 4px 12px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.25), 0 0 12px ${PLAYER_COLORS[colorIdx]}55`,
+            boxShadow: `0 4px 12px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.25), 0 0 12px ${PLAYER_COLORS[colorIdx]}55${isSixGlow ? ', 0 0 14px rgba(250,204,21,0.55)' : ''}`,
             transformOrigin: 'center center',
-            animation: isRollingNow ? 'ludoDiceSingleSpin 850ms cubic-bezier(0.22, 1, 0.36, 1) 1 both' : 'none',
+            animation: isRollingNow
+              ? 'ludoDiceSingleSpin 850ms cubic-bezier(0.22, 1, 0.36, 1) 1 both'
+              : (isTurnPulseDice ? 'ludoTurnDiceNudge 360ms ease-out 1' : 'none'),
           }}
         >
           {showSettledValue ? (
             <span
               className="text-2xl sm:text-3xl font-black leading-none"
-              style={{ color: PLAYER_COLORS[colorIdx] }}
+              style={{
+                color: PLAYER_COLORS[colorIdx],
+                animation: isResultPulse ? 'ludoDiceResultPop 360ms ease-out 1' : 'none',
+                transformOrigin: 'center center',
+              }}
             >
               {faceValue}
             </span>
@@ -2009,6 +2152,39 @@ export default function LudoGame({
           }
           100% {
             transform: rotate(360deg) scale(1);
+          }
+        }
+        @keyframes ludoTurnCardGlow {
+          0% {
+            box-shadow: 0 0 0 rgba(255,255,255,0);
+          }
+          50% {
+            box-shadow: 0 0 14px rgba(255,255,255,0.24);
+          }
+          100% {
+            box-shadow: 0 0 0 rgba(255,255,255,0);
+          }
+        }
+        @keyframes ludoTurnDiceNudge {
+          0% {
+            transform: scale(1);
+          }
+          50% {
+            transform: scale(1.05);
+          }
+          100% {
+            transform: scale(1);
+          }
+        }
+        @keyframes ludoDiceResultPop {
+          0% {
+            transform: scale(1);
+          }
+          50% {
+            transform: scale(1.15);
+          }
+          100% {
+            transform: scale(1);
           }
         }
       `}</style>
@@ -2212,6 +2388,7 @@ export default function LudoGame({
                   const { player: p, visualIdx, colorIdx } = entry;
                   const team = getEffectiveTeam(p);
                   const isCurrentTurn = String(currentSession.current_turn_user_id) === String(p.user_id);
+                  const isTurnPulseCard = isCurrentTurn && String(turnPulseUserId || '') === String(p.user_id);
                   const piecesFinished = p.pieces_finished || 0;
                   const isFinishFx = String(recentFinishedUserId) === String(p.user_id);
                   const diceSide = diceSideByVisualIdx[visualIdx] || 'right';
@@ -2227,6 +2404,7 @@ export default function LudoGame({
                         background: isCurrentTurn ? `${PLAYER_COLORS[colorIdx]}44` : 'rgba(0,0,0,0.55)',
                         outline: isCurrentTurn ? `2px solid ${PLAYER_COLORS[colorIdx]}` : 'none',
                         boxShadow: isFinishFx ? `0 0 0 2px ${PLAYER_COLORS[colorIdx]}, 0 0 18px ${PLAYER_COLORS[colorIdx]}cc` : undefined,
+                        animation: isTurnPulseCard ? 'ludoTurnCardGlow 360ms ease-out 1' : 'none',
                         maxWidth: '60px',
                       }}
                     >
