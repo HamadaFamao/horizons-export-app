@@ -94,6 +94,8 @@ export default function LudoGame({
   // Seat is the single source of truth: seat 1/3 = Team A, seat 2/4 = Team B.
   const [seatOverrides, setSeatOverrides] = useState({});
   const [selectedTeamPlayerId, setSelectedTeamPlayerId] = useState(null);
+  const [teamsDirty, setTeamsDirty] = useState(false);
+  const [savingTeams, setSavingTeams] = useState(false);
   const [joining, setJoining] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [rolling, setRolling] = useState(false);
@@ -145,6 +147,7 @@ export default function LudoGame({
     if (currentSession?.status === 'playing' || !currentSession?.id) {
       setSeatOverrides({});
       setSelectedTeamPlayerId(null);
+      setTeamsDirty(false);
     }
   }, [currentSession?.id, currentSession?.status]);
 
@@ -1238,7 +1241,7 @@ export default function LudoGame({
 
   const startGame = async () => {
     if (!currentSession?.id || !canModerate) return;
-    
+
     // Validate team mode requirements
     if (isTeamMode()) {
       if (players.length !== 4) {
@@ -1249,27 +1252,12 @@ export default function LudoGame({
         alert('Please complete teams: 2 players in Team A and 2 players in Team B');
         return;
       }
-      // Persist final seat_number (from seatOverrides) and derive team_key from it.
-      // Seat is the board/color/turn source of truth — must be saved before game starts.
-      try {
-        for (const player of players) {
-          const finalSeat = getEffectiveSeat(player);
-          const finalTeam = finalSeat === 1 || finalSeat === 3 ? 'A' : 'B';
-          const { error: updateErr } = await supabase
-            .from('room_ludo_players')
-            .update({ seat_number: finalSeat, team_key: finalTeam })
-            .eq('id', player.id);
-          if (updateErr) throw updateErr;
-        }
-      } catch (err) {
-        console.error('Failed to save seat/team assignments:', err);
-        alert('Failed to save team assignments');
+      if (teamsDirty) {
+        alert('Please save teams before starting.');
         return;
       }
-      // Reload so in-game player objects carry the final seat_number and team_key.
-      // Must use the returned array — React state is stale inside this closure.
-      const freshPlayers = await loadPlayers(currentSession.id);
-      const sortedFresh = [...(freshPlayers || [])].sort((a, b) => a.seat_number - b.seat_number);
+      // Teams already persisted via Save Teams — just start the game.
+      const sortedFresh = [...players].sort((a, b) => a.seat_number - b.seat_number);
       const firstPlayerForTeam = sortedFresh[0];
       if (!firstPlayerForTeam?.user_id) return;
 
@@ -1442,6 +1430,7 @@ export default function LudoGame({
       [selectedIdStr]: seatB,
       [userIdStr]: seatA,
     }));
+    setTeamsDirty(true);
     setSelectedTeamPlayerId(null);
   };
 
@@ -1455,7 +1444,46 @@ export default function LudoGame({
       overrides[String(p.user_id)] = i + 1; // seats 1, 2, 3, 4
     });
     setSeatOverrides(overrides);
+    setTeamsDirty(true);
     setSelectedTeamPlayerId(null);
+  };
+
+  // Persist planned seat assignments to DB using two-phase update to avoid
+  // unique constraint conflicts on seat_number.
+  const saveTeams = async () => {
+    if (!currentSession?.id || !teamsDirty || savingTeams) return;
+    setSavingTeams(true);
+    try {
+      // Phase 1: move every player to a temporary seat (100+intended) so no two
+      // rows ever share the same intended seat_number during the transition.
+      for (const player of players) {
+        const intendedSeat = getEffectiveSeat(player);
+        const { error } = await supabase
+          .from('room_ludo_players')
+          .update({ seat_number: 100 + intendedSeat })
+          .eq('id', player.id);
+        if (error) throw error;
+      }
+      // Phase 2: write the final seat_number and derive team_key from it.
+      for (const player of players) {
+        const intendedSeat = getEffectiveSeat(player);
+        const intendedTeam = intendedSeat === 1 || intendedSeat === 3 ? 'A' : 'B';
+        const { error } = await supabase
+          .from('room_ludo_players')
+          .update({ seat_number: intendedSeat, team_key: intendedTeam })
+          .eq('id', player.id);
+        if (error) throw error;
+      }
+      // Reload so board redraws with the persisted seat numbers.
+      await loadPlayers(currentSession.id);
+      setSeatOverrides({});
+      setTeamsDirty(false);
+    } catch (err) {
+      console.error(err);
+      alert(err.message || 'Failed to save teams');
+    } finally {
+      setSavingTeams(false);
+    }
   };
 
   // With 4 players and seat-based teams, teams are always 2-2 by construction.
@@ -2001,6 +2029,20 @@ export default function LudoGame({
                       active:scale-95 transition"
                   >
                     🔀 Random Teams
+                  </button>
+
+                  {/* Save Teams Button */}
+                  <button
+                    onClick={saveTeams}
+                    disabled={!teamsDirty || savingTeams}
+                    className="w-full py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500
+                      border border-cyan-400/40 text-white font-bold text-xs
+                      active:scale-95 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {savingTeams
+                      ? <Loader2 className="w-4 h-4 animate-spin mx-auto" />
+                      : '💾 Save Teams'
+                    }
                   </button>
 
                   {/* Status Message */}
