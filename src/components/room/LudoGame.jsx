@@ -210,12 +210,12 @@ export default function LudoGame({
       setRemoteDiceDisplay(Math.floor(Math.random() * 6) + 1);
       count++;
 
-      if (count >= 16) {
+      if (count >= 9) {
         clearInterval(interval);
         setRemoteDiceDisplay(roll);
         setRemoteDiceAnimating(false);
       }
-    }, 90);
+    }, 70);
 
     return () => clearInterval(interval);
   }, [
@@ -1013,12 +1013,10 @@ export default function LudoGame({
             existingAnim.toY !== py;
 
           if (targetChanged) {
-            // ~25% longer than before (min 190ms, max 375ms) so each tile step
-            // is clearly readable. The 15ms delay staggers steps so consecutive
-            // moves don't blur into one another.
-            const STEP_DELAY_MS = 15;
+            // Snappy per-step: 90–110ms per tile. 3ms stagger keeps steps distinct.
+            const STEP_DELAY_MS = 3;
             const stepDelay = existingAnim ? STEP_DELAY_MS : 0;
-            const duration = Math.max(190, Math.min(375, moveDistance * 5));
+            const duration = Math.max(90, Math.min(110, moveDistance * 2.5));
             pieceMoveAnimRef.current[pieceKey] = {
               fromX: existingAnim ? existingAnim.fromX + (existingAnim.toX - existingAnim.fromX) * Math.max(0, Math.min(1, (nowTs - existingAnim.start) / existingAnim.duration)) : prevPos.x,
               fromY: existingAnim ? existingAnim.fromY + (existingAnim.toY - existingAnim.fromY) * Math.max(0, Math.min(1, (nowTs - existingAnim.start) / existingAnim.duration)) : prevPos.y,
@@ -1035,8 +1033,8 @@ export default function LudoGame({
         const activeAnim = pieceMoveAnimRef.current[pieceKey];
         if (activeAnim) {
           const t = Math.max(0, Math.min(1, (nowTs - activeAnim.start) / activeAnim.duration));
-          // Ease-out quadratic (power 2.5) — gentler entry, smooth deceleration
-          const eased = t < 0 ? 0 : 1 - Math.pow(1 - t, 2.5);
+          // cubic-bezier(0.2, 0.8, 0.2, 1) approximation via power 1.8 ease-out
+          const eased = t < 0 ? 0 : 1 - Math.pow(1 - t, 1.8);
           drawX = activeAnim.fromX + (activeAnim.toX - activeAnim.fromX) * eased;
           drawY = activeAnim.fromY + (activeAnim.toY - activeAnim.fromY) * eased;
 
@@ -1222,10 +1220,10 @@ export default function LudoGame({
     const interval = setInterval(() => {
       setDiceDisplay(Math.floor(Math.random() * 6) + 1);
       tick++;
-    }, 80);
+    }, 70);
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 850));
+      await new Promise((resolve) => setTimeout(resolve, 620));
       clearInterval(interval);
 
       const { data, error } = await supabase.rpc('get_ludo_roll', {
@@ -2119,7 +2117,7 @@ export default function LudoGame({
             boxShadow: `0 4px 12px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.25), 0 0 12px ${PLAYER_COLORS[colorIdx]}55${isSixGlow ? ', 0 0 14px rgba(250,204,21,0.55)' : ''}`,
             transformOrigin: 'center center',
             animation: isRollingNow
-              ? 'ludoDiceSingleSpin 850ms cubic-bezier(0.22, 1, 0.36, 1) 1 both'
+              ? 'ludoDiceSingleSpin 620ms linear 1 both'
               : (isTurnPulseDice ? 'ludoTurnDiceNudge 360ms ease-out 1' : 'none'),
           }}
         >
@@ -2153,15 +2151,9 @@ export default function LudoGame({
       onClick={() => { setShowSettingsMenu(false); onClose(); }}>
       <style>{`
         @keyframes ludoDiceSingleSpin {
-          0% {
-            transform: rotate(0deg) scale(1);
-          }
-          70% {
-            transform: rotate(300deg) scale(1.04);
-          }
-          100% {
-            transform: rotate(360deg) scale(1);
-          }
+          0%   { transform: rotate(0deg)   scale(1);    }
+          50%  { transform: rotate(180deg) scale(1.03); }
+          100% { transform: rotate(360deg) scale(1);    }
         }
         @keyframes ludoTurnCardGlow {
           0% {
