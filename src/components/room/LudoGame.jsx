@@ -90,7 +90,9 @@ export default function LudoGame({
   const [maxPlayers, setMaxPlayers] = useState(4);
   const [teamMode, setTeamMode] = useState(false);
   const [entryCost, setEntryCost] = useState(100);
-  const [teamAssignments, setTeamAssignments] = useState({});
+  // {userId: seatNumber} — stores planned seat swaps before game start.
+  // Seat is the single source of truth: seat 1/3 = Team A, seat 2/4 = Team B.
+  const [seatOverrides, setSeatOverrides] = useState({});
   const [selectedTeamPlayerId, setSelectedTeamPlayerId] = useState(null);
   const [joining, setJoining] = useState(false);
   const [leaving, setLeaving] = useState(false);
@@ -138,10 +140,10 @@ export default function LudoGame({
     loadSession();
   }, [open, roomId]);
 
-  // Reset team assignments when session status changes
+  // Clear pre-game seat overrides once the game starts or session resets.
   useEffect(() => {
     if (currentSession?.status === 'playing' || !currentSession?.id) {
-      setTeamAssignments({});
+      setSeatOverrides({});
       setSelectedTeamPlayerId(null);
     }
   }, [currentSession?.id, currentSession?.status]);
@@ -1247,26 +1249,28 @@ export default function LudoGame({
         alert('Please complete teams: 2 players in Team A and 2 players in Team B');
         return;
       }
-      // Persist final effective team for every player, then reload fresh data.
+      // Persist final seat_number (from seatOverrides) and derive team_key from it.
+      // Seat is the board/color/turn source of truth — must be saved before game starts.
       try {
         for (const player of players) {
-          const team = getEffectiveTeam(player);
+          const finalSeat = getEffectiveSeat(player);
+          const finalTeam = finalSeat === 1 || finalSeat === 3 ? 'A' : 'B';
           const { error: updateErr } = await supabase
             .from('room_ludo_players')
-            .update({ team_key: team })
+            .update({ seat_number: finalSeat, team_key: finalTeam })
             .eq('id', player.id);
           if (updateErr) throw updateErr;
         }
       } catch (err) {
-        console.error('Failed to update team assignments:', err);
+        console.error('Failed to save seat/team assignments:', err);
         alert('Failed to save team assignments');
         return;
       }
-      // Reload players so the in-game objects carry the saved team_key.
-      // Use the RETURN VALUE here — React state update is async and the
-      // closure still holds the old players array.
+      // Reload so in-game player objects carry the final seat_number and team_key.
+      // Must use the returned array — React state is stale inside this closure.
       const freshPlayers = await loadPlayers(currentSession.id);
-      const firstPlayerForTeam = freshPlayers?.[0];
+      const sortedFresh = [...(freshPlayers || [])].sort((a, b) => a.seat_number - b.seat_number);
+      const firstPlayerForTeam = sortedFresh[0];
       if (!firstPlayerForTeam?.user_id) return;
 
       await supabase
@@ -1277,7 +1281,7 @@ export default function LudoGame({
           current_turn_user_id: firstPlayerForTeam.user_id,
         })
         .eq('id', currentSession.id);
-      return; // done — skip the duplicate update below
+      return; // done — skip the non-team-mode update below
     } else {
       if (players.length < 2) {
         alert('Need at least 2 players');
@@ -1366,18 +1370,23 @@ export default function LudoGame({
   const isMyTurn = String(currentSession?.current_turn_user_id) === String(user?.id);
   const netPrize = Math.floor((currentSession?.entry_cost || 0) * players.length * 0.9);
 
-  // Single source of truth for team assignment.
-  // Priority: local UI override → persisted DB value → seat fallback.
+  // Returns the planned seat number for a player.
+  // If a swap was staged via seatOverrides, that takes priority over the DB value.
+  const getEffectiveSeat = (player) => {
+    if (!player) return 0;
+    const override = seatOverrides[String(player.user_id)];
+    return override !== undefined ? Number(override) : Number(player.seat_number || 0);
+  };
+
+  // Team is always derived from the effective seat: seat 1/3 = A, seat 2/4 = B.
+  // This is the single source of truth — never read team_key or a separate A/B override.
   const getEffectiveTeam = (player) => {
     if (!player) return null;
-    const override = teamAssignments?.[String(player.user_id)];
-    if (override === 'A' || override === 'B') return override;
-    if (player.team_key === 'A' || player.team_key === 'B') return player.team_key;
-    const seat = Number(player?.seat_number || 0);
+    const seat = getEffectiveSeat(player);
     return seat === 1 || seat === 3 ? 'A' : 'B';
   };
 
-  // Alias kept for any remaining call sites during refactor.
+  // Alias for backward compat.
   const getLudoTeam = getEffectiveTeam;
 
   function isTeamMode() {
@@ -1385,112 +1394,74 @@ export default function LudoGame({
     return currentSession?.team_mode === true;
   }
 
-  // Helper: Get players in a specific team
   const getTeamPlayers = (teamLetter) => {
     return players.filter(p => getEffectiveTeam(p) === teamLetter);
   };
 
-  // Helper: Toggle player between teams
+  // Handle card click in Assign Teams.
+  // First click selects a player. Second click on the OPPOSITE team swaps their seats.
+  // Second click on the SAME team changes selection.
+  // Clicking the already-selected player deselects.
   const togglePlayerTeam = (userId) => {
     const userIdStr = String(userId);
     const player = players.find(p => String(p.user_id) === userIdStr);
     if (!player) return;
 
-    const current = getEffectiveTeam(player);
-    const teamA = getTeamPlayers('A');
-    const teamB = getTeamPlayers('B');
-    const isBothTeamsFull = teamA.length === 2 && teamB.length === 2;
-
-    // When teams are not full, keep direct move behavior with capacity checks.
-    if (!isBothTeamsFull) {
-      if (current === 'A') {
-        if (teamB.length >= 2) return;
-        setTeamAssignments(prev => ({
-          ...prev,
-          [userIdStr]: 'B',
-        }));
-        setSelectedTeamPlayerId(null);
-        return;
-      }
-
-      if (current === 'B') {
-        if (teamA.length >= 2) return;
-        setTeamAssignments(prev => ({
-          ...prev,
-          [userIdStr]: 'A',
-        }));
-        setSelectedTeamPlayerId(null);
-        return;
-      }
-
-      if (teamA.length < 2) {
-        setTeamAssignments(prev => ({
-          ...prev,
-          [userIdStr]: 'A',
-        }));
-        setSelectedTeamPlayerId(null);
-        return;
-      }
-
-      if (teamB.length < 2) {
-        setTeamAssignments(prev => ({
-          ...prev,
-          [userIdStr]: 'B',
-        }));
-        setSelectedTeamPlayerId(null);
-      }
-      return;
-    }
-
-    // Both teams are full (2v2): first click selects, second click on opposite team swaps.
+    // First click or deselect.
     if (!selectedTeamPlayerId) {
       setSelectedTeamPlayerId(userIdStr);
       return;
     }
 
     const selectedIdStr = String(selectedTeamPlayerId);
+    if (selectedIdStr === userIdStr) {
+      setSelectedTeamPlayerId(null);
+      return;
+    }
+
     const selectedPlayer = players.find(p => String(p.user_id) === selectedIdStr);
     if (!selectedPlayer) {
       setSelectedTeamPlayerId(userIdStr);
       return;
     }
 
+    const currentTeam = getEffectiveTeam(player);
     const selectedTeam = getEffectiveTeam(selectedPlayer);
 
-    // Clicking another player on the same team just changes selection.
-    if (selectedTeam === current) {
+    // Same team — just change selection.
+    if (selectedTeam === currentTeam) {
       setSelectedTeamPlayerId(userIdStr);
       return;
     }
 
-    // Swap teams between selected and clicked players.
-    setTeamAssignments(prev => ({
+    // Opposite team — swap their effective seat numbers.
+    const seatA = getEffectiveSeat(selectedPlayer);
+    const seatB = getEffectiveSeat(player);
+    setSeatOverrides(prev => ({
       ...prev,
-      [selectedIdStr]: current,
-      [userIdStr]: selectedTeam,
+      [selectedIdStr]: seatB,
+      [userIdStr]: seatA,
     }));
     setSelectedTeamPlayerId(null);
   };
 
-  // Helper: Assign teams randomly based on seat order
+  // Randomly reshuffle seats 1-4 across all 4 players.
+  // Seats 1/3 will be Team A, seats 2/4 will be Team B.
   const assignRandomTeams = () => {
     if (players.length !== 4) return;
-    const sorted = [...players].sort((a, b) => a.seat_number - b.seat_number);
-    const assignments = {};
-    assignments[String(sorted[0].user_id)] = 'A'; // Seat 1 → Team A
-    assignments[String(sorted[1].user_id)] = 'B'; // Seat 2 → Team B
-    assignments[String(sorted[2].user_id)] = 'A'; // Seat 3 → Team A
-    assignments[String(sorted[3].user_id)] = 'B'; // Seat 4 → Team B
-    setTeamAssignments(assignments);
+    const shuffled = [...players].sort(() => Math.random() - 0.5);
+    const overrides = {};
+    shuffled.forEach((p, i) => {
+      overrides[String(p.user_id)] = i + 1; // seats 1, 2, 3, 4
+    });
+    setSeatOverrides(overrides);
     setSelectedTeamPlayerId(null);
   };
 
-  // Helper: Check if teams are complete (2 players in each)
+  // With 4 players and seat-based teams, teams are always 2-2 by construction.
   const areTeamsComplete = () => {
     if (!isTeamMode() || players.length !== 4) return false;
-    const teamA = getTeamPlayers('A');
-    const teamB = getTeamPlayers('B');
-    return teamA.length === 2 && teamB.length === 2;
+    return getTeamPlayers('A').length === 2 && getTeamPlayers('B').length === 2;
   };
 
   // Keep autoAction ref in sync with latest closures every render
@@ -1938,7 +1909,7 @@ export default function LudoGame({
                         {getTeamPlayers('A').map(p => {
                           const colorIdx = getPlayerColorIndex(p);
                           const isSelected = String(selectedTeamPlayerId) === String(p.user_id);
-                          const effTeam = getEffectiveTeam(p);
+                          const effSeat = getEffectiveSeat(p);
                           return (
                             <button
                               key={p.id}
@@ -1948,7 +1919,7 @@ export default function LudoGame({
                                 active:scale-95 ${isSelected ? 'ring-2 ring-white scale-[1.02]' : ''}`}
                             >
                               <div className="w-2.5 h-2.5 rounded-full shrink-0"
-                                style={{ backgroundColor: PLAYER_COLORS[colorIdx] }} />
+                                style={{ backgroundColor: PLAYER_COLORS[effSeat - 1] || PLAYER_COLORS[colorIdx] }} />
                               <img
                                 src={p.avatar_url || FALLBACK_AVATAR}
                                 alt={p.name}
@@ -1962,7 +1933,7 @@ export default function LudoGame({
                                 <span className="text-amber-300 text-[8px] shrink-0">You</span>
                               )}
                               <span className="text-white/30 text-[7px] shrink-0 font-mono">
-                                db:{p.team_key||'?'} eff:{effTeam}
+                                s:{effSeat}
                               </span>
                             </button>
                           );
@@ -1984,7 +1955,7 @@ export default function LudoGame({
                         {getTeamPlayers('B').map(p => {
                           const colorIdx = getPlayerColorIndex(p);
                           const isSelected = String(selectedTeamPlayerId) === String(p.user_id);
-                          const effTeam = getEffectiveTeam(p);
+                          const effSeat = getEffectiveSeat(p);
                           return (
                             <button
                               key={p.id}
@@ -1994,7 +1965,7 @@ export default function LudoGame({
                                 active:scale-95 ${isSelected ? 'ring-2 ring-white scale-[1.02]' : ''}`}
                             >
                               <div className="w-2.5 h-2.5 rounded-full shrink-0"
-                                style={{ backgroundColor: PLAYER_COLORS[colorIdx] }} />
+                                style={{ backgroundColor: PLAYER_COLORS[effSeat - 1] || PLAYER_COLORS[colorIdx] }} />
                               <img
                                 src={p.avatar_url || FALLBACK_AVATAR}
                                 alt={p.name}
@@ -2008,7 +1979,7 @@ export default function LudoGame({
                                 <span className="text-amber-300 text-[8px] shrink-0">You</span>
                               )}
                               <span className="text-white/30 text-[7px] shrink-0 font-mono">
-                                db:{p.team_key||'?'} eff:{effTeam}
+                                s:{effSeat}
                               </span>
                             </button>
                           );
