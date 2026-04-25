@@ -2203,7 +2203,10 @@ export default function LudoGame({
                           {team}
                         </div>
                       )}
-                      {isTeamMode() && (p.left_at || p.is_left) && (
+                      {isTeamMode() && (p.left_at || p.is_left) && (() => {
+                        const me = players.find(pl => String(pl.user_id) === String(user?.id));
+                        return me && String(me.user_id) !== String(p.user_id) && getEffectiveTeam(me) === getEffectiveTeam(p);
+                      })() && (
                         <div className="text-[9px] font-black leading-tight px-1.5 py-[1px] rounded-full bg-white/10 text-amber-200 border border-amber-300/40">
                           Auto
                         </div>
@@ -2257,7 +2260,7 @@ export default function LudoGame({
                         </div>
                       )}
                       <div
-                        className={`bg-slate-800 rounded-xl p-1.5 border border-white/5 transition-all duration-300 mx-auto w-full max-w-[500px] shrink min-h-0 flex items-center justify-center ${
+                        className={`relative bg-slate-800 rounded-xl p-1.5 border border-white/5 transition-all duration-300 mx-auto w-full max-w-[500px] shrink min-h-0 flex items-center justify-center ${
                           recentFinishedUserId ? 'animate-pulse' : ''
                         }`}
                         style={{
@@ -2273,6 +2276,28 @@ export default function LudoGame({
                           onClick={handleCanvasClick}
                           className="w-full max-h-[50dvh] aspect-square rounded-lg object-contain"
                         />
+                        {/* Team A/B corner badges */}
+                        {isTeamMode() && playersWithVisuals.map(({ player: bp, visualIdx: vi }) => {
+                          const bTeam = getEffectiveTeam(bp);
+                          const cornerClass = [
+                            'bottom-3 left-3',
+                            'bottom-3 right-3',
+                            'top-3 right-3',
+                            'top-3 left-3',
+                          ][vi];
+                          return (
+                            <div
+                              key={bp.id}
+                              className={`pointer-events-none absolute ${cornerClass} z-10 w-[18px] h-[18px] flex items-center justify-center rounded-full text-[9px] font-black border shadow-md ${
+                                bTeam === 'A'
+                                  ? 'bg-cyan-500/85 text-white border-cyan-300/70'
+                                  : 'bg-violet-500/85 text-white border-violet-300/70'
+                              }`}
+                            >
+                              {bTeam}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
 
@@ -2459,10 +2484,14 @@ export default function LudoGame({
                     )}
                   </div>
                 </div>
-              ) : (
+              ) : !(isTeamMode() && currentSession.status === 'playing') ? (
                 <div className="grid grid-cols-2 gap-1.5">
                   {visiblePlayers.map(p => {
                     const colorIdx = getPlayerColorIndex(p);
+                    const isResignedTeammate = isTeamMode() && (p.left_at || p.is_left) && (() => {
+                      const me = players.find(pl => String(pl.user_id) === String(user?.id));
+                      return me && String(me.user_id) !== String(p.user_id) && getEffectiveTeam(me) === getEffectiveTeam(p);
+                    })();
                     return (
                       <div key={p.id}
                         className="flex items-center gap-2 bg-white/5
@@ -2478,7 +2507,7 @@ export default function LudoGame({
                         <span className="text-white text-xs font-bold truncate">
                           {p.name}
                         </span>
-                        {isTeamMode() && (p.left_at || p.is_left) && (
+                        {isResignedTeammate && (
                           <span className="text-amber-200 text-[9px] shrink-0 px-1.5 py-[1px] rounded-full bg-white/10 border border-amber-300/40 ml-auto">
                             Auto
                           </span>
@@ -2490,7 +2519,7 @@ export default function LudoGame({
                     );
                   })}
                 </div>
-              )}
+              ) : null}
 
               {/* Actions */}
               <div className="flex flex-wrap gap-2 mt-1">
