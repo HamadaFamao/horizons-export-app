@@ -285,11 +285,52 @@ export default function LudoGame({
           if (resultFiredRef.current) return;
           resultFiredRef.current = true;
           setCurrentSession(s);
-          loadPlayers(s.id).then(ps => {
-            const w = ps.find(p =>
-              String(p.user_id) === String(s.winner_id)
-            );
-            if (w) {
+          loadPlayers(s.id).then(async ps => {
+            let winningTeamPlayers = s.winner_team
+              ? ps.filter(p => getEffectiveTeam(p) === s.winner_team)
+              : [];
+
+            if (s.winner_team && winningTeamPlayers.length === 0) {
+              const reloadedPlayers = await loadPlayers(s.id);
+              winningTeamPlayers = (reloadedPlayers || []).filter(
+                p => getEffectiveTeam(p) === s.winner_team
+              );
+            }
+            const perPlayerPrize = Number(s.winner_coins || s.per_player_prize || 0);
+            const totalTeamPrize = perPlayerPrize * winningTeamPlayers.length;
+
+            if (s.winner_team) {
+              const sortedWinners = [...winningTeamPlayers].sort((a, b) => a.seat_number - b.seat_number);
+              const announcerId = sortedWinners[0]?.user_id;
+
+              setWinner(null);
+              setWinnerCoins(perPlayerPrize);
+              setShowResult(true);
+              setMessage(`Team ${s.winner_team} wins`);
+              setTimeout(() => setMessage(''), 3000);
+
+              if (String(announcerId) === String(user?.id) && sortedWinners.length > 0) {
+                onLudoResult?.({
+                  teamMode: true,
+                  winnerTeam: s.winner_team,
+                  winningTeamPlayers: sortedWinners.map(p => ({
+                    user_id: p.user_id,
+                    name: p.name,
+                    avatar_url: p.avatar_url,
+                    seat_number: p.seat_number,
+                  })),
+                  perPlayerPrize,
+                  totalTeamPrize,
+                  winnerCoins: perPlayerPrize,
+                  totalPlayers: ps.length,
+                });
+              }
+            } else {
+              const w = ps.find(p =>
+                String(p.user_id) === String(s.winner_id)
+              );
+              if (!w) return;
+
               setWinner(w);
               setWinnerCoins(s.winner_coins || 0);
               setShowResult(true);
@@ -302,12 +343,6 @@ export default function LudoGame({
                   totalPlayers: ps.length,
                 });
               }
-            } else if (s.winner_team) {
-              setWinner(null);
-              setWinnerCoins(s.winner_coins || 0);
-              setShowResult(true);
-              setMessage(`Team ${s.winner_team} wins`);
-              setTimeout(() => setMessage(''), 3000);
             }
 
             setTimeout(() => {

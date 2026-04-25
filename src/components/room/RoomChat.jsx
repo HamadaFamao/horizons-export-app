@@ -398,6 +398,32 @@ export default function RoomChat({
               <div className="space-y-2">
                 {visibleMessages.map((m) => {
                   if (m.type === "spin_result") {
+                    if (m.game_type === 'ludo_team' && m.winner_team) {
+                      const teamNames = Array.isArray(m.winning_team_names) ? m.winning_team_names.filter(Boolean) : [];
+                      const namesText = teamNames.length > 1
+                        ? `${teamNames.slice(0, -1).join(', ')} and ${teamNames.slice(-1)[0]}`
+                        : (teamNames[0] || 'The winning team');
+                      const perPlayerPrize = Number(m.per_player_prize || m.winner_coins || 0);
+                      const announcementText =
+                        m.announcement_text ||
+                        `🎯 Team ${m.winner_team} won the Ludo 2v2 Game! ${namesText} won 🪙${perPlayerPrize.toLocaleString()} each.`;
+
+                      return (
+                        <div
+                          key={m.id}
+                          className="flex items-center gap-2 px-3 py-2 bg-amber-500/15 border border-amber-500/20 rounded-xl mx-2 my-1"
+                        >
+                          <span className="text-xl shrink-0">🎯</span>
+                          <div className="flex-1 min-w-0 text-xs">
+                            <span className="text-amber-300 font-black break-words">{announcementText}</span>
+                          </div>
+                          <div className="text-white/30 text-[10px] shrink-0">
+                            {m.total_players} players
+                          </div>
+                        </div>
+                      );
+                    }
+
                     return (
                       <div
                         key={m.id}

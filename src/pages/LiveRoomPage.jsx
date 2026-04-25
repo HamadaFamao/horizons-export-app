@@ -7512,6 +7512,13 @@ useEffect(() => {
           winner_coins: payload.winner_coins,
           total_players: payload.total_players,
           game_type: payload.game_type || 'spin',
+          team_mode: !!payload.team_mode,
+          winner_team: payload.winner_team || null,
+          winning_team_names: payload.winning_team_names || null,
+          winning_team_avatars: payload.winning_team_avatars || null,
+          per_player_prize: payload.per_player_prize || null,
+          total_team_prize: payload.total_team_prize || null,
+          announcement_text: payload.announcement_text || null,
           entry_cost: payload.entry_cost,
           created_at: new Date((payload.ts || Date.now()) + 1000).toISOString(),
         };
@@ -10497,17 +10504,44 @@ useEffect(() => {
         }}
         onLudoResult={({ winnerName, winnerAvatar,
                           winnerId, winnerCoins,
-                          totalPlayers }) => {
+                          totalPlayers,
+                          teamMode,
+                          winnerTeam,
+                          winningTeamPlayers,
+                          perPlayerPrize,
+                          totalTeamPrize }) => {
           const now = Date.now();
+          const teamNames = (winningTeamPlayers || []).map(p => p.name).filter(Boolean);
+          const teamAvatars = (winningTeamPlayers || []).map(p => p.avatar_url || null);
+          const teamNamesText = teamNames.length > 1
+            ? `${teamNames.slice(0, -1).join(', ')} and ${teamNames.slice(-1)[0]}`
+            : (teamNames[0] || winnerName || 'Team');
+          const effectivePerPlayerPrize = Number(perPlayerPrize || winnerCoins || 0);
+          const effectiveTotalTeamPrize = Number(
+            totalTeamPrize || (effectivePerPlayerPrize * (winningTeamPlayers?.length || 0)) || 0
+          );
+          const teamAnnouncementText = teamMode && winnerTeam
+            ? `🎯 Team ${winnerTeam} won the Ludo 2v2 Game! ${teamNamesText} won 🪙${effectivePerPlayerPrize.toLocaleString()} each.`
+            : null;
+
           const resultMsg = {
-            id: `result_${winnerId}_${roomId}`,
+            id: teamMode && winnerTeam
+              ? `result_ludo_team_${winnerTeam}_${roomId}_${now}`
+              : `result_${winnerId}_${roomId}`,
             type: 'spin_result',
             winner_name: winnerName,
             winner_avatar: winnerAvatar,
             winner_id: winnerId,
             winner_coins: winnerCoins,
             total_players: totalPlayers,
-            game_type: 'ludo',
+            game_type: teamMode ? 'ludo_team' : 'ludo',
+            team_mode: !!teamMode,
+            winner_team: teamMode ? winnerTeam : null,
+            winning_team_names: teamMode ? teamNames : null,
+            winning_team_avatars: teamMode ? teamAvatars : null,
+            per_player_prize: teamMode ? effectivePerPlayerPrize : null,
+            total_team_prize: teamMode ? effectiveTotalTeamPrize : null,
+            announcement_text: teamMode ? teamAnnouncementText : null,
             created_at: new Date(now + 1000).toISOString(),
           };
 
@@ -10529,20 +10563,35 @@ useEffect(() => {
           }
 
           // Global banner for big wins
-          if (winnerCoins >= 5000) {
+          const bigWinValue = teamMode ? effectivePerPlayerPrize : winnerCoins;
+          if (bigWinValue >= 5000) {
             if (largeGiftBannerTimerRef.current) {
               clearTimeout(largeGiftBannerTimerRef.current);
             }
+
+            const bannerSenderName = teamMode && winnerTeam
+              ? `🎯 Team ${winnerTeam} won Ludo 2v2!`
+              : winnerName;
+            const bannerSenderAvatar = teamMode
+              ? (winningTeamPlayers?.[0]?.avatar_url || winnerAvatar)
+              : winnerAvatar;
+            const bannerReceiverName = teamMode
+              ? `${teamNamesText} won 🪙${effectivePerPlayerPrize.toLocaleString()} each.`
+              : `🪙 ${winnerCoins.toLocaleString()}`;
+            const isGlobalBanner = teamMode
+              ? effectivePerPlayerPrize >= 50000
+              : winnerCoins >= 50000;
+
             setLargeGiftBanner({
-              senderName: winnerName,
-              senderAvatar: winnerAvatar,
-              receiverName: `🪙 ${winnerCoins.toLocaleString()}`,
+              senderName: bannerSenderName,
+              senderAvatar: bannerSenderAvatar,
+              receiverName: bannerReceiverName,
               receiverAvatar: null,
               giftName: '🎯 Ludo Winner',
               giftIcon: null,
               isToAll: false,
               roomId: roomId,
-              isGlobal: winnerCoins >= 50000,
+              isGlobal: isGlobalBanner,
             });
             largeGiftBannerTimerRef.current = setTimeout(() => {
               setLargeGiftBanner(null);
@@ -10557,14 +10606,14 @@ useEffect(() => {
                 event: 'large_gift_banner',
                 payload: {
                   room_id: roomId,
-                  sender_name: winnerName,
-                  sender_avatar: winnerAvatar,
-                  receiver_name: `🪙 ${winnerCoins.toLocaleString()}`,
+                  sender_name: bannerSenderName,
+                  sender_avatar: bannerSenderAvatar,
+                  receiver_name: bannerReceiverName,
                   gift_name: '🎯 Ludo Winner',
                   gift_icon: null,
                   animation_url: null,
                   is_to_all: false,
-                  is_global: winnerCoins >= 50000,
+                  is_global: isGlobalBanner,
                   ts: Date.now(),
                 },
               });
