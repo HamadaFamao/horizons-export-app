@@ -1521,27 +1521,9 @@ export default function LudoGame({
     );
     const beforeFinished = Number(myPlayerBefore?.pieces_finished || 0);
 
-    // ── Optimistic movement: visually move the piece immediately ─────────
-    const pieceKey = `piece${pieceNumber}`; // piece1 … piece4
-    const oldPiecePos = myPlayerBefore?.[pieceKey];
-    const optimisticPos =
-      typeof oldPiecePos === 'number'
-        ? getLogicalNextPos(oldPiecePos, lastRoll)
-        : null;
-    const savedMovablePieces = [...movablePieces];
-
-    if (optimisticPos !== null && optimisticPos !== undefined) {
-      setPlayers(prev =>
-        prev.map(p =>
-          String(p.user_id) === String(user.id)
-            ? { ...p, [pieceKey]: optimisticPos }
-            : p
-        )
-      );
-    }
+    // Disable piece selection immediately so there are no double-taps
     setMovablePieces([]);
     setSelectedPiece(null);
-    // ─────────────────────────────────────────────────────────────────────
 
     try {
       const { data, error } = await supabase.rpc('move_ludo_piece', {
@@ -1552,6 +1534,19 @@ export default function LudoGame({
 
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Failed to move');
+
+      // Apply the server-confirmed position so canvas animation starts immediately
+      // after RPC returns — no overshoot, no rubber-band.
+      if (typeof data.new_pos === 'number' && data.piece_number) {
+        const pieceKey = `piece${data.piece_number}`;
+        setPlayers(prev =>
+          prev.map(p =>
+            String(p.user_id) === String(user.id)
+              ? { ...p, [pieceKey]: data.new_pos }
+              : p
+          )
+        );
+      }
 
       // UI-only feedback from server result; no local capture/home mutation here.
       if (data.bumped) {
@@ -1565,6 +1560,11 @@ export default function LudoGame({
       }
 
       onCoinsUpdated?.();
+
+      // Give the canvas animation (~110ms) time to finish before refreshSession
+      // overwrites the players state with the authoritative snapshot.
+      await new Promise(resolve => setTimeout(resolve, 180));
+
       const refreshed = await refreshSession();
       const myPlayerAfter = (refreshed.players || []).find(
         p => String(p.user_id) === String(user.id)
@@ -1586,18 +1586,6 @@ export default function LudoGame({
         }, 1800);
       }
     } catch (err) {
-      // Revert optimistic position so the board shows the correct state
-      if (optimisticPos !== null && optimisticPos !== undefined && myPlayerBefore) {
-        setPlayers(prev =>
-          prev.map(p =>
-            String(p.user_id) === String(user.id)
-              ? { ...p, [pieceKey]: oldPiecePos }
-              : p
-          )
-        );
-      }
-      setMovablePieces(savedMovablePieces);
-      setSelectedPiece(null);
       alert(err.message || 'Failed to move piece');
     }
   };
