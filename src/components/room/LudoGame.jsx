@@ -1019,13 +1019,29 @@ export default function LudoGame({
 
     let nextPlayer = null;
     if (isTeamMode()) {
-      const seatOrder = [1, 2, 3, 4];
+      // Alternate teams: after a Team A player, pick a Team B player (and vice versa).
+      // Within each team, cycle by seat order so both teammates get turns.
       const currentPlayer = sorted[baseIdx];
-      const currentSeat = Number(currentPlayer?.seat_number || 0);
-      const seatIdx = seatOrder.indexOf(currentSeat);
-      if (seatIdx >= 0) {
-        const nextSeat = seatOrder[(seatIdx + 1) % seatOrder.length];
-        nextPlayer = sorted.find(p => Number(p.seat_number) === nextSeat) || null;
+      const currentTeam = currentPlayer?.team_key ||
+        (Number(currentPlayer?.seat_number) % 2 === 1 ? 'A' : 'B');
+      const targetTeam = currentTeam === 'A' ? 'B' : 'A';
+
+      // Collect players from the target team sorted by seat.
+      const targetTeamPlayers = sorted.filter(p => {
+        const t = p.team_key || (Number(p.seat_number) % 2 === 1 ? 'A' : 'B');
+        return t === targetTeam;
+      });
+
+      if (targetTeamPlayers.length > 0) {
+        // Among target team, find the one whose turn it is next (round-robin by seat).
+        // Identify the last time someone from the target team played by looking at
+        // currentSession state — simplest approach: alternate seats within the target team
+        // by comparing seat numbers so both get equal turns over time.
+        // We use current turn index relative to all sorted players to pick the right teammate.
+        const globalIdx = baseIdx;
+        // Target team players ordered by seat; pick the one at position (globalIdx/2 % team size)
+        const teamCycleIdx = Math.floor(globalIdx / 2) % targetTeamPlayers.length;
+        nextPlayer = targetTeamPlayers[teamCycleIdx] || targetTeamPlayers[0];
       }
     } else {
       nextPlayer = sorted[(baseIdx + 1) % sorted.length];
@@ -1241,17 +1257,17 @@ export default function LudoGame({
         alert('Please complete teams: 2 players in Team A and 2 players in Team B');
         return;
       }
-      // Update player team_key in database
+      // Persist final team assignments (local overrides have priority) to DB.
       try {
         for (const player of players) {
-          const team = getLudoTeam(player);
-          if (team) {
-            await supabase
-              .from('room_ludo_players')
-              .update({ team_key: team })
-              .eq('id', player.id);
-          }
+          const team = getLudoTeam(player); // respects teamAssignments > team_key > seat
+          await supabase
+            .from('room_ludo_players')
+            .update({ team_key: team })
+            .eq('id', player.id);
         }
+        // Reload so in-game player objects have the final team_key set.
+        await loadPlayers(currentSession.id);
       } catch (err) {
         console.error('Failed to update team assignments:', err);
         alert('Failed to save team assignments');
