@@ -1928,7 +1928,7 @@ export default function LudoGame({
         onClick={(e) => {
           e.stopPropagation();
         }}
-        className={`relative z-[80] w-20 h-20 flex items-center justify-center select-none ${
+        className={`relative z-[80] w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center select-none ${
           canRoll ? 'cursor-pointer active:scale-95' : 'cursor-default'
         }`}
         style={{
@@ -1938,7 +1938,7 @@ export default function LudoGame({
         }}
       >
         <div
-          className="w-14 h-14 rounded-2xl border-2 flex items-center justify-center shadow-lg"
+          className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl border-2 flex items-center justify-center shadow-lg"
           style={{
             borderColor: PLAYER_COLORS[colorIdx],
             background: `linear-gradient(135deg, ${PLAYER_COLORS[colorIdx]}22, ${PLAYER_COLORS[colorIdx]}55)`,
@@ -1949,18 +1949,18 @@ export default function LudoGame({
         >
           {showSettledValue ? (
             <span
-              className="text-3xl font-black leading-none"
+              className="text-2xl sm:text-3xl font-black leading-none"
               style={{ color: PLAYER_COLORS[colorIdx] }}
             >
               {faceValue}
             </span>
           ) : (
-            <span className="text-2xl opacity-80">🎲</span>
+            <span className="text-xl sm:text-2xl opacity-80">🎲</span>
           )}
         </div>
 
         {canRoll && (
-          <span className="absolute top-3 right-3 w-3 h-3 rounded-full bg-emerald-400 animate-ping" />
+          <span className="absolute top-2 right-2 sm:top-3 sm:right-3 w-3 h-3 rounded-full bg-emerald-400 animate-ping" />
         )}
       </button>
     );
@@ -1996,7 +1996,7 @@ export default function LudoGame({
         </div>
 
         {/* Header */}
-        <div className="px-4 py-2.5 flex items-center justify-between border-b border-white/10">
+        <div className="px-4 py-2.5 flex items-center justify-between border-b border-white/10 shrink-0">
           <div className="flex items-center gap-2">
             <span className="text-2xl">🎯</span>
             <span className="font-bold text-white text-lg">Ludo</span>
@@ -2055,9 +2055,9 @@ export default function LudoGame({
           </div>
         </div>
 
-        <div className={`flex-1 px-3 pb-8 ${currentSession?.status === 'playing'
-          ? `${isTeamMode() ? 'pt-5' : 'pt-1'} overflow-hidden flex flex-col`
-          : 'pt-1 overflow-y-auto'}`}>
+        <div className={`flex-1 px-3 ${currentSession?.status === 'playing'
+          ? `${isTeamMode() ? 'pt-2 pb-2' : 'pt-1 pb-2'} overflow-hidden flex flex-col`
+          : 'pt-1 pb-8 overflow-y-auto'}`}>
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-white/50" />
@@ -2132,7 +2132,7 @@ export default function LudoGame({
             <div className={`flex flex-col flex-1 ${currentSession?.status === 'playing' ? 'gap-1 mt-0' : 'gap-2'}`}>
               {/* Info bar */}
               <div className="flex items-center justify-between
-                bg-slate-800 border border-white/10 rounded-xl px-3 py-1.5">
+                bg-slate-800 border border-white/10 rounded-xl px-3 py-1.5 shrink-0">
                 <div className="text-center">
                   <div className="text-white/40 text-[9px] uppercase font-bold">Entry</div>
                   <div className="text-amber-400 font-black text-xs">
@@ -2163,17 +2163,17 @@ export default function LudoGame({
 
               {/* Team 2v2 only: persistent teammate-resigned banner in safe area between info and board */}
               {isTeamMode() && currentSession.status === 'playing' && resignedTeammateName && (
-                <>
-                  <div className="w-full h-9 rounded-xl border border-amber-400/30 bg-amber-900/45 text-amber-100 shadow-md shrink-0 flex items-center justify-center px-3">
+                <div className="shrink-0 mt-1">
+                  <div className="w-full h-8 rounded-xl border border-amber-400/30 bg-amber-900/45 text-amber-100 shadow-md flex items-center justify-center px-2">
                     <span className="text-sm mr-1.5">🤖</span>
-                    <p className="text-[11px] font-semibold text-center truncate">
+                    <p className="text-[10px] sm:text-[11px] font-semibold text-center truncate">
                       Your teammate {resignedTeammateName} left. You are now playing with Auto support.
                     </p>
                   </div>
-                  <div className="w-full text-center text-[11px] text-amber-300/90 font-semibold shrink-0">
+                  <div className="w-full text-center text-[9px] text-amber-300/90 font-semibold mt-0.5">
                     DEBUG teammate resigned: {resignedTeammateName}
                   </div>
-                </>
+                </div>
               )}
 
               {/* Playing layout: top row + board + bottom row */}
@@ -2248,10 +2248,10 @@ export default function LudoGame({
                   );
 
                   return (
-                    <div key={p.id} className={`flex items-center gap-2 ${isFinishFx ? 'animate-bounce' : ''}`}>
-                      {diceSide === 'left' && renderDiceSlot(p, 'left')}
+                    <div key={p.id} className={`flex items-center gap-1 sm:gap-2 ${isFinishFx ? 'animate-bounce' : ''}`}>
+                      {diceSide === 'left' && renderDiceSlot(p)}
                       {playerCard}
-                      {diceSide === 'right' && renderDiceSlot(p, 'right')}
+                      {diceSide === 'right' && renderDiceSlot(p)}
                     </div>
                   );
                 };
@@ -2264,7 +2264,7 @@ export default function LudoGame({
                 return (
                   <>
                     {/* Top players: fixed by real home slot */}
-                    <div className="mt-1">
+                    <div className="mt-1 shrink-0">
                       <div className="flex items-center justify-between px-1">
                         <div className="flex-1 flex justify-start">{renderPlayerWithDice(topLeft)}</div>
                         <div className="flex-1 flex justify-end">{renderPlayerWithDice(topRight)}</div>
@@ -2272,22 +2272,23 @@ export default function LudoGame({
                     </div>
 
                     {/* Board */}
-                    <div className="mt-1.5 flex-1 flex flex-col justify-center min-h-0">
+                    <div className="mt-1 flex-1 flex flex-col justify-center items-center min-h-0 w-full relative">
                       {finishToast && (
-                        <div className="mb-2 flex justify-center shrink-0">
-                          <div className="pointer-events-none rounded-full bg-amber-400/95 px-3 py-1 text-xs font-black text-slate-900 shadow-lg animate-bounce">
-                            {finishToast}
-                          </div>
+                        <div className="absolute top-0 left-1/2 -translate-x-1/2 z-20 pointer-events-none rounded-full bg-amber-400/95 px-3 py-1 text-xs font-black text-slate-900 shadow-lg animate-bounce">
+                          {finishToast}
                         </div>
                       )}
                       <div
-                        className={`relative bg-slate-800 rounded-xl p-1.5 border border-white/5 transition-all duration-300 mx-auto w-full max-w-[500px] shrink min-h-0 flex items-center justify-center ${
+                        className={`relative bg-slate-800 rounded-xl p-1.5 border border-white/5 transition-all duration-300 flex items-center justify-center shrink min-h-0 ${
                           recentFinishedUserId ? 'animate-pulse' : ''
                         }`}
                         style={{
                           boxShadow: recentFinishedUserId
                             ? '0 0 0 2px rgba(251,191,36,0.45), 0 0 24px rgba(251,191,36,0.35)'
                             : undefined,
+                          maxHeight: '100%',
+                          maxWidth: '100%',
+                          aspectRatio: '1 / 1'
                         }}
                       >
                         <canvas
@@ -2295,21 +2296,21 @@ export default function LudoGame({
                           width={600}
                           height={600}
                           onClick={handleCanvasClick}
-                          className="w-full max-h-[50dvh] aspect-square rounded-lg object-contain"
+                          className="w-full h-full rounded-lg object-contain"
                         />
                         {/* Team A/B corner badges */}
                         {isTeamMode() && playersWithVisuals.map(({ player: bp, visualIdx: vi }) => {
                           const bTeam = getEffectiveTeam(bp);
                           const cornerClass = [
-                            'bottom-3 left-3',
-                            'bottom-3 right-3',
-                            'top-3 right-3',
-                            'top-3 left-3',
+                            'bottom-2 left-2 sm:bottom-3 sm:left-3',
+                            'bottom-2 right-2 sm:bottom-3 sm:right-3',
+                            'top-2 right-2 sm:top-3 sm:right-3',
+                            'top-2 left-2 sm:top-3 sm:left-3',
                           ][vi];
                           return (
                             <div
                               key={bp.id}
-                              className={`pointer-events-none absolute ${cornerClass} z-10 w-[18px] h-[18px] flex items-center justify-center rounded-full text-[9px] font-black border shadow-md ${
+                              className={`pointer-events-none absolute ${cornerClass} z-10 w-[16px] h-[16px] sm:w-[18px] sm:h-[18px] flex items-center justify-center rounded-full text-[8px] sm:text-[9px] font-black border shadow-md ${
                                 bTeam === 'A'
                                   ? 'bg-cyan-500/85 text-white border-cyan-300/70'
                                   : 'bg-violet-500/85 text-white border-violet-300/70'
@@ -2323,7 +2324,7 @@ export default function LudoGame({
                     </div>
 
                     {/* Bottom players: fixed by real home slot */}
-                    <div className="mt-1.5">
+                    <div className="mt-1 shrink-0">
                       <div className="flex items-center justify-between px-1">
                         <div className="flex-1 flex justify-start">{renderPlayerWithDice(bottomLeft)}</div>
                         <div className="flex-1 flex justify-end">{renderPlayerWithDice(bottomRight)}</div>
