@@ -2009,6 +2009,12 @@ export default function LudoGame({
                 {(userCoins || 0).toLocaleString()}
               </span>
             </div>
+            {isTeamMode() && currentSession?.status === 'playing' && resignedTeammateName && (
+              <div className="max-w-[110px] rounded-full border border-amber-400/40 bg-amber-900/55 px-2 py-[3px] text-amber-100 text-[10px] sm:text-[11px] font-semibold leading-none shrink-0">
+                <span className="block truncate sm:hidden">Auto: {resignedTeammateName}</span>
+                <span className="hidden truncate sm:block">{resignedTeammateName} left · Auto</span>
+              </div>
+            )}
             {/* Settings button — visible only for waiting moderators or playing participants */}
             {currentSession && (
               ((canModerate && currentSession.status === 'waiting') ||
@@ -2255,17 +2261,6 @@ export default function LudoGame({
                         <div className="flex-1 flex justify-end">{renderPlayerWithDice(topRight)}</div>
                       </div>
                     </div>
-
-                    {/* Team 2v2 floating teammate-left badge (anchored to playing area, not board) */}
-                    {isTeamMode() && resignedTeammateName && (
-                      <div className="pointer-events-none absolute top-2 left-1/2 -translate-x-1/2 z-20 w-auto max-w-[55%]">
-                        <div className="h-6 rounded-full border border-amber-400/40 bg-amber-900/55 text-amber-100 shadow-md flex items-center justify-center px-2.5">
-                          <span className="text-[11px] font-semibold truncate">
-                            {resignedTeammateName} left · Auto
-                          </span>
-                        </div>
-                      </div>
-                    )}
 
                     {/* Board */}
                     <div className="mt-1 flex-1 flex flex-col justify-center items-center min-h-0 w-full relative">
