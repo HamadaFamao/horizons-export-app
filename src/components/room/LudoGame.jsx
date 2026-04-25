@@ -1022,25 +1022,15 @@ export default function LudoGame({
       // Alternate teams: after a Team A player, pick a Team B player (and vice versa).
       // Within each team, cycle by seat order so both teammates get turns.
       const currentPlayer = sorted[baseIdx];
-      const currentTeam = currentPlayer?.team_key ||
-        (Number(currentPlayer?.seat_number) % 2 === 1 ? 'A' : 'B');
+      const currentTeam = getEffectiveTeam(currentPlayer);
       const targetTeam = currentTeam === 'A' ? 'B' : 'A';
 
       // Collect players from the target team sorted by seat.
-      const targetTeamPlayers = sorted.filter(p => {
-        const t = p.team_key || (Number(p.seat_number) % 2 === 1 ? 'A' : 'B');
-        return t === targetTeam;
-      });
+      const targetTeamPlayers = sorted.filter(p => getEffectiveTeam(p) === targetTeam);
 
       if (targetTeamPlayers.length > 0) {
-        // Among target team, find the one whose turn it is next (round-robin by seat).
-        // Identify the last time someone from the target team played by looking at
-        // currentSession state — simplest approach: alternate seats within the target team
-        // by comparing seat numbers so both get equal turns over time.
-        // We use current turn index relative to all sorted players to pick the right teammate.
-        const globalIdx = baseIdx;
-        // Target team players ordered by seat; pick the one at position (globalIdx/2 % team size)
-        const teamCycleIdx = Math.floor(globalIdx / 2) % targetTeamPlayers.length;
+        // Cycle through target team players so both teammates get equal turns.
+        const teamCycleIdx = Math.floor(baseIdx / 2) % targetTeamPlayers.length;
         nextPlayer = targetTeamPlayers[teamCycleIdx] || targetTeamPlayers[0];
       }
     } else {
@@ -1257,22 +1247,37 @@ export default function LudoGame({
         alert('Please complete teams: 2 players in Team A and 2 players in Team B');
         return;
       }
-      // Persist final team assignments (local overrides have priority) to DB.
+      // Persist final effective team for every player, then reload fresh data.
       try {
         for (const player of players) {
-          const team = getLudoTeam(player); // respects teamAssignments > team_key > seat
-          await supabase
+          const team = getEffectiveTeam(player);
+          const { error: updateErr } = await supabase
             .from('room_ludo_players')
             .update({ team_key: team })
             .eq('id', player.id);
+          if (updateErr) throw updateErr;
         }
-        // Reload so in-game player objects have the final team_key set.
-        await loadPlayers(currentSession.id);
       } catch (err) {
         console.error('Failed to update team assignments:', err);
         alert('Failed to save team assignments');
         return;
       }
+      // Reload players so the in-game objects carry the saved team_key.
+      // Use the RETURN VALUE here — React state update is async and the
+      // closure still holds the old players array.
+      const freshPlayers = await loadPlayers(currentSession.id);
+      const firstPlayerForTeam = freshPlayers?.[0];
+      if (!firstPlayerForTeam?.user_id) return;
+
+      await supabase
+        .from('room_ludo_sessions')
+        .update({
+          status: 'playing',
+          started_at: new Date().toISOString(),
+          current_turn_user_id: firstPlayerForTeam.user_id,
+        })
+        .eq('id', currentSession.id);
+      return; // done — skip the duplicate update below
     } else {
       if (players.length < 2) {
         alert('Need at least 2 players');
@@ -1361,22 +1366,19 @@ export default function LudoGame({
   const isMyTurn = String(currentSession?.current_turn_user_id) === String(user?.id);
   const netPrize = Math.floor((currentSession?.entry_cost || 0) * players.length * 0.9);
 
-  function getLudoTeam(player) {
+  // Single source of truth for team assignment.
+  // Priority: local UI override → persisted DB value → seat fallback.
+  const getEffectiveTeam = (player) => {
     if (!player) return null;
-    // 1. Check UI overrides first so manual team selection updates instantly.
-    const assignment = teamAssignments[String(player.user_id)];
-    if (assignment && (assignment === 'A' || assignment === 'B')) {
-      return assignment;
-    }
-    // 2. Then use explicit team_key from database if present.
-    if (player.team_key && (player.team_key === 'A' || player.team_key === 'B')) {
-      return player.team_key;
-    }
-    // 3. Fallback to seat-based assignment.
+    const override = teamAssignments?.[String(player.user_id)];
+    if (override === 'A' || override === 'B') return override;
+    if (player.team_key === 'A' || player.team_key === 'B') return player.team_key;
     const seat = Number(player?.seat_number || 0);
-    if (!seat) return null;
     return seat === 1 || seat === 3 ? 'A' : 'B';
-  }
+  };
+
+  // Alias kept for any remaining call sites during refactor.
+  const getLudoTeam = getEffectiveTeam;
 
   function isTeamMode() {
     if (Number(currentSession?.max_players || 0) !== 4) return false;
@@ -1385,7 +1387,7 @@ export default function LudoGame({
 
   // Helper: Get players in a specific team
   const getTeamPlayers = (teamLetter) => {
-    return players.filter(p => getLudoTeam(p) === teamLetter);
+    return players.filter(p => getEffectiveTeam(p) === teamLetter);
   };
 
   // Helper: Toggle player between teams
@@ -1394,7 +1396,7 @@ export default function LudoGame({
     const player = players.find(p => String(p.user_id) === userIdStr);
     if (!player) return;
 
-    const current = getLudoTeam(player);
+    const current = getEffectiveTeam(player);
     const teamA = getTeamPlayers('A');
     const teamB = getTeamPlayers('B');
     const isBothTeamsFull = teamA.length === 2 && teamB.length === 2;
@@ -1453,7 +1455,7 @@ export default function LudoGame({
       return;
     }
 
-    const selectedTeam = getLudoTeam(selectedPlayer);
+    const selectedTeam = getEffectiveTeam(selectedPlayer);
 
     // Clicking another player on the same team just changes selection.
     if (selectedTeam === current) {
@@ -1777,7 +1779,7 @@ export default function LudoGame({
                 const renderPlayerWithDice = (entry) => {
                   if (!entry) return null;
                   const { player: p, visualIdx, colorIdx } = entry;
-                  const team = getLudoTeam(p);
+                  const team = getEffectiveTeam(p);
                   const isCurrentTurn = String(currentSession.current_turn_user_id) === String(p.user_id);
                   const piecesFinished = p.pieces_finished || 0;
                   const isFinishFx = String(recentFinishedUserId) === String(p.user_id);
@@ -1936,6 +1938,7 @@ export default function LudoGame({
                         {getTeamPlayers('A').map(p => {
                           const colorIdx = getPlayerColorIndex(p);
                           const isSelected = String(selectedTeamPlayerId) === String(p.user_id);
+                          const effTeam = getEffectiveTeam(p);
                           return (
                             <button
                               key={p.id}
@@ -1958,6 +1961,9 @@ export default function LudoGame({
                               {String(p.user_id) === String(user?.id) && (
                                 <span className="text-amber-300 text-[8px] shrink-0">You</span>
                               )}
+                              <span className="text-white/30 text-[7px] shrink-0 font-mono">
+                                db:{p.team_key||'?'} eff:{effTeam}
+                              </span>
                             </button>
                           );
                         })}
@@ -1978,6 +1984,7 @@ export default function LudoGame({
                         {getTeamPlayers('B').map(p => {
                           const colorIdx = getPlayerColorIndex(p);
                           const isSelected = String(selectedTeamPlayerId) === String(p.user_id);
+                          const effTeam = getEffectiveTeam(p);
                           return (
                             <button
                               key={p.id}
@@ -2000,6 +2007,9 @@ export default function LudoGame({
                               {String(p.user_id) === String(user?.id) && (
                                 <span className="text-amber-300 text-[8px] shrink-0">You</span>
                               )}
+                              <span className="text-white/30 text-[7px] shrink-0 font-mono">
+                                db:{p.team_key||'?'} eff:{effTeam}
+                              </span>
                             </button>
                           );
                         })}
