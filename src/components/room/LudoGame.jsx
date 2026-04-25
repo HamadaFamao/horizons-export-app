@@ -1716,6 +1716,18 @@ export default function LudoGame({
     return currentSession?.team_mode === true;
   }
 
+  const meInTeamMode = isTeamMode()
+    ? players.find(p => String(p.user_id) === String(user?.id))
+    : null;
+  const teammatePlayer = meInTeamMode
+    ? players.find(
+      p => String(p.user_id) !== String(user?.id) && getEffectiveTeam(p) === getEffectiveTeam(meInTeamMode)
+    )
+    : null;
+  const teamHeaderStatusText = resignedTeammateName
+    ? (String(resignedTeammateName).length > 9 ? 'Auto' : `Auto: ${resignedTeammateName}`)
+    : (teammatePlayer?.name ? `Your teammate: ${teammatePlayer.name}` : null);
+
   const getTeamPlayers = (teamLetter) => {
     return players.filter(p => getEffectiveTeam(p) === teamLetter);
   };
@@ -1996,19 +2008,21 @@ export default function LudoGame({
         </div>
 
         {/* Header */}
-        <div className="relative px-4 py-2.5 flex items-center justify-between border-b border-white/10 shrink-0">
+        <div className="px-4 py-2.5 flex items-center justify-between border-b border-white/10 shrink-0">
           <div className="flex items-center gap-2">
             <span className="text-2xl">🎯</span>
             <span className="font-bold text-white text-lg">Ludo</span>
           </div>
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1 bg-amber-500/20
-              border border-amber-500/30 rounded-full px-3 py-1">
-              <span className="text-sm">🪙</span>
-              <span className="text-amber-300 font-black text-sm">
-                {(userCoins || 0).toLocaleString()}
-              </span>
-            </div>
+            {isTeamMode() && currentSession?.status === 'playing' && isJoined && teamHeaderStatusText && (
+              <div className={`max-w-[150px] rounded-full px-2.5 py-[3px] text-[11px] sm:text-[12px] font-medium leading-none truncate ${
+                resignedTeammateName
+                  ? 'bg-amber-900/55 text-amber-100 border border-amber-400/40'
+                  : 'bg-emerald-900/45 text-emerald-100 border border-emerald-400/35'
+              }`}>
+                {teamHeaderStatusText}
+              </div>
+            )}
             {/* Settings button — visible only for waiting moderators or playing participants */}
             {currentSession && (
               ((canModerate && currentSession.status === 'waiting') ||
@@ -2053,13 +2067,6 @@ export default function LudoGame({
               <X className="w-5 h-5" />
             </button>
           </div>
-          {isTeamMode() && currentSession?.status === 'playing' && resignedTeammateName && (
-            <div className="pointer-events-none absolute right-24 top-1/2 -translate-y-1/2 z-10">
-              <div className="max-w-[90px] h-[22px] rounded-full border border-amber-400/40 bg-amber-900/55 px-2 text-amber-100 text-[11px] font-semibold leading-none whitespace-nowrap overflow-hidden text-ellipsis flex items-center">
-                {String(resignedTeammateName).length > 7 ? 'Auto' : `Auto: ${resignedTeammateName}`}
-              </div>
-            </div>
-          )}
         </div>
 
         <div className={`flex-1 px-3 ${currentSession?.status === 'playing'
