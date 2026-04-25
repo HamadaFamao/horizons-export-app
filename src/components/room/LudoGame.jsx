@@ -2129,7 +2129,7 @@ export default function LudoGame({
               </div>
             </div>
           ) : currentSession ? (
-            <div className={`flex flex-col flex-1 ${currentSession?.status === 'playing' ? 'gap-1 mt-0' : 'gap-2'}`}>
+            <div className={`relative flex flex-col flex-1 ${currentSession?.status === 'playing' ? 'gap-1 mt-0' : 'gap-2'}`}>
               {/* Info bar */}
               <div className="flex items-center justify-between
                 bg-slate-800 border border-white/10 rounded-xl px-3 py-1.5 shrink-0">
@@ -2256,17 +2256,19 @@ export default function LudoGame({
                       </div>
                     </div>
 
+                    {/* Team 2v2 floating teammate-left badge (anchored to playing area, not board) */}
+                    {isTeamMode() && resignedTeammateName && (
+                      <div className="pointer-events-none absolute top-2 left-1/2 -translate-x-1/2 z-20 w-auto max-w-[55%]">
+                        <div className="h-6 rounded-full border border-amber-400/40 bg-amber-900/55 text-amber-100 shadow-md flex items-center justify-center px-2.5">
+                          <span className="text-[11px] font-semibold truncate">
+                            {resignedTeammateName} left · Auto
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Board */}
                     <div className="mt-1 flex-1 flex flex-col justify-center items-center min-h-0 w-full relative">
-                      {isTeamMode() && resignedTeammateName && (
-                        <div className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-auto max-w-[55%]">
-                          <div className="h-6 rounded-full border border-amber-400/40 bg-amber-900/55 text-amber-100 shadow-md flex items-center justify-center px-2.5">
-                            <span className="text-[11px] font-semibold truncate">
-                              {resignedTeammateName} left · Auto
-                            </span>
-                          </div>
-                        </div>
-                      )}
                       {finishToast && (
                         <div className="absolute top-0 left-1/2 -translate-x-1/2 z-20 pointer-events-none rounded-full bg-amber-400/95 px-3 py-1 text-xs font-black text-slate-900 shadow-lg animate-bounce">
                           {finishToast}
