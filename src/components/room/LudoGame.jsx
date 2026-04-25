@@ -111,6 +111,7 @@ export default function LudoGame({
   const [showResult, setShowResult] = useState(false);
   const [consecutiveSixes, setConsecutiveSixes] = useState(0);
   const [message, setMessage] = useState('');
+  const [resignedTeammateName, setResignedTeammateName] = useState(null);
   const [finishToast, setFinishToast] = useState('');
   const [recentFinishedUserId, setRecentFinishedUserId] = useState(null);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
@@ -317,6 +318,7 @@ export default function LudoGame({
 
         setMessage(`Your teammate ${p.name || 'A player'} resigned. Their turns will be auto-played.`);
         setTimeout(() => setMessage(''), 2600);
+        setResignedTeammateName(p.name || 'Your teammate');
       } else {
         setMessage(`${p.name || 'A player'} resigned from Ludo.`);
         setTimeout(() => setMessage(''), 2200);
@@ -364,6 +366,7 @@ export default function LudoGame({
               setWinner(null);
               setWinnerCoins(perPlayerPrize);
               setShowResult(true);
+              setResignedTeammateName(null);
               setMessage(`Team ${s.winner_team} wins`);
               setTimeout(() => setMessage(''), 3000);
 
@@ -392,6 +395,7 @@ export default function LudoGame({
               setWinner(w);
               setWinnerCoins(s.winner_coins || 0);
               setShowResult(true);
+              setResignedTeammateName(null);
               if (String(s.winner_id) === String(user?.id)) {
                 onLudoResult?.({
                   winnerName: w.name,
@@ -2051,7 +2055,7 @@ export default function LudoGame({
           </div>
         </div>
 
-        <div className={`flex-1 px-3 pt-1 pb-8 ${currentSession?.status === 'playing' ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'}`}>
+        <div className={`flex-1 px-3 pb-8 ${currentSession?.status === 'playing' ? 'pt-2 overflow-hidden flex flex-col' : 'pt-1 overflow-y-auto'}`}>
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-white/50" />
@@ -2124,6 +2128,15 @@ export default function LudoGame({
             </div>
           ) : currentSession ? (
             <div className={`flex flex-col flex-1 ${currentSession?.status === 'playing' ? 'gap-1 mt-0' : 'gap-2'}`}>
+              {/* Persistent teammate-resigned banner (team 2v2, this player's teammate left) */}
+              {isTeamMode() && currentSession.status === 'playing' && resignedTeammateName && (
+                <div className="flex items-center gap-2 rounded-xl px-3 py-2 bg-slate-800/90 border border-amber-400/30 shadow-md shrink-0">
+                  <span className="text-base shrink-0">🤖</span>
+                  <p className="text-amber-200 text-[11px] font-semibold leading-snug">
+                    <span className="font-black">{resignedTeammateName}</span> left. You are now playing with Auto support.
+                  </p>
+                </div>
+              )}
               {/* Info bar */}
               <div className="flex items-center justify-between
                 bg-slate-800 border border-white/10 rounded-xl px-3 py-1.5">
