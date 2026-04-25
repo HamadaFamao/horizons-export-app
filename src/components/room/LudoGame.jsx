@@ -2161,18 +2161,6 @@ export default function LudoGame({
                 </div>
               </div>
 
-              {/* Team 2v2 only: persistent teammate-resigned banner in safe area between info and board */}
-              {isTeamMode() && currentSession.status === 'playing' && resignedTeammateName && (
-                <div className="shrink-0 mt-1">
-                  <div className="w-full h-7 rounded-xl border border-amber-400/30 bg-amber-900/45 text-amber-100 shadow-md flex items-center justify-center px-2">
-                    <span className="text-sm mr-1.5">🤖</span>
-                    <p className="text-[10px] font-semibold text-center truncate">
-                      Your teammate {resignedTeammateName} left. Auto support is active.
-                    </p>
-                  </div>
-                </div>
-              )}
-
               {/* Playing layout: top row + board + bottom row */}
               {currentSession.status === 'playing' && (() => {
                 const diceSideByVisualIdx = ['right', 'left', 'left', 'right'];
@@ -2270,6 +2258,15 @@ export default function LudoGame({
 
                     {/* Board */}
                     <div className="mt-1 flex-1 flex flex-col justify-center items-center min-h-0 w-full relative">
+                      {isTeamMode() && resignedTeammateName && (
+                        <div className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-auto max-w-[55%]">
+                          <div className="h-6 rounded-full border border-amber-400/40 bg-amber-900/55 text-amber-100 shadow-md flex items-center justify-center px-2.5">
+                            <span className="text-[11px] font-semibold truncate">
+                              {resignedTeammateName} left · Auto
+                            </span>
+                          </div>
+                        </div>
+                      )}
                       {finishToast && (
                         <div className="absolute top-0 left-1/2 -translate-x-1/2 z-20 pointer-events-none rounded-full bg-amber-400/95 px-3 py-1 text-xs font-black text-slate-900 shadow-lg animate-bounce">
                           {finishToast}
