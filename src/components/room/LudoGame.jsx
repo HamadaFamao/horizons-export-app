@@ -413,20 +413,23 @@ export default function LudoGame({
     return merged;
   };
 
-  const endGame = async (winningTeam, sessionArg = currentSession) => {
+  const endGame = async (winningTeam, sessionArg = currentSession, winnerId = null) => {
     if (!sessionArg?.id || !winningTeam) return;
     if (sessionArg.status === 'finished') return;
     if (teamEliminationHandledRef.current) return;
 
     teamEliminationHandledRef.current = true;
 
+    const updatePayload = {
+      status: 'finished',
+      winner_team: winningTeam,
+      current_turn_user_id: null,
+    };
+    if (winnerId) updatePayload.winner_id = winnerId;
+
     const { error } = await supabase
       .from('room_ludo_sessions')
-      .update({
-        status: 'finished',
-        winner_team: winningTeam,
-        current_turn_user_id: null,
-      })
+      .update(updatePayload)
       .eq('id', sessionArg.id)
       .eq('status', 'playing');
 
@@ -449,6 +452,7 @@ export default function LudoGame({
             ...prev,
             status: 'finished',
             winner_team: winningTeam,
+            winner_id: winnerId || prev.winner_id || null,
             current_turn_user_id: null,
           }
         : prev
@@ -464,49 +468,16 @@ export default function LudoGame({
     const teamBPlayers = activePlayers.filter(p => getEffectiveTeam(p) === 'B');
 
     if (teamAPlayers.length === 0 && teamBPlayers.length > 0) {
-      await endGame('B', sessionArg);
+      const winnerId = teamBPlayers[0]?.user_id || null;
+      await endGame('B', sessionArg, winnerId);
       return;
     }
 
     if (teamBPlayers.length === 0 && teamAPlayers.length > 0) {
-      await endGame('A', sessionArg);
+      const winnerId = teamAPlayers[0]?.user_id || null;
+      await endGame('A', sessionArg, winnerId);
     }
   };
-
-  useEffect(() => {
-    if (!import.meta.env.DEV) return;
-
-    const simulateEliminatedTeamCheck = async () => {
-      const mockPlayers = [
-        { user_id: 'a1', seat_number: 1, left_at: null, is_left: false },
-        { user_id: 'b1', seat_number: 2, left_at: null, is_left: false },
-        { user_id: 'a2', seat_number: 3, left_at: new Date().toISOString(), is_left: true },
-        { user_id: 'b2', seat_number: 4, left_at: null, is_left: false },
-      ];
-
-      const mockSession = {
-        id: currentSession?.id,
-        status: 'playing',
-        max_players: 4,
-        team_mode: true,
-      };
-
-      if (!mockSession.id) {
-        console.log('[LudoTest] Open a live session first to run elimination simulation.');
-        return;
-      }
-
-      teamEliminationHandledRef.current = false;
-      await maybeEndGameForEliminatedTeam(mockPlayers, mockSession);
-      await maybeEndGameForEliminatedTeam(mockPlayers, mockSession);
-      console.log('[LudoTest] Team elimination simulated twice; finish update should be applied once.');
-    };
-
-    window.__simulateLudoTeamElimination = simulateEliminatedTeamCheck;
-    return () => {
-      delete window.__simulateLudoTeamElimination;
-    };
-  }, [currentSession?.id, maybeEndGameForEliminatedTeam]);
 
   const getRelativeVisualSeat = (player, playersList = players) => {
     const totalPlayers = playersList.length;
@@ -1438,7 +1409,6 @@ export default function LudoGame({
   const resignSession = async () => {
     if (!currentSession?.id || !user?.id) return;
     try {
-      // TODO: requires resign_ludo_game RPC to exist in Supabase.
       const { data, error } = await supabase.rpc('resign_ludo_game', {
         p_session_id: currentSession.id,
         p_user_id: user.id,
@@ -1446,7 +1416,25 @@ export default function LudoGame({
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Failed to resign');
       onCoinsUpdated?.();
-      await refreshSession();
+
+      // If the SQL already finished the game (team eliminated), just reload and bail out.
+      // The realtime room_ludo_sessions subscription will fire the finished handler.
+      if (data.game_ended) {
+        setShowSettingsMenu(false);
+        await refreshSession();
+        return;
+      }
+
+      // Game still ongoing — reload players and run the client-side team check as
+      // a safety net (covers edge cases where realtime fires before SQL commits).
+      const refreshedPlayers = await loadPlayers(currentSession.id);
+      const { data: sd } = await supabase
+        .from('room_ludo_sessions')
+        .select('*')
+        .eq('id', currentSession.id)
+        .single();
+      if (sd) setCurrentSession(sd);
+      await maybeEndGameForEliminatedTeam(refreshedPlayers, sd || currentSession);
       setShowSettingsMenu(false);
     } catch (err) {
       alert(err.message || 'Failed to resign');
