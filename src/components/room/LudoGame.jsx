@@ -1263,31 +1263,31 @@ export default function LudoGame({
         return;
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 700));
-
-      const refreshed = await refreshSession();
-      const myPlayerNow = (refreshed?.players || []).find(
+      const myPlayerNow = players.find(
         p => String(p.user_id) === String(user.id)
       );
 
-      if (!myPlayerNow) return;
+      if (!myPlayerNow) {
+        await refreshSession();
+        return;
+      }
 
       const movable = getMovablePieces(myPlayerNow, finalRoll);
+      setMovablePieces(movable);
 
       if (movable.length === 0) {
         setMessage('No valid move. Turn passed.');
         setTimeout(() => setMessage(''), 1700);
-        await wait(DICE_REVEAL_DELAY);
+        await refreshSession();
         return;
       }
 
       if (movable.length === 1) {
-        await wait(DICE_REVEAL_DELAY);
+        await wait(300);
         await movePiece(movable[0]);
         return;
       }
 
-      setMovablePieces(movable);
       setMessage('Tap a highlighted piece to move.');
     } catch (err) {
       clearInterval(interval);
