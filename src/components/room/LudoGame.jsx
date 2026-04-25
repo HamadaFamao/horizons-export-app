@@ -112,6 +112,7 @@ export default function LudoGame({
   const [consecutiveSixes, setConsecutiveSixes] = useState(0);
   const [message, setMessage] = useState('');
   const [resignedTeammateName, setResignedTeammateName] = useState(null);
+  const [autoPillPulse, setAutoPillPulse] = useState(false);
   const [finishToast, setFinishToast] = useState('');
   const [recentFinishedUserId, setRecentFinishedUserId] = useState(null);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
@@ -125,6 +126,7 @@ export default function LudoGame({
   const autoActionStateRef = useRef({});
   const teamEliminationHandledRef = useRef(false);
   const previousPlayersRef = useRef([]);
+  const previousResignedTeammateRef = useRef(null);
   const leftTurnActionRef = useRef({ inFlight: false, key: '' });
   // Prevents the realtime room_ludo_players subscription from reloading players
   // while saveTeams is mid-flight (temp seats 100+ would crash color lookups).
@@ -1728,6 +1730,18 @@ export default function LudoGame({
     ? `Auto: ${resignedTeammateName}`
     : (teammatePlayer?.name ? `Your teammate: ${teammatePlayer.name}` : null);
 
+  useEffect(() => {
+    const wasAuto = !!previousResignedTeammateRef.current;
+    const isAuto = !!resignedTeammateName;
+    previousResignedTeammateRef.current = resignedTeammateName;
+
+    if (!isAuto || wasAuto) return;
+
+    setAutoPillPulse(true);
+    const pulseTimer = setTimeout(() => setAutoPillPulse(false), 900);
+    return () => clearTimeout(pulseTimer);
+  }, [resignedTeammateName]);
+
   const getTeamPlayers = (teamLetter) => {
     return players.filter(p => getEffectiveTeam(p) === teamLetter);
   };
@@ -1995,6 +2009,20 @@ export default function LudoGame({
             transform: rotate(360deg) scale(1);
           }
         }
+        @keyframes ludoAutoPillPulse {
+          0% {
+            opacity: 0.96;
+            box-shadow: 0 0 0 rgba(239,68,68,0);
+          }
+          35% {
+            opacity: 1;
+            box-shadow: 0 0 12px rgba(239,68,68,0.55);
+          }
+          100% {
+            opacity: 1;
+            box-shadow: 0 0 0 rgba(239,68,68,0);
+          }
+        }
       `}</style>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div
@@ -2016,10 +2044,15 @@ export default function LudoGame({
           <div className="flex items-center gap-3">
             {isTeamMode() && currentSession?.status === 'playing' && isJoined && teamHeaderStatusText && (
               <div
-                className={`max-w-[150px] h-[22px] rounded-full px-2.5 text-[11px] sm:text-[12px] font-medium leading-none whitespace-nowrap overflow-hidden text-ellipsis border border-white/20 text-white flex items-center transition-all duration-200 ease-in-out ${
+                className={`h-7 min-w-[150px] max-w-[170px] px-3 rounded-full text-[12px] font-semibold leading-[1] whitespace-nowrap overflow-hidden text-ellipsis border border-white/20 text-white flex items-center justify-center transition-all duration-200 ease-in-out ${
                   resignedTeammateName ? 'bg-red-800/95' : 'bg-green-600/95'
                 }`}
-                style={{ transitionProperty: 'background-color, opacity' }}
+                style={{
+                  transitionProperty: 'background-color, opacity',
+                  animation: resignedTeammateName && autoPillPulse
+                    ? 'ludoAutoPillPulse 900ms ease-out 1'
+                    : 'none',
+                }}
               >
                 {teamHeaderStatusText}
               </div>
