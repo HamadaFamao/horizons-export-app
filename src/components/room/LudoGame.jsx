@@ -2055,7 +2055,9 @@ export default function LudoGame({
           </div>
         </div>
 
-        <div className={`flex-1 px-3 pb-8 ${currentSession?.status === 'playing' ? 'pt-2 overflow-hidden flex flex-col' : 'pt-1 overflow-y-auto'}`}>
+        <div className={`flex-1 px-3 pb-8 ${currentSession?.status === 'playing'
+          ? `${isTeamMode() ? 'pt-5' : 'pt-1'} overflow-hidden flex flex-col`
+          : 'pt-1 overflow-y-auto'}`}>
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-white/50" />
@@ -2128,15 +2130,6 @@ export default function LudoGame({
             </div>
           ) : currentSession ? (
             <div className={`flex flex-col flex-1 ${currentSession?.status === 'playing' ? 'gap-1 mt-0' : 'gap-2'}`}>
-              {/* Persistent teammate-resigned banner (team 2v2, this player's teammate left) */}
-              {isTeamMode() && currentSession.status === 'playing' && resignedTeammateName && (
-                <div className="flex items-center gap-2 rounded-xl px-3 py-2 bg-slate-800/90 border border-amber-400/30 shadow-md shrink-0">
-                  <span className="text-base shrink-0">🤖</span>
-                  <p className="text-amber-200 text-[11px] font-semibold leading-snug">
-                    <span className="font-black">{resignedTeammateName}</span> left. You are now playing with Auto support.
-                  </p>
-                </div>
-              )}
               {/* Info bar */}
               <div className="flex items-center justify-between
                 bg-slate-800 border border-white/10 rounded-xl px-3 py-1.5">
@@ -2167,6 +2160,21 @@ export default function LudoGame({
                   </div>
                 </div>
               </div>
+
+              {/* Team 2v2 only: persistent teammate-resigned banner in safe area between info and board */}
+              {isTeamMode() && currentSession.status === 'playing' && resignedTeammateName && (
+                <>
+                  <div className="w-full h-9 rounded-xl border border-amber-400/30 bg-amber-900/45 text-amber-100 shadow-md shrink-0 flex items-center justify-center px-3">
+                    <span className="text-sm mr-1.5">🤖</span>
+                    <p className="text-[11px] font-semibold text-center truncate">
+                      Your teammate {resignedTeammateName} left. You are now playing with Auto support.
+                    </p>
+                  </div>
+                  <div className="w-full text-center text-[11px] text-amber-300/90 font-semibold shrink-0">
+                    DEBUG teammate resigned: {resignedTeammateName}
+                  </div>
+                </>
+              )}
 
               {/* Playing layout: top row + board + bottom row */}
               {currentSession.status === 'playing' && (() => {
