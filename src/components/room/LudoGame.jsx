@@ -1235,6 +1235,8 @@ export default function LudoGame({
       if (!data?.success) throw new Error(data?.error || 'Failed to roll');
 
       const roll = Number(data.roll || 0);
+      const consecutiveSixes = Number(data?.consecutive_sixes ?? 0);
+      const isTripleSix = Boolean(data?.triple_six) || (roll === 6 && consecutiveSixes >= 3);
 
       setDiceAnimating(false);
       setDiceDisplay(roll);
@@ -1244,7 +1246,12 @@ export default function LudoGame({
         setConsecutiveSixes(data.consecutive_sixes);
       }
 
-      if (data.triple_six) {
+      if (isTripleSix) {
+        // Third consecutive 6: keep visible 6, block any movement, lose turn.
+        setDiceDisplay(6);
+        setLastRoll(6);
+        setMovablePieces([]);
+        setSelectedPiece(null);
         setMessage('🚫 Three 6s! Turn lost.');
         setTimeout(() => setMessage(''), 2000);
         await wait(DICE_REVEAL_DELAY);
@@ -1354,7 +1361,11 @@ export default function LudoGame({
       return;
     }
 
-    if (rollData.triple_six || rollData.turn_passed) {
+    const leftRoll = Number(rollData?.roll || 0);
+    const leftConsecutiveSixes = Number(rollData?.consecutive_sixes ?? 0);
+    const leftTripleSix = Boolean(rollData?.triple_six) || (leftRoll === 6 && leftConsecutiveSixes >= 3);
+
+    if (leftTripleSix || rollData.turn_passed) {
       await refreshSession();
       return;
     }
