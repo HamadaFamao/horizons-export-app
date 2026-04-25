@@ -1725,7 +1725,7 @@ export default function LudoGame({
     )
     : null;
   const teamHeaderStatusText = resignedTeammateName
-    ? (String(resignedTeammateName).length > 9 ? 'Auto' : `Auto: ${resignedTeammateName}`)
+    ? `Auto: ${resignedTeammateName}`
     : (teammatePlayer?.name ? `Your teammate: ${teammatePlayer.name}` : null);
 
   const getTeamPlayers = (teamLetter) => {
@@ -2015,11 +2015,12 @@ export default function LudoGame({
           </div>
           <div className="flex items-center gap-3">
             {isTeamMode() && currentSession?.status === 'playing' && isJoined && teamHeaderStatusText && (
-              <div className={`max-w-[150px] rounded-full px-2.5 py-[3px] text-[11px] sm:text-[12px] font-medium leading-none truncate ${
-                resignedTeammateName
-                  ? 'bg-amber-900/55 text-amber-100 border border-amber-400/40'
-                  : 'bg-emerald-900/45 text-emerald-100 border border-emerald-400/35'
-              }`}>
+              <div
+                className={`max-w-[150px] h-[22px] rounded-full px-2.5 text-[11px] sm:text-[12px] font-medium leading-none whitespace-nowrap overflow-hidden text-ellipsis border border-white/20 text-white flex items-center transition-all duration-200 ease-in-out ${
+                  resignedTeammateName ? 'bg-red-800/95' : 'bg-green-600/95'
+                }`}
+                style={{ transitionProperty: 'background-color, opacity' }}
+              >
                 {teamHeaderStatusText}
               </div>
             )}
