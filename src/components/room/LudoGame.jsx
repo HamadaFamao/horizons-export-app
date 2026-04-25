@@ -303,6 +303,9 @@ export default function LudoGame({
                 });
               }
             } else if (s.winner_team) {
+              setWinner(null);
+              setWinnerCoins(s.winner_coins || 0);
+              setShowResult(true);
               setMessage(`Team ${s.winner_team} wins`);
               setTimeout(() => setMessage(''), 3000);
             }
@@ -413,29 +416,21 @@ export default function LudoGame({
     return merged;
   };
 
-  const endGame = async (winningTeam, sessionArg = currentSession, winnerId = null) => {
+  const endGame = async (winningTeam, sessionArg = currentSession) => {
     if (!sessionArg?.id || !winningTeam) return;
     if (sessionArg.status === 'finished') return;
     if (teamEliminationHandledRef.current) return;
 
     teamEliminationHandledRef.current = true;
 
-    const updatePayload = {
-      status: 'finished',
-      winner_team: winningTeam,
-      current_turn_user_id: null,
-    };
-    if (winnerId) updatePayload.winner_id = winnerId;
+    const { data, error } = await supabase.rpc('finish_ludo_team_game', {
+      p_session_id: sessionArg.id,
+      p_winning_team: winningTeam,
+    });
 
-    const { error } = await supabase
-      .from('room_ludo_sessions')
-      .update(updatePayload)
-      .eq('id', sessionArg.id)
-      .eq('status', 'playing');
-
-    if (error) {
+    if (error || !data?.success) {
       teamEliminationHandledRef.current = false;
-      console.error('Failed to end team game:', error);
+      console.error('Failed to end team game:', error || data?.error);
       return;
     }
 
@@ -444,6 +439,7 @@ export default function LudoGame({
       turnTimerRef.current = null;
     }
 
+    onCoinsUpdated?.();
     setMessage(`Team ${winningTeam} wins`);
     setTimeout(() => setMessage(''), 3000);
     setCurrentSession(prev => (
@@ -452,7 +448,8 @@ export default function LudoGame({
             ...prev,
             status: 'finished',
             winner_team: winningTeam,
-            winner_id: winnerId || prev.winner_id || null,
+            winner_id: data?.winner_id || prev.winner_id || null,
+            winner_coins: data?.winner_coins || prev.winner_coins || 0,
             current_turn_user_id: null,
           }
         : prev
@@ -468,14 +465,12 @@ export default function LudoGame({
     const teamBPlayers = activePlayers.filter(p => getEffectiveTeam(p) === 'B');
 
     if (teamAPlayers.length === 0 && teamBPlayers.length > 0) {
-      const winnerId = teamBPlayers[0]?.user_id || null;
-      await endGame('B', sessionArg, winnerId);
+      await endGame('B', sessionArg);
       return;
     }
 
     if (teamBPlayers.length === 0 && teamAPlayers.length > 0) {
-      const winnerId = teamAPlayers[0]?.user_id || null;
-      await endGame('A', sessionArg, winnerId);
+      await endGame('A', sessionArg);
     }
   };
 
@@ -1502,6 +1497,18 @@ export default function LudoGame({
     return players.filter(p => getEffectiveTeam(p) === teamLetter);
   };
 
+  const winningTeamPlayers = currentSession?.winner_team
+    ? players.filter(p => getEffectiveTeam(p) === currentSession.winner_team)
+    : [];
+  const perPlayerPrize = Number(currentSession?.winner_coins || currentSession?.per_player_prize || 0);
+  const totalTeamPrize = perPlayerPrize * winningTeamPlayers.length;
+
+  useEffect(() => {
+    if (!showResult || !currentSession?.winner_team || !currentSession?.id) return;
+    if (winningTeamPlayers.length > 0) return;
+    loadPlayers(currentSession.id);
+  }, [showResult, currentSession?.winner_team, currentSession?.id, winningTeamPlayers.length]);
+
   // Handle card click in Assign Teams.
   // First click selects a player. Second click on the OPPOSITE team swaps their seats.
   // Second click on the SAME team changes selection.
@@ -1829,6 +1836,52 @@ export default function LudoGame({
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-white/50" />
+            </div>
+          ) : showResult && currentSession?.winner_team ? (
+            <div className="flex flex-col items-center gap-4 py-8">
+              <div className="text-7xl animate-bounce">🏆</div>
+              <div className="text-white font-black text-3xl">Team {currentSession.winner_team} Wins!</div>
+              {winningTeamPlayers.length > 0 ? (
+                <>
+                  <div className="w-full max-w-sm bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4">
+                    <div className="text-amber-200 text-sm font-bold text-center mb-3">
+                      Team prize: {totalTeamPrize.toLocaleString()} coins
+                    </div>
+                    <div className="grid grid-cols-1 gap-3">
+                      {winningTeamPlayers.map((player) => (
+                        <div
+                          key={player.id}
+                          className="flex items-center justify-between gap-3 rounded-xl bg-white/5 border border-white/10 px-3 py-2"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <img
+                              src={player.avatar_url || FALLBACK_AVATAR}
+                              alt={player.name}
+                              className="w-12 h-12 rounded-full border-2 border-amber-400 object-cover"
+                              onError={e => e.currentTarget.src = FALLBACK_AVATAR}
+                            />
+                            <div className="min-w-0">
+                              <div className="text-white font-bold truncate">{player.name}</div>
+                              <div className="text-amber-300 text-sm font-black">+{perPlayerPrize.toLocaleString()} coins</div>
+                            </div>
+                          </div>
+                          <div className={`text-[10px] font-black leading-tight px-2 py-1 rounded-full shrink-0 ${
+                            currentSession.winner_team === 'A'
+                              ? 'bg-cyan-400/20 text-cyan-200 border border-cyan-300/40'
+                              : 'bg-violet-400/20 text-violet-200 border border-violet-300/40'
+                          }`}>
+                            Team {currentSession.winner_team}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-white/50" />
+                </div>
+              )}
             </div>
           ) : showResult && winner ? (
             <div className="flex flex-col items-center gap-4 py-8">
