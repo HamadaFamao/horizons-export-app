@@ -295,16 +295,20 @@ export default function LudoGame({
                   totalPlayers: ps.length,
                 });
               }
-              setTimeout(() => {
-                resultFiredRef.current = false;
-                setCurrentSession(null);
-                setPlayers([]);
-                setShowResult(false);
-                setWinner(null);
-                setLastRoll(null);
-                setMovablePieces([]);
-              }, 6000);
+            } else if (s.winner_team) {
+              setMessage(`Team ${s.winner_team} wins`);
+              setTimeout(() => setMessage(''), 3000);
             }
+
+            setTimeout(() => {
+              resultFiredRef.current = false;
+              setCurrentSession(null);
+              setPlayers([]);
+              setShowResult(false);
+              setWinner(null);
+              setLastRoll(null);
+              setMovablePieces([]);
+            }, 6000);
           });
         } else {
           setCurrentSession(s);
@@ -314,9 +318,12 @@ export default function LudoGame({
         event: '*',
         schema: 'public',
         table: 'room_ludo_players',
-      }, () => {
+      }, async () => {
         // Skip reload while saveTeams is writing temp seats to avoid crash.
-        if (currentSession?.id && !savingTeamsRef.current) loadPlayers(currentSession.id);
+        if (currentSession?.id && !savingTeamsRef.current) {
+          const refreshedPlayers = await loadPlayers(currentSession.id);
+          await maybeEndGameForEliminatedTeam(refreshedPlayers, currentSession);
+        }
       })
       .subscribe();
 
@@ -397,6 +404,62 @@ export default function LudoGame({
 
     setPlayers(merged);
     return merged;
+  };
+
+  const endGame = async (winningTeam, sessionArg = currentSession) => {
+    if (!sessionArg?.id || !winningTeam) return;
+    if (sessionArg.status === 'finished') return;
+
+    const { error } = await supabase
+      .from('room_ludo_sessions')
+      .update({
+        status: 'finished',
+        winner_team: winningTeam,
+        current_turn_user_id: null,
+      })
+      .eq('id', sessionArg.id)
+      .eq('status', 'playing');
+
+    if (error) {
+      console.error('Failed to end team game:', error);
+      return;
+    }
+
+    if (turnTimerRef.current) {
+      clearInterval(turnTimerRef.current);
+      turnTimerRef.current = null;
+    }
+
+    setMessage(`Team ${winningTeam} wins`);
+    setTimeout(() => setMessage(''), 3000);
+    setCurrentSession(prev => (
+      prev
+        ? {
+            ...prev,
+            status: 'finished',
+            winner_team: winningTeam,
+            current_turn_user_id: null,
+          }
+        : prev
+    ));
+  };
+
+  const maybeEndGameForEliminatedTeam = async (playersList = players, sessionArg = currentSession) => {
+    if (!sessionArg?.id || sessionArg?.status !== 'playing') return;
+    if (!(Number(sessionArg?.max_players || 0) === 4 && sessionArg?.team_mode === true)) return;
+
+    const activePlayers = (playersList || []).filter(p => !p.left_at && !p.is_left);
+    const teamAPlayers = activePlayers.filter(p => getEffectiveTeam(p) === 'A');
+    const teamBPlayers = activePlayers.filter(p => getEffectiveTeam(p) === 'B');
+
+    if (teamAPlayers.length === 0 && teamBPlayers.length > 0) {
+      await endGame('B', sessionArg);
+      return;
+    }
+
+    if (teamBPlayers.length === 0 && teamAPlayers.length > 0) {
+      await endGame('A', sessionArg);
+    }
   };
 
   const getRelativeVisualSeat = (player, playersList = players) => {
@@ -1011,6 +1074,7 @@ export default function LudoGame({
       .eq('id', currentSession.id)
       .single();
     if (sd) setCurrentSession(sd);
+    await maybeEndGameForEliminatedTeam(refreshedPlayers, sd || currentSession);
     return { players: refreshedPlayers || [], session: sd || null };
   };
 
@@ -1248,7 +1312,8 @@ export default function LudoGame({
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Failed to leave');
       onCoinsUpdated?.();
-      await loadPlayers(currentSession.id);
+      const refreshedPlayers = await loadPlayers(currentSession.id);
+      await maybeEndGameForEliminatedTeam(refreshedPlayers, currentSession);
     } catch (err) {
       alert(err.message || 'Failed to leave');
     } finally {
