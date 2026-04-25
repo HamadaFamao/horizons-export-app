@@ -28,13 +28,13 @@ const SAFE_SQUARES = [0, 8, 13, 21, 26, 34, 39, 47];
 // Start position on track per color: Red=39, Blue=26, Yellow=13, Green=0
 const START_POSITIONS = [39, 26, 13, 0];
 
-// Relative logical index of each player's home-entry arrow square.
-// When a piece is on 50, its next step must enter the colored home lane.
-const HOME_ENTRY_LOGICAL_INDEX = 50;
-
-// Absolute track indices of the colored home-entry arrows for each player.
-// Red=[14,7], Blue=[7,14], Yellow=[0,7], Green=[7,0]
-const HOME_ENTRY_TRACK_INDICES = [37, 24, 11, 50];
+// Arrow cells where each color enters its home lane.
+const HOME_ENTRY_ARROW_CELLS = [
+  [14, 7],
+  [7, 14],
+  [0, 7],
+  [7, 0],
+];
 
 // Home column cells per player (5 cells, positions 52-56 relative)
 const HOME_COLUMNS = [
@@ -142,6 +142,7 @@ export default function LudoGame({
   const previousPlayersRef = useRef([]);
   const previousResignedTeammateRef = useRef(null);
   const movingPieceRef = useRef(false);
+  const homeEntryDebugSnapshotRef = useRef('');
   const previousTurnUserIdRef = useRef(null);
   const previousDiceResultKeyRef = useRef('');
   const leftTurnActionRef = useRef({ inFlight: false, key: '' });
@@ -679,7 +680,7 @@ export default function LudoGame({
     return normalizeColorIndex(layout[seatIdx] ?? seatIdx);
   };
 
-  const getPieceCanvasPosition = (player, pieceIndex, cellSize, playersList = players) => {
+  const getPieceBoardPlacement = (player, pieceIndex, playersList = players) => {
     const pieces = [player.piece1, player.piece2, player.piece3, player.piece4];
     const pos = pieces[pieceIndex];
     if (typeof pos !== 'number') return null;
@@ -705,10 +706,14 @@ export default function LudoGame({
       const slots = finishedTriangleSlots[colorIdx] || [[7.5, 7.5]];
       const [row, col] = slots[Math.min(slotIndex, slots.length - 1)] || [7.5, 7.5];
       return {
-        x: col * cellSize,
-        y: row * cellSize,
+        row,
+        col,
         colorIdx,
         isFinished: true,
+        zone: 'finished',
+        seatNumber: Number(player?.seat_number || 0),
+        logicalPos: pos,
+        trackIndex: null,
       };
     }
 
@@ -716,24 +721,57 @@ export default function LudoGame({
       const homeBase = HOME_BASES[colorIdx];
       if (!homeBase || !homeBase[pieceIndex]) return null;
       const [baseRow, baseCol] = homeBase[pieceIndex];
-      // Coordinates are already decimal-centered — multiply directly by cellSize
       return {
-        x: baseCol * cellSize,
-        y: baseRow * cellSize,
+        row: baseRow,
+        col: baseCol,
         colorIdx,
         isFinished: false,
+        zone: 'base',
+        seatNumber: Number(player?.seat_number || 0),
+        logicalPos: pos,
+        trackIndex: null,
       };
     }
 
     if (pos >= 0 && pos <= 51) {
       const adjustedPos = (pos + START_POSITIONS[colorIdx]) % 52;
-      if (!TRACK_CELLS[adjustedPos]) return null;
-      const [row, col] = TRACK_CELLS[adjustedPos];
+      const [entryRow, entryCol] = HOME_ENTRY_ARROW_CELLS[colorIdx] || [];
+      const entryTrackIndex = TRACK_CELLS.findIndex(
+        ([row, col]) => row === entryRow && col === entryCol
+      );
+      const trackCell = TRACK_CELLS[adjustedPos];
+      const isInvalidOuterAfterEntry =
+        entryTrackIndex !== -1 &&
+        adjustedPos === (entryTrackIndex + 1) % TRACK_CELLS.length;
+
+      if (isInvalidOuterAfterEntry) {
+        const homeCol = HOME_COLUMNS[colorIdx];
+        if (!homeCol || !homeCol[0]) return null;
+        const [row, col] = homeCol[0];
+        return {
+          row: row + 0.0001,
+          col,
+          colorIdx,
+          isFinished: false,
+          zone: 'home-lane',
+          seatNumber: Number(player?.seat_number || 0),
+          logicalPos: pos,
+          trackIndex: adjustedPos,
+          derivedFromOuterTrack: true,
+        };
+      }
+
+      if (!trackCell) return null;
+      const [row, col] = trackCell;
       return {
-        x: col * cellSize + cellSize / 2,
-        y: row * cellSize + cellSize / 2,
+        row,
+        col,
         colorIdx,
         isFinished: false,
+        zone: 'outer-track',
+        seatNumber: Number(player?.seat_number || 0),
+        logicalPos: pos,
+        trackIndex: adjustedPos,
       };
     }
 
@@ -743,15 +781,60 @@ export default function LudoGame({
       if (!homeCol || !homeCol[homeColIdx]) return null;
       const [row, col] = homeCol[homeColIdx];
       return {
-        x: col * cellSize + cellSize / 2,
-        y: row * cellSize + cellSize / 2,
+        row,
+        col,
         colorIdx,
         isFinished: false,
+        zone: 'home-lane',
+        seatNumber: Number(player?.seat_number || 0),
+        logicalPos: pos,
+        trackIndex: null,
       };
     }
 
     return null;
   };
+
+  const getPieceCanvasPosition = (player, pieceIndex, cellSize, playersList = players) => {
+    const placement = getPieceBoardPlacement(player, pieceIndex, playersList);
+    if (!placement) return null;
+
+    const isCenteredCell = placement.zone === 'outer-track' || placement.zone === 'home-lane';
+
+    return {
+      ...placement,
+      x: placement.col * cellSize + (isCenteredCell ? cellSize / 2 : 0),
+      y: placement.row * cellSize + (isCenteredCell ? cellSize / 2 : 0),
+    };
+  };
+
+  useEffect(() => {
+    const cellSize = canvasRef.current ? canvasRef.current.width / 15 : 0;
+    const debugRows = [];
+
+    players.forEach((player) => {
+      [player.piece1, player.piece2, player.piece3, player.piece4].forEach((pos, pieceIdx) => {
+        if (typeof pos !== 'number' || pos < 49 || pos > 53) return;
+        const placement = getPieceBoardPlacement(player, pieceIdx, players);
+        const canvasPos = cellSize > 0 ? getPieceCanvasPosition(player, pieceIdx, cellSize, players) : null;
+        if (!placement) return;
+        debugRows.push({
+          seat_number: Number(player?.seat_number || 0),
+          piece_number: pieceIdx + 1,
+          piece_position: pos,
+          rendered_cell: [placement.row, placement.col],
+          rendered_xy: canvasPos ? [Number(canvasPos.x.toFixed(1)), Number(canvasPos.y.toFixed(1))] : null,
+          zone: placement.zone,
+          track_index: placement.trackIndex,
+        });
+      });
+    });
+
+    const snapshot = JSON.stringify(debugRows);
+    if (!debugRows.length || snapshot === homeEntryDebugSnapshotRef.current) return;
+    homeEntryDebugSnapshotRef.current = snapshot;
+    console.debug('Ludo home-entry mapping', debugRows);
+  }, [players, currentSession?.id]);
 
   const drawBoard = () => {
     const canvas = canvasRef.current;
