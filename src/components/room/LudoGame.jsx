@@ -112,6 +112,7 @@ export default function LudoGame({
   const [consecutiveSixes, setConsecutiveSixes] = useState(0);
   const [message, setMessage] = useState('');
   const [resignedTeammateName, setResignedTeammateName] = useState(null);
+  const [autoHeaderGlow, setAutoHeaderGlow] = useState(false);
   const [finishToast, setFinishToast] = useState('');
   const [recentFinishedUserId, setRecentFinishedUserId] = useState(null);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
@@ -125,6 +126,7 @@ export default function LudoGame({
   const autoActionStateRef = useRef({});
   const teamEliminationHandledRef = useRef(false);
   const previousPlayersRef = useRef([]);
+  const previousResignedTeammateRef = useRef(null);
   const leftTurnActionRef = useRef({ inFlight: false, key: '' });
   // Prevents the realtime room_ludo_players subscription from reloading players
   // while saveTeams is mid-flight (temp seats 100+ would crash color lookups).
@@ -1730,6 +1732,18 @@ export default function LudoGame({
     ? `Auto: ${resignedTeammateName}`
     : (teammatePlayer?.name ? `Your teammate: ${teammatePlayer.name}` : null);
 
+  useEffect(() => {
+    const wasAuto = !!previousResignedTeammateRef.current;
+    const isAuto = !!resignedTeammateName;
+    previousResignedTeammateRef.current = resignedTeammateName;
+
+    if (!isAuto || wasAuto) return;
+
+    setAutoHeaderGlow(true);
+    const glowTimer = setTimeout(() => setAutoHeaderGlow(false), 800);
+    return () => clearTimeout(glowTimer);
+  }, [resignedTeammateName]);
+
   const getTeamPlayers = (teamLetter) => {
     return players.filter(p => getEffectiveTeam(p) === teamLetter);
   };
@@ -2021,6 +2035,12 @@ export default function LudoGame({
                 className={`${teammatePillBaseClass} border border-white/20 text-white ${
                   resignedTeammateName ? 'bg-red-800/95' : 'bg-green-600/95'
                 }`}
+                style={{
+                  boxShadow: resignedTeammateName && autoHeaderGlow
+                    ? '0 0 12px rgba(239,68,68,0.55)'
+                    : 'none',
+                  transition: 'box-shadow 200ms ease, background-color 200ms ease',
+                }}
               >
                 {teamHeaderStatusText}
               </div>
@@ -2214,7 +2234,10 @@ export default function LudoGame({
                         src={p.avatar_url || FALLBACK_AVATAR}
                         alt={p.name}
                         className="w-7 h-7 rounded-full object-cover"
-                        style={{ border: `2px solid ${PLAYER_COLORS[colorIdx]}` }}
+                        style={{
+                          border: `2px solid ${PLAYER_COLORS[colorIdx]}`,
+                          opacity: isAutoForViewer ? 0.75 : 1,
+                        }}
                         onError={e => e.currentTarget.src = FALLBACK_AVATAR}
                       />
                       <div className="text-white text-[9px] font-bold max-w-[56px] truncate text-center leading-tight">
@@ -2230,7 +2253,7 @@ export default function LudoGame({
                             {team}
                           </div>
                           {isAutoForViewer && (
-                            <span className="pointer-events-none absolute -top-[2px] -right-[2px] text-[7px] leading-none font-black px-1 py-[1px] rounded bg-amber-900/95 text-amber-100 border border-amber-400/50">
+                            <span className="pointer-events-none absolute -top-[2px] -right-[2px] text-[9px] leading-none font-semibold px-[5px] py-[1px] rounded-full bg-amber-900/95 text-amber-100 border border-amber-400/40 opacity-[0.85]">
                               Auto
                             </span>
                           )}
