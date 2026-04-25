@@ -2011,15 +2011,12 @@ export default function LudoGame({
         }
         @keyframes ludoAutoPillPulse {
           0% {
-            opacity: 0.96;
             box-shadow: 0 0 0 rgba(239,68,68,0);
           }
-          35% {
-            opacity: 1;
+          45% {
             box-shadow: 0 0 12px rgba(239,68,68,0.55);
           }
           100% {
-            opacity: 1;
             box-shadow: 0 0 0 rgba(239,68,68,0);
           }
         }
@@ -2044,13 +2041,13 @@ export default function LudoGame({
           <div className="flex items-center gap-3">
             {isTeamMode() && currentSession?.status === 'playing' && isJoined && teamHeaderStatusText && (
               <div
-                className={`h-7 min-w-[150px] max-w-[170px] px-3 rounded-full text-[12px] font-semibold leading-[1] whitespace-nowrap overflow-hidden text-ellipsis border border-white/20 text-white flex items-center justify-center transition-all duration-200 ease-in-out ${
+                className={`w-auto h-[22px] max-w-[145px] px-[10px] rounded-full text-[12px] font-semibold leading-[22px] whitespace-nowrap overflow-hidden text-ellipsis border border-white/20 text-white transition-colors duration-200 ease-in-out ${
                   resignedTeammateName ? 'bg-red-800/95' : 'bg-green-600/95'
                 }`}
                 style={{
                   transitionProperty: 'background-color, opacity',
                   animation: resignedTeammateName && autoPillPulse
-                    ? 'ludoAutoPillPulse 900ms ease-out 1'
+                    ? 'ludoAutoPillPulse 800ms ease-out 1'
                     : 'none',
                 }}
               >
