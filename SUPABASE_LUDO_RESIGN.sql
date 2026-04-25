@@ -273,3 +273,69 @@ $$;
 
 -- Grant execution to authenticated users (adjust role as needed)
 GRANT EXECUTE ON FUNCTION resign_ludo_game(uuid, uuid) TO authenticated;
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- Ludo resigned-player turn lock patch (classic vs team_mode)
+--
+-- Goal:
+-- - classic mode: resigned players (left_at IS NOT NULL) are fully out of turns
+-- - team_mode: resigned players remain eligible for auto-turn support
+--
+-- This patch rewrites function definitions in-place and intentionally does not
+-- touch triple-six logic, display_roll logic, payout logic, or team result logic.
+-- ═══════════════════════════════════════════════════════════════════════
+
+DO $$
+DECLARE
+  v_rec record;
+  v_def text;
+  v_new_def text;
+BEGIN
+  FOR v_rec IN
+    SELECT p.oid, p.proname
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+      AND p.proname IN ('get_ludo_roll', 'move_ludo_piece', 'roll_ludo_dice')
+    ORDER BY p.oid DESC
+  LOOP
+    SELECT pg_get_functiondef(v_rec.oid) INTO v_def;
+    v_new_def := v_def;
+
+    -- Normalize active-player filters:
+    -- classic: refunded_at IS NULL AND left_at IS NULL
+    -- team:    refunded_at IS NULL
+    -- Applied as: refunded_at IS NULL AND (v_session.team_mode = true OR left_at IS NULL)
+    v_new_def := regexp_replace(
+      v_new_def,
+      'AND\s+refunded_at\s+IS\s+NULL\s*(?!AND\s*\(\s*v_session\.team_mode\s*=\s*true\s+OR\s+left_at\s+IS\s+NULL\s*\))',
+      E'AND refunded_at IS NULL\n    AND (v_session.team_mode = true OR left_at IS NULL) ',
+      'gi'
+    );
+
+    -- If a function rejects resigned players globally, make it classic-only.
+    v_new_def := regexp_replace(
+      v_new_def,
+      'IF\s+v_player\.left_at\s+IS\s+NOT\s+NULL\s+THEN\s*RETURN\s+jsonb_build_object\(''success'',\s*false,\s*''error'',\s*''Player resigned''\);\s*END\s+IF\s*;',
+      E'IF v_player.left_at IS NOT NULL AND v_session.team_mode IS DISTINCT FROM true THEN\n    RETURN jsonb_build_object(''success'', false, ''error'', ''Player resigned'');\n  END IF;',
+      'gi'
+    );
+
+    -- Ensure classic gets explicit "Player resigned" when player exists but left.
+    -- Inject right before generic NOT FOUND return, only if not already present.
+    IF v_new_def ~* 'IF\s+NOT\s+FOUND\s+THEN\s*RETURN\s+jsonb_build_object\(''success'',\s*false,\s*''error'',\s*''Player not found in session''\);\s*END\s+IF\s*;'
+       AND v_new_def !~* '''Player resigned''' THEN
+      v_new_def := regexp_replace(
+        v_new_def,
+        '(IF\s+NOT\s+FOUND\s+THEN\s*RETURN\s+jsonb_build_object\(''success'',\s*false,\s*''error'',\s*''Player not found in session''\);\s*END\s+IF\s*;)',
+        E'IF v_session.team_mode IS DISTINCT FROM true AND EXISTS (\n    SELECT 1\n    FROM room_ludo_players\n    WHERE session_id = p_session_id\n      AND user_id = p_user_id\n      AND refunded_at IS NULL\n      AND left_at IS NOT NULL\n  ) THEN\n    RETURN jsonb_build_object(''success'', false, ''error'', ''Player resigned'');\n  END IF;\n\n  \1',
+        'i'
+      );
+    END IF;
+
+    IF v_new_def <> v_def THEN
+      EXECUTE v_new_def;
+    END IF;
+  END LOOP;
+END
+$$;

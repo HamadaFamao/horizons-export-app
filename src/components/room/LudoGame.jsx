@@ -133,6 +133,7 @@ export default function LudoGame({
   const teamEliminationHandledRef = useRef(false);
   const previousPlayersRef = useRef([]);
   const previousResignedTeammateRef = useRef(null);
+  const movingPieceRef = useRef(false);
   const previousTurnUserIdRef = useRef(null);
   const previousDiceResultKeyRef = useRef('');
   const leftTurnActionRef = useRef({ inFlight: false, key: '' });
@@ -1167,6 +1168,7 @@ export default function LudoGame({
 
   const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
   const DICE_REVEAL_DELAY = 1400;
+  const TRIPLE_SIX_REVEAL_DELAY = 320;
 
   const getLogicalNextPos = (pos, roll) => {
     if (pos === 57) return null;
@@ -1235,8 +1237,6 @@ export default function LudoGame({
       if (!data?.success) throw new Error(data?.error || 'Failed to roll');
 
       const roll = Number(data.roll || 0);
-      const consecutiveSixes = Number(data?.consecutive_sixes ?? 0);
-      const isTripleSix = Boolean(data?.triple_six) || (roll === 6 && consecutiveSixes >= 3);
 
       setDiceAnimating(false);
       setDiceDisplay(roll);
@@ -1246,7 +1246,7 @@ export default function LudoGame({
         setConsecutiveSixes(data.consecutive_sixes);
       }
 
-      if (isTripleSix) {
+      if (data.triple_six === true) {
         // Third consecutive 6: keep visible 6, block any movement, lose turn.
         setDiceDisplay(6);
         setLastRoll(6);
@@ -1254,7 +1254,7 @@ export default function LudoGame({
         setSelectedPiece(null);
         setMessage('🚫 Three 6s! Turn lost.');
         setTimeout(() => setMessage(''), 2000);
-        await wait(DICE_REVEAL_DELAY);
+        await wait(TRIPLE_SIX_REVEAL_DELAY);
         await refreshSession();
         return;
       }
@@ -1361,11 +1361,7 @@ export default function LudoGame({
       return;
     }
 
-    const leftRoll = Number(rollData?.roll || 0);
-    const leftConsecutiveSixes = Number(rollData?.consecutive_sixes ?? 0);
-    const leftTripleSix = Boolean(rollData?.triple_six) || (leftRoll === 6 && leftConsecutiveSixes >= 3);
-
-    if (leftTripleSix || rollData.turn_passed) {
+    if (rollData.triple_six === true || rollData.turn_passed) {
       await refreshSession();
       return;
     }
@@ -1525,6 +1521,28 @@ export default function LudoGame({
     );
     const beforeFinished = Number(myPlayerBefore?.pieces_finished || 0);
 
+    // ── Optimistic movement: visually move the piece immediately ─────────
+    const pieceKey = `piece${pieceNumber}`; // piece1 … piece4
+    const oldPiecePos = myPlayerBefore?.[pieceKey];
+    const optimisticPos =
+      typeof oldPiecePos === 'number'
+        ? getLogicalNextPos(oldPiecePos, lastRoll)
+        : null;
+    const savedMovablePieces = [...movablePieces];
+
+    if (optimisticPos !== null && optimisticPos !== undefined) {
+      setPlayers(prev =>
+        prev.map(p =>
+          String(p.user_id) === String(user.id)
+            ? { ...p, [pieceKey]: optimisticPos }
+            : p
+        )
+      );
+    }
+    setMovablePieces([]);
+    setSelectedPiece(null);
+    // ─────────────────────────────────────────────────────────────────────
+
     try {
       const { data, error } = await supabase.rpc('move_ludo_piece', {
         p_session_id: currentSession.id,
@@ -1534,9 +1552,6 @@ export default function LudoGame({
 
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Failed to move');
-
-      setMovablePieces([]);
-      setSelectedPiece(null);
 
       // UI-only feedback from server result; no local capture/home mutation here.
       if (data.bumped) {
@@ -1571,19 +1586,38 @@ export default function LudoGame({
         }, 1800);
       }
     } catch (err) {
+      // Revert optimistic position so the board shows the correct state
+      if (optimisticPos !== null && optimisticPos !== undefined && myPlayerBefore) {
+        setPlayers(prev =>
+          prev.map(p =>
+            String(p.user_id) === String(user.id)
+              ? { ...p, [pieceKey]: oldPiecePos }
+              : p
+          )
+        );
+      }
+      setMovablePieces(savedMovablePieces);
+      setSelectedPiece(null);
       alert(err.message || 'Failed to move piece');
     }
   };
 
   const handlePieceSelect = async (pieceNumber) => {
     if (!movablePieces.includes(pieceNumber)) return;
+    if (movingPieceRef.current) return;
+    movingPieceRef.current = true;
     setSelectedPiece(pieceNumber);
-    await movePiece(pieceNumber);
+    try {
+      await movePiece(pieceNumber);
+    } finally {
+      movingPieceRef.current = false;
+    }
   };
 
   const handleCanvasClick = (e) => {
     if (!isMyTurn || rolling) return;
     if (!movablePieces.length) return;
+    if (movingPieceRef.current) return;
 
     const boardPlayers = getVisiblePlayersList(players, currentSession);
 
