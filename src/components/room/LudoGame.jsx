@@ -907,10 +907,7 @@ export default function LudoGame({
       { r: 0, c: 0, w: 6, h: 6 },
     ];
 
-    // Find which visual index corresponds to the current turn player
-    const currentTurnPlayer = boardPlayers.find(
-      p => String(p.user_id) === String(currentSession?.current_turn_user_id)
-    );
+    // currentTurnPlayer and currentTurnVisualIdx from component scope
     const currentTurnVisualIdx = currentTurnPlayer
       ? getRelativeVisualSeat(currentTurnPlayer, boardPlayers)
       : -1;
@@ -1951,6 +1948,14 @@ export default function LudoGame({
     String(currentSession?.current_turn_user_id) === String(user?.id) && isJoined;
   const netPrize = Math.floor((currentSession?.entry_cost || 0) * players.length * 0.9);
 
+  // Current turn player — used in both JSX and drawBoard
+  const currentTurnPlayer = visiblePlayers.find(
+    p => String(p.user_id) === String(currentSession?.current_turn_user_id)
+  ) || null;
+  const currentTurnColorIdx = currentTurnPlayer
+    ? normalizeColorIndex(getPlayerColorIndex(currentTurnPlayer, visiblePlayers))
+    : -1;
+
   const getTeamPlayers = (teamLetter) => players.filter(p => getEffectiveTeam(p) === teamLetter);
 
   const areTeamsComplete = () => {
@@ -2431,13 +2436,13 @@ export default function LudoGame({
                       <div
                         className={`relative bg-slate-800 rounded-xl p-1.5 border transition-all duration-300 flex items-center justify-center shrink min-h-0 ${recentFinishedUserId ? 'animate-pulse' : ''}`}
                         style={{
-                          borderColor: currentTurnPlayer ? `${PLAYER_COLORS[normalizeColorIndex(getPlayerColorIndex(currentTurnPlayer, visiblePlayers))]}88` : 'rgba(255,255,255,0.05)',
+                          borderColor: currentTurnColorIdx >= 0 ? `${PLAYER_COLORS[currentTurnColorIdx]}88` : 'rgba(255,255,255,0.05)',
                           boxShadow: recentFinishedUserId
                             ? '0 0 0 2px rgba(251,191,36,0.45), 0 0 24px rgba(251,191,36,0.35)'
-                            : currentTurnPlayer
-                              ? `0 0 0 2px ${PLAYER_COLORS[normalizeColorIndex(getPlayerColorIndex(currentTurnPlayer, visiblePlayers))]}55, 0 0 18px ${PLAYER_COLORS[normalizeColorIndex(getPlayerColorIndex(currentTurnPlayer, visiblePlayers))]}33`
+                            : currentTurnColorIdx >= 0
+                              ? `0 0 0 2px ${PLAYER_COLORS[currentTurnColorIdx]}55, 0 0 18px ${PLAYER_COLORS[currentTurnColorIdx]}33`
                               : undefined,
-                          animation: currentTurnPlayer && !recentFinishedUserId ? 'ludoHomePulse 1.4s ease-in-out infinite' : 'none',
+                          animation: currentTurnColorIdx >= 0 && !recentFinishedUserId ? 'ludoHomePulse 1.4s ease-in-out infinite' : 'none',
                           maxHeight: '100%', maxWidth: '100%', aspectRatio: '1 / 1'
                         }}
                       >
