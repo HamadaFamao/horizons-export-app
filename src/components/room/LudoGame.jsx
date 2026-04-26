@@ -721,8 +721,8 @@ export default function LudoGame({
     if (piecePos < 0 || piecePos > HOME_ENTRY_LOGICAL_INDEX) return null;
 
     const actualColorIdx = getPlayerColorIndex(player, playersList);
-    const colorIdx = getPerspectiveColorIndexFromActual(actualColorIdx, playersList);
-    return (piecePos + START_POSITIONS[colorIdx]) % 52;
+    const viewColorIdx = getPerspectiveColorIndexFromActual(actualColorIdx, playersList);
+    return (piecePos + START_POSITIONS[viewColorIdx]) % 52;
   };
 
   const describePlacement = (placement) => {
@@ -765,7 +765,8 @@ export default function LudoGame({
   ) => {
     if (typeof logicalPos !== 'number') return null;
 
-    const colorIdx = getPerspectiveColorIndex(player, playersList);
+    const actualColorIdx = getPlayerColorIndex(player, playersList);
+    const viewColorIdx = getPerspectiveColorIndexFromActual(actualColorIdx, playersList);
     const finishedTriangleSlots = [
       [[8.35, 7.2], [8.35, 7.8], [8.7, 7.35], [8.7, 7.65]],
       [[7.2, 8.35], [7.8, 8.35], [7.35, 8.7], [7.65, 8.7]],
@@ -780,12 +781,13 @@ export default function LudoGame({
         .filter(item => item.piecePos === 57)
         .map(item => item.idx);
       const slotIndex = Math.max(0, finishedPieceIndices.indexOf(pieceIndex));
-      const slots = finishedTriangleSlots[colorIdx] || [[7.5, 7.5]];
+      const slots = finishedTriangleSlots[viewColorIdx] || [[7.5, 7.5]];
       const [row, col] = slots[Math.min(slotIndex, slots.length - 1)] || [7.5, 7.5];
       return {
         row,
         col,
-        colorIdx,
+        colorIdx: viewColorIdx,
+        viewColorIdx,
         actualColorIdx,
         isFinished: true,
         zone: 'finished',
@@ -796,13 +798,14 @@ export default function LudoGame({
     }
 
     if (logicalPos === -1) {
-      const homeBase = HOME_BASES[colorIdx];
+      const homeBase = HOME_BASES[viewColorIdx];
       if (!homeBase || !homeBase[pieceIndex]) return null;
       const [baseRow, baseCol] = homeBase[pieceIndex];
       return {
         row: baseRow,
         col: baseCol,
-        colorIdx,
+        colorIdx: viewColorIdx,
+        viewColorIdx,
         actualColorIdx,
         isFinished: false,
         zone: 'base',
@@ -821,7 +824,8 @@ export default function LudoGame({
       return {
         row,
         col,
-        colorIdx,
+        colorIdx: viewColorIdx,
+        viewColorIdx,
         actualColorIdx,
         isFinished: false,
         zone: 'outer-track',
@@ -835,13 +839,14 @@ export default function LudoGame({
 
     if (logicalPos >= HOME_LANE_START_LOGICAL_INDEX && logicalPos <= HOME_LANE_END_LOGICAL_INDEX) {
       const homeColIdx = logicalPos - HOME_LANE_START_LOGICAL_INDEX;
-      const homeCol = HOME_COLUMNS[colorIdx];
+      const homeCol = HOME_COLUMNS[viewColorIdx];
       if (!homeCol || !homeCol[homeColIdx]) return null;
       const [row, col] = homeCol[homeColIdx];
       return {
         row,
         col,
-        colorIdx,
+        colorIdx: viewColorIdx,
+        viewColorIdx,
         actualColorIdx,
         isFinished: false,
         zone: 'home-lane',
