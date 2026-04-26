@@ -30,6 +30,8 @@ const START_POSITIONS = [39, 26, 13, 0];
 
 // Last logical outer-track index before entering home lane.
 const HOME_ENTRY_LOGICAL_INDEX = 50;
+const HOME_LANE_START_LOGICAL_INDEX = HOME_ENTRY_LOGICAL_INDEX + 1; // 51
+const HOME_LANE_END_LOGICAL_INDEX = 56;
 
 // Arrow cells where each color enters its home lane.
 const HOME_ENTRY_ARROW_CELLS = [
@@ -39,12 +41,12 @@ const HOME_ENTRY_ARROW_CELLS = [
   [7, 0],
 ];
 
-// Home column cells per player (5 cells, positions 52-56 relative)
+// Home-lane cells per player (6 cells, logical positions 51-56)
 const HOME_COLUMNS = [
-  [[13,7],[12,7],[11,7],[10,7],[9,7]], // 0: Red (Bottom)
-  [[7,13],[7,12],[7,11],[7,10],[7,9]], // 1: Blue (Right)
-  [[1,7],[2,7],[3,7],[4,7],[5,7]],     // 2: Yellow (Top)
-  [[7,1],[7,2],[7,3],[7,4],[7,5]],     // 3: Green (Left)
+  [[13,7],[12,7],[11,7],[10,7],[9,7],[8,7]], // 0: Red (Bottom)
+  [[7,13],[7,12],[7,11],[7,10],[7,9],[7,8]], // 1: Blue (Right)
+  [[1,7],[2,7],[3,7],[4,7],[5,7],[6,7]],     // 2: Yellow (Top)
+  [[7,1],[7,2],[7,3],[7,4],[7,5],[7,6]],     // 3: Green (Left)
 ];
 
 // Home base positions (4 pieces per player in home corner) — decimal grid units
@@ -736,33 +738,9 @@ export default function LudoGame({
       };
     }
 
-    if (pos >= 0 && pos <= 51) {
+    if (pos >= 0 && pos <= HOME_ENTRY_LOGICAL_INDEX) {
       const adjustedPos = (pos + START_POSITIONS[colorIdx]) % 52;
-      const [entryRow, entryCol] = HOME_ENTRY_ARROW_CELLS[colorIdx] || [];
-      const entryTrackIndex = TRACK_CELLS.findIndex(
-        ([row, col]) => row === entryRow && col === entryCol
-      );
       const trackCell = TRACK_CELLS[adjustedPos];
-      const isInvalidOuterAfterEntry =
-        entryTrackIndex !== -1 &&
-        adjustedPos === (entryTrackIndex + 1) % TRACK_CELLS.length;
-
-      if (isInvalidOuterAfterEntry) {
-        const homeCol = HOME_COLUMNS[colorIdx];
-        if (!homeCol || !homeCol[0]) return null;
-        const [row, col] = homeCol[0];
-        return {
-          row: row + 0.0001,
-          col,
-          colorIdx,
-          isFinished: false,
-          zone: 'home-lane',
-          seatNumber: Number(player?.seat_number || 0),
-          logicalPos: pos,
-          trackIndex: adjustedPos,
-          derivedFromOuterTrack: true,
-        };
-      }
 
       if (!trackCell) return null;
       const [row, col] = trackCell;
@@ -778,8 +756,8 @@ export default function LudoGame({
       };
     }
 
-    if (pos >= 52 && pos <= 56) {
-      const homeColIdx = pos - 52;
+    if (pos >= HOME_LANE_START_LOGICAL_INDEX && pos <= HOME_LANE_END_LOGICAL_INDEX) {
+      const homeColIdx = pos - HOME_LANE_START_LOGICAL_INDEX;
       const homeCol = HOME_COLUMNS[colorIdx];
       if (!homeCol || !homeCol[homeColIdx]) return null;
       const [row, col] = homeCol[homeColIdx];
@@ -1303,14 +1281,14 @@ export default function LudoGame({
     if (pos >= 0 && pos <= HOME_ENTRY_LOGICAL_INDEX) {
       const target = pos + roll;
       if (target <= HOME_ENTRY_LOGICAL_INDEX) return target;
-      if (target <= 56) return 52 + (target - (HOME_ENTRY_LOGICAL_INDEX + 1));
+      if (target <= HOME_LANE_END_LOGICAL_INDEX) return target;
       if (target === 57) return 57;
       return null;
     }
 
-    if (pos >= 52 && pos <= 56) {
+    if (pos >= HOME_LANE_START_LOGICAL_INDEX && pos <= HOME_LANE_END_LOGICAL_INDEX) {
       const target = pos + roll;
-      if (target <= 56) return target;
+      if (target <= HOME_LANE_END_LOGICAL_INDEX) return target;
       if (target === 57) return 57;
       return null;
     }
