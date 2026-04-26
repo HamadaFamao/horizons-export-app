@@ -1135,9 +1135,10 @@ export default function LudoGame({
 
         const prevPos = lastPieceCanvasPosRef.current[pieceKey];
         const existingAnim = pieceMoveAnimRef.current[pieceKey];
+        // Use threshold of 3px to ignore floating point differences from pulse redraws
         const moveDistance = prevPos ? Math.hypot(px - prevPos.x, py - prevPos.y) : 0;
 
-        if (prevPos && moveDistance > 1) {
+        if (prevPos && moveDistance > 3) {
           const targetChanged = !existingAnim || existingAnim.toX !== px || existingAnim.toY !== py;
           if (targetChanged) {
             const duration = Math.max(160, Math.min(220, moveDistance * 3.2));
@@ -1165,7 +1166,11 @@ export default function LudoGame({
           else delete pieceMoveAnimRef.current[pieceKey];
         }
 
-        lastPieceCanvasPosRef.current[pieceKey] = { x: px, y: py };
+        // Only update cached position when piece is at rest (no animation)
+        // This prevents false movement detection on every drawBoard call
+        if (!activeAnim) {
+          lastPieceCanvasPosRef.current[pieceKey] = { x: px, y: py };
+        }
 
         const r = cellSize * 0.42;
         const isMyPiece = String(player.user_id) === String(user?.id);
@@ -1303,8 +1308,12 @@ export default function LudoGame({
     });
 
     // Keep animating for home base pulse while game is playing
-    if (currentSession?.status === 'playing' && currentTurnVisualIdx >= 0) {
-      needsMoveAnimationFrame = true;
+    // Use a SEPARATE animation ref so it doesn't interfere with piece movement detection
+    if (currentSession?.status === 'playing' && currentTurnVisualIdx >= 0 && !boardAnimFrameRef.current) {
+      boardAnimFrameRef.current = requestAnimationFrame(() => {
+        boardAnimFrameRef.current = null;
+        drawBoard();
+      });
     }
 
     if (needsMoveAnimationFrame && !boardAnimFrameRef.current) {
