@@ -13,7 +13,6 @@ const ENTRY_COST_OPTIONS = [100, 200, 500, 1000, 5000, 10000];
 const PLAYER_COLORS = ['#ef4444', '#3b82f6', '#f59e0b', '#22c55e'];
 const PLAYER_LIGHT_COLORS = ['#fca5a5', '#93c5fd', '#fcd34d', '#86efac'];
 const PLAYER_DARK_COLORS = ['#991b1b', '#1e40af', '#b45309', '#15803d'];
-const PLAYER_COLOR_NAMES = ['red', 'blue', 'yellow', 'green'];
 
 // Standard Ludo path: 52 cells (indices 0-51), [row, col]
 const TRACK_CELLS = [
@@ -30,9 +29,7 @@ const SAFE_SQUARES = [0, 8, 13, 21, 26, 34, 39, 47];
 const START_POSITIONS = [39, 26, 13, 0];
 
 // Last logical outer-track index before entering home lane.
-const HOME_ENTRY_LOGICAL_INDEX = 50;
-const HOME_LANE_START_LOGICAL_INDEX = HOME_ENTRY_LOGICAL_INDEX + 1; // 51
-const HOME_LANE_END_LOGICAL_INDEX = 56;
+const HOME_ENTRY_LOGICAL_INDEX = 51;
 
 // Arrow cells where each color enters its home lane.
 const HOME_ENTRY_ARROW_CELLS = [
@@ -42,13 +39,12 @@ const HOME_ENTRY_ARROW_CELLS = [
   [7, 0],
 ];
 
-// Home-lane cells per player (6 cells, logical positions 51-56).
-// Keep these outside the center goal triangle; only pos 57 uses finished slots.
+// Home column cells per player (5 cells, positions 52-56 relative)
 const HOME_COLUMNS = [
-  [[14,7],[13,7],[12,7],[11,7],[10,7],[9,7]], // 0: Red (Bottom)
-  [[7,14],[7,13],[7,12],[7,11],[7,10],[7,9]], // 1: Blue (Right)
-  [[0,7],[1,7],[2,7],[3,7],[4,7],[5,7]],      // 2: Yellow (Top)
-  [[7,0],[7,1],[7,2],[7,3],[7,4],[7,5]],      // 3: Green (Left)
+  [[13,7],[12,7],[11,7],[10,7],[9,7]], // 0: Red (Bottom)
+  [[7,13],[7,12],[7,11],[7,10],[7,9]], // 1: Blue (Right)
+  [[1,7],[2,7],[3,7],[4,7],[5,7]],     // 2: Yellow (Top)
+  [[7,1],[7,2],[7,3],[7,4],[7,5]],     // 3: Green (Left)
 ];
 
 // Home base positions (4 pieces per player in home corner) — decimal grid units
@@ -141,15 +137,7 @@ export default function LudoGame({
   const avatarImagesRef = useRef({});
   const pieceMoveAnimRef = useRef({});
   const lastPieceCanvasPosRef = useRef({});
-  const lastPieceLogicalPosRef = useRef({});
-  const lastPerspectiveKeyRef = useRef('');
   const boardAnimFrameRef = useRef(null);
-
-  const resetPieceAnimationState = () => {
-    pieceMoveAnimRef.current = {};
-    lastPieceCanvasPosRef.current = {};
-    lastPieceLogicalPosRef.current = {};
-  };
   const finishFxTimerRef = useRef(null);
   const turnTimerRef = useRef(null);
   const autoActionStateRef = useRef({});
@@ -185,17 +173,6 @@ export default function LudoGame({
       teamEliminationHandledRef.current = false;
     }
   }, [currentSession?.id, currentSession?.status]);
-
-  // Disable complex local piece animation while path mapping is being stabilized.
-  // Reset any stale animation/cache state on turn/session/player changes.
-  useEffect(() => {
-    resetPieceAnimationState();
-  }, [
-    currentSession?.id,
-    currentSession?.status,
-    currentSession?.current_turn_user_id,
-    players,
-  ]);
 
   useEffect(() => {
     if (!open || !roomId) return;
@@ -689,302 +666,131 @@ export default function LudoGame({
     return layout[relativeIndex] ?? 0;
   };
 
-  // ─────────────────────────────────────────────
-  // Ludo perspective system
-  // Server logic is ALWAYS actualColorIdx.
-  // UI drawing is ALWAYS viewColorIdx.
-  // ─────────────────────────────────────────────
-
+  // Clamps any seat/visual index to 0-3, handling temporary seats (100+) safely.
   const normalizeColorIndex = (idx) => {
     const n = Number(idx);
     if (!Number.isFinite(n)) return 0;
     return ((n % 4) + 4) % 4;
   };
 
-  const normalizeTrackIndex = (idx) => {
-    const n = Number(idx);
-    if (!Number.isFinite(n)) return 0;
-    return ((n % 52) + 52) % 52;
-  };
-
-  const getActualSeatNumber = (player) => {
+  const getPlayerColorIndex = (player, playersList = players) => {
     let seat = Number(player?.seat_number || 1);
-    if (seat > 100) seat -= 100; // temporary seats during saveTeams
-    return Math.max(1, Math.min(4, seat));
-  };
-
-  const getActualColorIndex = (player, playersList = players) => {
+    // During saveTeams phase 1, DB may briefly hold temporary seats like 101-104.
+    if (seat > 100) seat = seat - 100;
     const totalPlayers = Number(currentSession?.max_players || playersList.length || 4);
     const layout = VISUAL_SEAT_LAYOUTS[totalPlayers] || [0, 1, 2, 3];
-    const seatIdx = getActualSeatNumber(player) - 1;
+    const seatIdx = Math.max(0, seat - 1);
     return normalizeColorIndex(layout[seatIdx] ?? seatIdx);
   };
 
-  // Keep old name compatible
-  const getPlayerColorIndex = getActualColorIndex;
+  const getPieceBoardPlacement = (player, pieceIndex, playersList = players) => {
+    const pieces = [player.piece1, player.piece2, player.piece3, player.piece4];
+    const pos = pieces[pieceIndex];
+    if (typeof pos !== 'number') return null;
 
-  const getViewerPlayer = (playersList = players) =>
-    (playersList || []).find(p => String(p.user_id) === String(user?.id));
-
-  const getViewerActualColorIndex = (playersList = players) => {
-    const viewer = getViewerPlayer(playersList);
-    return viewer ? getActualColorIndex(viewer, playersList) : 0;
-  };
-
-  // actual color -> visual side on this viewer screen
-  const actualToViewColorIndex = (actualColorIdx, playersList = players) =>
-    normalizeColorIndex(actualColorIdx - getViewerActualColorIndex(playersList));
-
-  // visual side -> actual color
-  const viewToActualColorIndex = (viewColorIdx, playersList = players) =>
-    normalizeColorIndex(viewColorIdx + getViewerActualColorIndex(playersList));
-
-  // Keep old names compatible
-  const getPerspectiveColorIndexFromActual = actualToViewColorIndex;
-  const getActualColorIndexFromPerspective = viewToActualColorIndex;
-
-  const getPerspectiveColorIndex = (player, playersList = players) =>
-    actualToViewColorIndex(getActualColorIndex(player, playersList), playersList);
-
-  const getTeamKey = (player) => {
-    if (!player) return null;
-    if (Number(currentSession?.max_players || 0) === 4 && currentSession?.team_mode === true) {
-      return getEffectiveTeam(player);
-    }
-    return String(player.user_id || '');
-  };
-
-  // IMPORTANT:
-  // This returns the REAL global track index used for logic/collision.
-  // It must NEVER use viewColorIdx.
-  const getActualTrackCell = (player, piecePos, playersList = players) => {
-    if (typeof piecePos !== 'number') return null;
-    if (piecePos < 0 || piecePos > HOME_ENTRY_LOGICAL_INDEX) return null;
-
-    const actualColorIdx = getActualColorIndex(player, playersList);
-    return normalizeTrackIndex(piecePos + START_POSITIONS[actualColorIdx]);
-  };
-
-  // This converts an actual global track cell to the rotated visual track cell.
-  const actualTrackCellToViewTrackCell = (actualTrackCell, playersList = players) => {
-    if (!Number.isInteger(actualTrackCell)) return null;
-
-    const viewerActualColorIdx = getViewerActualColorIndex(playersList);
-    const viewerActualStart = START_POSITIONS[viewerActualColorIdx];
-
-    // viewer's real start must appear at visual red/bottom start
-    const visualBottomStart = START_POSITIONS[0];
-
-    return normalizeTrackIndex(actualTrackCell - viewerActualStart + visualBottomStart);
-  };
-
-  // Used only for drawing.
-  const getViewTrackCell = (player, piecePos, playersList = players) => {
-    const actualTrackCell = getActualTrackCell(player, piecePos, playersList);
-    if (!Number.isInteger(actualTrackCell)) return null;
-    return actualTrackCellToViewTrackCell(actualTrackCell, playersList);
-  };
-
-  // Keep old name compatible, but now it returns VISUAL track cell.
-  // Do not use it for capture logic.
-  const getTrackCell = getViewTrackCell;
-
-  const isSafeCell = (actualTrackCell) => {
-    return Number.isInteger(actualTrackCell) && SAFE_SQUARES.includes(actualTrackCell);
-  };
-
-  // Capture/block logic must use ACTUAL track cells, not rotated visual cells.
-  const getPiecesOnActualCell = (actualTrackCell, playersList = players) => {
-    if (!Number.isInteger(actualTrackCell)) return [];
-
-    const piecesOnCell = [];
-    (playersList || []).forEach((player) => {
-      const piecePositions = [player.piece1, player.piece2, player.piece3, player.piece4];
-      piecePositions.forEach((piecePos, pieceIndex) => {
-        if (getActualTrackCell(player, piecePos, playersList) !== actualTrackCell) return;
-        piecesOnCell.push({
-          userId: String(player.user_id || ''),
-          teamKey: getTeamKey(player),
-          pieceNumber: pieceIndex + 1,
-          piecePos,
-          player,
-        });
-      });
-    });
-
-    return piecesOnCell;
-  };
-
-  // For visual stacking only.
-  const getPiecesOnViewCell = (viewTrackCell, playersList = players) => {
-    if (!Number.isInteger(viewTrackCell)) return [];
-
-    const piecesOnCell = [];
-    (playersList || []).forEach((player) => {
-      const piecePositions = [player.piece1, player.piece2, player.piece3, player.piece4];
-      piecePositions.forEach((piecePos, pieceIndex) => {
-        if (getViewTrackCell(player, piecePos, playersList) !== viewTrackCell) return;
-        piecesOnCell.push({
-          userId: String(player.user_id || ''),
-          teamKey: getTeamKey(player),
-          pieceNumber: pieceIndex + 1,
-          piecePos,
-          player,
-        });
-      });
-    });
-
-    return piecesOnCell;
-  };
-
-  // Keep old name for drawing compatibility.
-  const getPiecesOnCell = getPiecesOnViewCell;
-
-  const describePlacement = (placement) => {
-    if (!placement) return null;
-    return {
-      zone: placement.zone,
-      logicalPos: placement.logicalPos,
-      actualTrackIndex: placement.actualTrackIndex ?? null,
-      viewTrackIndex: placement.viewTrackIndex ?? null,
-      renderedCell: [placement.row, placement.col],
-    };
-  };
-
-  const getLogicalPathPositions = (fromPos, toPos) => {
-    if (typeof fromPos !== 'number' || typeof toPos !== 'number' || fromPos === toPos) {
-      return [];
-    }
-
-    if (toPos === -1) return [-1];
-
-    if (fromPos === -1) {
-      const path = [];
-      for (let pos = 0; pos <= toPos; pos += 1) path.push(pos);
-      return path;
-    }
-
-    if (toPos < fromPos) return [toPos];
-
-    const path = [];
-    for (let pos = fromPos + 1; pos <= toPos; pos += 1) path.push(pos);
-    return path;
-  };
-
-  const getBoardPlacementForLogicalPosition = (
-    player,
-    logicalPos,
-    pieceIndex,
-    playersList = players
-  ) => {
-    if (typeof logicalPos !== 'number') return null;
-
-    const actualColorIdx = getActualColorIndex(player, playersList);
-    const viewColorIdx = actualToViewColorIndex(actualColorIdx, playersList);
-
+    const colorIdx = getRelativeVisualSeat(player, playersList);
     const finishedTriangleSlots = [
-      [[8.35, 7.2], [8.35, 7.8], [8.7, 7.35], [8.7, 7.65]], // bottom
-      [[7.2, 8.35], [7.8, 8.35], [7.35, 8.7], [7.65, 8.7]], // right
-      [[6.65, 7.2], [6.65, 7.8], [6.3, 7.35], [6.3, 7.65]], // top
-      [[7.2, 6.65], [7.8, 6.65], [7.35, 6.3], [7.65, 6.3]], // left
+      // Red (bottom triangle)
+      [[8.35, 7.2], [8.35, 7.8], [8.7, 7.35], [8.7, 7.65]],
+      // Blue (right triangle)
+      [[7.2, 8.35], [7.8, 8.35], [7.35, 8.7], [7.65, 8.7]],
+      // Yellow (top triangle)
+      [[6.65, 7.2], [6.65, 7.8], [6.3, 7.35], [6.3, 7.65]],
+      // Green (left triangle)
+      [[7.2, 6.65], [7.8, 6.65], [7.35, 6.3], [7.65, 6.3]],
     ];
 
-    if (logicalPos === 57) {
-      const pieces = [player.piece1, player.piece2, player.piece3, player.piece4];
+    if (pos === 57) {
       const finishedPieceIndices = pieces
         .map((piecePos, idx) => ({ piecePos, idx }))
         .filter(item => item.piecePos === 57)
         .map(item => item.idx);
-
       const slotIndex = Math.max(0, finishedPieceIndices.indexOf(pieceIndex));
-      const slots = finishedTriangleSlots[viewColorIdx] || [[7.5, 7.5]];
+      const slots = finishedTriangleSlots[colorIdx] || [[7.5, 7.5]];
       const [row, col] = slots[Math.min(slotIndex, slots.length - 1)] || [7.5, 7.5];
-
       return {
         row,
         col,
-        colorIdx: viewColorIdx,
-        viewColorIdx,
-        actualColorIdx,
-        zone: 'finished',
+        colorIdx,
         isFinished: true,
+        zone: 'finished',
         seatNumber: Number(player?.seat_number || 0),
-        logicalPos,
-        actualTrackIndex: null,
-        viewTrackIndex: null,
+        logicalPos: pos,
         trackIndex: null,
       };
     }
 
-    if (logicalPos === -1) {
-      const homeBase = HOME_BASES[viewColorIdx];
+    if (pos === -1) {
+      const homeBase = HOME_BASES[colorIdx];
       if (!homeBase || !homeBase[pieceIndex]) return null;
-
-      const [row, col] = homeBase[pieceIndex];
-
+      const [baseRow, baseCol] = homeBase[pieceIndex];
       return {
-        row,
-        col,
-        colorIdx: viewColorIdx,
-        viewColorIdx,
-        actualColorIdx,
-        zone: 'base',
+        row: baseRow,
+        col: baseCol,
+        colorIdx,
         isFinished: false,
+        zone: 'base',
         seatNumber: Number(player?.seat_number || 0),
-        logicalPos,
-        actualTrackIndex: null,
-        viewTrackIndex: null,
+        logicalPos: pos,
         trackIndex: null,
       };
     }
 
-    if (logicalPos >= 0 && logicalPos <= HOME_ENTRY_LOGICAL_INDEX) {
-      const actualTrackIndex = getActualTrackCell(player, logicalPos, playersList);
-      const viewTrackIndex = actualTrackCellToViewTrackCell(actualTrackIndex, playersList);
+    if (pos >= 0 && pos <= 51) {
+      const adjustedPos = (pos + START_POSITIONS[colorIdx]) % 52;
+      const [entryRow, entryCol] = HOME_ENTRY_ARROW_CELLS[colorIdx] || [];
+      const entryTrackIndex = TRACK_CELLS.findIndex(
+        ([row, col]) => row === entryRow && col === entryCol
+      );
+      const trackCell = TRACK_CELLS[adjustedPos];
+      const isInvalidOuterAfterEntry =
+        entryTrackIndex !== -1 &&
+        adjustedPos === (entryTrackIndex + 1) % TRACK_CELLS.length;
 
-      const trackCell = TRACK_CELLS[viewTrackIndex];
+      if (isInvalidOuterAfterEntry) {
+        const homeCol = HOME_COLUMNS[colorIdx];
+        if (!homeCol || !homeCol[0]) return null;
+        const [row, col] = homeCol[0];
+        return {
+          row: row + 0.0001,
+          col,
+          colorIdx,
+          isFinished: false,
+          zone: 'home-lane',
+          seatNumber: Number(player?.seat_number || 0),
+          logicalPos: pos,
+          trackIndex: adjustedPos,
+          derivedFromOuterTrack: true,
+        };
+      }
+
       if (!trackCell) return null;
-
       const [row, col] = trackCell;
-      const piecesOnActualCell = getPiecesOnActualCell(actualTrackIndex, playersList);
-
       return {
         row,
         col,
-        colorIdx: viewColorIdx,
-        viewColorIdx,
-        actualColorIdx,
-        zone: 'outer-track',
+        colorIdx,
         isFinished: false,
+        zone: 'outer-track',
         seatNumber: Number(player?.seat_number || 0),
-        logicalPos,
-        actualTrackIndex,
-        viewTrackIndex,
-        trackIndex: viewTrackIndex, // compatibility for drawing/debug
-        isSafeTrackCell: isSafeCell(actualTrackIndex),
-        trackStackSize: piecesOnActualCell.length,
+        logicalPos: pos,
+        trackIndex: adjustedPos,
       };
     }
 
-    if (logicalPos >= HOME_LANE_START_LOGICAL_INDEX && logicalPos <= HOME_LANE_END_LOGICAL_INDEX) {
-      const homeIdx = logicalPos - HOME_LANE_START_LOGICAL_INDEX;
-      const homeLane = HOME_COLUMNS[viewColorIdx];
-      if (!homeLane || !homeLane[homeIdx]) return null;
-
-      const [row, col] = homeLane[homeIdx];
-
+    if (pos >= 52 && pos <= 56) {
+      const homeColIdx = pos - 52;
+      const homeCol = HOME_COLUMNS[colorIdx];
+      if (!homeCol || !homeCol[homeColIdx]) return null;
+      const [row, col] = homeCol[homeColIdx];
       return {
         row,
         col,
-        colorIdx: viewColorIdx,
-        viewColorIdx,
-        actualColorIdx,
-        zone: 'home-lane',
+        colorIdx,
         isFinished: false,
+        zone: 'home-lane',
         seatNumber: Number(player?.seat_number || 0),
-        logicalPos,
-        actualTrackIndex: null,
-        viewTrackIndex: null,
+        logicalPos: pos,
         trackIndex: null,
       };
     }
@@ -992,20 +798,11 @@ export default function LudoGame({
     return null;
   };
 
-  const getPieceBoardPlacement = (player, pieceIndex, playersList = players) => {
-    const pieces = [player.piece1, player.piece2, player.piece3, player.piece4];
-    const pos = pieces[pieceIndex];
-    if (typeof pos !== 'number') return null;
-    return getBoardPlacementForLogicalPosition(player, pos, pieceIndex, playersList);
-  };
-
   const getPieceCanvasPosition = (player, pieceIndex, cellSize, playersList = players) => {
     const placement = getPieceBoardPlacement(player, pieceIndex, playersList);
     if (!placement) return null;
 
-    const isCenteredCell =
-      placement.zone === 'outer-track' ||
-      placement.zone === 'home-lane';
+    const isCenteredCell = placement.zone === 'outer-track' || placement.zone === 'home-lane';
 
     return {
       ...placement,
@@ -1032,8 +829,6 @@ export default function LudoGame({
           rendered_xy: canvasPos ? [Number(canvasPos.x.toFixed(1)), Number(canvasPos.y.toFixed(1))] : null,
           zone: placement.zone,
           track_index: placement.trackIndex,
-          safe_cell: placement.isSafeTrackCell || false,
-          track_stack_size: placement.trackStackSize || 0,
         });
       });
     });
@@ -1052,15 +847,15 @@ export default function LudoGame({
     const CELLS = 15;
     const cellSize = W / CELLS;
     const boardPlayers = getVisiblePlayersList(players, currentSession);
-    const perspectiveKey = `${currentSession?.id}:${user?.id}:${getViewerActualColorIndex(boardPlayers)}:${boardPlayers.map(p => `${p.user_id}:${p.seat_number}`).join('|')}`;
 
-    if (lastPerspectiveKeyRef.current !== perspectiveKey) {
-      lastPerspectiveKeyRef.current = perspectiveKey;
-      resetPieceAnimationState();
-    }
-
-    const getActualColorForVisualIndex = (visualIdx) => {
-      return viewToActualColorIndex(visualIdx, boardPlayers);
+    // Helper to map visual index to real player color
+    const getVisualColorIndex = (visualIdx) => {
+      const playerAtVisual = boardPlayers.find(p =>
+        getRelativeVisualSeat(p, boardPlayers) === visualIdx
+      );
+      return normalizeColorIndex(
+        playerAtVisual ? getPlayerColorIndex(playerAtVisual, boardPlayers) : visualIdx
+      );
     };
 
     ctx.clearRect(0, 0, W, W);
@@ -1088,7 +883,7 @@ export default function LudoGame({
     ];
 
     homeRects.forEach((rect, i) => {
-      const realColorIdx = getActualColorForVisualIndex(i);
+      const realColorIdx = getVisualColorIndex(i);
       const x = rect.c * cellSize;
       const y = rect.r * cellSize;
       const w = rect.w * cellSize;
@@ -1146,7 +941,7 @@ export default function LudoGame({
       const startIdx = startIndices.indexOf(i);
       
       if (startIdx !== -1) {
-        const realColorIdx = getActualColorForVisualIndex(startIdx);
+        const realColorIdx = getVisualColorIndex(startIdx);
         cellColor = homeColors[realColorIdx].grad1;
         isStart = true;
       } else if (SAFE_SQUARES.includes(i)) {
@@ -1186,7 +981,7 @@ export default function LudoGame({
 
     // Draw home columns
     HOME_COLUMNS.forEach((col, playerIdx) => {
-      const realColorIdx = getActualColorForVisualIndex(playerIdx);
+      const realColorIdx = getVisualColorIndex(playerIdx);
       col.forEach(([row, c]) => {
         const x = c * cellSize;
         const y = row * cellSize;
@@ -1212,7 +1007,7 @@ export default function LudoGame({
       { r: 7, c: 0, colorIdx: 3, dir: 'right' },
     ];
     arrows.forEach(({ r, c, colorIdx, dir }) => {
-      const realColorIdx = getActualColorForVisualIndex(colorIdx);
+      const realColorIdx = getVisualColorIndex(colorIdx);
       const color = PLAYER_COLORS[realColorIdx];
       const cx = c * cellSize + cellSize / 2;
       const cy = r * cellSize + cellSize / 2;
@@ -1273,7 +1068,7 @@ export default function LudoGame({
       [[6,6],[9,6],[7.5,7.5]],   // 3: left
     ];
     triPoints.forEach((pts, i) => {
-      const realColorIdx = getActualColorForVisualIndex(i);
+      const realColorIdx = getVisualColorIndex(i);
       ctx.beginPath();
       ctx.moveTo(pts[0][1] * cellSize, pts[0][0] * cellSize);
       ctx.lineTo(pts[1][1] * cellSize, pts[1][0] * cellSize);
@@ -1314,27 +1109,67 @@ export default function LudoGame({
       stackedByCell.get(key).push(item);
     });
 
+    const nowTs = performance.now();
+    let needsMoveAnimationFrame = false;
     const seenPieceKeys = new Set();
 
     stackedByCell.forEach((cellPieces) => {
       cellPieces.forEach((item, stackIndex) => {
         const { player, pieceIdx, piecePos } = item;
         const { x, y, colorIdx: rawColorIdx } = piecePos;
-        const colorIdx = normalizeColorIndex(piecePos.viewColorIdx ?? rawColorIdx);
+        const colorIdx = normalizeColorIndex(rawColorIdx);
         const [offX, offY] = getPieceStackOffset(stackIndex);
         const px = x + offX;
         const py = y + offY;
-        const pieceKey = `${perspectiveKey}:${player.user_id}-${pieceIdx}`;
+        const pieceKey = `${player.user_id}-${pieceIdx}`;
         seenPieceKeys.add(pieceKey);
 
-        // Local path interpolation is intentionally disabled while mapping/capture
-        // synchronization is being stabilized. Render directly at server position.
-        const currentLogicalPos = piecePos.logicalPos;
+        const prevPos = lastPieceCanvasPosRef.current[pieceKey];
+        const existingAnim = pieceMoveAnimRef.current[pieceKey];
+        const moveDistance = prevPos
+          ? Math.hypot(px - prevPos.x, py - prevPos.y)
+          : 0;
+
+        if (prevPos && moveDistance > 1) {
+          const targetChanged =
+            !existingAnim ||
+            existingAnim.toX !== px ||
+            existingAnim.toY !== py;
+
+          if (targetChanged) {
+            // Snappy per-step: 90–110ms per tile. 3ms stagger keeps steps distinct.
+            const STEP_DELAY_MS = 3;
+            const stepDelay = existingAnim ? STEP_DELAY_MS : 0;
+            const duration = Math.max(90, Math.min(110, moveDistance * 2.5));
+            pieceMoveAnimRef.current[pieceKey] = {
+              fromX: existingAnim ? existingAnim.fromX + (existingAnim.toX - existingAnim.fromX) * Math.max(0, Math.min(1, (nowTs - existingAnim.start) / existingAnim.duration)) : prevPos.x,
+              fromY: existingAnim ? existingAnim.fromY + (existingAnim.toY - existingAnim.fromY) * Math.max(0, Math.min(1, (nowTs - existingAnim.start) / existingAnim.duration)) : prevPos.y,
+              toX: px,
+              toY: py,
+              start: nowTs + stepDelay,
+              duration,
+            };
+          }
+        }
+
         let drawX = px;
         let drawY = py;
+        const activeAnim = pieceMoveAnimRef.current[pieceKey];
+        if (activeAnim) {
+          const t = Math.max(0, Math.min(1, (nowTs - activeAnim.start) / activeAnim.duration));
+          // cubic-bezier(0.2, 0.8, 0.2, 1) approximation via power 1.8 ease-out
+          const eased = t < 0 ? 0 : 1 - Math.pow(1 - t, 1.8);
+          drawX = activeAnim.fromX + (activeAnim.toX - activeAnim.fromX) * eased;
+          drawY = activeAnim.fromY + (activeAnim.toY - activeAnim.fromY) * eased;
+
+          if (t < 1) {
+            needsMoveAnimationFrame = true;
+          } else {
+            delete pieceMoveAnimRef.current[pieceKey];
+          }
+        }
 
         lastPieceCanvasPosRef.current[pieceKey] = { x: px, y: py };
-        lastPieceLogicalPosRef.current[pieceKey] = currentLogicalPos;
 
         // Slightly bigger radius while keeping board proportions intact
         const r = cellSize * 0.45;
@@ -1442,12 +1277,16 @@ export default function LudoGame({
     Object.keys(lastPieceCanvasPosRef.current).forEach((key) => {
       if (!seenPieceKeys.has(key)) delete lastPieceCanvasPosRef.current[key];
     });
-    Object.keys(lastPieceLogicalPosRef.current).forEach((key) => {
-      if (!seenPieceKeys.has(key)) delete lastPieceLogicalPosRef.current[key];
-    });
     Object.keys(pieceMoveAnimRef.current).forEach((key) => {
       if (!seenPieceKeys.has(key)) delete pieceMoveAnimRef.current[key];
     });
+
+    if (needsMoveAnimationFrame && !boardAnimFrameRef.current) {
+      boardAnimFrameRef.current = requestAnimationFrame(() => {
+        boardAnimFrameRef.current = null;
+        drawBoard();
+      });
+    }
   };
 
   const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -1455,42 +1294,24 @@ export default function LudoGame({
   const TRIPLE_SIX_REVEAL_DELAY = 320;
 
   const getLogicalNextPos = (pos, roll) => {
-    // Finished pieces cannot move
     if (pos === 57) return null;
 
-    // Home base: can only start with a 6
     if (pos === -1) {
       return roll === 6 ? 0 : null;
     }
 
-    // Outer track (positions 0-50)
     if (pos >= 0 && pos <= HOME_ENTRY_LOGICAL_INDEX) {
       const target = pos + roll;
-      
-      // Stay on outer track
       if (target <= HOME_ENTRY_LOGICAL_INDEX) return target;
-      
-      // Enter home lane (positions 51-56)
-      if (target >= HOME_LANE_START_LOGICAL_INDEX && target <= HOME_LANE_END_LOGICAL_INDEX) return target;
-      
-      // Exact finish only: target must be exactly 57
+      if (target <= 56) return 52 + (target - (HOME_ENTRY_LOGICAL_INDEX + 1));
       if (target === 57) return 57;
-      
-      // Overshoot: not allowed
       return null;
     }
 
-    // Home lane (positions 51-56)
-    if (pos >= HOME_LANE_START_LOGICAL_INDEX && pos <= HOME_LANE_END_LOGICAL_INDEX) {
+    if (pos >= 52 && pos <= 56) {
       const target = pos + roll;
-      
-      // Stay in home lane
-      if (target <= HOME_LANE_END_LOGICAL_INDEX) return target;
-      
-      // Exact finish only: target must be exactly 57
+      if (target <= 56) return target;
       if (target === 57) return 57;
-      
-      // Overshoot: not allowed
       return null;
     }
 
@@ -1579,18 +1400,9 @@ export default function LudoGame({
       setMovablePieces(movable);
 
       if (movable.length === 0) {
-        setMessage('❌ No valid move. Turn passed.');
+        setMessage('No valid move. Turn passed.');
         setTimeout(() => setMessage(''), 1700);
-        
-        // Reset the roll on backend and pass turn to next player
-        await supabase
-          .from('room_ludo_sessions')
-          .update({ last_roll: 0 })
-          .eq('id', currentSession.id)
-          .eq('status', 'playing');
-        
-        await wait(400);
-        await passTurnToNextPlayer();
+        await refreshSession();
         return;
       }
 
@@ -2719,7 +2531,7 @@ export default function LudoGame({
                 const diceSideByVisualIdx = ['right', 'left', 'left', 'right'];
 
                 const playersWithVisuals = visiblePlayers.map((p) => {
-                  const visualIdx = getPerspectiveColorIndex(p, visiblePlayers);
+                  const visualIdx = getRelativeVisualSeat(p, visiblePlayers);
                   const colorIdx = getPlayerColorIndex(p, visiblePlayers);
                   return { player: p, visualIdx, colorIdx };
                 });
