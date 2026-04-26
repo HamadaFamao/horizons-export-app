@@ -924,13 +924,8 @@ export default function LudoGame({
       const isTurnHome = i === currentTurnVisualIdx;
 
       ctx.save();
-      if (isTurnHome) {
-        ctx.shadowColor = PLAYER_COLORS[realColorIdx];
-        ctx.shadowBlur = 28;
-      } else {
-        ctx.shadowColor = 'rgba(0,0,0,0.5)';
-        ctx.shadowBlur = 10;
-      }
+      ctx.shadowColor = isTurnHome ? PLAYER_COLORS[realColorIdx] : 'rgba(0,0,0,0.5)';
+      ctx.shadowBlur = isTurnHome ? 20 : 10;
       ctx.fillStyle = homeColors[realColorIdx].border;
       ctx.fillRect(x, y, w, h);
       ctx.restore();
@@ -941,14 +936,11 @@ export default function LudoGame({
       ctx.fillStyle = innerGrad;
       ctx.fillRect(x + cellSize * 0.5, y + cellSize * 0.5, w - cellSize, h - cellSize);
 
-      // Pulsing bright overlay for active turn home
       if (isTurnHome) {
-        const pulse = 0.12 + 0.08 * Math.sin(Date.now() / 280);
-        ctx.fillStyle = `rgba(255,255,255,${pulse})`;
+        ctx.fillStyle = 'rgba(255,255,255,0.14)';
         ctx.fillRect(x + cellSize * 0.5, y + cellSize * 0.5, w - cellSize, h - cellSize);
-        // Animated border ring
         ctx.save();
-        ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+        ctx.strokeStyle = 'rgba(255,255,255,0.8)';
         ctx.lineWidth = 3;
         ctx.shadowColor = PLAYER_COLORS[realColorIdx];
         ctx.shadowBlur = 14;
@@ -1308,15 +1300,6 @@ export default function LudoGame({
     Object.keys(pieceMoveAnimRef.current).forEach((key) => {
       if (!seenPieceKeys.has(key)) delete pieceMoveAnimRef.current[key];
     });
-
-    // Keep animating for home base pulse while game is playing
-    // Use a SEPARATE animation ref so it doesn't interfere with piece movement detection
-    if (currentSession?.status === 'playing' && currentTurnVisualIdx >= 0 && !boardAnimFrameRef.current) {
-      boardAnimFrameRef.current = requestAnimationFrame(() => {
-        boardAnimFrameRef.current = null;
-        drawBoard();
-      });
-    }
 
     if (needsMoveAnimationFrame && !boardAnimFrameRef.current) {
       boardAnimFrameRef.current = requestAnimationFrame(() => {
@@ -1910,21 +1893,32 @@ export default function LudoGame({
       setShowSettingsMenu(false);
 
       if (data.game_ended) {
-        // If there's a winner, let the realtime subscription handle the result screen.
-        // If no winner (all resigned), just reset UI.
         if (!data.winner_id) {
+          // No winner — all resigned, just close
           setCurrentSession(null);
           setPlayers([]);
           setShowResult(false);
           setWinner(null);
         } else {
-          await refreshSession();
+          // Winner exists — reload session so realtime + result screen fires correctly
+          const { data: sd } = await supabase
+            .from('room_ludo_sessions')
+            .select('*')
+            .eq('id', currentSession.id)
+            .single();
+          if (sd) setCurrentSession(sd);
+          await loadPlayers(currentSession.id);
         }
         return;
       }
 
+      // Game continues — reload players and pass turn if needed
       const refreshedPlayers = await loadPlayers(currentSession.id);
-      const { data: sd } = await supabase.from('room_ludo_sessions').select('*').eq('id', currentSession.id).single();
+      const { data: sd } = await supabase
+        .from('room_ludo_sessions')
+        .select('*')
+        .eq('id', currentSession.id)
+        .single();
       if (sd) setCurrentSession(sd);
       await maybeEndGameForEliminatedTeam(refreshedPlayers, sd || currentSession);
     } catch (err) {
@@ -2213,6 +2207,10 @@ export default function LudoGame({
           50%  { transform: scale(1.15); }
           100% { transform: scale(1); }
         }
+        @keyframes ludoHomePulse {
+          0%,100% { opacity: 1; }
+          50%      { opacity: 0.6; }
+        }
       `}</style>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div
@@ -2431,9 +2429,15 @@ export default function LudoGame({
                         </div>
                       )}
                       <div
-                        className={`relative bg-slate-800 rounded-xl p-1.5 border border-white/5 transition-all duration-300 flex items-center justify-center shrink min-h-0 ${recentFinishedUserId ? 'animate-pulse' : ''}`}
+                        className={`relative bg-slate-800 rounded-xl p-1.5 border transition-all duration-300 flex items-center justify-center shrink min-h-0 ${recentFinishedUserId ? 'animate-pulse' : ''}`}
                         style={{
-                          boxShadow: recentFinishedUserId ? '0 0 0 2px rgba(251,191,36,0.45), 0 0 24px rgba(251,191,36,0.35)' : undefined,
+                          borderColor: currentTurnPlayer ? `${PLAYER_COLORS[normalizeColorIndex(getPlayerColorIndex(currentTurnPlayer, visiblePlayers))]}88` : 'rgba(255,255,255,0.05)',
+                          boxShadow: recentFinishedUserId
+                            ? '0 0 0 2px rgba(251,191,36,0.45), 0 0 24px rgba(251,191,36,0.35)'
+                            : currentTurnPlayer
+                              ? `0 0 0 2px ${PLAYER_COLORS[normalizeColorIndex(getPlayerColorIndex(currentTurnPlayer, visiblePlayers))]}55, 0 0 18px ${PLAYER_COLORS[normalizeColorIndex(getPlayerColorIndex(currentTurnPlayer, visiblePlayers))]}33`
+                              : undefined,
+                          animation: currentTurnPlayer && !recentFinishedUserId ? 'ludoHomePulse 1.4s ease-in-out infinite' : 'none',
                           maxHeight: '100%', maxWidth: '100%', aspectRatio: '1 / 1'
                         }}
                       >
