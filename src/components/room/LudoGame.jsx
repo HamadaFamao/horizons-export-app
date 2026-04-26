@@ -28,8 +28,8 @@ const SAFE_SQUARES = [0, 8, 13, 21, 26, 34, 39, 47];
 // Start position on track per color: Red=39, Blue=26, Yellow=13, Green=0
 const START_POSITIONS = [39, 26, 13, 0];
 
-// Last logical outer-track index before entering home lane.
-const HOME_ENTRY_LOGICAL_INDEX = 51;
+// Last valid outer-track stopping index before the home-entry transition node.
+const HOME_ENTRY_LOGICAL_INDEX = 50;
 
 // Arrow cells where each color enters its home lane.
 const HOME_ENTRY_ARROW_CELLS = [
@@ -1303,7 +1303,10 @@ export default function LudoGame({
     if (pos >= 0 && pos <= HOME_ENTRY_LOGICAL_INDEX) {
       const target = pos + roll;
       if (target <= HOME_ENTRY_LOGICAL_INDEX) return target;
-      if (target <= 56) return 52 + (target - (HOME_ENTRY_LOGICAL_INDEX + 1));
+      // The transition node is counted but cannot be a resting cell.
+      // Landing on it redirects immediately to first home-lane cell.
+      if (target === HOME_ENTRY_LOGICAL_INDEX + 1) return 52;
+      if (target <= 56) return target;
       if (target === 57) return 57;
       return null;
     }
