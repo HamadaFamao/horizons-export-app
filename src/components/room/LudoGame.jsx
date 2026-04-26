@@ -685,6 +685,46 @@ export default function LudoGame({
     return normalizeColorIndex(layout[seatIdx] ?? seatIdx);
   };
 
+  const getTeamKey = (player) => {
+    if (!player) return null;
+    if (Number(currentSession?.max_players || 0) === 4 && currentSession?.team_mode === true) {
+      return getEffectiveTeam(player);
+    }
+    return String(player.user_id || '');
+  };
+
+  const getTrackCell = (player, piecePos, playersList = players) => {
+    if (typeof piecePos !== 'number') return null;
+    if (piecePos < 0 || piecePos > HOME_ENTRY_LOGICAL_INDEX) return null;
+
+    const colorIdx = getPlayerColorIndex(player, playersList);
+    return (piecePos + START_POSITIONS[colorIdx]) % 52;
+  };
+
+  const isSafeCell = (trackCell) => {
+    return Number.isInteger(trackCell) && SAFE_SQUARES.includes(trackCell);
+  };
+
+  const getPiecesOnCell = (trackCell, playersList = players) => {
+    if (!Number.isInteger(trackCell)) return [];
+
+    const piecesOnCell = [];
+    (playersList || []).forEach((player) => {
+      const piecePositions = [player.piece1, player.piece2, player.piece3, player.piece4];
+      piecePositions.forEach((piecePos, pieceIndex) => {
+        if (getTrackCell(player, piecePos, playersList) !== trackCell) return;
+        piecesOnCell.push({
+          userId: String(player.user_id || ''),
+          teamKey: getTeamKey(player),
+          pieceNumber: pieceIndex + 1,
+          piecePos,
+        });
+      });
+    });
+
+    return piecesOnCell;
+  };
+
   const getPieceBoardPlacement = (player, pieceIndex, playersList = players) => {
     const pieces = [player.piece1, player.piece2, player.piece3, player.piece4];
     const pos = pieces[pieceIndex];
@@ -739,11 +779,12 @@ export default function LudoGame({
     }
 
     if (pos >= 0 && pos <= HOME_ENTRY_LOGICAL_INDEX) {
-      const adjustedPos = (pos + START_POSITIONS[colorIdx]) % 52;
+      const adjustedPos = getTrackCell(player, pos, playersList);
       const trackCell = TRACK_CELLS[adjustedPos];
 
       if (!trackCell) return null;
       const [row, col] = trackCell;
+      const piecesOnTrackCell = getPiecesOnCell(adjustedPos, playersList);
       return {
         row,
         col,
@@ -753,6 +794,8 @@ export default function LudoGame({
         seatNumber: Number(player?.seat_number || 0),
         logicalPos: pos,
         trackIndex: adjustedPos,
+        isSafeTrackCell: isSafeCell(adjustedPos),
+        trackStackSize: piecesOnTrackCell.length,
       };
     }
 
@@ -807,6 +850,8 @@ export default function LudoGame({
           rendered_xy: canvasPos ? [Number(canvasPos.x.toFixed(1)), Number(canvasPos.y.toFixed(1))] : null,
           zone: placement.zone,
           track_index: placement.trackIndex,
+          safe_cell: placement.isSafeTrackCell || false,
+          track_stack_size: placement.trackStackSize || 0,
         });
       });
     });
