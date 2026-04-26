@@ -1124,41 +1124,40 @@ export default function LudoGame({
 
         const prevPos = lastPieceCanvasPosRef.current[pieceKey];
         const existingAnim = pieceMoveAnimRef.current[pieceKey];
-        // Use threshold of 3px to ignore floating point differences from pulse redraws
-        const moveDistance = prevPos ? Math.hypot(px - prevPos.x, py - prevPos.y) : 0;
 
-        if (prevPos && moveDistance > 3) {
+        if (!prevPos) {
+          // First render — record position silently, no animation
+          lastPieceCanvasPosRef.current[pieceKey] = { x: px, y: py };
+        } else {
+          const moveDistance = Math.hypot(px - prevPos.x, py - prevPos.y);
           const targetChanged = !existingAnim || existingAnim.toX !== px || existingAnim.toY !== py;
-          if (targetChanged) {
-            // ~300ms per cell step feels natural — scale by number of cells moved
+
+          if (moveDistance > 3 && targetChanged) {
+            const fromX = existingAnim
+              ? existingAnim.fromX + (existingAnim.toX - existingAnim.fromX) * Math.max(0, Math.min(1, (nowTs - existingAnim.start) / existingAnim.duration))
+              : prevPos.x;
+            const fromY = existingAnim
+              ? existingAnim.fromY + (existingAnim.toY - existingAnim.fromY) * Math.max(0, Math.min(1, (nowTs - existingAnim.start) / existingAnim.duration))
+              : prevPos.y;
             const stepsEstimate = Math.max(1, Math.round(moveDistance / cellSize));
-            const duration = Math.min(500, stepsEstimate * 300);
-            pieceMoveAnimRef.current[pieceKey] = {
-              fromX: existingAnim ? existingAnim.fromX + (existingAnim.toX - existingAnim.fromX) * Math.max(0, Math.min(1, (nowTs - existingAnim.start) / existingAnim.duration)) : prevPos.x,
-              fromY: existingAnim ? existingAnim.fromY + (existingAnim.toY - existingAnim.fromY) * Math.max(0, Math.min(1, (nowTs - existingAnim.start) / existingAnim.duration)) : prevPos.y,
-              toX: px, toY: py,
-              start: nowTs,
-              duration,
-            };
+            const duration = Math.min(480, stepsEstimate * 280);
+            pieceMoveAnimRef.current[pieceKey] = { fromX, fromY, toX: px, toY: py, start: nowTs, duration };
           }
         }
 
         let drawX = px;
         let drawY = py;
-        let hopOffset = 0;
         const activeAnim = pieceMoveAnimRef.current[pieceKey];
         if (activeAnim) {
           const t = Math.max(0, Math.min(1, (nowTs - activeAnim.start) / activeAnim.duration));
-          const eased = 1 - Math.pow(1 - t, 2.2);
+          const eased = 1 - Math.pow(1 - t, 2.5);
           drawX = activeAnim.fromX + (activeAnim.toX - activeAnim.fromX) * eased;
           drawY = activeAnim.fromY + (activeAnim.toY - activeAnim.fromY) * eased;
-          hopOffset = Math.sin(t * Math.PI) * cellSize * 0.35;
           if (t < 1) needsMoveAnimationFrame = true;
           else delete pieceMoveAnimRef.current[pieceKey];
         }
 
         // Only update cached position when piece is at rest (no animation)
-        // This prevents false movement detection on every drawBoard call
         if (!activeAnim) {
           lastPieceCanvasPosRef.current[pieceKey] = { x: px, y: py };
         }
@@ -1167,18 +1166,9 @@ export default function LudoGame({
         const isMyPiece = String(player.user_id) === String(user?.id);
         const isMovable = isMyPiece && movablePieces.includes(pieceIdx + 1);
         const isSelected = isMyPiece && selectedPiece === pieceIdx + 1;
-        const drawYFinal = drawY - hopOffset;
+        const drawYFinal = drawY;
 
         ctx.save();
-
-        // Shadow on ground while hopping
-        if (hopOffset > 3) {
-          ctx.beginPath();
-          const shadowScale = Math.max(0.3, 1 - hopOffset / (cellSize * 0.6));
-          ctx.ellipse(drawX, drawY + r * 0.25, r * shadowScale, r * 0.15 * shadowScale, 0, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(0,0,0,${0.28 * shadowScale})`;
-          ctx.fill();
-        }
 
         // Movable / selected glow ring
         if (isMovable || isSelected) {
@@ -1199,8 +1189,8 @@ export default function LudoGame({
         }
 
         ctx.shadowColor = 'rgba(0,0,0,0.55)';
-        ctx.shadowBlur = 6 + hopOffset * 0.3;
-        ctx.shadowOffsetY = 3 + hopOffset * 0.15;
+        ctx.shadowBlur = 6;
+        ctx.shadowOffsetY = 3;
 
         const img = avatarImagesRef.current[player.user_id];
         if (img?.complete && img?.naturalWidth > 0) {
@@ -2434,15 +2424,11 @@ export default function LudoGame({
                         </div>
                       )}
                       <div
-                        className={`relative bg-slate-800 rounded-xl p-1.5 border transition-all duration-300 flex items-center justify-center shrink min-h-0 ${recentFinishedUserId ? 'animate-pulse' : ''}`}
+                        className={`relative bg-slate-800 rounded-xl p-1.5 border border-white/5 transition-all duration-500 flex items-center justify-center shrink min-h-0 ${recentFinishedUserId ? 'animate-pulse' : ''}`}
                         style={{
-                          borderColor: currentTurnColorIdx >= 0 ? `${PLAYER_COLORS[currentTurnColorIdx]}88` : 'rgba(255,255,255,0.05)',
                           boxShadow: recentFinishedUserId
                             ? '0 0 0 2px rgba(251,191,36,0.45), 0 0 24px rgba(251,191,36,0.35)'
-                            : currentTurnColorIdx >= 0
-                              ? `0 0 0 2px ${PLAYER_COLORS[currentTurnColorIdx]}55, 0 0 18px ${PLAYER_COLORS[currentTurnColorIdx]}33`
-                              : undefined,
-                          animation: currentTurnColorIdx >= 0 && !recentFinishedUserId ? 'ludoHomePulse 1.4s ease-in-out infinite' : 'none',
+                            : undefined,
                           maxHeight: '100%', maxWidth: '100%', aspectRatio: '1 / 1'
                         }}
                       >
