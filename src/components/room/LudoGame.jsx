@@ -7,7 +7,7 @@ const FALLBACK_AVATAR =
   encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128"><rect width="128" height="128" rx="64" fill="#f1f5f9"/><circle cx="64" cy="52" r="22" fill="#cbd5e1"/><path d="M24 112c8-22 28-34 40-34s32 12 40 34" fill="#cbd5e1"/></svg>`);
 
 const MAX_PLAYERS_OPTIONS = [2, 3, 4];
-const ENTRY_COST_OPTIONS = [100, 200, 500, 1000, 5000, 10000];
+const ENTRY_COST_OPTIONS = [0, 100, 200, 500, 1000, 5000, 10000];
 
 const PLAYER_COLORS = ['#ef4444', '#3b82f6', '#f59e0b', '#22c55e'];
 const PLAYER_LIGHT_COLORS = ['#fca5a5', '#93c5fd', '#fcd34d', '#86efac'];
@@ -112,6 +112,9 @@ export default function LudoGame({
   const [recentFinishedUserId, setRecentFinishedUserId] = useState(null);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [turnTimeLeft, setTurnTimeLeft] = useState(12);
+  const [soundMuted, setSoundMuted] = useState(false);
+  const [bumpFlash, setBumpFlash] = useState(null); // {x, y, colorIdx}
+  const [sixFlash, setSixFlash] = useState(false);
 
   const canvasRef = useRef(null);
   const channelRef = useRef(null);
@@ -133,8 +136,75 @@ export default function LudoGame({
   const previousDiceResultKeyRef = useRef('');
   const leftTurnActionRef = useRef({ inFlight: false, key: '' });
   const savingTeamsRef = useRef(false);
-  // FIX #1: Independent team turn cycle counter — prevents same player getting two turns
   const teamTurnCycleRef = useRef(0);
+  const soundMutedRef = useRef(false);
+  const bumpFlashTimerRef = useRef(null);
+
+  // ─── Sound utility ────────────────────────────
+  const playSound = (type) => {
+    if (soundMutedRef.current) return;
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+
+      if (type === 'roll') {
+        o.type = 'square'; o.frequency.setValueAtTime(220, ctx.currentTime);
+        o.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.08);
+        g.gain.setValueAtTime(0.18, ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+        o.start(); o.stop(ctx.currentTime + 0.12);
+      } else if (type === 'six') {
+        // Fanfare for 6
+        [0, 0.07, 0.14].forEach((delay, i) => {
+          const o2 = ctx.createOscillator();
+          const g2 = ctx.createGain();
+          o2.connect(g2); g2.connect(ctx.destination);
+          o2.type = 'triangle';
+          o2.frequency.setValueAtTime([523, 659, 784][i], ctx.currentTime + delay);
+          g2.gain.setValueAtTime(0.22, ctx.currentTime + delay);
+          g2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.12);
+          o2.start(ctx.currentTime + delay);
+          o2.stop(ctx.currentTime + delay + 0.13);
+        });
+        return;
+      } else if (type === 'move') {
+        o.type = 'sine'; o.frequency.setValueAtTime(660, ctx.currentTime);
+        o.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.06);
+        g.gain.setValueAtTime(0.12, ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.09);
+        o.start(); o.stop(ctx.currentTime + 0.09);
+      } else if (type === 'exit') {
+        // Exit base — ascending pop
+        o.type = 'sine'; o.frequency.setValueAtTime(330, ctx.currentTime);
+        o.frequency.exponentialRampToValueAtTime(660, ctx.currentTime + 0.1);
+        g.gain.setValueAtTime(0.2, ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+        o.start(); o.stop(ctx.currentTime + 0.15);
+      } else if (type === 'finish') {
+        // Goal reached — victory chime
+        [0, 0.1, 0.2, 0.32].forEach((delay, i) => {
+          const o2 = ctx.createOscillator();
+          const g2 = ctx.createGain();
+          o2.connect(g2); g2.connect(ctx.destination);
+          o2.type = 'sine';
+          o2.frequency.setValueAtTime([523, 659, 784, 1047][i], ctx.currentTime + delay);
+          g2.gain.setValueAtTime(0.2, ctx.currentTime + delay);
+          g2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.18);
+          o2.start(ctx.currentTime + delay);
+          o2.stop(ctx.currentTime + delay + 0.19);
+        });
+        return;
+      } else if (type === 'bump') {
+        o.type = 'sawtooth'; o.frequency.setValueAtTime(180, ctx.currentTime);
+        o.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + 0.18);
+        g.gain.setValueAtTime(0.22, ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+        o.start(); o.stop(ctx.currentTime + 0.2);
+      }
+    } catch (_) {}
+  };
 
   // ─── Helpers ─────────────────────────────────
   const isPlayerLeft = (player) => Boolean(player?.left_at);
@@ -216,11 +286,13 @@ export default function LudoGame({
       if (finishFxTimerRef.current) clearTimeout(finishFxTimerRef.current);
       if (turnTimerRef.current) clearInterval(turnTimerRef.current);
       if (boardAnimFrameRef.current) cancelAnimationFrame(boardAnimFrameRef.current);
-      // FIX #7: Clean up animation refs on unmount to prevent memory leaks
+      if (bumpFlashTimerRef.current) clearTimeout(bumpFlashTimerRef.current);
       pieceMoveAnimRef.current = {};
       lastPieceCanvasPosRef.current = {};
     };
   }, []);
+
+  useEffect(() => { soundMutedRef.current = soundMuted; }, [soundMuted]);
 
   useEffect(() => {
     if (maxPlayers !== 4 && teamMode) setTeamMode(false);
@@ -543,7 +615,7 @@ export default function LudoGame({
   useEffect(() => {
     if (!canvasRef.current || !currentSession) return;
     drawBoard();
-  }, [players, currentSession, movablePieces, selectedPiece, user?.id]);
+  }, [players, currentSession, movablePieces, selectedPiece, user?.id, sixFlash, bumpFlash]);
 
   // Preload avatars
   useEffect(() => {
@@ -770,6 +842,17 @@ export default function LudoGame({
 
     ctx.clearRect(0, 0, W, W);
 
+    // Six flash glow border
+    if (sixFlash) {
+      ctx.save();
+      ctx.shadowColor = '#fbbf24';
+      ctx.shadowBlur = 40;
+      ctx.strokeStyle = '#fbbf24';
+      ctx.lineWidth = 6;
+      ctx.strokeRect(3, 3, W - 6, W - 6);
+      ctx.restore();
+    }
+
     const bgGrad = ctx.createRadialGradient(W/2, W/2, 0, W/2, W/2, W);
     bgGrad.addColorStop(0, '#1e293b');
     bgGrad.addColorStop(1, '#0f172a');
@@ -994,14 +1077,12 @@ export default function LudoGame({
         if (prevPos && moveDistance > 1) {
           const targetChanged = !existingAnim || existingAnim.toX !== px || existingAnim.toY !== py;
           if (targetChanged) {
-            const STEP_DELAY_MS = 3;
-            const stepDelay = existingAnim ? STEP_DELAY_MS : 0;
-            const duration = Math.max(90, Math.min(110, moveDistance * 2.5));
+            const duration = Math.max(160, Math.min(220, moveDistance * 3.2));
             pieceMoveAnimRef.current[pieceKey] = {
               fromX: existingAnim ? existingAnim.fromX + (existingAnim.toX - existingAnim.fromX) * Math.max(0, Math.min(1, (nowTs - existingAnim.start) / existingAnim.duration)) : prevPos.x,
               fromY: existingAnim ? existingAnim.fromY + (existingAnim.toY - existingAnim.fromY) * Math.max(0, Math.min(1, (nowTs - existingAnim.start) / existingAnim.duration)) : prevPos.y,
               toX: px, toY: py,
-              start: nowTs + stepDelay,
+              start: nowTs,
               duration,
             };
           }
@@ -1009,96 +1090,146 @@ export default function LudoGame({
 
         let drawX = px;
         let drawY = py;
+        let hopOffset = 0;
         const activeAnim = pieceMoveAnimRef.current[pieceKey];
         if (activeAnim) {
           const t = Math.max(0, Math.min(1, (nowTs - activeAnim.start) / activeAnim.duration));
-          const eased = t < 0 ? 0 : 1 - Math.pow(1 - t, 1.8);
+          const eased = 1 - Math.pow(1 - t, 2.2);
           drawX = activeAnim.fromX + (activeAnim.toX - activeAnim.fromX) * eased;
           drawY = activeAnim.fromY + (activeAnim.toY - activeAnim.fromY) * eased;
+          hopOffset = Math.sin(t * Math.PI) * cellSize * 0.5;
           if (t < 1) needsMoveAnimationFrame = true;
           else delete pieceMoveAnimRef.current[pieceKey];
         }
 
         lastPieceCanvasPosRef.current[pieceKey] = { x: px, y: py };
 
-        const r = cellSize * 0.45;
+        const r = cellSize * 0.42;
         const isMyPiece = String(player.user_id) === String(user?.id);
         const isMovable = isMyPiece && movablePieces.includes(pieceIdx + 1);
         const isSelected = isMyPiece && selectedPiece === pieceIdx + 1;
+        const drawYFinal = drawY - hopOffset;
 
         ctx.save();
+
+        // Shadow on ground while hopping
+        if (hopOffset > 3) {
+          ctx.beginPath();
+          const shadowScale = Math.max(0.3, 1 - hopOffset / (cellSize * 0.6));
+          ctx.ellipse(drawX, drawY + r * 0.25, r * shadowScale, r * 0.15 * shadowScale, 0, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(0,0,0,${0.28 * shadowScale})`;
+          ctx.fill();
+        }
+
+        // Movable / selected glow ring
         if (isMovable || isSelected) {
           ctx.beginPath();
-          ctx.arc(drawX, drawY, r + 6, 0, Math.PI * 2);
+          ctx.arc(drawX, drawYFinal, r + 7, 0, Math.PI * 2);
           ctx.shadowColor = isSelected ? '#ffffff' : PLAYER_COLORS[colorIdx];
-          ctx.shadowBlur = isSelected ? 15 : 8;
-          ctx.fillStyle = isSelected ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.18)';
+          ctx.shadowBlur = isSelected ? 20 : 14;
+          ctx.fillStyle = isSelected ? 'rgba(255,255,255,0.88)' : `${PLAYER_COLORS[colorIdx]}50`;
           ctx.fill();
           ctx.shadowBlur = 0;
           if (isMovable) {
             ctx.beginPath();
-            ctx.arc(drawX, drawY, r + 8, 0, Math.PI * 2);
-            ctx.lineWidth = 1.5;
-            ctx.strokeStyle = 'rgba(255,255,255,0.30)';
+            ctx.arc(drawX, drawYFinal, r + 11, 0, Math.PI * 2);
+            ctx.lineWidth = 2.5;
+            ctx.strokeStyle = `${PLAYER_COLORS[colorIdx]}99`;
             ctx.stroke();
           }
         }
 
-        ctx.shadowColor = 'rgba(0,0,0,0.6)';
-        ctx.shadowBlur = 6;
-        ctx.shadowOffsetY = 3;
+        ctx.shadowColor = 'rgba(0,0,0,0.55)';
+        ctx.shadowBlur = 6 + hopOffset * 0.3;
+        ctx.shadowOffsetY = 3 + hopOffset * 0.15;
 
         const img = avatarImagesRef.current[player.user_id];
         if (img?.complete && img?.naturalWidth > 0) {
           ctx.beginPath();
-          ctx.arc(drawX, drawY, r, 0, Math.PI * 2);
+          ctx.arc(drawX, drawYFinal, r, 0, Math.PI * 2);
           ctx.closePath();
           ctx.fillStyle = PLAYER_COLORS[colorIdx];
           ctx.fill();
           ctx.save();
           ctx.clip();
-          ctx.drawImage(img, drawX - r, drawY - r, r * 2, r * 2);
+          ctx.drawImage(img, drawX - r, drawYFinal - r, r * 2, r * 2);
           ctx.restore();
         } else {
-          const pieceGrad = ctx.createRadialGradient(px - r*0.3, py - r*0.3, r*0.1, px, py, r);
+          const pieceGrad = ctx.createRadialGradient(drawX - r*0.3, drawYFinal - r*0.3, r*0.1, drawX, drawYFinal, r);
           pieceGrad.addColorStop(0, homeColors[colorIdx].grad1);
           pieceGrad.addColorStop(1, homeColors[colorIdx].grad2);
           ctx.beginPath();
-          ctx.arc(drawX, drawY, r, 0, Math.PI * 2);
+          ctx.arc(drawX, drawYFinal, r, 0, Math.PI * 2);
           ctx.fillStyle = pieceGrad;
           ctx.fill();
           ctx.fillStyle = 'white';
-          ctx.font = `bold ${r}px sans-serif`;
+          ctx.font = `bold ${Math.round(r)}px sans-serif`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.shadowColor = 'rgba(0,0,0,0.5)';
           ctx.shadowBlur = 2;
-          ctx.fillText(pieceIdx + 1, drawX, drawY + 1);
+          ctx.fillText(pieceIdx + 1, drawX, drawYFinal + 1);
         }
 
         ctx.shadowColor = 'rgba(0,0,0,0)';
         ctx.shadowBlur = 0;
         ctx.shadowOffsetY = 0;
+
+        // Outer colored ring (thick, clearly shows player color)
         ctx.beginPath();
-        ctx.arc(drawX, drawY, r, 0, Math.PI * 2);
-        ctx.lineWidth = 2.5;
-        ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.arc(drawX, drawY, r - 1.5, 0, Math.PI * 2);
-        ctx.lineWidth = 1.5;
+        ctx.arc(drawX, drawYFinal, r + 2.5, 0, Math.PI * 2);
+        ctx.lineWidth = 4;
         ctx.strokeStyle = PLAYER_COLORS[colorIdx];
         ctx.stroke();
+        // Inner white ring
         ctx.beginPath();
-        ctx.arc(drawX, drawY - r * 0.3, r * 0.6, 0, Math.PI * 2);
-        const glossGrad = ctx.createLinearGradient(drawX, drawY - r, drawX, drawY);
-        glossGrad.addColorStop(0, 'rgba(255,255,255,0.5)');
+        ctx.arc(drawX, drawYFinal, r, 0, Math.PI * 2);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+        ctx.stroke();
+
+        // Gloss
+        ctx.beginPath();
+        ctx.arc(drawX, drawYFinal - r * 0.28, r * 0.52, 0, Math.PI * 2);
+        const glossGrad = ctx.createLinearGradient(drawX, drawYFinal - r, drawX, drawYFinal);
+        glossGrad.addColorStop(0, 'rgba(255,255,255,0.52)');
         glossGrad.addColorStop(1, 'rgba(255,255,255,0)');
         ctx.fillStyle = glossGrad;
         ctx.fill();
+
         ctx.restore();
       });
     });
+
+    // ── Bump flash overlay ────────────────────────
+    if (bumpFlash) {
+      const flashAge = nowTs - bumpFlash.startTs;
+      const flashDur = 450;
+      if (flashAge < flashDur) {
+        needsMoveAnimationFrame = true;
+        const alpha = (1 - flashAge / flashDur) * 0.8;
+        const flashR = (flashAge / flashDur) * cellSize * 1.5;
+        ctx.save();
+        const radGrad = ctx.createRadialGradient(bumpFlash.x, bumpFlash.y, 0, bumpFlash.x, bumpFlash.y, flashR);
+        radGrad.addColorStop(0, `rgba(255,100,0,${alpha})`);
+        radGrad.addColorStop(0.45, `rgba(255,220,0,${alpha * 0.55})`);
+        radGrad.addColorStop(1, 'rgba(255,180,0,0)');
+        ctx.beginPath();
+        ctx.arc(bumpFlash.x, bumpFlash.y, flashR, 0, Math.PI * 2);
+        ctx.fillStyle = radGrad;
+        ctx.fill();
+        // 💥 emoji
+        if (flashAge < 280) {
+          ctx.font = `${Math.round(cellSize * 0.9)}px sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.globalAlpha = alpha;
+          ctx.fillText('💥', bumpFlash.x, bumpFlash.y - flashR * 0.3);
+          ctx.globalAlpha = 1;
+        }
+        ctx.restore();
+      }
+    }
 
     // Cleanup stale refs
     Object.keys(lastPieceCanvasPosRef.current).forEach((key) => {
@@ -1189,6 +1320,14 @@ export default function LudoGame({
       setDiceAnimating(false);
       setDiceDisplay(finalRoll);
       setLastRoll(finalRoll);
+
+      if (finalRoll === 6) {
+        playSound('six');
+        setSixFlash(true);
+        setTimeout(() => setSixFlash(false), 600);
+      } else {
+        playSound('roll');
+      }
 
       if (typeof data.consecutive_sixes === 'number') {
         setConsecutiveSixes(data.consecutive_sixes);
@@ -1458,15 +1597,43 @@ export default function LudoGame({
 
       if (typeof data.new_pos === 'number' && data.piece_number) {
         const pieceKey = `piece${data.piece_number}`;
+        const wasInBase = (players.find(p => String(p.user_id) === String(user.id))?.[pieceKey] ?? -1) === -1;
         setPlayers(prev =>
           prev.map(p =>
             String(p.user_id) === String(user.id) ? { ...p, [pieceKey]: data.new_pos } : p
           )
         );
+        if (wasInBase && data.new_pos === 0) playSound('exit');
+        else playSound('move');
       }
 
       onCoinsUpdated?.();
       await new Promise(resolve => setTimeout(resolve, 180));
+
+      if (data.bumped) {
+        // Trigger bump flash on canvas at bumped piece last position
+        const canvas = canvasRef.current;
+        if (canvas) {
+          const cellSize = canvas.width / 15;
+          // Flash at destination cell of moving piece
+          const myPlayer = players.find(p => String(p.user_id) === String(user.id));
+          if (myPlayer && typeof data.new_pos === 'number') {
+            const placement = getPieceBoardPlacement(
+              { ...myPlayer, [`piece${data.piece_number}`]: data.new_pos },
+              (data.piece_number || 1) - 1,
+              players
+            );
+            if (placement) {
+              const fx = placement.col * cellSize + cellSize / 2;
+              const fy = placement.row * cellSize + cellSize / 2;
+              setBumpFlash({ x: fx, y: fy, startTs: performance.now() });
+              if (bumpFlashTimerRef.current) clearTimeout(bumpFlashTimerRef.current);
+              bumpFlashTimerRef.current = setTimeout(() => setBumpFlash(null), 500);
+            }
+          }
+        }
+        playSound('bump');
+      }
 
       const refreshed = await refreshSession();
       const myPlayerAfter = (refreshed.players || []).find(p => String(p.user_id) === String(user.id));
@@ -1483,6 +1650,7 @@ export default function LudoGame({
       }
 
       if (pieceReachedGoal && afterFinished > beforeFinished) {
+        playSound('finish');
         setFinishToast('🎉 Piece finished!');
         setMessage('🎉 Piece finished! Roll again 🎲');
         setRecentFinishedUserId(String(user.id));
@@ -1986,7 +2154,13 @@ export default function LudoGame({
                   <Settings className="w-5 h-5" />
                 </button>
                 {showSettingsMenu && (
-                  <div className="absolute right-0 top-7 z-50 bg-slate-800 border border-white/10 rounded-xl shadow-xl min-w-[140px] overflow-hidden" onClick={e => e.stopPropagation()}>
+                  <div className="absolute right-0 top-7 z-50 bg-slate-800 border border-white/10 rounded-xl shadow-xl min-w-[160px] overflow-hidden" onClick={e => e.stopPropagation()}>
+                    <button
+                      onClick={() => setSoundMuted(v => !v)}
+                      className="w-full text-left px-4 py-2.5 text-white font-bold text-sm hover:bg-white/10 transition flex items-center gap-2"
+                    >
+                      {soundMuted ? '🔇' : '🔊'} {soundMuted ? 'Unmute' : 'Mute'} Sound
+                    </button>
                     {currentSession.status === 'waiting' && canModerate && (
                       <button onClick={() => { setShowSettingsMenu(false); cancelSession(); }} className="w-full text-left px-4 py-2.5 text-rose-400 font-bold text-sm hover:bg-rose-500/10 transition">
                         🚫 Cancel Game
@@ -2316,14 +2490,18 @@ export default function LudoGame({
                     {ENTRY_COST_OPTIONS.map(c => (
                       <button key={c} onClick={() => setEntryCost(c)}
                         className={`py-2.5 rounded-xl font-bold text-xs active:scale-95 transition ${entryCost === c ? 'bg-amber-500 text-white' : 'bg-white/10 text-white/70 hover:bg-white/20'}`}>
-                        {c >= 1000 ? (c/1000)+'k' : c}
+                        {c === 0 ? '🆓' : c >= 1000 ? (c/1000)+'k' : c}
                       </button>
                     ))}
                   </div>
                 </div>
                 <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-center">
-                  <div className="text-amber-200/70 text-[10px] font-bold uppercase mb-1">Winner gets (after 10% fee)</div>
-                  <div className="text-amber-400 font-black text-2xl">🪙 {Math.floor(entryCost * maxPlayers * 0.9).toLocaleString()}</div>
+                  <div className="text-amber-200/70 text-[10px] font-bold uppercase mb-1">
+                    {entryCost === 0 ? 'Free to play' : 'Winner gets (after 10% fee)'}
+                  </div>
+                  <div className="text-amber-400 font-black text-2xl">
+                    {entryCost === 0 ? '🆓 No entry cost' : `🪙 ${Math.floor(entryCost * maxPlayers * 0.9).toLocaleString()}`}
+                  </div>
                 </div>
                 <button onClick={createSession} disabled={creating} className="w-full py-3 rounded-xl bg-gradient-to-r from-red-500 via-blue-500 to-green-500 text-white font-black text-sm active:scale-95 transition disabled:opacity-50">
                   {creating ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : '🎯 Create Ludo Game'}
