@@ -748,7 +748,7 @@ export default function LudoGame({
     const viewerActualColorIdx = getViewerActualColorIndex(playersList);
     const rotationOffset = START_POSITIONS[viewerActualColorIdx];
 
-    return normalizeColorIndex(actualTrackCell - rotationOffset);
+    return ((actualTrackCell - rotationOffset) % 52 + 52) % 52;
   };
 
   // Used only for drawing.
