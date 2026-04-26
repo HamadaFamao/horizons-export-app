@@ -1441,33 +1441,41 @@ export default function LudoGame({
         );
       }
 
-      if (data.bumped) {
-        setMessage('💥 You sent an opponent home!');
-        setTimeout(() => setMessage(''), 1800);
-      } else if (data.extra_turn) {
-        setMessage('🎲 Rolled 6! Play again!');
-        setTimeout(() => setMessage(''), 1800);
-      } else {
-        setMessage('');
-      }
-
       onCoinsUpdated?.();
       await new Promise(resolve => setTimeout(resolve, 180));
 
       const refreshed = await refreshSession();
       const myPlayerAfter = (refreshed.players || []).find(p => String(p.user_id) === String(user.id));
       const afterFinished = Number(myPlayerAfter?.pieces_finished ?? data?.pieces_finished ?? beforeFinished);
+      const pieceReachedGoal = data.new_pos === 57;
 
-      if (afterFinished > beforeFinished) {
+      // Reset dice state so the player can roll again
+      // Covers: rolled 6 (extra_turn), piece reached goal (also extra_turn in DB)
+      if (data.extra_turn && !data.winner) {
+        setLastRoll(null);
+        setDiceDisplay(null);
+        setMovablePieces([]);
+        setSelectedPiece(null);
+      }
+
+      if (pieceReachedGoal && afterFinished > beforeFinished) {
         setFinishToast('🎉 Piece finished!');
-        setMessage('🎉 Piece finished!');
+        setMessage('🎉 Piece finished! Roll again 🎲');
         setRecentFinishedUserId(String(user.id));
         if (finishFxTimerRef.current) clearTimeout(finishFxTimerRef.current);
         finishFxTimerRef.current = setTimeout(() => {
           setFinishToast('');
           setRecentFinishedUserId(null);
           setMessage('');
-        }, 1800);
+        }, 2200);
+      } else if (data.bumped) {
+        setMessage('💥 You sent an opponent home!');
+        setTimeout(() => setMessage(''), 1800);
+      } else if (data.extra_turn && !data.winner) {
+        setMessage('🎲 Rolled 6! Play again!');
+        setTimeout(() => setMessage(''), 1800);
+      } else {
+        setMessage('');
       }
     } catch (err) {
       alert(err.message || 'Failed to move piece');
