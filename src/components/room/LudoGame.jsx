@@ -731,12 +731,13 @@ export default function LudoGame({
     const pos = pieces[pieceIndex];
     if (typeof pos !== 'number') return null;
 
-    // colorIdx drives which home base, home column, and track offset to use.
-    // Must use the ABSOLUTE color (from seat_number) so each player always
-    // occupies the correct corner regardless of who is viewing.
+    // geometryIdx: which corner/lane/base to use — always relative to current viewer
+    // so each player sees themselves at bottom-left and others around the board.
+    const geometryIdx = normalizeColorIndex(getRelativeVisualSeat(player, playersList));
+
+    // colorIdx: the player's absolute color (derived from seat_number) — never changes.
+    // Used only for ring color and piece color, NOT for board geometry.
     const colorIdx = normalizeColorIndex(getPlayerColorIndex(player, playersList));
-    // relativeVisualSeat is only used for rendering position on screen (which corner).
-    const relVisual = getRelativeVisualSeat(player, playersList);
     const finishedTriangleSlots = [
       [[8.35, 7.2], [8.35, 7.8], [8.7, 7.35], [8.7, 7.65]],
       [[7.2, 8.35], [7.8, 8.35], [7.35, 8.7], [7.65, 8.7]],
@@ -750,21 +751,21 @@ export default function LudoGame({
         .filter(item => item.piecePos === 57)
         .map(item => item.idx);
       const slotIndex = Math.max(0, finishedPieceIndices.indexOf(pieceIndex));
-      const slots = finishedTriangleSlots[colorIdx] || [[7.5, 7.5]];
+      const slots = finishedTriangleSlots[geometryIdx] || [[7.5, 7.5]];
       const [row, col] = slots[Math.min(slotIndex, slots.length - 1)] || [7.5, 7.5];
       return { row, col, colorIdx, isFinished: true, zone: 'finished', seatNumber: Number(player?.seat_number || 0), logicalPos: pos, trackIndex: null };
     }
 
     if (pos === -1) {
-      const homeBase = HOME_BASES[colorIdx];
+      const homeBase = HOME_BASES[geometryIdx];
       if (!homeBase || !homeBase[pieceIndex]) return null;
       const [baseRow, baseCol] = homeBase[pieceIndex];
       return { row: baseRow, col: baseCol, colorIdx, isFinished: false, zone: 'base', seatNumber: Number(player?.seat_number || 0), logicalPos: pos, trackIndex: null };
     }
 
     if (pos >= 0 && pos <= 51) {
-      const adjustedPos = (pos + START_POSITIONS[colorIdx]) % 52;
-      const [entryRow, entryCol] = HOME_ENTRY_ARROW_CELLS[colorIdx] || [];
+      const adjustedPos = (pos + START_POSITIONS[geometryIdx]) % 52;
+      const [entryRow, entryCol] = HOME_ENTRY_ARROW_CELLS[geometryIdx] || [];
       const entryTrackIndex = TRACK_CELLS.findIndex(([row, col]) => row === entryRow && col === entryCol);
       const trackCell = TRACK_CELLS[adjustedPos];
       const isInvalidOuterAfterEntry =
@@ -772,7 +773,7 @@ export default function LudoGame({
         adjustedPos === (entryTrackIndex + 1) % TRACK_CELLS.length;
 
       if (isInvalidOuterAfterEntry) {
-        const homeCol = HOME_COLUMNS[colorIdx];
+        const homeCol = HOME_COLUMNS[geometryIdx];
         if (!homeCol || !homeCol[0]) return null;
         const [row, col] = homeCol[0];
         return { row: row + 0.0001, col, colorIdx, isFinished: false, zone: 'home-lane', seatNumber: Number(player?.seat_number || 0), logicalPos: pos, trackIndex: adjustedPos, derivedFromOuterTrack: true };
@@ -785,7 +786,7 @@ export default function LudoGame({
 
     if (pos >= 52 && pos <= 56) {
       const homeColIdx = pos - 52;
-      const homeCol = HOME_COLUMNS[colorIdx];
+      const homeCol = HOME_COLUMNS[geometryIdx];
       if (!homeCol || !homeCol[homeColIdx]) return null;
       const [row, col] = homeCol[homeColIdx];
       return { row, col, colorIdx, isFinished: false, zone: 'home-lane', seatNumber: Number(player?.seat_number || 0), logicalPos: pos, trackIndex: null };
