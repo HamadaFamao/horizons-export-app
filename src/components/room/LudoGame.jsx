@@ -139,6 +139,8 @@ export default function LudoGame({
   const teamTurnCycleRef = useRef(0);
   const soundMutedRef = useRef(false);
   const bumpFlashTimerRef = useRef(null);
+  // Tracks user IDs that missed their turn (inactive) — auto-play instantly for them
+  const inactivePlayersRef = useRef(new Set());
 
   // ─── Sound utility ────────────────────────────
   const playSound = (type) => {
@@ -319,6 +321,10 @@ export default function LudoGame({
       setSelectedTeamPlayerId(null);
       setTeamsDirty(false);
     }
+    // Reset inactive tracking on new session
+    if (!currentSession?.id) {
+      inactivePlayersRef.current = new Set();
+    }
   }, [currentSession?.id, currentSession?.status]);
 
   // FIX #2 (cont): Clear resignedTeammateName when session resets
@@ -408,7 +414,6 @@ export default function LudoGame({
   ]);
 
   // ─── Turn countdown timer ─────────────────────
-  // FIX #4: Timer now properly scoped per turn — no double-fire risk
   useEffect(() => {
     const myPlayer = players.find(p => String(p.user_id) === String(user?.id));
     const isMine =
@@ -425,14 +430,35 @@ export default function LudoGame({
       return;
     }
 
-    setTurnTimeLeft(12);
-    if (turnTimerRef.current) clearInterval(turnTimerRef.current);
-
-    let remaining = 12;
-    let actionFired = false;
-    // Snapshot the turn key — if it changes mid-timer, this instance becomes stale
     const turnKey = `${currentSession.id}:${currentSession.current_turn_user_id}:${currentSession.last_roll || 0}`;
+    const isInactive = inactivePlayersRef.current.has(String(user?.id));
+    // Inactive player: fire auto-action almost instantly (300ms) with no countdown UI
+    const delay = isInactive ? 300 : 12000;
 
+    if (turnTimerRef.current) clearInterval(turnTimerRef.current);
+    setTurnTimeLeft(isInactive ? 0 : 12);
+
+    let actionFired = false;
+
+    if (isInactive) {
+      // Fire immediately without interval
+      turnTimerRef.current = setTimeout(() => {
+        turnTimerRef.current = null;
+        const currentKey = `${autoActionStateRef.current.sessionId}:${autoActionStateRef.current.turnUserId}:${autoActionStateRef.current.sessionLastRoll || 0}`;
+        if (actionFired || currentKey !== turnKey) return;
+        actionFired = true;
+        const { sessionLastRoll: slr, movablePieces: mp, rolling: r, rollDice: rd, handlePieceSelect: hps } = autoActionStateRef.current;
+        if (!slr && !r) rd();
+        else if (slr > 0 && mp && mp.length > 0) hps(mp[0]);
+      }, delay);
+
+      return () => {
+        if (turnTimerRef.current) { clearTimeout(turnTimerRef.current); turnTimerRef.current = null; }
+      };
+    }
+
+    // Active player: 12s countdown
+    let remaining = 12;
     turnTimerRef.current = setInterval(() => {
       remaining -= 1;
       setTurnTimeLeft(remaining);
@@ -440,18 +466,16 @@ export default function LudoGame({
       if (remaining <= 0) {
         clearInterval(turnTimerRef.current);
         turnTimerRef.current = null;
-
-        // Guard: only fire if this timer instance is still for the active turn
         const currentKey = `${autoActionStateRef.current.sessionId}:${autoActionStateRef.current.turnUserId}:${autoActionStateRef.current.sessionLastRoll || 0}`;
         if (actionFired || currentKey !== turnKey) return;
         actionFired = true;
 
+        // Mark as inactive for all future turns
+        inactivePlayersRef.current.add(String(user?.id));
+
         const { sessionLastRoll: slr, movablePieces: mp, rolling: r, rollDice: rd, handlePieceSelect: hps } = autoActionStateRef.current;
-        if (!slr && !r) {
-          rd();
-        } else if (slr > 0 && mp && mp.length > 0) {
-          hps(mp[0]);
-        }
+        if (!slr && !r) rd();
+        else if (slr > 0 && mp && mp.length > 0) hps(mp[0]);
       }
     }, 1000);
 
@@ -883,16 +907,30 @@ export default function LudoGame({
       { r: 0, c: 0, w: 6, h: 6 },
     ];
 
+    // Find which visual index corresponds to the current turn player
+    const currentTurnPlayer = boardPlayers.find(
+      p => String(p.user_id) === String(currentSession?.current_turn_user_id)
+    );
+    const currentTurnVisualIdx = currentTurnPlayer
+      ? getRelativeVisualSeat(currentTurnPlayer, boardPlayers)
+      : -1;
+
     homeRects.forEach((rect, i) => {
       const realColorIdx = getVisualColorIndex(i);
       const x = rect.c * cellSize;
       const y = rect.r * cellSize;
       const w = rect.w * cellSize;
       const h = rect.h * cellSize;
+      const isTurnHome = i === currentTurnVisualIdx;
 
       ctx.save();
-      ctx.shadowColor = 'rgba(0,0,0,0.5)';
-      ctx.shadowBlur = 10;
+      if (isTurnHome) {
+        ctx.shadowColor = PLAYER_COLORS[realColorIdx];
+        ctx.shadowBlur = 28;
+      } else {
+        ctx.shadowColor = 'rgba(0,0,0,0.5)';
+        ctx.shadowBlur = 10;
+      }
       ctx.fillStyle = homeColors[realColorIdx].border;
       ctx.fillRect(x, y, w, h);
       ctx.restore();
@@ -902,6 +940,21 @@ export default function LudoGame({
       innerGrad.addColorStop(1, homeColors[realColorIdx].grad2);
       ctx.fillStyle = innerGrad;
       ctx.fillRect(x + cellSize * 0.5, y + cellSize * 0.5, w - cellSize, h - cellSize);
+
+      // Pulsing bright overlay for active turn home
+      if (isTurnHome) {
+        const pulse = 0.12 + 0.08 * Math.sin(Date.now() / 280);
+        ctx.fillStyle = `rgba(255,255,255,${pulse})`;
+        ctx.fillRect(x + cellSize * 0.5, y + cellSize * 0.5, w - cellSize, h - cellSize);
+        // Animated border ring
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+        ctx.lineWidth = 3;
+        ctx.shadowColor = PLAYER_COLORS[realColorIdx];
+        ctx.shadowBlur = 14;
+        ctx.strokeRect(x + cellSize * 0.5, y + cellSize * 0.5, w - cellSize, h - cellSize);
+        ctx.restore();
+      }
 
       const cx = x + w / 2;
       const cy = y + h / 2;
@@ -1248,6 +1301,11 @@ export default function LudoGame({
     Object.keys(pieceMoveAnimRef.current).forEach((key) => {
       if (!seenPieceKeys.has(key)) delete pieceMoveAnimRef.current[key];
     });
+
+    // Keep animating for home base pulse while game is playing
+    if (currentSession?.status === 'playing' && currentTurnVisualIdx >= 0) {
+      needsMoveAnimationFrame = true;
+    }
 
     if (needsMoveAnimationFrame && !boardAnimFrameRef.current) {
       boardAnimFrameRef.current = requestAnimationFrame(() => {
@@ -1838,12 +1896,26 @@ export default function LudoGame({
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Failed to resign');
       onCoinsUpdated?.();
-      if (data.game_ended) { setShowSettingsMenu(false); await refreshSession(); return; }
+      setShowSettingsMenu(false);
+
+      if (data.game_ended) {
+        // If there's a winner, let the realtime subscription handle the result screen.
+        // If no winner (all resigned), just reset UI.
+        if (!data.winner_id) {
+          setCurrentSession(null);
+          setPlayers([]);
+          setShowResult(false);
+          setWinner(null);
+        } else {
+          await refreshSession();
+        }
+        return;
+      }
+
       const refreshedPlayers = await loadPlayers(currentSession.id);
       const { data: sd } = await supabase.from('room_ludo_sessions').select('*').eq('id', currentSession.id).single();
       if (sd) setCurrentSession(sd);
       await maybeEndGameForEliminatedTeam(refreshedPlayers, sd || currentSession);
-      setShowSettingsMenu(false);
     } catch (err) {
       alert(err.message || 'Failed to resign');
     }
