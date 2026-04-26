@@ -687,6 +687,27 @@ export default function LudoGame({
     return normalizeColorIndex(layout[seatIdx] ?? seatIdx);
   };
 
+  const getViewerColorIndex = (playersList = players) => {
+    const viewerPlayer = (playersList || []).find(
+      p => String(p.user_id) === String(user?.id)
+    );
+    if (!viewerPlayer) return 0;
+    return getPlayerColorIndex(viewerPlayer, playersList);
+  };
+
+  const getPerspectiveColorIndexFromActual = (actualColorIdx, playersList = players) => {
+    return normalizeColorIndex(actualColorIdx - getViewerColorIndex(playersList));
+  };
+
+  const getActualColorIndexFromPerspective = (perspectiveColorIdx, playersList = players) => {
+    return normalizeColorIndex(perspectiveColorIdx + getViewerColorIndex(playersList));
+  };
+
+  const getPerspectiveColorIndex = (player, playersList = players) => {
+    const actualColorIdx = getPlayerColorIndex(player, playersList);
+    return getPerspectiveColorIndexFromActual(actualColorIdx, playersList);
+  };
+
   const getTeamKey = (player) => {
     if (!player) return null;
     if (Number(currentSession?.max_players || 0) === 4 && currentSession?.team_mode === true) {
@@ -699,7 +720,8 @@ export default function LudoGame({
     if (typeof piecePos !== 'number') return null;
     if (piecePos < 0 || piecePos > HOME_ENTRY_LOGICAL_INDEX) return null;
 
-    const colorIdx = getPlayerColorIndex(player, playersList);
+    const actualColorIdx = getPlayerColorIndex(player, playersList);
+    const colorIdx = getPerspectiveColorIndexFromActual(actualColorIdx, playersList);
     return (piecePos + START_POSITIONS[colorIdx]) % 52;
   };
 
@@ -743,7 +765,7 @@ export default function LudoGame({
   ) => {
     if (typeof logicalPos !== 'number') return null;
 
-    const colorIdx = getPlayerColorIndex(player, playersList);
+    const colorIdx = getPerspectiveColorIndex(player, playersList);
     const finishedTriangleSlots = [
       [[8.35, 7.2], [8.35, 7.8], [8.7, 7.35], [8.7, 7.65]],
       [[7.2, 8.35], [7.8, 8.35], [7.35, 8.7], [7.65, 8.7]],
@@ -764,6 +786,7 @@ export default function LudoGame({
         row,
         col,
         colorIdx,
+        actualColorIdx,
         isFinished: true,
         zone: 'finished',
         seatNumber: Number(player?.seat_number || 0),
@@ -780,6 +803,7 @@ export default function LudoGame({
         row: baseRow,
         col: baseCol,
         colorIdx,
+        actualColorIdx,
         isFinished: false,
         zone: 'base',
         seatNumber: Number(player?.seat_number || 0),
@@ -798,6 +822,7 @@ export default function LudoGame({
         row,
         col,
         colorIdx,
+        actualColorIdx,
         isFinished: false,
         zone: 'outer-track',
         seatNumber: Number(player?.seat_number || 0),
@@ -817,6 +842,7 @@ export default function LudoGame({
         row,
         col,
         colorIdx,
+        actualColorIdx,
         isFinished: false,
         zone: 'home-lane',
         seatNumber: Number(player?.seat_number || 0),
@@ -911,6 +937,10 @@ export default function LudoGame({
     const cellSize = W / CELLS;
     const boardPlayers = getVisiblePlayersList(players, currentSession);
 
+    const getActualColorForVisualIndex = (visualIdx) => {
+      return getActualColorIndexFromPerspective(visualIdx, boardPlayers);
+    };
+
     ctx.clearRect(0, 0, W, W);
 
     // Background with radial gradient
@@ -936,7 +966,7 @@ export default function LudoGame({
     ];
 
     homeRects.forEach((rect, i) => {
-      const realColorIdx = i;
+      const realColorIdx = getActualColorForVisualIndex(i);
       const x = rect.c * cellSize;
       const y = rect.r * cellSize;
       const w = rect.w * cellSize;
@@ -994,7 +1024,7 @@ export default function LudoGame({
       const startIdx = startIndices.indexOf(i);
       
       if (startIdx !== -1) {
-        const realColorIdx = startIdx;
+        const realColorIdx = getActualColorForVisualIndex(startIdx);
         cellColor = homeColors[realColorIdx].grad1;
         isStart = true;
       } else if (SAFE_SQUARES.includes(i)) {
@@ -1034,7 +1064,7 @@ export default function LudoGame({
 
     // Draw home columns
     HOME_COLUMNS.forEach((col, playerIdx) => {
-      const realColorIdx = playerIdx;
+      const realColorIdx = getActualColorForVisualIndex(playerIdx);
       col.forEach(([row, c]) => {
         const x = c * cellSize;
         const y = row * cellSize;
@@ -1060,7 +1090,7 @@ export default function LudoGame({
       { r: 7, c: 0, colorIdx: 3, dir: 'right' },
     ];
     arrows.forEach(({ r, c, colorIdx, dir }) => {
-      const realColorIdx = colorIdx;
+      const realColorIdx = getActualColorForVisualIndex(colorIdx);
       const color = PLAYER_COLORS[realColorIdx];
       const cx = c * cellSize + cellSize / 2;
       const cy = r * cellSize + cellSize / 2;
@@ -1121,7 +1151,7 @@ export default function LudoGame({
       [[6,6],[9,6],[7.5,7.5]],   // 3: left
     ];
     triPoints.forEach((pts, i) => {
-      const realColorIdx = i;
+      const realColorIdx = getActualColorForVisualIndex(i);
       ctx.beginPath();
       ctx.moveTo(pts[0][1] * cellSize, pts[0][0] * cellSize);
       ctx.lineTo(pts[1][1] * cellSize, pts[1][0] * cellSize);
@@ -1170,7 +1200,7 @@ export default function LudoGame({
       cellPieces.forEach((item, stackIndex) => {
         const { player, pieceIdx, piecePos } = item;
         const { x, y, colorIdx: rawColorIdx } = piecePos;
-        const colorIdx = normalizeColorIndex(rawColorIdx);
+        const colorIdx = normalizeColorIndex(piecePos.actualColorIdx ?? rawColorIdx);
         const [offX, offY] = getPieceStackOffset(stackIndex);
         const px = x + offX;
         const py = y + offY;
@@ -2675,7 +2705,7 @@ export default function LudoGame({
                 const diceSideByVisualIdx = ['right', 'left', 'left', 'right'];
 
                 const playersWithVisuals = visiblePlayers.map((p) => {
-                  const visualIdx = getRelativeVisualSeat(p, visiblePlayers);
+                  const visualIdx = getPerspectiveColorIndex(p, visiblePlayers);
                   const colorIdx = getPlayerColorIndex(p, visiblePlayers);
                   return { player: p, visualIdx, colorIdx };
                 });
