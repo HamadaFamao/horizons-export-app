@@ -28,6 +28,9 @@ const SAFE_SQUARES = [0, 8, 13, 21, 26, 34, 39, 47];
 // Start position on track per color: Red=39, Blue=26, Yellow=13, Green=0
 const START_POSITIONS = [39, 26, 13, 0];
 
+// Last logical outer-track index before entering home lane.
+const HOME_ENTRY_LOGICAL_INDEX = 50;
+
 // Arrow cells where each color enters its home lane.
 const HOME_ENTRY_ARROW_CELLS = [
   [14, 7],
