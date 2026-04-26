@@ -683,6 +683,12 @@ export default function LudoGame({
     return ((n % 4) + 4) % 4;
   };
 
+  const normalizeTrackIndex = (idx) => {
+    const n = Number(idx);
+    if (!Number.isFinite(n)) return 0;
+    return ((n % 52) + 52) % 52;
+  };
+
   const getActualSeatNumber = (player) => {
     let seat = Number(player?.seat_number || 1);
     if (seat > 100) seat -= 100; // temporary seats during saveTeams
@@ -738,7 +744,7 @@ export default function LudoGame({
     if (piecePos < 0 || piecePos > HOME_ENTRY_LOGICAL_INDEX) return null;
 
     const actualColorIdx = getActualColorIndex(player, playersList);
-    return (piecePos + START_POSITIONS[actualColorIdx]) % 52;
+    return normalizeTrackIndex(piecePos + START_POSITIONS[actualColorIdx]);
   };
 
   // This converts an actual global track cell to the rotated visual track cell.
@@ -746,9 +752,12 @@ export default function LudoGame({
     if (!Number.isInteger(actualTrackCell)) return null;
 
     const viewerActualColorIdx = getViewerActualColorIndex(playersList);
-    const rotationOffset = START_POSITIONS[viewerActualColorIdx];
+    const viewerActualStart = START_POSITIONS[viewerActualColorIdx];
 
-    return ((actualTrackCell - rotationOffset) % 52 + 52) % 52;
+    // viewer's real start must appear at visual red/bottom start
+    const visualBottomStart = START_POSITIONS[0];
+
+    return normalizeTrackIndex(actualTrackCell - viewerActualStart + visualBottomStart);
   };
 
   // Used only for drawing.
