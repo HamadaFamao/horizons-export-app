@@ -1123,31 +1123,16 @@ export default function LudoGame({
         seenPieceKeys.add(pieceKey);
 
         const prevPos = lastPieceCanvasPosRef.current[pieceKey];
-        const existingAnim = pieceMoveAnimRef.current[pieceKey];
 
-        if (!prevPos) {
-          // First render — record position silently, no animation
-          lastPieceCanvasPosRef.current[pieceKey] = { x: px, y: py };
-        } else {
-          const moveDistance = Math.hypot(px - prevPos.x, py - prevPos.y);
-          const targetChanged = !existingAnim || existingAnim.toX !== px || existingAnim.toY !== py;
+        // Always record current position — no animation to avoid false movement bugs
+        lastPieceCanvasPosRef.current[pieceKey] = { x: px, y: py };
 
-          if (moveDistance > 3 && targetChanged) {
-            const fromX = existingAnim
-              ? existingAnim.fromX + (existingAnim.toX - existingAnim.fromX) * Math.max(0, Math.min(1, (nowTs - existingAnim.start) / existingAnim.duration))
-              : prevPos.x;
-            const fromY = existingAnim
-              ? existingAnim.fromY + (existingAnim.toY - existingAnim.fromY) * Math.max(0, Math.min(1, (nowTs - existingAnim.start) / existingAnim.duration))
-              : prevPos.y;
-            const stepsEstimate = Math.max(1, Math.round(moveDistance / cellSize));
-            const duration = Math.min(480, stepsEstimate * 280);
-            pieceMoveAnimRef.current[pieceKey] = { fromX, fromY, toX: px, toY: py, start: nowTs, duration };
-          }
-        }
+        // Only animate if an animation is already in progress (from movePiece RPC)
+        const activeAnim = pieceMoveAnimRef.current[pieceKey];
 
         let drawX = px;
         let drawY = py;
-        const activeAnim = pieceMoveAnimRef.current[pieceKey];
+
         if (activeAnim) {
           const t = Math.max(0, Math.min(1, (nowTs - activeAnim.start) / activeAnim.duration));
           const eased = 1 - Math.pow(1 - t, 2.5);
@@ -1155,11 +1140,6 @@ export default function LudoGame({
           drawY = activeAnim.fromY + (activeAnim.toY - activeAnim.fromY) * eased;
           if (t < 1) needsMoveAnimationFrame = true;
           else delete pieceMoveAnimRef.current[pieceKey];
-        }
-
-        // Only update cached position when piece is at rest (no animation)
-        if (!activeAnim) {
-          lastPieceCanvasPosRef.current[pieceKey] = { x: px, y: py };
         }
 
         const r = cellSize * 0.42;
@@ -1646,7 +1626,32 @@ export default function LudoGame({
 
       if (typeof data.new_pos === 'number' && data.piece_number) {
         const pieceKey = `piece${data.piece_number}`;
+        const pieceRefKey = `${user.id}-${data.piece_number - 1}`;
         const wasInBase = (players.find(p => String(p.user_id) === String(user.id))?.[pieceKey] ?? -1) === -1;
+
+        // Capture current canvas position BEFORE updating state — this is the animation start
+        const canvas = canvasRef.current;
+        if (canvas) {
+          const cellSize = canvas.width / 15;
+          const boardPlayers = getVisiblePlayersList(players, currentSession);
+          const myPlayerNow = boardPlayers.find(p => String(p.user_id) === String(user.id));
+          if (myPlayerNow) {
+            const fromPos = getPieceCanvasPosition(myPlayerNow, data.piece_number - 1, cellSize, boardPlayers);
+            const toPlayerState = { ...myPlayerNow, [pieceKey]: data.new_pos };
+            const toPos = getPieceCanvasPosition(toPlayerState, data.piece_number - 1, cellSize, boardPlayers);
+            if (fromPos && toPos && (Math.abs(fromPos.x - toPos.x) > 3 || Math.abs(fromPos.y - toPos.y) > 3)) {
+              const dist = Math.hypot(toPos.x - fromPos.x, toPos.y - fromPos.y);
+              const steps = Math.max(1, Math.round(dist / cellSize));
+              pieceMoveAnimRef.current[pieceRefKey] = {
+                fromX: fromPos.x, fromY: fromPos.y,
+                toX: toPos.x, toY: toPos.y,
+                start: performance.now(),
+                duration: Math.min(480, steps * 260),
+              };
+            }
+          }
+        }
+
         setPlayers(prev =>
           prev.map(p =>
             String(p.user_id) === String(user.id) ? { ...p, [pieceKey]: data.new_pos } : p
