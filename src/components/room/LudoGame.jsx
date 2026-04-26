@@ -670,43 +670,56 @@ export default function LudoGame({
     return layout[relativeIndex] ?? 0;
   };
 
-  // Clamps any seat/visual index to 0-3, handling temporary seats (100+) safely.
+  // ─────────────────────────────────────────────
+  // Ludo perspective system
+  // Server logic is ALWAYS actualColorIdx.
+  // UI drawing is ALWAYS viewColorIdx.
+  // ─────────────────────────────────────────────
+
   const normalizeColorIndex = (idx) => {
     const n = Number(idx);
     if (!Number.isFinite(n)) return 0;
     return ((n % 4) + 4) % 4;
   };
 
-  const getPlayerColorIndex = (player, playersList = players) => {
+  const getActualSeatNumber = (player) => {
     let seat = Number(player?.seat_number || 1);
-    // During saveTeams phase 1, DB may briefly hold temporary seats like 101-104.
-    if (seat > 100) seat = seat - 100;
+    if (seat > 100) seat -= 100; // temporary seats during saveTeams
+    return Math.max(1, Math.min(4, seat));
+  };
+
+  const getActualColorIndex = (player, playersList = players) => {
     const totalPlayers = Number(currentSession?.max_players || playersList.length || 4);
     const layout = VISUAL_SEAT_LAYOUTS[totalPlayers] || [0, 1, 2, 3];
-    const seatIdx = Math.max(0, seat - 1);
+    const seatIdx = getActualSeatNumber(player) - 1;
     return normalizeColorIndex(layout[seatIdx] ?? seatIdx);
   };
 
-  const getViewerColorIndex = (playersList = players) => {
-    const viewerPlayer = (playersList || []).find(
-      p => String(p.user_id) === String(user?.id)
-    );
-    if (!viewerPlayer) return 0;
-    return getPlayerColorIndex(viewerPlayer, playersList);
+  // Keep old name compatible
+  const getPlayerColorIndex = getActualColorIndex;
+
+  const getViewerPlayer = (playersList = players) =>
+    (playersList || []).find(p => String(p.user_id) === String(user?.id));
+
+  const getViewerActualColorIndex = (playersList = players) => {
+    const viewer = getViewerPlayer(playersList);
+    return viewer ? getActualColorIndex(viewer, playersList) : 0;
   };
 
-  const getPerspectiveColorIndexFromActual = (actualColorIdx, playersList = players) => {
-    return normalizeColorIndex(actualColorIdx - getViewerColorIndex(playersList));
-  };
+  // actual color -> visual side on this viewer screen
+  const actualToViewColorIndex = (actualColorIdx, playersList = players) =>
+    normalizeColorIndex(actualColorIdx - getViewerActualColorIndex(playersList));
 
-  const getActualColorIndexFromPerspective = (perspectiveColorIdx, playersList = players) => {
-    return normalizeColorIndex(perspectiveColorIdx + getViewerColorIndex(playersList));
-  };
+  // visual side -> actual color
+  const viewToActualColorIndex = (viewColorIdx, playersList = players) =>
+    normalizeColorIndex(viewColorIdx + getViewerActualColorIndex(playersList));
 
-  const getPerspectiveColorIndex = (player, playersList = players) => {
-    const actualColorIdx = getPlayerColorIndex(player, playersList);
-    return getPerspectiveColorIndexFromActual(actualColorIdx, playersList);
-  };
+  // Keep old names compatible
+  const getPerspectiveColorIndexFromActual = actualToViewColorIndex;
+  const getActualColorIndexFromPerspective = viewToActualColorIndex;
+
+  const getPerspectiveColorIndex = (player, playersList = players) =>
+    actualToViewColorIndex(getActualColorIndex(player, playersList), playersList);
 
   const getTeamKey = (player) => {
     if (!player) return null;
@@ -716,21 +729,96 @@ export default function LudoGame({
     return String(player.user_id || '');
   };
 
-  const getTrackCell = (player, piecePos, playersList = players) => {
+  // IMPORTANT:
+  // This returns the REAL global track index used for logic/collision.
+  // It must NEVER use viewColorIdx.
+  const getActualTrackCell = (player, piecePos, playersList = players) => {
     if (typeof piecePos !== 'number') return null;
     if (piecePos < 0 || piecePos > HOME_ENTRY_LOGICAL_INDEX) return null;
 
-    const actualColorIdx = getPlayerColorIndex(player, playersList);
-    const viewColorIdx = getPerspectiveColorIndexFromActual(actualColorIdx, playersList);
-    return (piecePos + START_POSITIONS[viewColorIdx]) % 52;
+    const actualColorIdx = getActualColorIndex(player, playersList);
+    return (piecePos + START_POSITIONS[actualColorIdx]) % 52;
   };
+
+  // This converts an actual global track cell to the rotated visual track cell.
+  const actualTrackCellToViewTrackCell = (actualTrackCell, playersList = players) => {
+    if (!Number.isInteger(actualTrackCell)) return null;
+
+    const viewerActualColorIdx = getViewerActualColorIndex(playersList);
+    const rotationOffset = START_POSITIONS[viewerActualColorIdx];
+
+    return normalizeColorIndex(actualTrackCell - rotationOffset);
+  };
+
+  // Used only for drawing.
+  const getViewTrackCell = (player, piecePos, playersList = players) => {
+    const actualTrackCell = getActualTrackCell(player, piecePos, playersList);
+    if (!Number.isInteger(actualTrackCell)) return null;
+    return actualTrackCellToViewTrackCell(actualTrackCell, playersList);
+  };
+
+  // Keep old name compatible, but now it returns VISUAL track cell.
+  // Do not use it for capture logic.
+  const getTrackCell = getViewTrackCell;
+
+  const isSafeCell = (actualTrackCell) => {
+    return Number.isInteger(actualTrackCell) && SAFE_SQUARES.includes(actualTrackCell);
+  };
+
+  // Capture/block logic must use ACTUAL track cells, not rotated visual cells.
+  const getPiecesOnActualCell = (actualTrackCell, playersList = players) => {
+    if (!Number.isInteger(actualTrackCell)) return [];
+
+    const piecesOnCell = [];
+    (playersList || []).forEach((player) => {
+      const piecePositions = [player.piece1, player.piece2, player.piece3, player.piece4];
+      piecePositions.forEach((piecePos, pieceIndex) => {
+        if (getActualTrackCell(player, piecePos, playersList) !== actualTrackCell) return;
+        piecesOnCell.push({
+          userId: String(player.user_id || ''),
+          teamKey: getTeamKey(player),
+          pieceNumber: pieceIndex + 1,
+          piecePos,
+          player,
+        });
+      });
+    });
+
+    return piecesOnCell;
+  };
+
+  // For visual stacking only.
+  const getPiecesOnViewCell = (viewTrackCell, playersList = players) => {
+    if (!Number.isInteger(viewTrackCell)) return [];
+
+    const piecesOnCell = [];
+    (playersList || []).forEach((player) => {
+      const piecePositions = [player.piece1, player.piece2, player.piece3, player.piece4];
+      piecePositions.forEach((piecePos, pieceIndex) => {
+        if (getViewTrackCell(player, piecePos, playersList) !== viewTrackCell) return;
+        piecesOnCell.push({
+          userId: String(player.user_id || ''),
+          teamKey: getTeamKey(player),
+          pieceNumber: pieceIndex + 1,
+          piecePos,
+          player,
+        });
+      });
+    });
+
+    return piecesOnCell;
+  };
+
+  // Keep old name for drawing compatibility.
+  const getPiecesOnCell = getPiecesOnViewCell;
 
   const describePlacement = (placement) => {
     if (!placement) return null;
     return {
       zone: placement.zone,
       logicalPos: placement.logicalPos,
-      trackIndex: placement.trackIndex ?? null,
+      actualTrackIndex: placement.actualTrackIndex ?? null,
+      viewTrackIndex: placement.viewTrackIndex ?? null,
       renderedCell: [placement.row, placement.col],
     };
   };
@@ -748,9 +836,7 @@ export default function LudoGame({
       return path;
     }
 
-    if (toPos < fromPos) {
-      return [toPos];
-    }
+    if (toPos < fromPos) return [toPos];
 
     const path = [];
     for (let pos = fromPos + 1; pos <= toPos; pos += 1) path.push(pos);
@@ -765,13 +851,14 @@ export default function LudoGame({
   ) => {
     if (typeof logicalPos !== 'number') return null;
 
-    const actualColorIdx = getPlayerColorIndex(player, playersList);
-    const viewColorIdx = getPerspectiveColorIndexFromActual(actualColorIdx, playersList);
+    const actualColorIdx = getActualColorIndex(player, playersList);
+    const viewColorIdx = actualToViewColorIndex(actualColorIdx, playersList);
+
     const finishedTriangleSlots = [
-      [[8.35, 7.2], [8.35, 7.8], [8.7, 7.35], [8.7, 7.65]],
-      [[7.2, 8.35], [7.8, 8.35], [7.35, 8.7], [7.65, 8.7]],
-      [[6.65, 7.2], [6.65, 7.8], [6.3, 7.35], [6.3, 7.65]],
-      [[7.2, 6.65], [7.8, 6.65], [7.35, 6.3], [7.65, 6.3]],
+      [[8.35, 7.2], [8.35, 7.8], [8.7, 7.35], [8.7, 7.65]], // bottom
+      [[7.2, 8.35], [7.8, 8.35], [7.35, 8.7], [7.65, 8.7]], // right
+      [[6.65, 7.2], [6.65, 7.8], [6.3, 7.35], [6.3, 7.65]], // top
+      [[7.2, 6.65], [7.8, 6.65], [7.35, 6.3], [7.65, 6.3]], // left
     ];
 
     if (logicalPos === 57) {
@@ -780,19 +867,23 @@ export default function LudoGame({
         .map((piecePos, idx) => ({ piecePos, idx }))
         .filter(item => item.piecePos === 57)
         .map(item => item.idx);
+
       const slotIndex = Math.max(0, finishedPieceIndices.indexOf(pieceIndex));
       const slots = finishedTriangleSlots[viewColorIdx] || [[7.5, 7.5]];
       const [row, col] = slots[Math.min(slotIndex, slots.length - 1)] || [7.5, 7.5];
+
       return {
         row,
         col,
         colorIdx: viewColorIdx,
         viewColorIdx,
         actualColorIdx,
-        isFinished: true,
         zone: 'finished',
+        isFinished: true,
         seatNumber: Number(player?.seat_number || 0),
         logicalPos,
+        actualTrackIndex: null,
+        viewTrackIndex: null,
         trackIndex: null,
       };
     }
@@ -800,87 +891,77 @@ export default function LudoGame({
     if (logicalPos === -1) {
       const homeBase = HOME_BASES[viewColorIdx];
       if (!homeBase || !homeBase[pieceIndex]) return null;
-      const [baseRow, baseCol] = homeBase[pieceIndex];
+
+      const [row, col] = homeBase[pieceIndex];
+
       return {
-        row: baseRow,
-        col: baseCol,
+        row,
+        col,
         colorIdx: viewColorIdx,
         viewColorIdx,
         actualColorIdx,
-        isFinished: false,
         zone: 'base',
+        isFinished: false,
         seatNumber: Number(player?.seat_number || 0),
         logicalPos,
+        actualTrackIndex: null,
+        viewTrackIndex: null,
         trackIndex: null,
       };
     }
 
     if (logicalPos >= 0 && logicalPos <= HOME_ENTRY_LOGICAL_INDEX) {
-      const adjustedPos = getTrackCell(player, logicalPos, playersList);
-      const trackCell = TRACK_CELLS[adjustedPos];
+      const actualTrackIndex = getActualTrackCell(player, logicalPos, playersList);
+      const viewTrackIndex = actualTrackCellToViewTrackCell(actualTrackIndex, playersList);
+
+      const trackCell = TRACK_CELLS[viewTrackIndex];
       if (!trackCell) return null;
+
       const [row, col] = trackCell;
-      const piecesOnTrackCell = getPiecesOnCell(adjustedPos, playersList);
+      const piecesOnActualCell = getPiecesOnActualCell(actualTrackIndex, playersList);
+
       return {
         row,
         col,
         colorIdx: viewColorIdx,
         viewColorIdx,
         actualColorIdx,
-        isFinished: false,
         zone: 'outer-track',
+        isFinished: false,
         seatNumber: Number(player?.seat_number || 0),
         logicalPos,
-        trackIndex: adjustedPos,
-        isSafeTrackCell: isSafeCell(adjustedPos),
-        trackStackSize: piecesOnTrackCell.length,
+        actualTrackIndex,
+        viewTrackIndex,
+        trackIndex: viewTrackIndex, // compatibility for drawing/debug
+        isSafeTrackCell: isSafeCell(actualTrackIndex),
+        trackStackSize: piecesOnActualCell.length,
       };
     }
 
     if (logicalPos >= HOME_LANE_START_LOGICAL_INDEX && logicalPos <= HOME_LANE_END_LOGICAL_INDEX) {
-      const homeColIdx = logicalPos - HOME_LANE_START_LOGICAL_INDEX;
-      const homeCol = HOME_COLUMNS[viewColorIdx];
-      if (!homeCol || !homeCol[homeColIdx]) return null;
-      const [row, col] = homeCol[homeColIdx];
+      const homeIdx = logicalPos - HOME_LANE_START_LOGICAL_INDEX;
+      const homeLane = HOME_COLUMNS[viewColorIdx];
+      if (!homeLane || !homeLane[homeIdx]) return null;
+
+      const [row, col] = homeLane[homeIdx];
+
       return {
         row,
         col,
         colorIdx: viewColorIdx,
         viewColorIdx,
         actualColorIdx,
-        isFinished: false,
         zone: 'home-lane',
+        isFinished: false,
         seatNumber: Number(player?.seat_number || 0),
         logicalPos,
+        actualTrackIndex: null,
+        viewTrackIndex: null,
         trackIndex: null,
       };
     }
 
     return null;
-  };
-
-  const isSafeCell = (trackCell) => {
-    return Number.isInteger(trackCell) && SAFE_SQUARES.includes(trackCell);
-  };
-
-  const getPiecesOnCell = (trackCell, playersList = players) => {
-    if (!Number.isInteger(trackCell)) return [];
-
-    const piecesOnCell = [];
-    (playersList || []).forEach((player) => {
-      const piecePositions = [player.piece1, player.piece2, player.piece3, player.piece4];
-      piecePositions.forEach((piecePos, pieceIndex) => {
-        if (getTrackCell(player, piecePos, playersList) !== trackCell) return;
-        piecesOnCell.push({
-          userId: String(player.user_id || ''),
-          teamKey: getTeamKey(player),
-          pieceNumber: pieceIndex + 1,
-          piecePos,
-        });
-      });
-    });
-
-    return piecesOnCell;
   };
 
   const getPieceBoardPlacement = (player, pieceIndex, playersList = players) => {
@@ -894,7 +975,9 @@ export default function LudoGame({
     const placement = getPieceBoardPlacement(player, pieceIndex, playersList);
     if (!placement) return null;
 
-    const isCenteredCell = placement.zone === 'outer-track' || placement.zone === 'home-lane';
+    const isCenteredCell =
+      placement.zone === 'outer-track' ||
+      placement.zone === 'home-lane';
 
     return {
       ...placement,
@@ -943,8 +1026,8 @@ export default function LudoGame({
     const boardPlayers = getVisiblePlayersList(players, currentSession);
 
     const getActualColorForVisualIndex = (visualIdx) => {
-      return getActualColorIndexFromPerspective(visualIdx, boardPlayers);
-    };
+  return viewToActualColorIndex(visualIdx, boardPlayers);
+};
 
     ctx.clearRect(0, 0, W, W);
 
@@ -1205,7 +1288,7 @@ export default function LudoGame({
       cellPieces.forEach((item, stackIndex) => {
         const { player, pieceIdx, piecePos } = item;
         const { x, y, colorIdx: rawColorIdx } = piecePos;
-        const colorIdx = normalizeColorIndex(piecePos.actualColorIdx ?? rawColorIdx);
+        const colorIdx = normalizeColorIndex(piecePos.viewColorIdx ?? rawColorIdx);
         const [offX, offY] = getPieceStackOffset(stackIndex);
         const px = x + offX;
         const py = y + offY;
