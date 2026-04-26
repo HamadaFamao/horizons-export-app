@@ -137,7 +137,7 @@ export default function LudoGame({
   const teamTurnCycleRef = useRef(0);
 
   // ─── Helpers ─────────────────────────────────
-  const isPlayerLeft = (player) => Boolean(player?.left_at || player?.is_left);
+  const isPlayerLeft = (player) => Boolean(player?.left_at);
 
   const getActivePlayersList = useCallback((playersList = players) =>
     (playersList || []).filter(p => !p.refunded_at && !isPlayerLeft(p)),
@@ -338,8 +338,7 @@ export default function LudoGame({
     const isMine =
       String(currentSession?.current_turn_user_id) === String(user?.id) &&
       !!myPlayer &&
-      !myPlayer.left_at &&
-      !myPlayer.is_left;
+      !myPlayer.left_at;
 
     if (!isMine || currentSession?.status !== 'playing' || !open) {
       setTurnTimeLeft(12);
@@ -403,7 +402,7 @@ export default function LudoGame({
     players.forEach((p) => {
       const prev = prevMap.get(String(p.user_id));
       const justResigned =
-        !!prev && !prev.left_at && !prev.is_left && (p.left_at || p.is_left);
+        !!prev && !prev.left_at && !!p.left_at;
       if (!justResigned) return;
 
       if (isTeamMode()) {
@@ -642,7 +641,7 @@ export default function LudoGame({
     if (!sessionArg?.id || sessionArg?.status !== 'playing') return;
     if (!isTeamMode(sessionArg)) return;
 
-    const activePlayers = (playersList || []).filter(p => !p.refunded_at && !p.left_at && !p.is_left);
+    const activePlayers = (playersList || []).filter(p => !p.refunded_at && !p.left_at);
     const teamAPlayers = activePlayers.filter(p => getEffectiveTeam(p) === 'A');
     const teamBPlayers = activePlayers.filter(p => getEffectiveTeam(p) === 'B');
 
@@ -2092,7 +2091,7 @@ export default function LudoGame({
                   const piecesFinished = p.pieces_finished || 0;
                   const isFinishFx = String(recentFinishedUserId) === String(p.user_id);
                   const diceSide = diceSideByVisualIdx[visualIdx] || 'right';
-                  const isAutoForViewer = isTeamMode() && (p.left_at || p.is_left) && (() => {
+                  const isAutoForViewer = isTeamMode() && (p.left_at) && (() => {
                     const me = players.find(pl => String(pl.user_id) === String(user?.id));
                     return me && String(me.user_id) !== String(p.user_id) && getEffectiveTeam(me) === getEffectiveTeam(p);
                   })();
@@ -2222,7 +2221,7 @@ export default function LudoGame({
                                 <img src={p.avatar_url || FALLBACK_AVATAR} alt={p.name} className="w-6 h-6 rounded-full object-cover" onError={e => e.currentTarget.src = FALLBACK_AVATAR} />
                                 <span className="text-white text-xs font-bold truncate flex-1">{p.name}</span>
                                 {String(p.user_id) === String(user?.id) && <span className="text-amber-300 text-[8px] shrink-0">You</span>}
-                                {(p.left_at || p.is_left) && <span className="text-amber-200 text-[8px] shrink-0 px-1 py-[1px] rounded-full bg-white/10 border border-amber-300/40">Auto</span>}
+                                {(p.left_at) && <span className="text-amber-200 text-[8px] shrink-0 px-1 py-[1px] rounded-full bg-white/10 border border-amber-300/40">Auto</span>}
                                 <span className="text-white/30 text-[7px] shrink-0 font-mono">s:{effSeat}</span>
                               </button>
                             );
@@ -2248,7 +2247,7 @@ export default function LudoGame({
                 <div className="grid grid-cols-2 gap-1.5">
                   {visiblePlayers.map(p => {
                     const colorIdx = getPlayerColorIndex(p);
-                    const isResignedTeammate = isTeamMode() && (p.left_at || p.is_left) && (() => {
+                    const isResignedTeammate = isTeamMode() && (p.left_at) && (() => {
                       const me = players.find(pl => String(pl.user_id) === String(user?.id));
                       return me && String(me.user_id) !== String(p.user_id) && getEffectiveTeam(me) === getEffectiveTeam(p);
                     })();
