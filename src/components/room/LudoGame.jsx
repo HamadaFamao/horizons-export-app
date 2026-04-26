@@ -141,6 +141,7 @@ export default function LudoGame({
   const pieceMoveAnimRef = useRef({});
   const lastPieceCanvasPosRef = useRef({});
   const lastPieceLogicalPosRef = useRef({});
+  const lastPerspectiveKeyRef = useRef('');
   const boardAnimFrameRef = useRef(null);
   const finishFxTimerRef = useRef(null);
   const turnTimerRef = useRef(null);
@@ -1024,6 +1025,14 @@ export default function LudoGame({
     const CELLS = 15;
     const cellSize = W / CELLS;
     const boardPlayers = getVisiblePlayersList(players, currentSession);
+    const perspectiveKey = `${currentSession?.id}:${user?.id}:${getViewerActualColorIndex(boardPlayers)}:${boardPlayers.map(p => `${p.user_id}:${p.seat_number}`).join('|')}`;
+
+    if (lastPerspectiveKeyRef.current !== perspectiveKey) {
+      lastPerspectiveKeyRef.current = perspectiveKey;
+      pieceMoveAnimRef.current = {};
+      lastPieceCanvasPosRef.current = {};
+      lastPieceLogicalPosRef.current = {};
+    }
 
     const getActualColorForVisualIndex = (visualIdx) => {
   return viewToActualColorIndex(visualIdx, boardPlayers);
@@ -1292,7 +1301,7 @@ export default function LudoGame({
         const [offX, offY] = getPieceStackOffset(stackIndex);
         const px = x + offX;
         const py = y + offY;
-        const pieceKey = `${player.user_id}-${pieceIdx}`;
+        const pieceKey = `${perspectiveKey}:${player.user_id}-${pieceIdx}`;
         seenPieceKeys.add(pieceKey);
 
         const currentLogicalPos = piecePos.logicalPos;
