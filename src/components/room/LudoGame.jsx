@@ -1141,7 +1141,9 @@ export default function LudoGame({
         if (prevPos && moveDistance > 3) {
           const targetChanged = !existingAnim || existingAnim.toX !== px || existingAnim.toY !== py;
           if (targetChanged) {
-            const duration = Math.max(160, Math.min(220, moveDistance * 3.2));
+            // ~300ms per cell step feels natural — scale by number of cells moved
+            const stepsEstimate = Math.max(1, Math.round(moveDistance / cellSize));
+            const duration = Math.min(500, stepsEstimate * 300);
             pieceMoveAnimRef.current[pieceKey] = {
               fromX: existingAnim ? existingAnim.fromX + (existingAnim.toX - existingAnim.fromX) * Math.max(0, Math.min(1, (nowTs - existingAnim.start) / existingAnim.duration)) : prevPos.x,
               fromY: existingAnim ? existingAnim.fromY + (existingAnim.toY - existingAnim.fromY) * Math.max(0, Math.min(1, (nowTs - existingAnim.start) / existingAnim.duration)) : prevPos.y,
@@ -1161,7 +1163,7 @@ export default function LudoGame({
           const eased = 1 - Math.pow(1 - t, 2.2);
           drawX = activeAnim.fromX + (activeAnim.toX - activeAnim.fromX) * eased;
           drawY = activeAnim.fromY + (activeAnim.toY - activeAnim.fromY) * eased;
-          hopOffset = Math.sin(t * Math.PI) * cellSize * 0.5;
+          hopOffset = Math.sin(t * Math.PI) * cellSize * 0.35;
           if (t < 1) needsMoveAnimationFrame = true;
           else delete pieceMoveAnimRef.current[pieceKey];
         }
