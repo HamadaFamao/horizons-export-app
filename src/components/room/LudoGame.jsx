@@ -42,12 +42,13 @@ const HOME_ENTRY_ARROW_CELLS = [
   [7, 0],
 ];
 
-// Home-lane cells per player (6 cells, logical positions 51-56)
+// Home-lane cells per player (6 cells, logical positions 51-56).
+// Keep these outside the center goal triangle; only pos 57 uses finished slots.
 const HOME_COLUMNS = [
-  [[13,7],[12,7],[11,7],[10,7],[9,7],[8,7]], // 0: Red (Bottom)
-  [[7,13],[7,12],[7,11],[7,10],[7,9],[7,8]], // 1: Blue (Right)
-  [[1,7],[2,7],[3,7],[4,7],[5,7],[6,7]],     // 2: Yellow (Top)
-  [[7,1],[7,2],[7,3],[7,4],[7,5],[7,6]],     // 3: Green (Left)
+  [[14,7],[13,7],[12,7],[11,7],[10,7],[9,7]], // 0: Red (Bottom)
+  [[7,14],[7,13],[7,12],[7,11],[7,10],[7,9]], // 1: Blue (Right)
+  [[0,7],[1,7],[2,7],[3,7],[4,7],[5,7]],      // 2: Yellow (Top)
+  [[7,0],[7,1],[7,2],[7,3],[7,4],[7,5]],      // 3: Green (Left)
 ];
 
 // Home base positions (4 pieces per player in home corner) — decimal grid units
