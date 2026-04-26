@@ -870,9 +870,16 @@ export default function LudoGame({
       }
     }
 
+    // Arrow cell coordinates — these are on the outer track and must NOT be colored as home lane
+    const arrowCellSet = new Set(
+      HOME_ENTRY_ARROW_CELLS.map(([r, c]) => `${r}_${c}`)
+    );
+
     HOME_COLUMNS.forEach((col, playerIdx) => {
       const realColorIdx = getVisualColorIndex(playerIdx);
       col.forEach(([row, c]) => {
+        // Skip the arrow/entry cell — it belongs to the outer track, not the home lane
+        if (arrowCellSet.has(`${row}_${c}`)) return;
         const x = c * cellSize;
         const y = row * cellSize;
         const grad = ctx.createLinearGradient(x, y, x + cellSize, y + cellSize);
@@ -1192,6 +1199,8 @@ export default function LudoGame({
         setMessage('🚫 Three 6s! Turn lost.');
         setTimeout(() => setMessage(''), 2000);
         await wait(TRIPLE_SIX_REVEAL_DELAY);
+        setLastRoll(null);
+        setDiceDisplay(null);
         await refreshSession();
         return;
       }
@@ -1200,6 +1209,11 @@ export default function LudoGame({
         setMessage(data.all_in_home ? '🎲 Need 6 to start. Turn passed.' : 'Turn passed.');
         setTimeout(() => setMessage(''), 2000);
         await wait(DICE_REVEAL_DELAY);
+        // Reset dice state BEFORE refreshSession so canRoll reflects the new turn correctly
+        setLastRoll(null);
+        setDiceDisplay(null);
+        setMovablePieces([]);
+        setSelectedPiece(null);
         await refreshSession();
         return;
       }
@@ -1213,6 +1227,8 @@ export default function LudoGame({
         .maybeSingle();
 
       if (!freshPlayerData) {
+        setLastRoll(null);
+        setDiceDisplay(null);
         await refreshSession();
         return;
       }
@@ -1223,6 +1239,11 @@ export default function LudoGame({
       if (movable.length === 0) {
         setMessage('No valid move. Turn passed.');
         setTimeout(() => setMessage(''), 1700);
+        // Reset dice so the next player's turn starts clean
+        setLastRoll(null);
+        setDiceDisplay(null);
+        setMovablePieces([]);
+        setSelectedPiece(null);
         await refreshSession();
         return;
       }
