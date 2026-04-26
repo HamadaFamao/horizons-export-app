@@ -249,6 +249,10 @@ export default function LudoGame({
     return ((n % 4) + 4) % 4;
   };
 
+  // Color index is always derived from absolute seat_number.
+  // seat 1=Red(0), seat 2=Blue(1), seat 3=Yellow(2), seat 4=Green(3)
+  // For 2-player: seats 1,2 map to colors 0,2 (Red,Yellow — opposite corners)
+  // For 3-player: seats 1,2,3 map to colors 0,1,2
   const getPlayerColorIndex = (player, playersList = players) => {
     let seat = Number(player?.seat_number || 1);
     if (seat > 100) seat = seat - 100;
@@ -727,7 +731,12 @@ export default function LudoGame({
     const pos = pieces[pieceIndex];
     if (typeof pos !== 'number') return null;
 
-    const colorIdx = getRelativeVisualSeat(player, playersList);
+    // colorIdx drives which home base, home column, and track offset to use.
+    // Must use the ABSOLUTE color (from seat_number) so each player always
+    // occupies the correct corner regardless of who is viewing.
+    const colorIdx = normalizeColorIndex(getPlayerColorIndex(player, playersList));
+    // relativeVisualSeat is only used for rendering position on screen (which corner).
+    const relVisual = getRelativeVisualSeat(player, playersList);
     const finishedTriangleSlots = [
       [[8.35, 7.2], [8.35, 7.8], [8.7, 7.35], [8.7, 7.65]],
       [[7.2, 8.35], [7.8, 8.35], [7.35, 8.7], [7.65, 8.7]],
