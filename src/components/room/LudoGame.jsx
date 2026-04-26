@@ -1941,16 +1941,10 @@ export default function LudoGame({
         );
       }
 
-      // Capture is temporarily disabled while path mapping is being debugged.
-      // If the backend still reports a bump, log it instead of treating it as normal gameplay feedback.
+      // UI-only feedback from server result; no local capture/home mutation here.
       if (data.bumped) {
-        console.debug('Ludo capture suppressed during path debug', {
-          seat_number: Number(myPlayerBefore?.seat_number || 0),
-          piece_number: pieceNumber,
-          old_piece_position: [myPlayerBefore?.piece1, myPlayerBefore?.piece2, myPlayerBefore?.piece3, myPlayerBefore?.piece4][pieceNumber - 1],
-          new_piece_position_from_sql: data.new_pos,
-        });
-        setMessage('');
+        setMessage('💥 You sent an opponent home!');
+        setTimeout(() => setMessage(''), 1800);
       } else if (data.extra_turn) {
         setMessage('🎲 Rolled 6! Play again!');
         setTimeout(() => setMessage(''), 1800);
