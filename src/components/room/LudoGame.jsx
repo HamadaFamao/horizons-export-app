@@ -1125,12 +1125,23 @@ export default function LudoGame({
     if (pos === 57) return null;
     if (pos === -1) return roll === 6 ? 0 : null;
 
-    if (pos >= 0 && pos <= HOME_ENTRY_LOGICAL_INDEX) {
+    const ARROW = 50; // arrow cell = passthrough, never a resting position
+
+    if (pos >= 0 && pos < ARROW) {
+      // On outer track, before the arrow cell
       const target = pos + roll;
-      if (target <= HOME_ENTRY_LOGICAL_INDEX) return target;
-      if (target === HOME_ENTRY_LOGICAL_INDEX + 1) return 52;
-      if (target <= 56) return target;
-      if (target === 57) return 57;
+      if (target < ARROW) return target;          // stays on outer track
+      // Reached or passed through the arrow
+      const stepsInLane = target - ARROW;         // 0 = lands on arrow entry = lane cell 1
+      const laneDest = 52 + stepsInLane;
+      if (laneDest <= 57) return laneDest;
+      return null;                                 // overshoot
+    }
+
+    if (pos === ARROW) {
+      // Shouldn't be a resting pos, but handle gracefully
+      const laneDest = 52 + roll;
+      if (laneDest <= 57) return laneDest;
       return null;
     }
 
