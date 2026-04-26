@@ -1272,24 +1272,42 @@ export default function LudoGame({
   const TRIPLE_SIX_REVEAL_DELAY = 320;
 
   const getLogicalNextPos = (pos, roll) => {
+    // Finished pieces cannot move
     if (pos === 57) return null;
 
+    // Home base: can only start with a 6
     if (pos === -1) {
       return roll === 6 ? 0 : null;
     }
 
+    // Outer track (positions 0-50)
     if (pos >= 0 && pos <= HOME_ENTRY_LOGICAL_INDEX) {
       const target = pos + roll;
+      
+      // Stay on outer track
       if (target <= HOME_ENTRY_LOGICAL_INDEX) return target;
-      if (target <= HOME_LANE_END_LOGICAL_INDEX) return target;
+      
+      // Enter home lane (positions 51-56)
+      if (target >= HOME_LANE_START_LOGICAL_INDEX && target <= HOME_LANE_END_LOGICAL_INDEX) return target;
+      
+      // Exact finish only: target must be exactly 57
       if (target === 57) return 57;
+      
+      // Overshoot: not allowed
       return null;
     }
 
+    // Home lane (positions 51-56)
     if (pos >= HOME_LANE_START_LOGICAL_INDEX && pos <= HOME_LANE_END_LOGICAL_INDEX) {
       const target = pos + roll;
+      
+      // Stay in home lane
       if (target <= HOME_LANE_END_LOGICAL_INDEX) return target;
+      
+      // Exact finish only: target must be exactly 57
       if (target === 57) return 57;
+      
+      // Overshoot: not allowed
       return null;
     }
 
@@ -1378,9 +1396,18 @@ export default function LudoGame({
       setMovablePieces(movable);
 
       if (movable.length === 0) {
-        setMessage('No valid move. Turn passed.');
+        setMessage('❌ No valid move. Turn passed.');
         setTimeout(() => setMessage(''), 1700);
-        await refreshSession();
+        
+        // Reset the roll on backend and pass turn to next player
+        await supabase
+          .from('room_ludo_sessions')
+          .update({ last_roll: 0 })
+          .eq('id', currentSession.id)
+          .eq('status', 'playing');
+        
+        await wait(400);
+        await passTurnToNextPlayer();
         return;
       }
 
