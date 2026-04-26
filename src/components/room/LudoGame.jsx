@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { Loader2, X, Settings } from 'lucide-react';
 
@@ -9,12 +9,10 @@ const FALLBACK_AVATAR =
 const MAX_PLAYERS_OPTIONS = [2, 3, 4];
 const ENTRY_COST_OPTIONS = [100, 200, 500, 1000, 5000, 10000];
 
-// Player colors: Red (Bottom), Blue (Right), Yellow (Top), Green (Left)
 const PLAYER_COLORS = ['#ef4444', '#3b82f6', '#f59e0b', '#22c55e'];
 const PLAYER_LIGHT_COLORS = ['#fca5a5', '#93c5fd', '#fcd34d', '#86efac'];
 const PLAYER_DARK_COLORS = ['#991b1b', '#1e40af', '#b45309', '#15803d'];
 
-// Standard Ludo path: 52 cells (indices 0-51), [row, col]
 const TRACK_CELLS = [
   [6,1],[6,2],[6,3],[6,4],[6,5],[5,6],[4,6],[3,6],[2,6],[1,6],[0,6],[0,7],[0,8],
   [1,8],[2,8],[3,8],[4,8],[5,8],[6,9],[6,10],[6,11],[6,12],[6,13],[6,14],[7,14],[8,14],
@@ -22,16 +20,10 @@ const TRACK_CELLS = [
   [13,6],[12,6],[11,6],[10,6],[9,6],[8,5],[8,4],[8,3],[8,2],[8,1],[8,0],[7,0],[6,0],
 ];
 
-// Safe squares: starred positions on track (includes start positions 0,13,26,39)
 const SAFE_SQUARES = [0, 8, 13, 21, 26, 34, 39, 47];
-
-// Start position on track per color: Red=39, Blue=26, Yellow=13, Green=0
 const START_POSITIONS = [39, 26, 13, 0];
-
-// Last valid outer-track stopping index before the home-entry transition node.
 const HOME_ENTRY_LOGICAL_INDEX = 50;
 
-// Arrow cells where each color enters its home lane.
 const HOME_ENTRY_ARROW_CELLS = [
   [14, 7],
   [7, 14],
@@ -39,20 +31,18 @@ const HOME_ENTRY_ARROW_CELLS = [
   [7, 0],
 ];
 
-// Home column cells per player (5 cells, positions 52-56 relative)
 const HOME_COLUMNS = [
-  [[13,7],[12,7],[11,7],[10,7],[9,7]], // 0: Red (Bottom)
-  [[7,13],[7,12],[7,11],[7,10],[7,9]], // 1: Blue (Right)
-  [[1,7],[2,7],[3,7],[4,7],[5,7]],     // 2: Yellow (Top)
-  [[7,1],[7,2],[7,3],[7,4],[7,5]],     // 3: Green (Left)
+  [[13,7],[12,7],[11,7],[10,7],[9,7]],
+  [[7,13],[7,12],[7,11],[7,10],[7,9]],
+  [[1,7],[2,7],[3,7],[4,7],[5,7]],
+  [[7,1],[7,2],[7,3],[7,4],[7,5]],
 ];
 
-// Home base positions (4 pieces per player in home corner) — decimal grid units
 const HOME_BASES = [
-  [[10.6,1.9],[10.6,4.1],[12.8,1.9],[12.8,4.1]],   // 0: Red (Bottom-Left)
-  [[10.6,10.9],[10.6,13.1],[12.8,10.9],[12.8,13.1]], // 1: Blue (Bottom-Right)
-  [[1.9,10.9],[1.9,13.1],[4.1,10.9],[4.1,13.1]],     // 2: Yellow (Top-Right)
-  [[1.9,1.9],[1.9,4.1],[4.1,1.9],[4.1,4.1]],         // 3: Green (Top-Left)
+  [[10.6,1.9],[10.6,4.1],[12.8,1.9],[12.8,4.1]],
+  [[10.6,10.9],[10.6,13.1],[12.8,10.9],[12.8,13.1]],
+  [[1.9,10.9],[1.9,13.1],[4.1,10.9],[4.1,13.1]],
+  [[1.9,1.9],[1.9,4.1],[4.1,1.9],[4.1,4.1]],
 ];
 
 const PIECE_STACK_OFFSETS = [
@@ -71,18 +61,11 @@ function getPieceStackOffset(index) {
   return [Math.cos(angle) * radius, Math.sin(angle) * radius];
 }
 
-// Visual seat layouts: maps seat order → color index for 2/3/4 players
 const VISUAL_SEAT_LAYOUTS = {
-  2: [0, 2],      // Red + Yellow (diagonal)
+  2: [0, 2],
   3: [0, 1, 2],
   4: [0, 1, 2, 3],
 };
-
-function getVisualSeatIndex(player, playersList) {
-  const layout = VISUAL_SEAT_LAYOUTS[playersList.length] || [0, 1, 2, 3];
-  const seatIdx = (player.seat_number || 1) - 1;
-  return layout[Math.min(seatIdx, layout.length - 1)] ?? seatIdx;
-}
 
 export default function LudoGame({
   open,
@@ -101,8 +84,6 @@ export default function LudoGame({
   const [maxPlayers, setMaxPlayers] = useState(4);
   const [teamMode, setTeamMode] = useState(false);
   const [entryCost, setEntryCost] = useState(100);
-  // {userId: seatNumber} — stores planned seat swaps before game start.
-  // Seat is the single source of truth: seat 1/3 = Team A, seat 2/4 = Team B.
   const [seatOverrides, setSeatOverrides] = useState({});
   const [selectedTeamPlayerId, setSelectedTeamPlayerId] = useState(null);
   const [teamsDirty, setTeamsDirty] = useState(false);
@@ -130,6 +111,8 @@ export default function LudoGame({
   const [finishToast, setFinishToast] = useState('');
   const [recentFinishedUserId, setRecentFinishedUserId] = useState(null);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const [turnTimeLeft, setTurnTimeLeft] = useState(12);
+
   const canvasRef = useRef(null);
   const channelRef = useRef(null);
   const resultFiredRef = useRef(false);
@@ -149,23 +132,98 @@ export default function LudoGame({
   const previousTurnUserIdRef = useRef(null);
   const previousDiceResultKeyRef = useRef('');
   const leftTurnActionRef = useRef({ inFlight: false, key: '' });
-  // Prevents the realtime room_ludo_players subscription from reloading players
-  // while saveTeams is mid-flight (temp seats 100+ would crash color lookups).
   const savingTeamsRef = useRef(false);
-  const [turnTimeLeft, setTurnTimeLeft] = useState(12);
+  // FIX #1: Independent team turn cycle counter — prevents same player getting two turns
+  const teamTurnCycleRef = useRef(0);
 
+  // ─── Helpers ─────────────────────────────────
+  const isPlayerLeft = (player) => Boolean(player?.left_at || player?.is_left);
+
+  const getActivePlayersList = useCallback((playersList = players) =>
+    (playersList || []).filter(p => !p.refunded_at && !isPlayerLeft(p)),
+  [players]);
+
+  // FIX #2: In classic mode, left players are always excluded from waiting list display
+  const getVisiblePlayersList = useCallback((playersList = players, sessionArg = currentSession) => {
+    const isTeamSession =
+      Number(sessionArg?.max_players || 0) === 4 &&
+      sessionArg?.team_mode === true;
+    if (isTeamSession) return (playersList || []).filter(p => !p.refunded_at);
+    // Classic mode: always exclude left players from all views
+    return (playersList || []).filter(p => !p.refunded_at && !isPlayerLeft(p));
+  }, [players, currentSession]);
+
+  function isTeamMode(sessionArg) {
+    const s = sessionArg || currentSession;
+    if (Number(s?.max_players || 0) !== 4) return false;
+    return s?.team_mode === true;
+  }
+
+  const getEffectiveSeat = (player) => {
+    if (!player) return 0;
+    const override = seatOverrides[String(player.user_id)];
+    return override !== undefined ? Number(override) : Number(player.seat_number || 0);
+  };
+
+  const getEffectiveTeam = (player) => {
+    if (!player) return null;
+    const seat = getEffectiveSeat(player);
+    return seat === 1 || seat === 3 ? 'A' : 'B';
+  };
+
+  const getLudoTeam = getEffectiveTeam;
+
+  const normalizeColorIndex = (idx) => {
+    const n = Number(idx);
+    if (!Number.isFinite(n)) return 0;
+    return ((n % 4) + 4) % 4;
+  };
+
+  const getPlayerColorIndex = (player, playersList = players) => {
+    let seat = Number(player?.seat_number || 1);
+    if (seat > 100) seat = seat - 100;
+    const totalPlayers = Number(currentSession?.max_players || playersList.length || 4);
+    const layout = VISUAL_SEAT_LAYOUTS[totalPlayers] || [0, 1, 2, 3];
+    const seatIdx = Math.max(0, seat - 1);
+    return normalizeColorIndex(layout[seatIdx] ?? seatIdx);
+  };
+
+  const getRelativeVisualSeat = (player, playersList = players) => {
+    const totalPlayers = playersList.length;
+    if (!totalPlayers) return 0;
+
+    const layout = VISUAL_SEAT_LAYOUTS[totalPlayers] || [0, 1, 2, 3];
+    const sortedBySeat = [...playersList].sort((a, b) => a.seat_number - b.seat_number);
+
+    // FIX #6: Graceful fallback when user is not in the game (observer mode)
+    const myPlayerInGame = sortedBySeat.find(
+      p => String(p.user_id) === String(user?.id)
+    );
+    const myBaseIndex = myPlayerInGame
+      ? sortedBySeat.findIndex(p => String(p.user_id) === String(myPlayerInGame.user_id))
+      : 0;
+
+    const playerIndex = sortedBySeat.findIndex(p => String(p.user_id) === String(player.user_id));
+    if (playerIndex === -1) return 0;
+
+    const relativeIndex = ((playerIndex - myBaseIndex) % totalPlayers + totalPlayers) % totalPlayers;
+    return layout[relativeIndex] ?? 0;
+  };
+
+  // ─── Cleanup ─────────────────────────────────
   useEffect(() => {
     return () => {
       if (finishFxTimerRef.current) clearTimeout(finishFxTimerRef.current);
       if (turnTimerRef.current) clearInterval(turnTimerRef.current);
       if (boardAnimFrameRef.current) cancelAnimationFrame(boardAnimFrameRef.current);
+      // FIX #7: Clean up animation refs on unmount to prevent memory leaks
+      pieceMoveAnimRef.current = {};
+      lastPieceCanvasPosRef.current = {};
     };
   }, []);
 
   useEffect(() => {
-    if (maxPlayers !== 4 && teamMode) {
-      setTeamMode(false);
-    }
+    if (maxPlayers !== 4 && teamMode) setTeamMode(false);
   }, [maxPlayers, teamMode]);
 
   useEffect(() => {
@@ -179,7 +237,6 @@ export default function LudoGame({
     loadSession();
   }, [open, roomId]);
 
-  // Clear pre-game seat overrides once the game starts or session resets.
   useEffect(() => {
     if (currentSession?.status === 'playing' || !currentSession?.id) {
       setSeatOverrides({});
@@ -188,6 +245,14 @@ export default function LudoGame({
     }
   }, [currentSession?.id, currentSession?.status]);
 
+  // FIX #2 (cont): Clear resignedTeammateName when session resets
+  useEffect(() => {
+    if (!currentSession?.id) {
+      setResignedTeammateName(null);
+    }
+  }, [currentSession?.id]);
+
+  // ─── Remote dice animation ────────────────────
   useEffect(() => {
     if (!currentSession?.id) return;
 
@@ -200,29 +265,22 @@ export default function LudoGame({
       return;
     }
 
-    // Do not animate for the next player before they press roll.
     if (turnUserId !== displayRollUserId) {
       setRemoteDiceAnimating(false);
       return;
     }
 
     const key = `${displayRollUserId}-${roll}-${currentSession.last_roll || 0}`;
-
     if (lastSeenRollRef.current === key) return;
     lastSeenRollRef.current = key;
 
-    const isLocalTurn =
-      displayRollUserId === String(user?.id);
-
-    if (isLocalTurn) return;
+    if (displayRollUserId === String(user?.id)) return;
 
     setRemoteDiceAnimating(true);
-
     let count = 0;
     const interval = setInterval(() => {
       setRemoteDiceDisplay(Math.floor(Math.random() * 6) + 1);
       count++;
-
       if (count >= 9) {
         clearInterval(interval);
         setRemoteDiceDisplay(roll);
@@ -239,6 +297,7 @@ export default function LudoGame({
     user?.id,
   ]);
 
+  // ─── Dice result pulse ────────────────────────
   useEffect(() => {
     if (currentSession?.status !== 'playing') {
       previousDiceResultKeyRef.current = '';
@@ -272,11 +331,10 @@ export default function LudoGame({
     currentSession?.last_roll,
   ]);
 
-  // ─── Turn countdown timer ────────────────────
+  // ─── Turn countdown timer ─────────────────────
+  // FIX #4: Timer now properly scoped per turn — no double-fire risk
   useEffect(() => {
-    const myPlayer = players.find(
-      p => String(p.user_id) === String(user?.id)
-    );
+    const myPlayer = players.find(p => String(p.user_id) === String(user?.id));
     const isMine =
       String(currentSession?.current_turn_user_id) === String(user?.id) &&
       !!myPlayer &&
@@ -292,13 +350,13 @@ export default function LudoGame({
       return;
     }
 
-    // Reset timer for this new turn/roll state
     setTurnTimeLeft(12);
     if (turnTimerRef.current) clearInterval(turnTimerRef.current);
 
     let remaining = 12;
-    // Local flag per effect instance — resets automatically when deps change
     let actionFired = false;
+    // Snapshot the turn key — if it changes mid-timer, this instance becomes stale
+    const turnKey = `${currentSession.id}:${currentSession.current_turn_user_id}:${currentSession.last_roll || 0}`;
 
     turnTimerRef.current = setInterval(() => {
       remaining -= 1;
@@ -307,17 +365,13 @@ export default function LudoGame({
       if (remaining <= 0) {
         clearInterval(turnTimerRef.current);
         turnTimerRef.current = null;
-        if (actionFired) return;
+
+        // Guard: only fire if this timer instance is still for the active turn
+        const currentKey = `${autoActionStateRef.current.sessionId}:${autoActionStateRef.current.turnUserId}:${autoActionStateRef.current.sessionLastRoll || 0}`;
+        if (actionFired || currentKey !== turnKey) return;
         actionFired = true;
 
-        const {
-          sessionLastRoll: slr,
-          movablePieces: mp,
-          rolling: r,
-          rollDice: rd,
-          handlePieceSelect: hps,
-        } = autoActionStateRef.current;
-
+        const { sessionLastRoll: slr, movablePieces: mp, rolling: r, rollDice: rd, handlePieceSelect: hps } = autoActionStateRef.current;
         if (!slr && !r) {
           rd();
         } else if (slr > 0 && mp && mp.length > 0) {
@@ -334,18 +388,7 @@ export default function LudoGame({
     };
   }, [currentSession?.id, currentSession?.current_turn_user_id, currentSession?.last_roll, currentSession?.status, open]);
 
-  const isPlayerLeft = (player) => Boolean(player?.left_at || player?.is_left);
-  const getActivePlayersList = (playersList = players) =>
-    (playersList || []).filter(p => !p.refunded_at && !isPlayerLeft(p));
-  const getVisiblePlayersList = (playersList = players, sessionArg = currentSession) => {
-    const isTeamSession =
-      Number(sessionArg?.max_players || 0) === 4 &&
-      sessionArg?.team_mode === true;
-    if (isTeamSession) return (playersList || []).filter(p => !p.refunded_at);
-    return getActivePlayersList(playersList);
-  };
-
-  // Emit local resign notifications with mode-specific messaging.
+  // ─── Resign notifications ─────────────────────
   useEffect(() => {
     if (!currentSession?.id) {
       previousPlayersRef.current = players;
@@ -360,11 +403,7 @@ export default function LudoGame({
     players.forEach((p) => {
       const prev = prevMap.get(String(p.user_id));
       const justResigned =
-        !!prev &&
-        !prev.left_at &&
-        !prev.is_left &&
-        (p.left_at || p.is_left);
-
+        !!prev && !prev.left_at && !prev.is_left && (p.left_at || p.is_left);
       if (!justResigned) return;
 
       if (isTeamMode()) {
@@ -372,7 +411,6 @@ export default function LudoGame({
         const sameTeam = getEffectiveTeam(me) === getEffectiveTeam(p);
         const isSelf = String(me.user_id) === String(p.user_id);
         if (!sameTeam || isSelf) return;
-
         setMessage(`Your teammate ${p.name || 'A player'} resigned. Their turns will be auto-played.`);
         setTimeout(() => setMessage(''), 2600);
         setResignedTeammateName(p.name || 'Your teammate');
@@ -385,7 +423,7 @@ export default function LudoGame({
     previousPlayersRef.current = players;
   }, [players, currentSession?.id, currentSession?.team_mode, currentSession?.max_players, user?.id]);
 
-  // Realtime
+  // ─── Realtime ─────────────────────────────────
   useEffect(() => {
     if (!open || !roomId) return;
 
@@ -413,6 +451,7 @@ export default function LudoGame({
                 p => getEffectiveTeam(p) === s.winner_team
               );
             }
+
             const perPlayerPrize = Number(s.winner_coins || s.per_player_prize || 0);
             const totalTeamPrize = perPlayerPrize * winningTeamPlayers.length;
 
@@ -444,27 +483,15 @@ export default function LudoGame({
                 });
               }
             } else {
-              const w = ps.find(p =>
-                String(p.user_id) === String(s.winner_id)
-              );
-              if (!w) {
-                resultFiredRef.current = false;
-                return;
-              }
+              const w = ps.find(p => String(p.user_id) === String(s.winner_id));
+              if (!w) { resultFiredRef.current = false; return; }
 
-              // Defensive guard: classic mode should only end when winner has all 4 pieces.
               if (Number(w.pieces_finished || 0) < 4) {
                 resultFiredRef.current = false;
-                setCurrentSession(prev => (
-                  prev
-                    ? {
-                        ...s,
-                        status: 'playing',
-                        winner_id: null,
-                        winner_coins: 0,
-                      }
-                    : prev
-                ));
+                setCurrentSession(prev => prev
+                  ? { ...s, status: 'playing', winner_id: null, winner_coins: 0 }
+                  : prev
+                );
                 return;
               }
 
@@ -502,7 +529,6 @@ export default function LudoGame({
         schema: 'public',
         table: 'room_ludo_players',
       }, async () => {
-        // Skip reload while saveTeams is writing temp seats to avoid crash.
         if (currentSession?.id && !savingTeamsRef.current) {
           const refreshedPlayers = await loadPlayers(currentSession.id);
           await maybeEndGameForEliminatedTeam(refreshedPlayers, currentSession);
@@ -514,11 +540,11 @@ export default function LudoGame({
     return () => supabase.removeChannel(channel);
   }, [open, roomId, currentSession?.id]);
 
-  // Draw board
+  // FIX #5: drawBoard depends on movablePieces, selectedPiece, user too
   useEffect(() => {
     if (!canvasRef.current || !currentSession) return;
     drawBoard();
-  }, [players, currentSession]);
+  }, [players, currentSession, movablePieces, selectedPiece, user?.id]);
 
   // Preload avatars
   useEffect(() => {
@@ -536,6 +562,7 @@ export default function LudoGame({
     });
   }, [players]);
 
+  // ─── DB ──────────────────────────────────────
   const loadSession = async () => {
     setLoading(true);
     try {
@@ -565,10 +592,7 @@ export default function LudoGame({
       .is('refunded_at', null)
       .order('seat_number', { ascending: true });
 
-    if (!playersData?.length) {
-      setPlayers([]);
-      return [];
-    }
+    if (!playersData?.length) { setPlayers([]); return []; }
 
     const userIds = playersData.map(p => p.user_id);
     const { data: profiles } = await supabase
@@ -576,9 +600,7 @@ export default function LudoGame({
       .select('id, name, avatar_url')
       .in('id', userIds);
 
-    const profilesMap = new Map(
-      (profiles || []).map(p => [p.id, p])
-    );
+    const profilesMap = new Map((profiles || []).map(p => [p.id, p]));
     const merged = playersData.map(p => ({
       ...p,
       name: profilesMap.get(p.user_id)?.name || 'User',
@@ -593,7 +615,6 @@ export default function LudoGame({
     if (!sessionArg?.id || !winningTeam) return;
     if (sessionArg.status === 'finished') return;
     if (teamEliminationHandledRef.current) return;
-
     teamEliminationHandledRef.current = true;
 
     const { data, error } = await supabase.rpc('finish_ludo_team_game', {
@@ -607,82 +628,29 @@ export default function LudoGame({
       return;
     }
 
-    if (turnTimerRef.current) {
-      clearInterval(turnTimerRef.current);
-      turnTimerRef.current = null;
-    }
-
+    if (turnTimerRef.current) { clearInterval(turnTimerRef.current); turnTimerRef.current = null; }
     onCoinsUpdated?.();
     setMessage(`Team ${winningTeam} wins`);
     setTimeout(() => setMessage(''), 3000);
-    setCurrentSession(prev => (
-      prev
-        ? {
-            ...prev,
-            status: 'finished',
-            winner_team: winningTeam,
-            winner_id: data?.winner_id || prev.winner_id || null,
-            winner_coins: data?.winner_coins || prev.winner_coins || 0,
-            current_turn_user_id: null,
-          }
-        : prev
-    ));
+    setCurrentSession(prev => prev
+      ? { ...prev, status: 'finished', winner_team: winningTeam, winner_id: data?.winner_id || prev.winner_id || null, winner_coins: data?.winner_coins || prev.winner_coins || 0, current_turn_user_id: null }
+      : prev
+    );
   };
 
   const maybeEndGameForEliminatedTeam = async (playersList = players, sessionArg = currentSession) => {
     if (!sessionArg?.id || sessionArg?.status !== 'playing') return;
-    if (!(Number(sessionArg?.max_players || 0) === 4 && sessionArg?.team_mode === true)) return;
+    if (!isTeamMode(sessionArg)) return;
 
     const activePlayers = (playersList || []).filter(p => !p.refunded_at && !p.left_at && !p.is_left);
     const teamAPlayers = activePlayers.filter(p => getEffectiveTeam(p) === 'A');
     const teamBPlayers = activePlayers.filter(p => getEffectiveTeam(p) === 'B');
 
-    if (teamAPlayers.length === 0 && teamBPlayers.length > 0) {
-      await endGame('B', sessionArg);
-      return;
-    }
-
-    if (teamBPlayers.length === 0 && teamAPlayers.length > 0) {
-      await endGame('A', sessionArg);
-    }
+    if (teamAPlayers.length === 0 && teamBPlayers.length > 0) { await endGame('B', sessionArg); return; }
+    if (teamBPlayers.length === 0 && teamAPlayers.length > 0) { await endGame('A', sessionArg); }
   };
 
-  const getRelativeVisualSeat = (player, playersList = players) => {
-    const totalPlayers = playersList.length;
-    if (!totalPlayers) return 0;
-
-    const layout = VISUAL_SEAT_LAYOUTS[totalPlayers] || [0, 1, 2, 3];
-    const sortedBySeat = [...playersList].sort((a, b) => a.seat_number - b.seat_number);
-    const myPlayerInGame = sortedBySeat.find(
-      p => String(p.user_id) === String(user?.id)
-    );
-
-    const myBaseIndex = myPlayerInGame
-      ? sortedBySeat.findIndex(p => String(p.user_id) === String(myPlayerInGame.user_id))
-      : 0;
-    const playerIndex = sortedBySeat.findIndex(p => String(p.user_id) === String(player.user_id));
-    const relativeIndex = ((playerIndex - myBaseIndex) % totalPlayers + totalPlayers) % totalPlayers;
-
-    return layout[relativeIndex] ?? 0;
-  };
-
-  // Clamps any seat/visual index to 0-3, handling temporary seats (100+) safely.
-  const normalizeColorIndex = (idx) => {
-    const n = Number(idx);
-    if (!Number.isFinite(n)) return 0;
-    return ((n % 4) + 4) % 4;
-  };
-
-  const getPlayerColorIndex = (player, playersList = players) => {
-    let seat = Number(player?.seat_number || 1);
-    // During saveTeams phase 1, DB may briefly hold temporary seats like 101-104.
-    if (seat > 100) seat = seat - 100;
-    const totalPlayers = Number(currentSession?.max_players || playersList.length || 4);
-    const layout = VISUAL_SEAT_LAYOUTS[totalPlayers] || [0, 1, 2, 3];
-    const seatIdx = Math.max(0, seat - 1);
-    return normalizeColorIndex(layout[seatIdx] ?? seatIdx);
-  };
-
+  // ─── Board geometry ───────────────────────────
   const getPieceBoardPlacement = (player, pieceIndex, playersList = players) => {
     const pieces = [player.piece1, player.piece2, player.piece3, player.piece4];
     const pos = pieces[pieceIndex];
@@ -690,13 +658,9 @@ export default function LudoGame({
 
     const colorIdx = getRelativeVisualSeat(player, playersList);
     const finishedTriangleSlots = [
-      // Red (bottom triangle)
       [[8.35, 7.2], [8.35, 7.8], [8.7, 7.35], [8.7, 7.65]],
-      // Blue (right triangle)
       [[7.2, 8.35], [7.8, 8.35], [7.35, 8.7], [7.65, 8.7]],
-      // Yellow (top triangle)
       [[6.65, 7.2], [6.65, 7.8], [6.3, 7.35], [6.3, 7.65]],
-      // Green (left triangle)
       [[7.2, 6.65], [7.8, 6.65], [7.35, 6.3], [7.65, 6.3]],
     ];
 
@@ -708,40 +672,20 @@ export default function LudoGame({
       const slotIndex = Math.max(0, finishedPieceIndices.indexOf(pieceIndex));
       const slots = finishedTriangleSlots[colorIdx] || [[7.5, 7.5]];
       const [row, col] = slots[Math.min(slotIndex, slots.length - 1)] || [7.5, 7.5];
-      return {
-        row,
-        col,
-        colorIdx,
-        isFinished: true,
-        zone: 'finished',
-        seatNumber: Number(player?.seat_number || 0),
-        logicalPos: pos,
-        trackIndex: null,
-      };
+      return { row, col, colorIdx, isFinished: true, zone: 'finished', seatNumber: Number(player?.seat_number || 0), logicalPos: pos, trackIndex: null };
     }
 
     if (pos === -1) {
       const homeBase = HOME_BASES[colorIdx];
       if (!homeBase || !homeBase[pieceIndex]) return null;
       const [baseRow, baseCol] = homeBase[pieceIndex];
-      return {
-        row: baseRow,
-        col: baseCol,
-        colorIdx,
-        isFinished: false,
-        zone: 'base',
-        seatNumber: Number(player?.seat_number || 0),
-        logicalPos: pos,
-        trackIndex: null,
-      };
+      return { row: baseRow, col: baseCol, colorIdx, isFinished: false, zone: 'base', seatNumber: Number(player?.seat_number || 0), logicalPos: pos, trackIndex: null };
     }
 
     if (pos >= 0 && pos <= 51) {
       const adjustedPos = (pos + START_POSITIONS[colorIdx]) % 52;
       const [entryRow, entryCol] = HOME_ENTRY_ARROW_CELLS[colorIdx] || [];
-      const entryTrackIndex = TRACK_CELLS.findIndex(
-        ([row, col]) => row === entryRow && col === entryCol
-      );
+      const entryTrackIndex = TRACK_CELLS.findIndex(([row, col]) => row === entryRow && col === entryCol);
       const trackCell = TRACK_CELLS[adjustedPos];
       const isInvalidOuterAfterEntry =
         entryTrackIndex !== -1 &&
@@ -751,31 +695,12 @@ export default function LudoGame({
         const homeCol = HOME_COLUMNS[colorIdx];
         if (!homeCol || !homeCol[0]) return null;
         const [row, col] = homeCol[0];
-        return {
-          row: row + 0.0001,
-          col,
-          colorIdx,
-          isFinished: false,
-          zone: 'home-lane',
-          seatNumber: Number(player?.seat_number || 0),
-          logicalPos: pos,
-          trackIndex: adjustedPos,
-          derivedFromOuterTrack: true,
-        };
+        return { row: row + 0.0001, col, colorIdx, isFinished: false, zone: 'home-lane', seatNumber: Number(player?.seat_number || 0), logicalPos: pos, trackIndex: adjustedPos, derivedFromOuterTrack: true };
       }
 
       if (!trackCell) return null;
       const [row, col] = trackCell;
-      return {
-        row,
-        col,
-        colorIdx,
-        isFinished: false,
-        zone: 'outer-track',
-        seatNumber: Number(player?.seat_number || 0),
-        logicalPos: pos,
-        trackIndex: adjustedPos,
-      };
+      return { row, col, colorIdx, isFinished: false, zone: 'outer-track', seatNumber: Number(player?.seat_number || 0), logicalPos: pos, trackIndex: adjustedPos };
     }
 
     if (pos >= 52 && pos <= 56) {
@@ -783,16 +708,7 @@ export default function LudoGame({
       const homeCol = HOME_COLUMNS[colorIdx];
       if (!homeCol || !homeCol[homeColIdx]) return null;
       const [row, col] = homeCol[homeColIdx];
-      return {
-        row,
-        col,
-        colorIdx,
-        isFinished: false,
-        zone: 'home-lane',
-        seatNumber: Number(player?.seat_number || 0),
-        logicalPos: pos,
-        trackIndex: null,
-      };
+      return { row, col, colorIdx, isFinished: false, zone: 'home-lane', seatNumber: Number(player?.seat_number || 0), logicalPos: pos, trackIndex: null };
     }
 
     return null;
@@ -801,9 +717,7 @@ export default function LudoGame({
   const getPieceCanvasPosition = (player, pieceIndex, cellSize, playersList = players) => {
     const placement = getPieceBoardPlacement(player, pieceIndex, playersList);
     if (!placement) return null;
-
     const isCenteredCell = placement.zone === 'outer-track' || placement.zone === 'home-lane';
-
     return {
       ...placement,
       x: placement.col * cellSize + (isCenteredCell ? cellSize / 2 : 0),
@@ -811,6 +725,7 @@ export default function LudoGame({
     };
   };
 
+  // ─── Debug home-entry mapping ─────────────────
   useEffect(() => {
     const cellSize = canvasRef.current ? canvasRef.current.width / 15 : 0;
     const debugRows = [];
@@ -839,6 +754,7 @@ export default function LudoGame({
     console.debug('Ludo home-entry mapping', debugRows);
   }, [players, currentSession?.id]);
 
+  // ─── Draw board ───────────────────────────────
   const drawBoard = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -848,38 +764,31 @@ export default function LudoGame({
     const cellSize = W / CELLS;
     const boardPlayers = getVisiblePlayersList(players, currentSession);
 
-    // Helper to map visual index to real player color
     const getVisualColorIndex = (visualIdx) => {
-      const playerAtVisual = boardPlayers.find(p =>
-        getRelativeVisualSeat(p, boardPlayers) === visualIdx
-      );
-      return normalizeColorIndex(
-        playerAtVisual ? getPlayerColorIndex(playerAtVisual, boardPlayers) : visualIdx
-      );
+      const playerAtVisual = boardPlayers.find(p => getRelativeVisualSeat(p, boardPlayers) === visualIdx);
+      return normalizeColorIndex(playerAtVisual ? getPlayerColorIndex(playerAtVisual, boardPlayers) : visualIdx);
     };
 
     ctx.clearRect(0, 0, W, W);
 
-    // Background with radial gradient
     const bgGrad = ctx.createRadialGradient(W/2, W/2, 0, W/2, W/2, W);
     bgGrad.addColorStop(0, '#1e293b');
     bgGrad.addColorStop(1, '#0f172a');
     ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, W, W);
 
-    // Draw home bases (corners)
     const homeColors = [
-      { bg: '#fca5a5', border: '#ef4444', grad1: '#f87171', grad2: '#dc2626' }, // 0: Red
-      { bg: '#93c5fd', border: '#3b82f6', grad1: '#60a5fa', grad2: '#2563eb' }, // 1: Blue
-      { bg: '#fcd34d', border: '#f59e0b', grad1: '#fbbf24', grad2: '#d97706' }, // 2: Yellow
-      { bg: '#86efac', border: '#22c55e', grad1: '#4ade80', grad2: '#16a34a' }, // 3: Green
+      { bg: '#fca5a5', border: '#ef4444', grad1: '#f87171', grad2: '#dc2626' },
+      { bg: '#93c5fd', border: '#3b82f6', grad1: '#60a5fa', grad2: '#2563eb' },
+      { bg: '#fcd34d', border: '#f59e0b', grad1: '#fbbf24', grad2: '#d97706' },
+      { bg: '#86efac', border: '#22c55e', grad1: '#4ade80', grad2: '#16a34a' },
     ];
 
     const homeRects = [
-      { r: 9, c: 0, w: 6, h: 6 },   // 0: Red (Bottom-Left)
-      { r: 9, c: 9, w: 6, h: 6 },   // 1: Blue (Bottom-Right)
-      { r: 0, c: 9, w: 6, h: 6 },   // 2: Yellow (Top-Right)
-      { r: 0, c: 0, w: 6, h: 6 },   // 3: Green (Top-Left)
+      { r: 9, c: 0, w: 6, h: 6 },
+      { r: 9, c: 9, w: 6, h: 6 },
+      { r: 0, c: 9, w: 6, h: 6 },
+      { r: 0, c: 0, w: 6, h: 6 },
     ];
 
     homeRects.forEach((rect, i) => {
@@ -889,7 +798,6 @@ export default function LudoGame({
       const w = rect.w * cellSize;
       const h = rect.h * cellSize;
 
-      // Outer border with shadow
       ctx.save();
       ctx.shadowColor = 'rgba(0,0,0,0.5)';
       ctx.shadowBlur = 10;
@@ -897,31 +805,21 @@ export default function LudoGame({
       ctx.fillRect(x, y, w, h);
       ctx.restore();
 
-      // Inner area with gradient
       const innerGrad = ctx.createLinearGradient(x, y, x + w, y + h);
       innerGrad.addColorStop(0, homeColors[realColorIdx].grad1);
       innerGrad.addColorStop(1, homeColors[realColorIdx].grad2);
-      
       ctx.fillStyle = innerGrad;
-      ctx.fillRect(
-        x + cellSize * 0.5, y + cellSize * 0.5,
-        w - cellSize, h - cellSize
-      );
+      ctx.fillRect(x + cellSize * 0.5, y + cellSize * 0.5, w - cellSize, h - cellSize);
 
-      // Inner home circle with glow
       const cx = x + w / 2;
       const cy = y + h / 2;
-      
       ctx.beginPath();
       ctx.arc(cx, cy, cellSize * 2, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(255,255,255,0.15)';
       ctx.fill();
-      
       ctx.lineWidth = 3;
       ctx.strokeStyle = 'rgba(255,255,255,0.5)';
       ctx.stroke();
-      
-      // Add a subtle inner shadow/glow to the circle
       ctx.beginPath();
       ctx.arc(cx, cy, cellSize * 1.8, 0, Math.PI * 2);
       ctx.strokeStyle = 'rgba(0,0,0,0.1)';
@@ -929,7 +827,6 @@ export default function LudoGame({
       ctx.stroke();
     });
 
-    // Draw track cells
     for (let i = 0; i < TRACK_CELLS.length; i++) {
       const [row, col] = TRACK_CELLS[i];
       const x = col * cellSize;
@@ -937,9 +834,9 @@ export default function LudoGame({
 
       let cellColor = '#f8fafc';
       let isStart = false;
-      const startIndices = [39, 26, 13, 0]; // Red, Blue, Yellow, Green
+      const startIndices = [39, 26, 13, 0];
       const startIdx = startIndices.indexOf(i);
-      
+
       if (startIdx !== -1) {
         const realColorIdx = getVisualColorIndex(startIdx);
         cellColor = homeColors[realColorIdx].grad1;
@@ -948,24 +845,18 @@ export default function LudoGame({
         cellColor = '#e2e8f0';
       }
 
-      // Cell background
       ctx.fillStyle = cellColor;
       ctx.fillRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
-      
-      // Subtle 3D bevel effect for cells
       ctx.fillStyle = 'rgba(255,255,255,0.6)';
-      ctx.fillRect(x + 1, y + 1, cellSize - 2, 2); // top highlight
-      ctx.fillRect(x + 1, y + 1, 2, cellSize - 2); // left highlight
-      
+      ctx.fillRect(x + 1, y + 1, cellSize - 2, 2);
+      ctx.fillRect(x + 1, y + 1, 2, cellSize - 2);
       ctx.fillStyle = 'rgba(0,0,0,0.15)';
-      ctx.fillRect(x + 1, y + cellSize - 3, cellSize - 2, 2); // bottom shadow
-      ctx.fillRect(x + cellSize - 3, y + 1, 2, cellSize - 2); // right shadow
-
+      ctx.fillRect(x + 1, y + cellSize - 3, cellSize - 2, 2);
+      ctx.fillRect(x + cellSize - 3, y + 1, 2, cellSize - 2);
       ctx.strokeStyle = 'rgba(0,0,0,0.1)';
       ctx.lineWidth = 1;
       ctx.strokeRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
 
-      // Star on non-start safe squares
       if (SAFE_SQUARES.includes(i) && !isStart) {
         ctx.save();
         ctx.shadowColor = 'rgba(251, 191, 36, 0.8)';
@@ -979,27 +870,22 @@ export default function LudoGame({
       }
     }
 
-    // Draw home columns
     HOME_COLUMNS.forEach((col, playerIdx) => {
       const realColorIdx = getVisualColorIndex(playerIdx);
       col.forEach(([row, c]) => {
         const x = c * cellSize;
         const y = row * cellSize;
-        
         const grad = ctx.createLinearGradient(x, y, x + cellSize, y + cellSize);
         grad.addColorStop(0, homeColors[realColorIdx].grad1 + '80');
         grad.addColorStop(1, homeColors[realColorIdx].grad2 + '80');
-        
         ctx.fillStyle = grad;
         ctx.fillRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
-        
         ctx.strokeStyle = homeColors[realColorIdx].border + '60';
         ctx.lineWidth = 1;
         ctx.strokeRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
       });
     });
 
-    // Draw arrows
     const arrows = [
       { r: 14, c: 7, colorIdx: 0, dir: 'up' },
       { r: 7, c: 14, colorIdx: 1, dir: 'left' },
@@ -1011,7 +897,6 @@ export default function LudoGame({
       const color = PLAYER_COLORS[realColorIdx];
       const cx = c * cellSize + cellSize / 2;
       const cy = r * cellSize + cellSize / 2;
-      
       ctx.save();
       ctx.shadowColor = color;
       ctx.shadowBlur = 8;
@@ -1020,52 +905,30 @@ export default function LudoGame({
       const s = cellSize * 0.15;
       const l = cellSize * 0.35;
       if (dir === 'up') {
-        ctx.moveTo(cx, cy - l);
-        ctx.lineTo(cx - s*2, cy);
-        ctx.lineTo(cx - s, cy);
-        ctx.lineTo(cx - s, cy + l);
-        ctx.lineTo(cx + s, cy + l);
-        ctx.lineTo(cx + s, cy);
-        ctx.lineTo(cx + s*2, cy);
+        ctx.moveTo(cx, cy - l); ctx.lineTo(cx - s*2, cy); ctx.lineTo(cx - s, cy);
+        ctx.lineTo(cx - s, cy + l); ctx.lineTo(cx + s, cy + l); ctx.lineTo(cx + s, cy); ctx.lineTo(cx + s*2, cy);
       } else if (dir === 'down') {
-        ctx.moveTo(cx, cy + l);
-        ctx.lineTo(cx - s*2, cy);
-        ctx.lineTo(cx - s, cy);
-        ctx.lineTo(cx - s, cy - l);
-        ctx.lineTo(cx + s, cy - l);
-        ctx.lineTo(cx + s, cy);
-        ctx.lineTo(cx + s*2, cy);
+        ctx.moveTo(cx, cy + l); ctx.lineTo(cx - s*2, cy); ctx.lineTo(cx - s, cy);
+        ctx.lineTo(cx - s, cy - l); ctx.lineTo(cx + s, cy - l); ctx.lineTo(cx + s, cy); ctx.lineTo(cx + s*2, cy);
       } else if (dir === 'left') {
-        ctx.moveTo(cx - l, cy);
-        ctx.lineTo(cx, cy - s*2);
-        ctx.lineTo(cx, cy - s);
-        ctx.lineTo(cx + l, cy - s);
-        ctx.lineTo(cx + l, cy + s);
-        ctx.lineTo(cx, cy + s);
-        ctx.lineTo(cx, cy + s*2);
+        ctx.moveTo(cx - l, cy); ctx.lineTo(cx, cy - s*2); ctx.lineTo(cx, cy - s);
+        ctx.lineTo(cx + l, cy - s); ctx.lineTo(cx + l, cy + s); ctx.lineTo(cx, cy + s); ctx.lineTo(cx, cy + s*2);
       } else if (dir === 'right') {
-        ctx.moveTo(cx + l, cy);
-        ctx.lineTo(cx, cy - s*2);
-        ctx.lineTo(cx, cy - s);
-        ctx.lineTo(cx - l, cy - s);
-        ctx.lineTo(cx - l, cy + s);
-        ctx.lineTo(cx, cy + s);
-        ctx.lineTo(cx, cy + s*2);
+        ctx.moveTo(cx + l, cy); ctx.lineTo(cx, cy - s*2); ctx.lineTo(cx, cy - s);
+        ctx.lineTo(cx - l, cy - s); ctx.lineTo(cx - l, cy + s); ctx.lineTo(cx, cy + s); ctx.lineTo(cx, cy + s*2);
       }
       ctx.fill();
       ctx.restore();
     });
 
-    // Center finishing square
     ctx.fillStyle = '#0f172a';
     ctx.fillRect(6 * cellSize, 6 * cellSize, 3 * cellSize, 3 * cellSize);
-    
-    // Draw triangle in center for each color
+
     const triPoints = [
-      [[9,6],[9,9],[7.5,7.5]],   // 0: bottom
-      [[6,9],[9,9],[7.5,7.5]],   // 1: right
-      [[6,6],[6,9],[7.5,7.5]],   // 2: top
-      [[6,6],[9,6],[7.5,7.5]],   // 3: left
+      [[9,6],[9,9],[7.5,7.5]],
+      [[6,9],[9,9],[7.5,7.5]],
+      [[6,6],[6,9],[7.5,7.5]],
+      [[6,6],[9,6],[7.5,7.5]],
     ];
     triPoints.forEach((pts, i) => {
       const realColorIdx = getVisualColorIndex(i);
@@ -1074,24 +937,18 @@ export default function LudoGame({
       ctx.lineTo(pts[1][1] * cellSize, pts[1][0] * cellSize);
       ctx.lineTo(pts[2][1] * cellSize, pts[2][0] * cellSize);
       ctx.closePath();
-      
       const triColor = PLAYER_COLORS[realColorIdx];
-      const grad = ctx.createLinearGradient(
-        pts[0][1] * cellSize, pts[0][0] * cellSize,
-        pts[2][1] * cellSize, pts[2][0] * cellSize
-      );
+      const grad = ctx.createLinearGradient(pts[0][1]*cellSize, pts[0][0]*cellSize, pts[2][1]*cellSize, pts[2][0]*cellSize);
       grad.addColorStop(0, triColor + 'ee');
       grad.addColorStop(1, triColor + '66');
-      
       ctx.fillStyle = grad;
       ctx.fill();
-      
       ctx.strokeStyle = 'rgba(255,255,255,0.2)';
       ctx.lineWidth = 1;
       ctx.stroke();
     });
 
-    // Draw pieces on board
+    // Draw pieces
     const drawablePieces = [];
     boardPlayers.forEach((player) => {
       const pieces = [player.piece1, player.piece2, player.piece3, player.piece4];
@@ -1126,26 +983,18 @@ export default function LudoGame({
 
         const prevPos = lastPieceCanvasPosRef.current[pieceKey];
         const existingAnim = pieceMoveAnimRef.current[pieceKey];
-        const moveDistance = prevPos
-          ? Math.hypot(px - prevPos.x, py - prevPos.y)
-          : 0;
+        const moveDistance = prevPos ? Math.hypot(px - prevPos.x, py - prevPos.y) : 0;
 
         if (prevPos && moveDistance > 1) {
-          const targetChanged =
-            !existingAnim ||
-            existingAnim.toX !== px ||
-            existingAnim.toY !== py;
-
+          const targetChanged = !existingAnim || existingAnim.toX !== px || existingAnim.toY !== py;
           if (targetChanged) {
-            // Snappy per-step: 90–110ms per tile. 3ms stagger keeps steps distinct.
             const STEP_DELAY_MS = 3;
             const stepDelay = existingAnim ? STEP_DELAY_MS : 0;
             const duration = Math.max(90, Math.min(110, moveDistance * 2.5));
             pieceMoveAnimRef.current[pieceKey] = {
               fromX: existingAnim ? existingAnim.fromX + (existingAnim.toX - existingAnim.fromX) * Math.max(0, Math.min(1, (nowTs - existingAnim.start) / existingAnim.duration)) : prevPos.x,
               fromY: existingAnim ? existingAnim.fromY + (existingAnim.toY - existingAnim.fromY) * Math.max(0, Math.min(1, (nowTs - existingAnim.start) / existingAnim.duration)) : prevPos.y,
-              toX: px,
-              toY: py,
+              toX: px, toY: py,
               start: nowTs + stepDelay,
               duration,
             };
@@ -1157,41 +1006,29 @@ export default function LudoGame({
         const activeAnim = pieceMoveAnimRef.current[pieceKey];
         if (activeAnim) {
           const t = Math.max(0, Math.min(1, (nowTs - activeAnim.start) / activeAnim.duration));
-          // cubic-bezier(0.2, 0.8, 0.2, 1) approximation via power 1.8 ease-out
           const eased = t < 0 ? 0 : 1 - Math.pow(1 - t, 1.8);
           drawX = activeAnim.fromX + (activeAnim.toX - activeAnim.fromX) * eased;
           drawY = activeAnim.fromY + (activeAnim.toY - activeAnim.fromY) * eased;
-
-          if (t < 1) {
-            needsMoveAnimationFrame = true;
-          } else {
-            delete pieceMoveAnimRef.current[pieceKey];
-          }
+          if (t < 1) needsMoveAnimationFrame = true;
+          else delete pieceMoveAnimRef.current[pieceKey];
         }
 
         lastPieceCanvasPosRef.current[pieceKey] = { x: px, y: py };
 
-        // Slightly bigger radius while keeping board proportions intact
         const r = cellSize * 0.45;
         const isMyPiece = String(player.user_id) === String(user?.id);
         const isMovable = isMyPiece && movablePieces.includes(pieceIdx + 1);
         const isSelected = isMyPiece && selectedPiece === pieceIdx + 1;
 
         ctx.save();
-
-        // Glow for movable pieces
         if (isMovable || isSelected) {
           ctx.beginPath();
           ctx.arc(drawX, drawY, r + 6, 0, Math.PI * 2);
           ctx.shadowColor = isSelected ? '#ffffff' : PLAYER_COLORS[colorIdx];
           ctx.shadowBlur = isSelected ? 15 : 8;
-          ctx.fillStyle = isSelected
-            ? 'rgba(255,255,255,0.8)'
-            : 'rgba(255,255,255,0.18)';
+          ctx.fillStyle = isSelected ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.18)';
           ctx.fill();
-          ctx.shadowBlur = 0; // reset
-
-          // Soft ring for available moves to improve move readability.
+          ctx.shadowBlur = 0;
           if (isMovable) {
             ctx.beginPath();
             ctx.arc(drawX, drawY, r + 8, 0, Math.PI * 2);
@@ -1201,38 +1038,29 @@ export default function LudoGame({
           }
         }
 
-        // Piece shadow
         ctx.shadowColor = 'rgba(0,0,0,0.6)';
         ctx.shadowBlur = 6;
         ctx.shadowOffsetY = 3;
 
-        // Avatar or colored circle
         const img = avatarImagesRef.current[player.user_id];
         if (img?.complete && img?.naturalWidth > 0) {
-          // Draw avatar
           ctx.beginPath();
           ctx.arc(drawX, drawY, r, 0, Math.PI * 2);
           ctx.closePath();
-          
-          // Fill background just in case image has transparency
           ctx.fillStyle = PLAYER_COLORS[colorIdx];
           ctx.fill();
-
           ctx.save();
           ctx.clip();
           ctx.drawImage(img, drawX - r, drawY - r, r * 2, r * 2);
           ctx.restore();
         } else {
-          // Fallback piece
           const pieceGrad = ctx.createRadialGradient(px - r*0.3, py - r*0.3, r*0.1, px, py, r);
           pieceGrad.addColorStop(0, homeColors[colorIdx].grad1);
           pieceGrad.addColorStop(1, homeColors[colorIdx].grad2);
-          
           ctx.beginPath();
           ctx.arc(drawX, drawY, r, 0, Math.PI * 2);
           ctx.fillStyle = pieceGrad;
           ctx.fill();
-
           ctx.fillStyle = 'white';
           ctx.font = `bold ${r}px sans-serif`;
           ctx.textAlign = 'center';
@@ -1242,25 +1070,19 @@ export default function LudoGame({
           ctx.fillText(pieceIdx + 1, drawX, drawY + 1);
         }
 
-        // Reset shadow for borders and gloss
         ctx.shadowColor = 'rgba(0,0,0,0)';
         ctx.shadowBlur = 0;
         ctx.shadowOffsetY = 0;
-
-        // Professional border
         ctx.beginPath();
         ctx.arc(drawX, drawY, r, 0, Math.PI * 2);
         ctx.lineWidth = 2.5;
         ctx.strokeStyle = 'rgba(255,255,255,0.9)';
         ctx.stroke();
-        
         ctx.beginPath();
         ctx.arc(drawX, drawY, r - 1.5, 0, Math.PI * 2);
         ctx.lineWidth = 1.5;
         ctx.strokeStyle = PLAYER_COLORS[colorIdx];
         ctx.stroke();
-
-        // Glossy reflection overlay
         ctx.beginPath();
         ctx.arc(drawX, drawY - r * 0.3, r * 0.6, 0, Math.PI * 2);
         const glossGrad = ctx.createLinearGradient(drawX, drawY - r, drawX, drawY);
@@ -1268,12 +1090,11 @@ export default function LudoGame({
         glossGrad.addColorStop(1, 'rgba(255,255,255,0)');
         ctx.fillStyle = glossGrad;
         ctx.fill();
-
         ctx.restore();
       });
     });
 
-    // Clean stale cached piece positions/animations for pieces no longer drawn.
+    // Cleanup stale refs
     Object.keys(lastPieceCanvasPosRef.current).forEach((key) => {
       if (!seenPieceKeys.has(key)) delete lastPieceCanvasPosRef.current[key];
     });
@@ -1289,22 +1110,18 @@ export default function LudoGame({
     }
   };
 
+  // ─── Game logic ───────────────────────────────
   const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
   const DICE_REVEAL_DELAY = 1400;
   const TRIPLE_SIX_REVEAL_DELAY = 320;
 
   const getLogicalNextPos = (pos, roll) => {
     if (pos === 57) return null;
-
-    if (pos === -1) {
-      return roll === 6 ? 0 : null;
-    }
+    if (pos === -1) return roll === 6 ? 0 : null;
 
     if (pos >= 0 && pos <= HOME_ENTRY_LOGICAL_INDEX) {
       const target = pos + roll;
       if (target <= HOME_ENTRY_LOGICAL_INDEX) return target;
-      // The transition node is counted but cannot be a resting cell.
-      // Landing on it redirects immediately to first home-lane cell.
       if (target === HOME_ENTRY_LOGICAL_INDEX + 1) return 52;
       if (target <= 56) return target;
       if (target === 57) return 57;
@@ -1324,17 +1141,15 @@ export default function LudoGame({
   const getMovablePieces = (player, roll) => {
     const pieces = [player.piece1, player.piece2, player.piece3, player.piece4];
     const movable = [];
-
     pieces.forEach((pos, idx) => {
       if (pos === 57) return;
       const nextPos = getLogicalNextPos(pos, roll);
       if (nextPos !== null && nextPos <= 57) movable.push(idx + 1);
     });
-
     return movable;
   };
 
-  // ─── DICE ROLL ───────────────────────────────
+  // ─── Roll dice ────────────────────────────────
   const rollDice = async () => {
     if (!currentSession?.id || !user?.id) return;
     if (!isMyTurn || rolling) return;
@@ -1370,7 +1185,6 @@ export default function LudoGame({
       }
 
       if (data.triple_six === true) {
-        // Third consecutive 6: keep visible 6, block any movement, lose turn.
         setDiceDisplay(6);
         setLastRoll(6);
         setMovablePieces([]);
@@ -1390,16 +1204,20 @@ export default function LudoGame({
         return;
       }
 
-      const myPlayerNow = players.find(
-        p => String(p.user_id) === String(user.id)
-      );
+      // FIX #3: Load fresh player data from server after RPC instead of using stale state
+      const { data: freshPlayerData } = await supabase
+        .from('room_ludo_players')
+        .select('*')
+        .eq('session_id', currentSession.id)
+        .eq('user_id', user.id)
+        .maybeSingle();
 
-      if (!myPlayerNow) {
+      if (!freshPlayerData) {
         await refreshSession();
         return;
       }
 
-      const movable = getMovablePieces(myPlayerNow, finalRoll);
+      const movable = getMovablePieces(freshPlayerData, finalRoll);
       setMovablePieces(movable);
 
       if (movable.length === 0) {
@@ -1445,24 +1263,18 @@ export default function LudoGame({
     const currentPlayer = sorted.find(p => String(p.user_id) === String(leftUserId));
     if (!currentPlayer) return false;
 
-    const candidates = isTeamMode()
+    const candidates = isTeamMode(sessionArg)
       ? sorted.filter(p => String(p.user_id) !== String(leftUserId))
       : sorted.filter(p => !isPlayerLeft(p));
     if (candidates.length === 0) return false;
 
     const nextPlayer =
-      candidates.find(p => p.seat_number > currentPlayer.seat_number) ||
-      candidates[0];
+      candidates.find(p => p.seat_number > currentPlayer.seat_number) || candidates[0];
     if (!nextPlayer?.user_id) return false;
 
     const { error } = await supabase
       .from('room_ludo_sessions')
-      .update({
-        current_turn_user_id: nextPlayer.user_id,
-        last_roll: 0,
-        display_roll: null,
-        display_roll_user_id: null,
-      })
+      .update({ current_turn_user_id: nextPlayer.user_id, last_roll: 0, display_roll: null, display_roll_user_id: null })
       .eq('id', sessionArg.id)
       .eq('status', 'playing')
       .eq('current_turn_user_id', leftUserId);
@@ -1491,9 +1303,7 @@ export default function LudoGame({
     const refreshed = await refreshSession();
     const latestPlayers = refreshed?.players || players;
     const latestSession = refreshed?.session || sessionArg;
-    const latestLeft = latestPlayers.find(
-      p => String(p.user_id) === String(leftPlayer.user_id)
-    );
+    const latestLeft = latestPlayers.find(p => String(p.user_id) === String(leftPlayer.user_id));
     if (!latestLeft) return;
 
     const rollVal = Number(latestSession?.last_roll ?? rollData.roll ?? 0);
@@ -1509,9 +1319,7 @@ export default function LudoGame({
     await refreshSession();
   };
 
-  // Handle turns for resigned players:
-  // - Classic mode: skip forever.
-  // - Team mode: auto-play resigned teammate turns.
+  // Handle resigned player turns
   useEffect(() => {
     if (!open || currentSession?.status !== 'playing' || !currentSession?.id) return;
 
@@ -1555,95 +1363,62 @@ export default function LudoGame({
     user?.id,
   ]);
 
+  // FIX #1: passTurnToNextPlayer — correct team cycling with independent counter
   const passTurnToNextPlayer = async () => {
-    if (!currentSession?.id) {
-      await refreshSession();
-      return;
-    }
+    if (!currentSession?.id) { await refreshSession(); return; }
 
     const sorted = isTeamMode()
       ? [...players].sort((a, b) => a.seat_number - b.seat_number)
       : [...players].filter(p => !isPlayerLeft(p)).sort((a, b) => a.seat_number - b.seat_number);
-    if (sorted.length < 2) {
-      await refreshSession();
-      return;
-    }
+
+    if (sorted.length < 2) { await refreshSession(); return; }
 
     const currentTurnUserId = currentSession.current_turn_user_id || user?.id;
-    const currentIdx = sorted.findIndex(
-      p => String(p.user_id) === String(currentTurnUserId)
-    );
-    const baseIdx = currentIdx >= 0 ? currentIdx : sorted.findIndex(
-      p => String(p.user_id) === String(user?.id)
-    );
+    const currentIdx = sorted.findIndex(p => String(p.user_id) === String(currentTurnUserId));
+    const baseIdx = currentIdx >= 0 ? currentIdx : sorted.findIndex(p => String(p.user_id) === String(user?.id));
 
-    if (baseIdx < 0) {
-      await refreshSession();
-      return;
-    }
+    if (baseIdx < 0) { await refreshSession(); return; }
 
     let nextPlayer = null;
     if (isTeamMode()) {
-      // Alternate teams: after a Team A player, pick a Team B player (and vice versa).
-      // Within each team, cycle by seat order so both teammates get turns.
       const currentPlayer = sorted[baseIdx];
       const currentTeam = getEffectiveTeam(currentPlayer);
       const targetTeam = currentTeam === 'A' ? 'B' : 'A';
-
-      // Collect players from the target team sorted by seat.
       const targetTeamPlayers = sorted.filter(p => getEffectiveTeam(p) === targetTeam);
 
       if (targetTeamPlayers.length > 0) {
-        // Cycle through target team players so both teammates get equal turns.
-        const teamCycleIdx = Math.floor(baseIdx / 2) % targetTeamPlayers.length;
-        nextPlayer = targetTeamPlayers[teamCycleIdx] || targetTeamPlayers[0];
+        // FIX #1: Use independent cycle counter so both teammates get equal turns
+        const cycleIdx = teamTurnCycleRef.current % targetTeamPlayers.length;
+        nextPlayer = targetTeamPlayers[cycleIdx];
+        teamTurnCycleRef.current += 1;
       }
     } else {
       nextPlayer = sorted[(baseIdx + 1) % sorted.length];
     }
 
-    if (!nextPlayer?.user_id) {
-      await refreshSession();
-      return;
-    }
-
-    if (String(nextPlayer.user_id) === String(currentTurnUserId)) {
-      await refreshSession();
-      return;
-    }
+    if (!nextPlayer?.user_id) { await refreshSession(); return; }
+    if (String(nextPlayer.user_id) === String(currentTurnUserId)) { await refreshSession(); return; }
 
     const { error } = await supabase
       .from('room_ludo_sessions')
-      .update({
-        current_turn_user_id: nextPlayer.user_id,
-      })
+      .update({ current_turn_user_id: nextPlayer.user_id })
       .eq('id', currentSession.id)
       .eq('status', 'playing')
       .eq('current_turn_user_id', currentTurnUserId);
 
-    if (error) {
-      await refreshSession();
-      return;
-    }
+    if (error) { await refreshSession(); return; }
 
-    setCurrentSession(prev => (
-      prev
-        ? { ...prev, current_turn_user_id: nextPlayer.user_id }
-        : prev
-    ));
+    setCurrentSession(prev => prev ? { ...prev, current_turn_user_id: nextPlayer.user_id } : prev);
     await refreshSession();
   };
 
-  // ─── MOVE PIECE ──────────────────────────────
+  // ─── Move piece ───────────────────────────────
   const movePiece = async (pieceNumber) => {
     if (!currentSession?.id || !user?.id) return;
 
-    const myPlayerBefore = players.find(
-      p => String(p.user_id) === String(user.id)
-    );
+    const myPlayerBefore = players.find(p => String(p.user_id) === String(user.id));
     const beforeFinished = Number(myPlayerBefore?.pieces_finished || 0);
 
-    // Disable piece selection immediately so there are no double-taps
     setMovablePieces([]);
     setSelectedPiece(null);
 
@@ -1657,20 +1432,15 @@ export default function LudoGame({
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Failed to move');
 
-      // Apply the server-confirmed position so canvas animation starts immediately
-      // after RPC returns — no overshoot, no rubber-band.
       if (typeof data.new_pos === 'number' && data.piece_number) {
         const pieceKey = `piece${data.piece_number}`;
         setPlayers(prev =>
           prev.map(p =>
-            String(p.user_id) === String(user.id)
-              ? { ...p, [pieceKey]: data.new_pos }
-              : p
+            String(p.user_id) === String(user.id) ? { ...p, [pieceKey]: data.new_pos } : p
           )
         );
       }
 
-      // UI-only feedback from server result; no local capture/home mutation here.
       if (data.bumped) {
         setMessage('💥 You sent an opponent home!');
         setTimeout(() => setMessage(''), 1800);
@@ -1682,24 +1452,16 @@ export default function LudoGame({
       }
 
       onCoinsUpdated?.();
-
-      // Give the canvas animation (~110ms) time to finish before refreshSession
-      // overwrites the players state with the authoritative snapshot.
       await new Promise(resolve => setTimeout(resolve, 180));
 
       const refreshed = await refreshSession();
-      const myPlayerAfter = (refreshed.players || []).find(
-        p => String(p.user_id) === String(user.id)
-      );
-      const afterFinished = Number(
-        myPlayerAfter?.pieces_finished ?? data?.pieces_finished ?? beforeFinished
-      );
+      const myPlayerAfter = (refreshed.players || []).find(p => String(p.user_id) === String(user.id));
+      const afterFinished = Number(myPlayerAfter?.pieces_finished ?? data?.pieces_finished ?? beforeFinished);
 
       if (afterFinished > beforeFinished) {
         setFinishToast('🎉 Piece finished!');
         setMessage('🎉 Piece finished!');
         setRecentFinishedUserId(String(user.id));
-
         if (finishFxTimerRef.current) clearTimeout(finishFxTimerRef.current);
         finishFxTimerRef.current = setTimeout(() => {
           setFinishToast('');
@@ -1730,10 +1492,7 @@ export default function LudoGame({
     if (movingPieceRef.current) return;
 
     const boardPlayers = getVisiblePlayersList(players, currentSession);
-
-    const myPlayerLocal = boardPlayers.find(
-      p => String(p.user_id) === String(user?.id)
-    );
+    const myPlayerLocal = boardPlayers.find(p => String(p.user_id) === String(user?.id));
     if (!myPlayerLocal) return;
 
     const canvas = canvasRef.current;
@@ -1771,11 +1530,9 @@ export default function LudoGame({
     for (const pieceNum of movablePieces) {
       const piecePos = getPieceCanvasPosition(myPlayerLocal, pieceNum - 1, cellSize, boardPlayers);
       if (!piecePos || piecePos.isFinished) continue;
-
       const [offX, offY] = movablePieceOffsetMap.get(pieceNum) || [0, 0];
       const px = piecePos.x + offX;
       const py = piecePos.y + offY;
-
       const dx = x - px;
       const dy = y - py;
       if (dx * dx + dy * dy <= hitRadius * hitRadius) {
@@ -1785,18 +1542,13 @@ export default function LudoGame({
     }
   };
 
+  // ─── Session management ───────────────────────
   const joinSession = async () => {
     if (!currentSession?.id || !user?.id) return;
-    if (userCoins < currentSession.entry_cost) {
-      alert(`Need ${currentSession.entry_cost} coins to join`);
-      return;
-    }
+    if (userCoins < currentSession.entry_cost) { alert(`Need ${currentSession.entry_cost} coins to join`); return; }
     setJoining(true);
     try {
-      const { data, error } = await supabase.rpc('join_ludo_session', {
-        p_session_id: currentSession.id,
-        p_user_id: user.id,
-      });
+      const { data, error } = await supabase.rpc('join_ludo_session', { p_session_id: currentSession.id, p_user_id: user.id });
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Failed to join');
       onCoinsUpdated?.();
@@ -1812,10 +1564,7 @@ export default function LudoGame({
     if (!currentSession?.id || !user?.id) return;
     setLeaving(true);
     try {
-      const { data, error } = await supabase.rpc('leave_ludo_session', {
-        p_session_id: currentSession.id,
-        p_user_id: user.id,
-      });
+      const { data, error } = await supabase.rpc('leave_ludo_session', { p_session_id: currentSession.id, p_user_id: user.id });
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Failed to leave');
       onCoinsUpdated?.();
@@ -1831,49 +1580,28 @@ export default function LudoGame({
   const startGame = async () => {
     if (!currentSession?.id || !canModerate) return;
 
-    // Validate team mode requirements
     if (isTeamMode()) {
-      if (players.length !== 4) {
-        alert('Team mode requires exactly 4 players');
-        return;
-      }
-      if (!areTeamsComplete()) {
-        alert('Please complete teams: 2 players in Team A and 2 players in Team B');
-        return;
-      }
-      if (teamsDirty) {
-        alert('Please save teams before starting.');
-        return;
-      }
-      // Teams already persisted via Save Teams — just start the game.
+      if (players.length !== 4) { alert('Team mode requires exactly 4 players'); return; }
+      if (!areTeamsComplete()) { alert('Please complete teams: 2 players in Team A and 2 players in Team B'); return; }
+      if (teamsDirty) { alert('Please save teams before starting.'); return; }
       const sortedFresh = [...players].sort((a, b) => a.seat_number - b.seat_number);
       const firstPlayerForTeam = sortedFresh[0];
       if (!firstPlayerForTeam?.user_id) return;
-
+      // Reset cycle counter at game start
+      teamTurnCycleRef.current = 0;
       await supabase
         .from('room_ludo_sessions')
-        .update({
-          status: 'playing',
-          started_at: new Date().toISOString(),
-          current_turn_user_id: firstPlayerForTeam.user_id,
-        })
+        .update({ status: 'playing', started_at: new Date().toISOString(), current_turn_user_id: firstPlayerForTeam.user_id })
         .eq('id', currentSession.id);
-      return; // done — skip the non-team-mode update below
+      return;
     } else {
-      if (getActivePlayersList(players).length < 2) {
-        alert('Need at least 2 players');
-        return;
-      }
+      if (getActivePlayersList(players).length < 2) { alert('Need at least 2 players'); return; }
     }
 
     const firstPlayer = getActivePlayersList(players)[0];
     await supabase
       .from('room_ludo_sessions')
-      .update({
-        status: 'playing',
-        started_at: new Date().toISOString(),
-        current_turn_user_id: firstPlayer.user_id,
-      })
+      .update({ status: 'playing', started_at: new Date().toISOString(), current_turn_user_id: firstPlayer.user_id })
       .eq('id', currentSession.id);
   };
 
@@ -1882,10 +1610,7 @@ export default function LudoGame({
     const confirmed = window.confirm('Cancel game? All players will be refunded.');
     if (!confirmed) return;
     try {
-      const { data, error } = await supabase.rpc('cancel_ludo_session', {
-        p_session_id: currentSession.id,
-        p_user_id: user.id,
-      });
+      const { data, error } = await supabase.rpc('cancel_ludo_session', { p_session_id: currentSession.id, p_user_id: user.id });
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Failed');
       onCoinsUpdated?.();
@@ -1899,30 +1624,13 @@ export default function LudoGame({
   const resignSession = async () => {
     if (!currentSession?.id || !user?.id) return;
     try {
-      const { data, error } = await supabase.rpc('resign_ludo_game', {
-        p_session_id: currentSession.id,
-        p_user_id: user.id,
-      });
+      const { data, error } = await supabase.rpc('resign_ludo_game', { p_session_id: currentSession.id, p_user_id: user.id });
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Failed to resign');
       onCoinsUpdated?.();
-
-      // If the SQL already finished the game (team eliminated), just reload and bail out.
-      // The realtime room_ludo_sessions subscription will fire the finished handler.
-      if (data.game_ended) {
-        setShowSettingsMenu(false);
-        await refreshSession();
-        return;
-      }
-
-      // Game still ongoing — reload players and run the client-side team check as
-      // a safety net (covers edge cases where realtime fires before SQL commits).
+      if (data.game_ended) { setShowSettingsMenu(false); await refreshSession(); return; }
       const refreshedPlayers = await loadPlayers(currentSession.id);
-      const { data: sd } = await supabase
-        .from('room_ludo_sessions')
-        .select('*')
-        .eq('id', currentSession.id)
-        .single();
+      const { data: sd } = await supabase.from('room_ludo_sessions').select('*').eq('id', currentSession.id).single();
       if (sd) setCurrentSession(sd);
       await maybeEndGameForEliminatedTeam(refreshedPlayers, sd || currentSession);
       setShowSettingsMenu(false);
@@ -1935,20 +1643,8 @@ export default function LudoGame({
     if (!canModerate || !roomId || !user?.id) return;
     setCreating(true);
     try {
-      const payload = {
-        room_id: roomId,
-        created_by: user.id,
-        max_players: maxPlayers,
-        entry_cost: entryCost,
-        status: 'waiting',
-        team_mode: maxPlayers === 4 && teamMode,
-      };
-
-      const { data, error } = await supabase
-        .from('room_ludo_sessions')
-        .insert(payload)
-        .select()
-        .single();
+      const payload = { room_id: roomId, created_by: user.id, max_players: maxPlayers, entry_cost: entryCost, status: 'waiting', team_mode: maxPlayers === 4 && teamMode };
+      const { data, error } = await supabase.from('room_ludo_sessions').insert(payload).select().single();
       if (error) throw error;
       setCurrentSession(data);
       setPlayers([]);
@@ -1959,49 +1655,35 @@ export default function LudoGame({
     }
   };
 
+  // ─── Derived state ────────────────────────────
   const visiblePlayers = getVisiblePlayersList(players, currentSession);
   const activePlayers = getActivePlayersList(players);
   const isJoined = activePlayers.some(p => String(p.user_id) === String(user?.id));
   const isFull = activePlayers.length >= (currentSession?.max_players || 0);
   const isMyTurn =
-    String(currentSession?.current_turn_user_id) === String(user?.id) &&
-    isJoined;
+    String(currentSession?.current_turn_user_id) === String(user?.id) && isJoined;
   const netPrize = Math.floor((currentSession?.entry_cost || 0) * players.length * 0.9);
 
-  // Returns the planned seat number for a player.
-  // If a swap was staged via seatOverrides, that takes priority over the DB value.
-  const getEffectiveSeat = (player) => {
-    if (!player) return 0;
-    const override = seatOverrides[String(player.user_id)];
-    return override !== undefined ? Number(override) : Number(player.seat_number || 0);
+  const getTeamPlayers = (teamLetter) => players.filter(p => getEffectiveTeam(p) === teamLetter);
+
+  const areTeamsComplete = () => {
+    if (!isTeamMode() || players.length !== 4) return false;
+    return getTeamPlayers('A').length === 2 && getTeamPlayers('B').length === 2;
   };
 
-  // Team is always derived from the effective seat: seat 1/3 = A, seat 2/4 = B.
-  // This is the single source of truth — never read team_key or a separate A/B override.
-  const getEffectiveTeam = (player) => {
-    if (!player) return null;
-    const seat = getEffectiveSeat(player);
-    return seat === 1 || seat === 3 ? 'A' : 'B';
-  };
-
-  // Alias for backward compat.
-  const getLudoTeam = getEffectiveTeam;
-
-  function isTeamMode() {
-    if (Number(currentSession?.max_players || 0) !== 4) return false;
-    return currentSession?.team_mode === true;
-  }
+  const winningTeamPlayers = currentSession?.winner_team
+    ? players.filter(p => getEffectiveTeam(p) === currentSession.winner_team)
+    : [];
+  const perPlayerPrize = Number(currentSession?.winner_coins || currentSession?.per_player_prize || 0);
+  const totalTeamPrize = perPlayerPrize * winningTeamPlayers.length;
 
   const meInTeamMode = isTeamMode()
     ? players.find(p => String(p.user_id) === String(user?.id))
     : null;
   const teammatePlayer = meInTeamMode
-    ? players.find(
-      p => String(p.user_id) !== String(user?.id) && getEffectiveTeam(p) === getEffectiveTeam(meInTeamMode)
-    )
+    ? players.find(p => String(p.user_id) !== String(user?.id) && getEffectiveTeam(p) === getEffectiveTeam(meInTeamMode))
     : null;
-  const teammatePillBaseClass =
-    'h-[26px] min-w-[170px] max-w-[170px] px-3 rounded-full text-xs font-bold leading-[26px] flex items-center justify-center whitespace-nowrap overflow-hidden text-ellipsis transition-colors duration-200';
+  const teammatePillBaseClass = 'h-[26px] min-w-[170px] max-w-[170px] px-3 rounded-full text-xs font-bold leading-[26px] flex items-center justify-center whitespace-nowrap overflow-hidden text-ellipsis transition-colors duration-200';
   const teamHeaderStatusText = resignedTeammateName
     ? `Auto: ${resignedTeammateName}`
     : (teammatePlayer?.name ? `Your teammate: ${teammatePlayer.name}` : null);
@@ -2010,9 +1692,7 @@ export default function LudoGame({
     const wasAuto = !!previousResignedTeammateRef.current;
     const isAuto = !!resignedTeammateName;
     previousResignedTeammateRef.current = resignedTeammateName;
-
     if (!isAuto || wasAuto) return;
-
     setAutoHeaderGlow(true);
     const glowTimer = setTimeout(() => setAutoHeaderGlow(false), 800);
     return () => clearTimeout(glowTimer);
@@ -2024,27 +1704,13 @@ export default function LudoGame({
       setTurnPulseUserId(null);
       return;
     }
-
     const turnUserId = String(currentSession?.current_turn_user_id || '');
-    if (!turnUserId) return;
-
-    if (previousTurnUserIdRef.current === turnUserId) return;
+    if (!turnUserId || previousTurnUserIdRef.current === turnUserId) return;
     previousTurnUserIdRef.current = turnUserId;
-
     setTurnPulseUserId(turnUserId);
     const pulseTimer = setTimeout(() => setTurnPulseUserId(null), 360);
     return () => clearTimeout(pulseTimer);
   }, [currentSession?.status, currentSession?.current_turn_user_id]);
-
-  const getTeamPlayers = (teamLetter) => {
-    return players.filter(p => getEffectiveTeam(p) === teamLetter);
-  };
-
-  const winningTeamPlayers = currentSession?.winner_team
-    ? players.filter(p => getEffectiveTeam(p) === currentSession.winner_team)
-    : [];
-  const perPlayerPrize = Number(currentSession?.winner_coins || currentSession?.per_player_prize || 0);
-  const totalTeamPrize = perPlayerPrize * winningTeamPlayers.length;
 
   useEffect(() => {
     if (!showResult || !currentSession?.winner_team || !currentSession?.id) return;
@@ -2052,96 +1718,70 @@ export default function LudoGame({
     loadPlayers(currentSession.id);
   }, [showResult, currentSession?.winner_team, currentSession?.id, winningTeamPlayers.length]);
 
-  // Handle card click in Assign Teams.
-  // First click selects a player. Second click on the OPPOSITE team swaps their seats.
-  // Second click on the SAME team changes selection.
-  // Clicking the already-selected player deselects.
+  // Keep autoAction ref in sync
+  autoActionStateRef.current = {
+    sessionId: currentSession?.id,
+    turnUserId: currentSession?.current_turn_user_id,
+    lastRoll,
+    sessionLastRoll: currentSession?.last_roll ?? 0,
+    movablePieces,
+    rolling,
+    rollDice,
+    handlePieceSelect,
+  };
+
+  // ─── Team assignment UI ───────────────────────
   const togglePlayerTeam = (userId) => {
     const userIdStr = String(userId);
     const player = players.find(p => String(p.user_id) === userIdStr);
     if (!player) return;
 
-    // First click or deselect.
-    if (!selectedTeamPlayerId) {
-      setSelectedTeamPlayerId(userIdStr);
-      return;
-    }
+    if (!selectedTeamPlayerId) { setSelectedTeamPlayerId(userIdStr); return; }
 
     const selectedIdStr = String(selectedTeamPlayerId);
-    if (selectedIdStr === userIdStr) {
-      setSelectedTeamPlayerId(null);
-      return;
-    }
+    if (selectedIdStr === userIdStr) { setSelectedTeamPlayerId(null); return; }
 
     const selectedPlayer = players.find(p => String(p.user_id) === selectedIdStr);
-    if (!selectedPlayer) {
-      setSelectedTeamPlayerId(userIdStr);
-      return;
-    }
+    if (!selectedPlayer) { setSelectedTeamPlayerId(userIdStr); return; }
 
     const currentTeam = getEffectiveTeam(player);
     const selectedTeam = getEffectiveTeam(selectedPlayer);
 
-    // Same team — just change selection.
-    if (selectedTeam === currentTeam) {
-      setSelectedTeamPlayerId(userIdStr);
-      return;
-    }
+    if (selectedTeam === currentTeam) { setSelectedTeamPlayerId(userIdStr); return; }
 
-    // Opposite team — swap their effective seat numbers.
     const seatA = getEffectiveSeat(selectedPlayer);
     const seatB = getEffectiveSeat(player);
-    setSeatOverrides(prev => ({
-      ...prev,
-      [selectedIdStr]: seatB,
-      [userIdStr]: seatA,
-    }));
+    setSeatOverrides(prev => ({ ...prev, [selectedIdStr]: seatB, [userIdStr]: seatA }));
     setTeamsDirty(true);
     setSelectedTeamPlayerId(null);
   };
 
-  // Randomly reshuffle seats 1-4 across all 4 players.
-  // Seats 1/3 will be Team A, seats 2/4 will be Team B.
   const assignRandomTeams = () => {
     if (players.length !== 4) return;
     const shuffled = [...players].sort(() => Math.random() - 0.5);
     const overrides = {};
-    shuffled.forEach((p, i) => {
-      overrides[String(p.user_id)] = i + 1; // seats 1, 2, 3, 4
-    });
+    shuffled.forEach((p, i) => { overrides[String(p.user_id)] = i + 1; });
     setSeatOverrides(overrides);
     setTeamsDirty(true);
     setSelectedTeamPlayerId(null);
   };
 
-  // Persist planned seat assignments to DB using two-phase update to avoid
-  // unique constraint conflicts on seat_number.
   const saveTeams = async () => {
     if (!currentSession?.id || !teamsDirty || savingTeams) return;
     setSavingTeams(true);
     savingTeamsRef.current = true;
     try {
-      // Phase 1: move every player to a temporary seat (100+intended) so no two
-      // rows ever share the same intended seat_number during the transition.
       for (const player of players) {
         const intendedSeat = getEffectiveSeat(player);
-        const { error } = await supabase
-          .from('room_ludo_players')
-          .update({ seat_number: 100 + intendedSeat })
-          .eq('id', player.id);
+        const { error } = await supabase.from('room_ludo_players').update({ seat_number: 100 + intendedSeat }).eq('id', player.id);
         if (error) throw error;
       }
-      // Phase 2: write the final seat_number and derive team_key from it.
       for (const player of players) {
         const intendedSeat = getEffectiveSeat(player);
         const intendedTeam = intendedSeat === 1 || intendedSeat === 3 ? 'A' : 'B';
-        const { error } = await supabase
-          .from('room_ludo_players')
-          .update({ seat_number: intendedSeat, team_key: intendedTeam })
-          .eq('id', player.id);
+        const { error } = await supabase.from('room_ludo_players').update({ seat_number: intendedSeat, team_key: intendedTeam }).eq('id', player.id);
         if (error) throw error;
       }
-      // Reload so board redraws with the persisted seat numbers.
       await loadPlayers(currentSession.id);
       setSeatOverrides({});
       setTeamsDirty(false);
@@ -2154,24 +1794,8 @@ export default function LudoGame({
     }
   };
 
-  // With 4 players and seat-based teams, teams are always 2-2 by construction.
-  const areTeamsComplete = () => {
-    if (!isTeamMode() || players.length !== 4) return false;
-    return getTeamPlayers('A').length === 2 && getTeamPlayers('B').length === 2;
-  };
-
-  // Keep autoAction ref in sync with latest closures every render
-  autoActionStateRef.current = {
-    lastRoll,
-    sessionLastRoll: currentSession?.last_roll ?? 0,
-    movablePieces,
-    rolling,
-    rollDice,
-    handlePieceSelect,
-  };
-
+  // ─── Dice rendering ───────────────────────────
   const isDiceOwnerPlayer = (player) => {
-    // Show dice slot for the player who owns the last roll OR the current turn player
     const displayRollUserId = currentSession?.display_roll_user_id;
     const currentTurnUserId = currentSession?.current_turn_user_id;
     const displayRoll = Number(currentSession?.display_roll || 0);
@@ -2187,27 +1811,11 @@ export default function LudoGame({
     const currentTurnUserId = String(currentSession?.current_turn_user_id || '');
     const displayRollUserId = String(currentSession?.display_roll_user_id || '');
     const displayRoll = Number(currentSession?.display_roll || 0);
-
     const isLocalCurrentTurn = pid === myId && currentTurnUserId === myId;
 
-    if (isLocalCurrentTurn && diceDisplay >= 1 && diceDisplay <= 6) {
-      return diceDisplay;
-    }
-
-    if (
-      currentTurnUserId === pid &&
-      displayRollUserId === pid &&
-      remoteDiceAnimating &&
-      remoteDiceDisplay >= 1 &&
-      remoteDiceDisplay <= 6
-    ) {
-      return remoteDiceDisplay;
-    }
-
-    if (displayRollUserId === pid && displayRoll >= 1 && displayRoll <= 6) {
-      return displayRoll;
-    }
-
+    if (isLocalCurrentTurn && diceDisplay >= 1 && diceDisplay <= 6) return diceDisplay;
+    if (currentTurnUserId === pid && displayRollUserId === pid && remoteDiceAnimating && remoteDiceDisplay >= 1 && remoteDiceDisplay <= 6) return remoteDiceDisplay;
+    if (displayRollUserId === pid && displayRoll >= 1 && displayRoll <= 6) return displayRoll;
     return 0;
   };
 
@@ -2223,19 +1831,17 @@ export default function LudoGame({
     const isCurrentTurnPlayer = currentTurnUserId === pid;
     const shouldShowDice = isDisplayRollOwner || isCurrentTurnPlayer;
 
-    if (!shouldShowDice) {
-      return <div className="w-16 h-16 sm:w-20 sm:h-20 shrink-0 invisible" aria-hidden="true" />;
-    }
+    if (!shouldShowDice) return <div className="w-16 h-16 sm:w-20 sm:h-20 shrink-0 invisible" aria-hidden="true" />;
 
     const colorIdx = getPlayerColorIndex(player);
     const sessionRoll = Number(currentSession?.last_roll || 0);
-
     const isTurnMine = pid === String(user?.id) && isMyTurn;
-    const canRoll = isTurnMine && !rolling && sessionRoll === 0 && movablePieces.length === 0;
+
+    // FIX (renderDiceSlot): Use !sessionRoll instead of sessionRoll === 0 to handle null
+    const canRoll = isTurnMine && !rolling && !sessionRoll && movablePieces.length === 0;
 
     const faceValue = getVisibleDiceValueForPlayer(player);
     const hasValue = faceValue >= 1 && faceValue <= 6;
-
     const isLocalDice = pid === String(user?.id) && isCurrentTurnPlayer;
     const isRollingNow = isCurrentTurnPlayer && (isLocalDice ? diceAnimating : remoteDiceAnimating);
     const isTurnPulseDice = isCurrentTurnPlayer && String(turnPulseUserId || '') === pid && !isRollingNow;
@@ -2248,21 +1854,10 @@ export default function LudoGame({
       <button
         type="button"
         disabled={!canRoll}
-        onPointerDown={(e) => {
-          e.stopPropagation();
-          if (canRoll) rollDice();
-        }}
-        onClick={(e) => {
-          e.stopPropagation();
-        }}
-        className={`relative z-[80] w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center select-none ${
-          canRoll ? 'cursor-pointer active:scale-95' : 'cursor-default'
-        }`}
-        style={{
-          touchAction: 'manipulation',
-          WebkitTapHighlightColor: 'transparent',
-          pointerEvents: 'auto',
-        }}
+        onPointerDown={(e) => { e.stopPropagation(); if (canRoll) rollDice(); }}
+        onClick={(e) => { e.stopPropagation(); }}
+        className={`relative z-[80] w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center select-none ${canRoll ? 'cursor-pointer active:scale-95' : 'cursor-default'}`}
+        style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent', pointerEvents: 'auto' }}
       >
         <div
           className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl border-2 flex items-center justify-center shadow-lg"
@@ -2271,19 +1866,13 @@ export default function LudoGame({
             background: `linear-gradient(135deg, ${PLAYER_COLORS[colorIdx]}22, ${PLAYER_COLORS[colorIdx]}55)`,
             boxShadow: `0 4px 12px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.25), 0 0 12px ${PLAYER_COLORS[colorIdx]}55${isSixGlow ? ', 0 0 14px rgba(250,204,21,0.55)' : ''}`,
             transformOrigin: 'center center',
-            animation: isRollingNow
-              ? 'ludoDiceSingleSpin 620ms linear 1 both'
-              : (isTurnPulseDice ? 'ludoTurnDiceNudge 360ms ease-out 1' : 'none'),
+            animation: isRollingNow ? 'ludoDiceSingleSpin 620ms linear 1 both' : (isTurnPulseDice ? 'ludoTurnDiceNudge 360ms ease-out 1' : 'none'),
           }}
         >
           {showSettledValue ? (
             <span
               className="text-2xl sm:text-3xl font-black leading-none"
-              style={{
-                color: PLAYER_COLORS[colorIdx],
-                animation: isResultPulse ? 'ludoDiceResultPop 360ms ease-out 1' : 'none',
-                transformOrigin: 'center center',
-              }}
+              style={{ color: PLAYER_COLORS[colorIdx], animation: isResultPulse ? 'ludoDiceResultPop 360ms ease-out 1' : 'none', transformOrigin: 'center center' }}
             >
               {faceValue}
             </span>
@@ -2291,15 +1880,21 @@ export default function LudoGame({
             <span className="text-xl sm:text-2xl opacity-80">🎲</span>
           )}
         </div>
-
-        {canRoll && (
-          <span className="absolute top-2 right-2 sm:top-3 sm:right-3 w-3 h-3 rounded-full bg-emerald-400 animate-ping" />
-        )}
+        {canRoll && <span className="absolute top-2 right-2 sm:top-3 sm:right-3 w-3 h-3 rounded-full bg-emerald-400 animate-ping" />}
       </button>
     );
   };
 
+  // ─── Render ───────────────────────────────────
   if (!open) return null;
+
+  // homeColors needed inside drawBoard but also in JSX (piece fallback gradient)
+  const homeColors = [
+    { bg: '#fca5a5', border: '#ef4444', grad1: '#f87171', grad2: '#dc2626' },
+    { bg: '#93c5fd', border: '#3b82f6', grad1: '#60a5fa', grad2: '#2563eb' },
+    { bg: '#fcd34d', border: '#f59e0b', grad1: '#fbbf24', grad2: '#d97706' },
+    { bg: '#86efac', border: '#22c55e', grad1: '#4ade80', grad2: '#16a34a' },
+  ];
 
   return (
     <div className="fixed inset-0 z-[85] flex items-end sm:items-center justify-center"
@@ -2311,43 +1906,24 @@ export default function LudoGame({
           100% { transform: rotate(360deg) scale(1);    }
         }
         @keyframes ludoTurnCardGlow {
-          0% {
-            box-shadow: 0 0 0 rgba(255,255,255,0);
-          }
-          50% {
-            box-shadow: 0 0 14px rgba(255,255,255,0.24);
-          }
-          100% {
-            box-shadow: 0 0 0 rgba(255,255,255,0);
-          }
+          0%   { box-shadow: 0 0 0 rgba(255,255,255,0); }
+          50%  { box-shadow: 0 0 14px rgba(255,255,255,0.24); }
+          100% { box-shadow: 0 0 0 rgba(255,255,255,0); }
         }
         @keyframes ludoTurnDiceNudge {
-          0% {
-            transform: scale(1);
-          }
-          50% {
-            transform: scale(1.05);
-          }
-          100% {
-            transform: scale(1);
-          }
+          0%   { transform: scale(1); }
+          50%  { transform: scale(1.05); }
+          100% { transform: scale(1); }
         }
         @keyframes ludoDiceResultPop {
-          0% {
-            transform: scale(1);
-          }
-          50% {
-            transform: scale(1.15);
-          }
-          100% {
-            transform: scale(1);
-          }
+          0%   { transform: scale(1); }
+          50%  { transform: scale(1.15); }
+          100% { transform: scale(1); }
         }
       `}</style>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div
-        className="relative w-full max-w-md bg-slate-900 rounded-t-3xl sm:rounded-3xl
-          shadow-2xl flex flex-col overflow-hidden h-[95dvh] max-h-[95dvh]"
+        className="relative w-full max-w-md bg-slate-900 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden h-[95dvh] max-h-[95dvh]"
         onClick={e => e.stopPropagation()}
       >
         {/* Handle */}
@@ -2364,52 +1940,28 @@ export default function LudoGame({
           <div className="flex items-center gap-3">
             {isTeamMode() && currentSession?.status === 'playing' && isJoined && teamHeaderStatusText && (
               <div
-                className={`${teammatePillBaseClass} border border-white/20 text-white ${
-                  resignedTeammateName ? 'bg-red-800/95' : 'bg-green-600/95'
-                }`}
-                style={{
-                  boxShadow: resignedTeammateName && autoHeaderGlow
-                    ? '0 0 12px rgba(239,68,68,0.55)'
-                    : 'none',
-                  transition: 'box-shadow 200ms ease, background-color 200ms ease',
-                }}
+                className={`${teammatePillBaseClass} border border-white/20 text-white ${resignedTeammateName ? 'bg-red-800/95' : 'bg-green-600/95'}`}
+                style={{ boxShadow: resignedTeammateName && autoHeaderGlow ? '0 0 12px rgba(239,68,68,0.55)' : 'none', transition: 'box-shadow 200ms ease, background-color 200ms ease' }}
               >
                 {teamHeaderStatusText}
               </div>
             )}
-            {/* Settings button — visible only for waiting moderators or playing participants */}
             {currentSession && (
-              ((canModerate && currentSession.status === 'waiting') ||
-                (isJoined && currentSession.status === 'playing'))
+              ((canModerate && currentSession.status === 'waiting') || (isJoined && currentSession.status === 'playing'))
             ) && (
               <div className="relative">
-                <button
-                  onClick={() => setShowSettingsMenu(v => !v)}
-                  className="text-white/50 hover:text-white p-0.5"
-                >
+                <button onClick={() => setShowSettingsMenu(v => !v)} className="text-white/50 hover:text-white p-0.5">
                   <Settings className="w-5 h-5" />
                 </button>
                 {showSettingsMenu && (
-                  <div
-                    className="absolute right-0 top-7 z-50 bg-slate-800 border border-white/10
-                      rounded-xl shadow-xl min-w-[140px] overflow-hidden"
-                    onClick={e => e.stopPropagation()}
-                  >
+                  <div className="absolute right-0 top-7 z-50 bg-slate-800 border border-white/10 rounded-xl shadow-xl min-w-[140px] overflow-hidden" onClick={e => e.stopPropagation()}>
                     {currentSession.status === 'waiting' && canModerate && (
-                      <button
-                        onClick={() => { setShowSettingsMenu(false); cancelSession(); }}
-                        className="w-full text-left px-4 py-2.5 text-rose-400 font-bold text-sm
-                          hover:bg-rose-500/10 transition"
-                      >
+                      <button onClick={() => { setShowSettingsMenu(false); cancelSession(); }} className="w-full text-left px-4 py-2.5 text-rose-400 font-bold text-sm hover:bg-rose-500/10 transition">
                         🚫 Cancel Game
                       </button>
                     )}
                     {currentSession.status === 'playing' && isJoined && (
-                      <button
-                        onClick={resignSession}
-                        className="w-full text-left px-4 py-2.5 text-amber-300 font-bold text-sm
-                          hover:bg-amber-500/10 transition"
-                      >
+                      <button onClick={resignSession} className="w-full text-left px-4 py-2.5 text-amber-300 font-bold text-sm hover:bg-amber-500/10 transition">
                         🚪 Resign Game
                       </button>
                     )}
@@ -2435,104 +1987,67 @@ export default function LudoGame({
               <div className="text-7xl animate-bounce">🏆</div>
               <div className="text-white font-black text-3xl">Team {currentSession.winner_team} Wins!</div>
               {winningTeamPlayers.length > 0 ? (
-                <>
-                  <div className="w-full max-w-sm bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4">
-                    <div className="text-amber-200 text-sm font-bold text-center mb-3">
-                      Team prize: {totalTeamPrize.toLocaleString()} coins
-                    </div>
-                    <div className="grid grid-cols-1 gap-3">
-                      {winningTeamPlayers.map((player) => (
-                        <div
-                          key={player.id}
-                          className="flex items-center justify-between gap-3 rounded-xl bg-white/5 border border-white/10 px-3 py-2"
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <img
-                              src={player.avatar_url || FALLBACK_AVATAR}
-                              alt={player.name}
-                              className="w-12 h-12 rounded-full border-2 border-amber-400 object-cover"
-                              onError={e => e.currentTarget.src = FALLBACK_AVATAR}
-                            />
-                            <div className="min-w-0">
-                              <div className="text-white font-bold truncate">{player.name}</div>
-                              <div className="text-amber-300 text-sm font-black">+{perPlayerPrize.toLocaleString()} coins</div>
-                            </div>
-                          </div>
-                          <div className={`text-[10px] font-black leading-tight px-2 py-1 rounded-full shrink-0 ${
-                            currentSession.winner_team === 'A'
-                              ? 'bg-cyan-400/20 text-cyan-200 border border-cyan-300/40'
-                              : 'bg-violet-400/20 text-violet-200 border border-violet-300/40'
-                          }`}>
-                            Team {currentSession.winner_team}
+                <div className="w-full max-w-sm bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4">
+                  <div className="text-amber-200 text-sm font-bold text-center mb-3">Team prize: {totalTeamPrize.toLocaleString()} coins</div>
+                  <div className="grid grid-cols-1 gap-3">
+                    {winningTeamPlayers.map((player) => (
+                      <div key={player.id} className="flex items-center justify-between gap-3 rounded-xl bg-white/5 border border-white/10 px-3 py-2">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <img src={player.avatar_url || FALLBACK_AVATAR} alt={player.name} className="w-12 h-12 rounded-full border-2 border-amber-400 object-cover" onError={e => e.currentTarget.src = FALLBACK_AVATAR} />
+                          <div className="min-w-0">
+                            <div className="text-white font-bold truncate">{player.name}</div>
+                            <div className="text-amber-300 text-sm font-black">+{perPlayerPrize.toLocaleString()} coins</div>
                           </div>
                         </div>
-                      ))}
-                    </div>
+                        <div className={`text-[10px] font-black leading-tight px-2 py-1 rounded-full shrink-0 ${currentSession.winner_team === 'A' ? 'bg-cyan-400/20 text-cyan-200 border border-cyan-300/40' : 'bg-violet-400/20 text-violet-200 border border-violet-300/40'}`}>
+                          Team {currentSession.winner_team}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </>
-              ) : (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-6 h-6 animate-spin text-white/50" />
                 </div>
+              ) : (
+                <div className="flex items-center justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-white/50" /></div>
               )}
             </div>
           ) : showResult && winner ? (
             <div className="flex flex-col items-center gap-4 py-8">
               <div className="text-7xl animate-bounce">🏆</div>
               <div className="text-white font-black text-3xl">WINNER!</div>
-              <img
-                src={winner.avatar_url || FALLBACK_AVATAR}
-                alt={winner.name}
-                className="w-24 h-24 rounded-full border-4 border-amber-400
-                  shadow-[0_0_40px_rgba(251,191,36,0.8)] object-cover"
-                onError={e => e.currentTarget.src = FALLBACK_AVATAR}
-              />
+              <img src={winner.avatar_url || FALLBACK_AVATAR} alt={winner.name} className="w-24 h-24 rounded-full border-4 border-amber-400 shadow-[0_0_40px_rgba(251,191,36,0.8)] object-cover" onError={e => e.currentTarget.src = FALLBACK_AVATAR} />
               <div className="text-amber-300 font-black text-2xl">{winner.name}</div>
-              <div className="bg-amber-500/20 border border-amber-500/40
-                rounded-2xl px-6 py-3 text-center">
+              <div className="bg-amber-500/20 border border-amber-500/40 rounded-2xl px-6 py-3 text-center">
                 <div className="text-amber-300 text-sm font-bold">Won</div>
-                <div className="text-amber-200 text-3xl font-black">
-                  🪙 {winnerCoins.toLocaleString()}
-                </div>
+                <div className="text-amber-200 text-3xl font-black">🪙 {winnerCoins.toLocaleString()}</div>
               </div>
             </div>
           ) : currentSession ? (
             <div className={`relative flex flex-col flex-1 ${currentSession?.status === 'playing' ? 'gap-1 mt-0' : 'gap-2'}`}>
               {/* Info bar */}
-              <div className="flex items-center justify-between
-                bg-slate-800 border border-white/10 rounded-xl px-3 py-1.5 shrink-0">
+              <div className="flex items-center justify-between bg-slate-800 border border-white/10 rounded-xl px-3 py-1.5 shrink-0">
                 <div className="text-center">
                   <div className="text-white/40 text-[9px] uppercase font-bold">Entry</div>
-                  <div className="text-amber-400 font-black text-xs">
-                    🪙 {currentSession.entry_cost.toLocaleString()}
-                  </div>
+                  <div className="text-amber-400 font-black text-xs">🪙 {currentSession.entry_cost.toLocaleString()}</div>
                 </div>
                 <div className="text-center">
                   <div className="text-white/40 text-[9px] uppercase font-bold">Players</div>
-                  <div className="text-white font-black text-xs">
-                    {visiblePlayers.length}/{currentSession.max_players}
-                  </div>
+                  <div className="text-white font-black text-xs">{visiblePlayers.length}/{currentSession.max_players}</div>
                 </div>
                 <div className="text-center">
                   <div className="text-white/40 text-[9px] uppercase font-bold">Prize</div>
-                  <div className="text-emerald-400 font-black text-xs">
-                    🪙 {netPrize.toLocaleString()}
-                  </div>
+                  <div className="text-emerald-400 font-black text-xs">🪙 {netPrize.toLocaleString()}</div>
                 </div>
                 <div className="text-center">
                   <div className="text-white/40 text-[9px] uppercase font-bold">My Coins</div>
-                  <div className={`font-black text-xs ${
-                    userCoins >= currentSession.entry_cost ? 'text-white' : 'text-rose-400'
-                  }`}>
+                  <div className={`font-black text-xs ${userCoins >= currentSession.entry_cost ? 'text-white' : 'text-rose-400'}`}>
                     🪙 {(userCoins || 0).toLocaleString()}
                   </div>
                 </div>
               </div>
 
-              {/* Playing layout: top row + board + bottom row */}
+              {/* Playing layout */}
               {currentSession.status === 'playing' && (() => {
                 const diceSideByVisualIdx = ['right', 'left', 'left', 'right'];
-
                 const playersWithVisuals = visiblePlayers.map((p) => {
                   const visualIdx = getRelativeVisualSeat(p, visiblePlayers);
                   const colorIdx = getPlayerColorIndex(p, visiblePlayers);
@@ -2564,44 +2079,23 @@ export default function LudoGame({
                         maxWidth: '60px',
                       }}
                     >
-                      <img
-                        src={p.avatar_url || FALLBACK_AVATAR}
-                        alt={p.name}
-                        className="w-7 h-7 rounded-full object-cover"
-                        style={{
-                          border: `2px solid ${PLAYER_COLORS[colorIdx]}`,
-                          opacity: isAutoForViewer ? 0.75 : 1,
-                        }}
+                      <img src={p.avatar_url || FALLBACK_AVATAR} alt={p.name} className="w-7 h-7 rounded-full object-cover"
+                        style={{ border: `2px solid ${PLAYER_COLORS[colorIdx]}`, opacity: isAutoForViewer ? 0.75 : 1 }}
                         onError={e => e.currentTarget.src = FALLBACK_AVATAR}
                       />
-                      <div className="text-white text-[9px] font-bold max-w-[56px] truncate text-center leading-tight">
-                        {p.name}
-                      </div>
+                      <div className="text-white text-[9px] font-bold max-w-[56px] truncate text-center leading-tight">{p.name}</div>
                       {isTeamMode() && team && (
                         <div className="relative">
-                          <div className={`text-[9px] font-black leading-tight px-1.5 py-[1px] rounded-full ${
-                            team === 'A'
-                              ? 'bg-cyan-400/20 text-cyan-200 border border-cyan-300/40'
-                              : 'bg-violet-400/20 text-violet-200 border border-violet-300/40'
-                          }`}>
-                            {team}
-                          </div>
+                          <div className={`text-[9px] font-black leading-tight px-1.5 py-[1px] rounded-full ${team === 'A' ? 'bg-cyan-400/20 text-cyan-200 border border-cyan-300/40' : 'bg-violet-400/20 text-violet-200 border border-violet-300/40'}`}>{team}</div>
                           {isAutoForViewer && (
-                            <span className="pointer-events-none absolute -top-[2px] -right-[2px] text-[9px] leading-none font-semibold px-[5px] py-[1px] rounded-full bg-amber-900/95 text-amber-100 border border-amber-400/40 opacity-[0.85]">
-                              Auto
-                            </span>
+                            <span className="pointer-events-none absolute -top-[2px] -right-[2px] text-[9px] leading-none font-semibold px-[5px] py-[1px] rounded-full bg-amber-900/95 text-amber-100 border border-amber-400/40 opacity-[0.85]">Auto</span>
                           )}
                         </div>
                       )}
                       <div className="flex gap-0.5">
                         {[0,1,2,3].map(i => (
-                          <div
-                            key={i}
-                            className="w-[9px] h-[9px] rounded-full border-2 shadow"
-                            style={{
-                              backgroundColor: i < piecesFinished ? PLAYER_COLORS[colorIdx] : 'transparent',
-                              borderColor: PLAYER_COLORS[colorIdx],
-                            }}
+                          <div key={i} className="w-[9px] h-[9px] rounded-full border-2 shadow"
+                            style={{ backgroundColor: i < piecesFinished ? PLAYER_COLORS[colorIdx] : 'transparent', borderColor: PLAYER_COLORS[colorIdx] }}
                           />
                         ))}
                       </div>
@@ -2624,7 +2118,6 @@ export default function LudoGame({
 
                 return (
                   <>
-                    {/* Top players: fixed by real home slot */}
                     <div className="mt-1 shrink-0 min-h-[64px] sm:min-h-[80px]">
                       <div className="flex items-center justify-between px-1">
                         <div className="flex-1 flex justify-start">{renderPlayerWithDice(topLeft)}</div>
@@ -2632,7 +2125,6 @@ export default function LudoGame({
                       </div>
                     </div>
 
-                    {/* Board */}
                     <div className="mt-1 flex-1 flex flex-col justify-center items-center min-h-0 w-full relative">
                       {finishToast && (
                         <div className="absolute top-0 left-1/2 -translate-x-1/2 z-20 pointer-events-none rounded-full bg-amber-400/95 px-3 py-1 text-xs font-black text-slate-900 shadow-lg animate-bounce">
@@ -2640,43 +2132,18 @@ export default function LudoGame({
                         </div>
                       )}
                       <div
-                        className={`relative bg-slate-800 rounded-xl p-1.5 border border-white/5 transition-all duration-300 flex items-center justify-center shrink min-h-0 ${
-                          recentFinishedUserId ? 'animate-pulse' : ''
-                        }`}
+                        className={`relative bg-slate-800 rounded-xl p-1.5 border border-white/5 transition-all duration-300 flex items-center justify-center shrink min-h-0 ${recentFinishedUserId ? 'animate-pulse' : ''}`}
                         style={{
-                          boxShadow: recentFinishedUserId
-                            ? '0 0 0 2px rgba(251,191,36,0.45), 0 0 24px rgba(251,191,36,0.35)'
-                            : undefined,
-                          maxHeight: '100%',
-                          maxWidth: '100%',
-                          aspectRatio: '1 / 1'
+                          boxShadow: recentFinishedUserId ? '0 0 0 2px rgba(251,191,36,0.45), 0 0 24px rgba(251,191,36,0.35)' : undefined,
+                          maxHeight: '100%', maxWidth: '100%', aspectRatio: '1 / 1'
                         }}
                       >
-                        <canvas
-                          ref={canvasRef}
-                          width={600}
-                          height={600}
-                          onClick={handleCanvasClick}
-                          className="w-full h-full rounded-lg object-contain"
-                        />
-                        {/* Team A/B corner badges */}
+                        <canvas ref={canvasRef} width={600} height={600} onClick={handleCanvasClick} className="w-full h-full rounded-lg object-contain" />
                         {isTeamMode() && playersWithVisuals.map(({ player: bp, visualIdx: vi }) => {
                           const bTeam = getEffectiveTeam(bp);
-                          const cornerClass = [
-                            'bottom-2 left-2 sm:bottom-3 sm:left-3',
-                            'bottom-2 right-2 sm:bottom-3 sm:right-3',
-                            'top-2 right-2 sm:top-3 sm:right-3',
-                            'top-2 left-2 sm:top-3 sm:left-3',
-                          ][vi];
+                          const cornerClass = ['bottom-2 left-2 sm:bottom-3 sm:left-3','bottom-2 right-2 sm:bottom-3 sm:right-3','top-2 right-2 sm:top-3 sm:right-3','top-2 left-2 sm:top-3 sm:left-3'][vi];
                           return (
-                            <div
-                              key={bp.id}
-                              className={`pointer-events-none absolute ${cornerClass} z-10 w-[16px] h-[16px] sm:w-[18px] sm:h-[18px] flex items-center justify-center rounded-full text-[8px] sm:text-[9px] font-black border shadow-md ${
-                                bTeam === 'A'
-                                  ? 'bg-cyan-500/85 text-white border-cyan-300/70'
-                                  : 'bg-violet-500/85 text-white border-violet-300/70'
-                              }`}
-                            >
+                            <div key={bp.id} className={`pointer-events-none absolute ${cornerClass} z-10 w-[16px] h-[16px] sm:w-[18px] sm:h-[18px] flex items-center justify-center rounded-full text-[8px] sm:text-[9px] font-black border shadow-md ${bTeam === 'A' ? 'bg-cyan-500/85 text-white border-cyan-300/70' : 'bg-violet-500/85 text-white border-violet-300/70'}`}>
                               {bTeam}
                             </div>
                           );
@@ -2684,7 +2151,6 @@ export default function LudoGame({
                       </div>
                     </div>
 
-                    {/* Bottom players: fixed by real home slot */}
                     <div className="mt-1 shrink-0 min-h-[64px] sm:min-h-[80px]">
                       <div className="flex items-center justify-between px-1">
                         <div className="flex-1 flex justify-start">{renderPlayerWithDice(bottomLeft)}</div>
@@ -2697,174 +2163,56 @@ export default function LudoGame({
 
               {/* Board (non-playing) */}
               {currentSession.status !== 'playing' && (
-                <div
-                  className={`relative bg-slate-800 rounded-xl p-1.5 border border-white/5 transition-all duration-300 mx-auto w-full max-w-[500px] ${
-                    recentFinishedUserId ? 'animate-pulse' : ''
-                  }`}
-                  style={{
-                    boxShadow: recentFinishedUserId
-                      ? '0 0 0 2px rgba(251,191,36,0.45), 0 0 24px rgba(251,191,36,0.35)'
-                      : undefined,
-                  }}
-                >
+                <div className={`relative bg-slate-800 rounded-xl p-1.5 border border-white/5 transition-all duration-300 mx-auto w-full max-w-[500px] ${recentFinishedUserId ? 'animate-pulse' : ''}`}
+                  style={{ boxShadow: recentFinishedUserId ? '0 0 0 2px rgba(251,191,36,0.45), 0 0 24px rgba(251,191,36,0.35)' : undefined }}>
                   {finishToast && (
-                    <div className="pointer-events-none absolute left-1/2 top-2 z-20 -translate-x-1/2 rounded-full bg-amber-400/95 px-3 py-1 text-xs font-black text-slate-900 shadow-lg animate-bounce">
-                      {finishToast}
-                    </div>
+                    <div className="pointer-events-none absolute left-1/2 top-2 z-20 -translate-x-1/2 rounded-full bg-amber-400/95 px-3 py-1 text-xs font-black text-slate-900 shadow-lg animate-bounce">{finishToast}</div>
                   )}
-                  <canvas
-                    ref={canvasRef}
-                    width={600}
-                    height={600}
-                    onClick={handleCanvasClick}
-                    className="w-full aspect-square rounded-lg"
-                  />
+                  <canvas ref={canvasRef} width={600} height={600} onClick={handleCanvasClick} className="w-full aspect-square rounded-lg" />
                 </div>
               )}
 
-              {/* Waiting: players list or team selection */}
+              {/* Waiting: team selection or player list */}
               {currentSession.status === 'waiting' && isTeamMode() && players.length === 4 ? (
                 <div className="flex flex-col gap-3">
-                  <div className="text-center text-white/70 text-xs font-bold uppercase tracking-wider">
-                    🎯 Assign Teams
-                  </div>
-                  
-                  {/* Team Selection Grid */}
+                  <div className="text-center text-white/70 text-xs font-bold uppercase tracking-wider">🎯 Assign Teams</div>
                   <div className="grid grid-cols-2 gap-3">
-                    {/* Team A */}
-                    <div className="bg-cyan-500/10 border-2 border-cyan-500/30 rounded-xl p-3">
-                      <div className="text-cyan-300 font-bold text-sm text-center mb-2">
-                        Team A
+                    {['A', 'B'].map(teamLetter => (
+                      <div key={teamLetter} className={`${teamLetter === 'A' ? 'bg-cyan-500/10 border-cyan-500/30' : 'bg-violet-500/10 border-violet-500/30'} border-2 rounded-xl p-3`}>
+                        <div className={`${teamLetter === 'A' ? 'text-cyan-300' : 'text-violet-300'} font-bold text-sm text-center mb-2`}>Team {teamLetter}</div>
+                        <div className="flex flex-col gap-2">
+                          {getTeamPlayers(teamLetter).map(p => {
+                            const colorIdx = getPlayerColorIndex(p);
+                            const isSelected = String(selectedTeamPlayerId) === String(p.user_id);
+                            const effSeat = getEffectiveSeat(p);
+                            return (
+                              <button key={p.id} onClick={() => togglePlayerTeam(p.user_id)}
+                                className={`flex items-center gap-2 ${teamLetter === 'A' ? 'bg-cyan-400/10 hover:bg-cyan-400/20 border-cyan-400/30' : 'bg-violet-400/10 hover:bg-violet-400/20 border-violet-400/30'} border rounded-lg px-2 py-2 transition cursor-pointer active:scale-95 ${isSelected ? 'ring-2 ring-white scale-[1.02]' : ''}`}
+                              >
+                                <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: PLAYER_COLORS[effSeat - 1] || PLAYER_COLORS[colorIdx] }} />
+                                <img src={p.avatar_url || FALLBACK_AVATAR} alt={p.name} className="w-6 h-6 rounded-full object-cover" onError={e => e.currentTarget.src = FALLBACK_AVATAR} />
+                                <span className="text-white text-xs font-bold truncate flex-1">{p.name}</span>
+                                {String(p.user_id) === String(user?.id) && <span className="text-amber-300 text-[8px] shrink-0">You</span>}
+                                {(p.left_at || p.is_left) && <span className="text-amber-200 text-[8px] shrink-0 px-1 py-[1px] rounded-full bg-white/10 border border-amber-300/40">Auto</span>}
+                                <span className="text-white/30 text-[7px] shrink-0 font-mono">s:{effSeat}</span>
+                              </button>
+                            );
+                          })}
+                          {getTeamPlayers(teamLetter).length < 2 && (
+                            <div className="flex items-center justify-center py-3 text-white/40 text-xs">
+                              {2 - getTeamPlayers(teamLetter).length} slot{2 - getTeamPlayers(teamLetter).length !== 1 ? 's' : ''} available
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex flex-col gap-2">
-                        {getTeamPlayers('A').map(p => {
-                          const colorIdx = getPlayerColorIndex(p);
-                          const isSelected = String(selectedTeamPlayerId) === String(p.user_id);
-                          const effSeat = getEffectiveSeat(p);
-                          return (
-                            <button
-                              key={p.id}
-                              onClick={() => togglePlayerTeam(p.user_id)}
-                              className={`flex items-center gap-2 bg-cyan-400/10 hover:bg-cyan-400/20
-                                border border-cyan-400/30 rounded-lg px-2 py-2 transition cursor-pointer
-                                active:scale-95 ${isSelected ? 'ring-2 ring-white scale-[1.02]' : ''}`}
-                            >
-                              <div className="w-2.5 h-2.5 rounded-full shrink-0"
-                                style={{ backgroundColor: PLAYER_COLORS[effSeat - 1] || PLAYER_COLORS[colorIdx] }} />
-                              <img
-                                src={p.avatar_url || FALLBACK_AVATAR}
-                                alt={p.name}
-                                className="w-6 h-6 rounded-full object-cover"
-                                onError={e => e.currentTarget.src = FALLBACK_AVATAR}
-                              />
-                              <span className="text-white text-xs font-bold truncate flex-1">
-                                {p.name}
-                              </span>
-                              {String(p.user_id) === String(user?.id) && (
-                                <span className="text-amber-300 text-[8px] shrink-0">You</span>
-                              )}
-                              {(p.left_at || p.is_left) && (
-                                <span className="text-amber-200 text-[8px] shrink-0 px-1 py-[1px] rounded-full bg-white/10 border border-amber-300/40">
-                                  Auto
-                                </span>
-                              )}
-                              <span className="text-white/30 text-[7px] shrink-0 font-mono">
-                                s:{effSeat}
-                              </span>
-                            </button>
-                          );
-                        })}
-                        {getTeamPlayers('A').length < 2 && (
-                          <div className="flex items-center justify-center py-3 text-white/40 text-xs">
-                            {2 - getTeamPlayers('A').length} slot{2 - getTeamPlayers('A').length !== 1 ? 's' : ''} available
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Team B */}
-                    <div className="bg-violet-500/10 border-2 border-violet-500/30 rounded-xl p-3">
-                      <div className="text-violet-300 font-bold text-sm text-center mb-2">
-                        Team B
-                      </div>
-                      <div className="flex flex-col gap-2">
-                        {getTeamPlayers('B').map(p => {
-                          const colorIdx = getPlayerColorIndex(p);
-                          const isSelected = String(selectedTeamPlayerId) === String(p.user_id);
-                          const effSeat = getEffectiveSeat(p);
-                          return (
-                            <button
-                              key={p.id}
-                              onClick={() => togglePlayerTeam(p.user_id)}
-                              className={`flex items-center gap-2 bg-violet-400/10 hover:bg-violet-400/20
-                                border border-violet-400/30 rounded-lg px-2 py-2 transition cursor-pointer
-                                active:scale-95 ${isSelected ? 'ring-2 ring-white scale-[1.02]' : ''}`}
-                            >
-                              <div className="w-2.5 h-2.5 rounded-full shrink-0"
-                                style={{ backgroundColor: PLAYER_COLORS[effSeat - 1] || PLAYER_COLORS[colorIdx] }} />
-                              <img
-                                src={p.avatar_url || FALLBACK_AVATAR}
-                                alt={p.name}
-                                className="w-6 h-6 rounded-full object-cover"
-                                onError={e => e.currentTarget.src = FALLBACK_AVATAR}
-                              />
-                              <span className="text-white text-xs font-bold truncate flex-1">
-                                {p.name}
-                              </span>
-                              {String(p.user_id) === String(user?.id) && (
-                                <span className="text-amber-300 text-[8px] shrink-0">You</span>
-                              )}
-                              {(p.left_at || p.is_left) && (
-                                <span className="text-amber-200 text-[8px] shrink-0 px-1 py-[1px] rounded-full bg-white/10 border border-amber-300/40">
-                                  Auto
-                                </span>
-                              )}
-                              <span className="text-white/30 text-[7px] shrink-0 font-mono">
-                                s:{effSeat}
-                              </span>
-                            </button>
-                          );
-                        })}
-                        {getTeamPlayers('B').length < 2 && (
-                          <div className="flex items-center justify-center py-3 text-white/40 text-xs">
-                            {2 - getTeamPlayers('B').length} slot{2 - getTeamPlayers('B').length !== 1 ? 's' : ''} available
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                    ))}
                   </div>
-
-                  {/* Random Teams Button */}
-                  <button
-                    onClick={assignRandomTeams}
-                    className="w-full py-2 rounded-lg bg-white/10 hover:bg-white/20
-                      border border-white/20 text-white font-bold text-xs
-                      active:scale-95 transition"
-                  >
-                    🔀 Random Teams
+                  <button onClick={assignRandomTeams} className="w-full py-2 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-xs active:scale-95 transition">🔀 Random Teams</button>
+                  <button onClick={saveTeams} disabled={!teamsDirty || savingTeams} className="w-full py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 border border-cyan-400/40 text-white font-bold text-xs active:scale-95 transition disabled:opacity-40 disabled:cursor-not-allowed">
+                    {savingTeams ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : '💾 Save Teams'}
                   </button>
-
-                  {/* Save Teams Button */}
-                  <button
-                    onClick={saveTeams}
-                    disabled={!teamsDirty || savingTeams}
-                    className="w-full py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500
-                      border border-cyan-400/40 text-white font-bold text-xs
-                      active:scale-95 transition disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    {savingTeams
-                      ? <Loader2 className="w-4 h-4 animate-spin mx-auto" />
-                      : '💾 Save Teams'
-                    }
-                  </button>
-
-                  {/* Status Message */}
                   <div className="text-center text-white/50 text-[10px]">
-                    {areTeamsComplete() ? (
-                      <span className="text-green-400">✓ Teams ready</span>
-                    ) : (
-                      <span>Assign {4 - players.length === 0 ? (2 - getTeamPlayers('A').length) + (2 - getTeamPlayers('B').length) : 0} more player{((2 - getTeamPlayers('A').length) + (2 - getTeamPlayers('B').length)) !== 1 ? 's' : ''}</span>
-                    )}
+                    {areTeamsComplete() ? <span className="text-green-400">✓ Teams ready</span> : <span>Swap players between teams to balance</span>}
                   </div>
                 </div>
               ) : currentSession.status !== 'playing' ? (
@@ -2876,28 +2224,12 @@ export default function LudoGame({
                       return me && String(me.user_id) !== String(p.user_id) && getEffectiveTeam(me) === getEffectiveTeam(p);
                     })();
                     return (
-                      <div key={p.id}
-                        className="flex items-center gap-2 bg-white/5
-                          border border-white/10 rounded-xl px-3 py-2">
-                        <div className="w-3 h-3 rounded-full shrink-0"
-                          style={{ backgroundColor: PLAYER_COLORS[colorIdx] }} />
-                        <img
-                          src={p.avatar_url || FALLBACK_AVATAR}
-                          alt={p.name}
-                          className="w-7 h-7 rounded-full object-cover"
-                          onError={e => e.currentTarget.src = FALLBACK_AVATAR}
-                        />
-                        <span className="text-white text-xs font-bold truncate">
-                          {p.name}
-                        </span>
-                        {isResignedTeammate && (
-                          <span className="text-amber-200 text-[9px] shrink-0 px-1.5 py-[1px] rounded-full bg-white/10 border border-amber-300/40 ml-auto">
-                            Auto
-                          </span>
-                        )}
-                        {String(p.user_id) === String(user?.id) && (
-                          <span className="text-amber-300 text-[9px] shrink-0">You</span>
-                        )}
+                      <div key={p.id} className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
+                        <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: PLAYER_COLORS[colorIdx] }} />
+                        <img src={p.avatar_url || FALLBACK_AVATAR} alt={p.name} className="w-7 h-7 rounded-full object-cover" onError={e => e.currentTarget.src = FALLBACK_AVATAR} />
+                        <span className="text-white text-xs font-bold truncate">{p.name}</span>
+                        {isResignedTeammate && <span className="text-amber-200 text-[9px] shrink-0 px-1.5 py-[1px] rounded-full bg-white/10 border border-amber-300/40 ml-auto">Auto</span>}
+                        {String(p.user_id) === String(user?.id) && <span className="text-amber-300 text-[9px] shrink-0">You</span>}
                       </div>
                     );
                   })}
@@ -2907,34 +2239,17 @@ export default function LudoGame({
               {/* Actions */}
               <div className="flex flex-wrap gap-2 mt-1">
                 {!isJoined && !isFull && currentSession.status === 'waiting' && (
-                  <button onClick={joinSession} disabled={joining}
-                    className="flex-1 py-2.5 rounded-xl bg-amber-500
-                      text-white font-black text-xs disabled:opacity-50
-                      active:scale-95 transition">
-                    {joining
-                      ? <Loader2 className="w-4 h-4 animate-spin mx-auto" />
-                      : `Join 🪙 ${currentSession.entry_cost.toLocaleString()}`
-                    }
+                  <button onClick={joinSession} disabled={joining} className="flex-1 py-2.5 rounded-xl bg-amber-500 text-white font-black text-xs disabled:opacity-50 active:scale-95 transition">
+                    {joining ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : `Join 🪙 ${currentSession.entry_cost.toLocaleString()}`}
                   </button>
                 )}
-
                 {isJoined && currentSession.status === 'waiting' && (
-                  <button onClick={leaveSession} disabled={leaving}
-                    className="flex-1 py-2.5 rounded-xl border border-white/20
-                      text-white/70 font-bold text-xs bg-white/5
-                      active:scale-95 transition">
-                    {leaving
-                      ? <Loader2 className="w-4 h-4 animate-spin mx-auto" />
-                      : 'Leave & Refund'
-                    }
+                  <button onClick={leaveSession} disabled={leaving} className="flex-1 py-2.5 rounded-xl border border-white/20 text-white/70 font-bold text-xs bg-white/5 active:scale-95 transition">
+                    {leaving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Leave & Refund'}
                   </button>
                 )}
-
                 {canModerate && currentSession.status === 'waiting' && (
-                  <button onClick={startGame} disabled={isTeamMode() ? !areTeamsComplete() : activePlayers.length < 2}
-                    className="flex-1 py-2.5 rounded-xl bg-blue-500
-                      text-white font-black text-xs disabled:opacity-50
-                      active:scale-95 transition">
+                  <button onClick={startGame} disabled={isTeamMode() ? !areTeamsComplete() : activePlayers.length < 2} className="flex-1 py-2.5 rounded-xl bg-blue-500 text-white font-black text-xs disabled:opacity-50 active:scale-95 transition">
                     🎯 Start Ludo
                   </button>
                 )}
@@ -2943,94 +2258,43 @@ export default function LudoGame({
           ) : (
             canModerate ? (
               <div className="flex flex-col gap-4 py-2">
-                <div className="text-center text-white/50 text-sm">
-                  No active Ludo game. Create one!
-                </div>
-
+                <div className="text-center text-white/50 text-sm">No active Ludo game. Create one!</div>
                 <div>
-                  <div className="text-white/70 text-xs font-bold mb-2 uppercase tracking-wider">
-                    👥 Number of Players
-                  </div>
+                  <div className="text-white/70 text-xs font-bold mb-2 uppercase tracking-wider">👥 Number of Players</div>
                   <div className="grid grid-cols-3 gap-2">
                     {MAX_PLAYERS_OPTIONS.map(n => (
                       <button key={n} onClick={() => setMaxPlayers(n)}
-                        className={`py-3 rounded-xl font-black text-lg
-                          active:scale-95 transition ${
-                          maxPlayers === n
-                            ? 'bg-amber-500 text-white'
-                            : 'bg-white/10 text-white/70 hover:bg-white/20'
-                        }`}>
+                        className={`py-3 rounded-xl font-black text-lg active:scale-95 transition ${maxPlayers === n ? 'bg-amber-500 text-white' : 'bg-white/10 text-white/70 hover:bg-white/20'}`}>
                         {n}
                       </button>
                     ))}
                   </div>
                 </div>
-
                 <div>
-                  <div className="text-white/70 text-xs font-bold mb-2 uppercase tracking-wider">
-                    🤝 Mode
-                  </div>
-                  <button
-                    onClick={() => {
-                      if (maxPlayers !== 4) return;
-                      setTeamMode(v => !v);
-                    }}
-                    disabled={maxPlayers !== 4}
-                    className={`w-full py-2.5 rounded-xl font-bold text-xs active:scale-95 transition ${
-                      maxPlayers === 4
-                        ? (teamMode
-                          ? 'bg-cyan-500 text-white'
-                          : 'bg-white/10 text-white/80 hover:bg-white/20')
-                        : 'bg-white/5 text-white/40 cursor-not-allowed'
-                    }`}
-                  >
+                  <div className="text-white/70 text-xs font-bold mb-2 uppercase tracking-wider">🤝 Mode</div>
+                  <button onClick={() => { if (maxPlayers !== 4) return; setTeamMode(v => !v); }} disabled={maxPlayers !== 4}
+                    className={`w-full py-2.5 rounded-xl font-bold text-xs active:scale-95 transition ${maxPlayers === 4 ? (teamMode ? 'bg-cyan-500 text-white' : 'bg-white/10 text-white/80 hover:bg-white/20') : 'bg-white/5 text-white/40 cursor-not-allowed'}`}>
                     Team 2v2 {teamMode ? 'ON' : 'OFF'}
                   </button>
-                  {maxPlayers !== 4 && (
-                    <div className="text-[10px] text-white/45 mt-1">
-                      Team mode is available only with 4 players.
-                    </div>
-                  )}
+                  {maxPlayers !== 4 && <div className="text-[10px] text-white/45 mt-1">Team mode is available only with 4 players.</div>}
                 </div>
-
                 <div>
-                  <div className="text-white/70 text-xs font-bold mb-2 uppercase tracking-wider">
-                    🪙 Entry Cost
-                  </div>
+                  <div className="text-white/70 text-xs font-bold mb-2 uppercase tracking-wider">🪙 Entry Cost</div>
                   <div className="grid grid-cols-3 gap-2">
                     {ENTRY_COST_OPTIONS.map(c => (
                       <button key={c} onClick={() => setEntryCost(c)}
-                        className={`py-2.5 rounded-xl font-bold text-xs
-                          active:scale-95 transition ${
-                          entryCost === c
-                            ? 'bg-amber-500 text-white'
-                            : 'bg-white/10 text-white/70 hover:bg-white/20'
-                        }`}>
+                        className={`py-2.5 rounded-xl font-bold text-xs active:scale-95 transition ${entryCost === c ? 'bg-amber-500 text-white' : 'bg-white/10 text-white/70 hover:bg-white/20'}`}>
                         {c >= 1000 ? (c/1000)+'k' : c}
                       </button>
                     ))}
                   </div>
                 </div>
-
-                <div className="bg-amber-500/10 border border-amber-500/20
-                  rounded-xl p-3 text-center">
-                  <div className="text-amber-200/70 text-[10px] font-bold uppercase mb-1">
-                    Winner gets (after 10% fee)
-                  </div>
-                  <div className="text-amber-400 font-black text-2xl">
-                    🪙 {Math.floor(entryCost * maxPlayers * 0.9).toLocaleString()}
-                  </div>
+                <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-center">
+                  <div className="text-amber-200/70 text-[10px] font-bold uppercase mb-1">Winner gets (after 10% fee)</div>
+                  <div className="text-amber-400 font-black text-2xl">🪙 {Math.floor(entryCost * maxPlayers * 0.9).toLocaleString()}</div>
                 </div>
-
-                <button onClick={createSession} disabled={creating}
-                  className="w-full py-3 rounded-xl bg-gradient-to-r
-                    from-red-500 via-blue-500 to-green-500
-                    text-white font-black text-sm active:scale-95
-                    transition disabled:opacity-50">
-                  {creating
-                    ? <Loader2 className="w-4 h-4 animate-spin mx-auto" />
-                    : '🎯 Create Ludo Game'
-                  }
+                <button onClick={createSession} disabled={creating} className="w-full py-3 rounded-xl bg-gradient-to-r from-red-500 via-blue-500 to-green-500 text-white font-black text-sm active:scale-95 transition disabled:opacity-50">
+                  {creating ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : '🎯 Create Ludo Game'}
                 </button>
               </div>
             ) : (
