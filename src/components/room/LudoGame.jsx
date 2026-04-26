@@ -144,6 +144,12 @@ export default function LudoGame({
   const lastPieceLogicalPosRef = useRef({});
   const lastPerspectiveKeyRef = useRef('');
   const boardAnimFrameRef = useRef(null);
+
+  const resetPieceAnimationState = () => {
+    pieceMoveAnimRef.current = {};
+    lastPieceCanvasPosRef.current = {};
+    lastPieceLogicalPosRef.current = {};
+  };
   const finishFxTimerRef = useRef(null);
   const turnTimerRef = useRef(null);
   const autoActionStateRef = useRef({});
@@ -179,6 +185,17 @@ export default function LudoGame({
       teamEliminationHandledRef.current = false;
     }
   }, [currentSession?.id, currentSession?.status]);
+
+  // Disable complex local piece animation while path mapping is being stabilized.
+  // Reset any stale animation/cache state on turn/session/player changes.
+  useEffect(() => {
+    resetPieceAnimationState();
+  }, [
+    currentSession?.id,
+    currentSession?.status,
+    currentSession?.current_turn_user_id,
+    players,
+  ]);
 
   useEffect(() => {
     if (!open || !roomId) return;
@@ -1039,14 +1056,12 @@ export default function LudoGame({
 
     if (lastPerspectiveKeyRef.current !== perspectiveKey) {
       lastPerspectiveKeyRef.current = perspectiveKey;
-      pieceMoveAnimRef.current = {};
-      lastPieceCanvasPosRef.current = {};
-      lastPieceLogicalPosRef.current = {};
+      resetPieceAnimationState();
     }
 
     const getActualColorForVisualIndex = (visualIdx) => {
-  return viewToActualColorIndex(visualIdx, boardPlayers);
-};
+      return viewToActualColorIndex(visualIdx, boardPlayers);
+    };
 
     ctx.clearRect(0, 0, W, W);
 
@@ -1299,8 +1314,6 @@ export default function LudoGame({
       stackedByCell.get(key).push(item);
     });
 
-    const nowTs = performance.now();
-    let needsMoveAnimationFrame = false;
     const seenPieceKeys = new Set();
 
     stackedByCell.forEach((cellPieces) => {
@@ -1314,104 +1327,11 @@ export default function LudoGame({
         const pieceKey = `${perspectiveKey}:${player.user_id}-${pieceIdx}`;
         seenPieceKeys.add(pieceKey);
 
+        // Local path interpolation is intentionally disabled while mapping/capture
+        // synchronization is being stabilized. Render directly at server position.
         const currentLogicalPos = piecePos.logicalPos;
-        const prevLogicalPos = lastPieceLogicalPosRef.current[pieceKey];
-        const prevPos = lastPieceCanvasPosRef.current[pieceKey];
-        const existingAnim = pieceMoveAnimRef.current[pieceKey];
-        if (
-          prevPos &&
-          typeof prevLogicalPos === 'number' &&
-          prevLogicalPos !== currentLogicalPos &&
-          (!existingAnim || existingAnim.finalLogicalPos !== currentLogicalPos)
-        ) {
-          const pathPositions = getLogicalPathPositions(prevLogicalPos, currentLogicalPos);
-          const stepPlacements = pathPositions
-            .map((logicalPos) => getBoardPlacementForLogicalPosition(player, logicalPos, pieceIdx, boardPlayers))
-            .filter(Boolean)
-            .map((placement, stepIndex) => ({
-              logicalPos: placement.logicalPos,
-              trackIndex: placement.trackIndex ?? null,
-              renderedCell: [placement.row, placement.col],
-              x: placement.col * cellSize + ((placement.zone === 'outer-track' || placement.zone === 'home-lane') ? cellSize / 2 : 0),
-              y: placement.row * cellSize + ((placement.zone === 'outer-track' || placement.zone === 'home-lane') ? cellSize / 2 : 0),
-              stepIndex,
-            }));
-
-          if (stepPlacements.length > 0) {
-            pieceMoveAnimRef.current[pieceKey] = {
-              type: 'path',
-              steps: stepPlacements,
-              segmentIndex: 0,
-              segmentStart: nowTs,
-              segmentDuration: 110,
-              fromX: prevPos.x,
-              fromY: prevPos.y,
-              toX: stepPlacements[0].x,
-              toY: stepPlacements[0].y,
-              finalLogicalPos: currentLogicalPos,
-            };
-
-            console.debug('Ludo move mapping', {
-              seat_number: Number(player?.seat_number || 0),
-              color: PLAYER_COLOR_NAMES[getPlayerColorIndex(player, boardPlayers)] || 'unknown',
-              old_piece_position: prevLogicalPos,
-              roll: Number(currentSession?.last_roll || 0),
-              new_piece_position_from_sql: currentLogicalPos,
-              rendered_old_cell: describePlacement(
-                getBoardPlacementForLogicalPosition(player, prevLogicalPos, pieceIdx, boardPlayers)
-              ),
-              rendered_new_cell: describePlacement(piecePos),
-              animation_path_cells: stepPlacements.map(step => ({
-                logicalPos: step.logicalPos,
-                trackIndex: step.trackIndex,
-                renderedCell: step.renderedCell,
-              })),
-            });
-          }
-        }
-
         let drawX = px;
         let drawY = py;
-        const activeAnim = pieceMoveAnimRef.current[pieceKey];
-        if (activeAnim) {
-          if (activeAnim.type === 'path') {
-            const t = Math.max(0, Math.min(1, (nowTs - activeAnim.segmentStart) / activeAnim.segmentDuration));
-            const eased = 1 - Math.pow(1 - t, 1.8);
-            drawX = activeAnim.fromX + (activeAnim.toX - activeAnim.fromX) * eased;
-            drawY = activeAnim.fromY + (activeAnim.toY - activeAnim.fromY) * eased;
-
-            if (t < 1) {
-              needsMoveAnimationFrame = true;
-            } else {
-              const nextSegmentIndex = activeAnim.segmentIndex + 1;
-              if (nextSegmentIndex < activeAnim.steps.length) {
-                const nextStep = activeAnim.steps[nextSegmentIndex];
-                activeAnim.segmentIndex = nextSegmentIndex;
-                activeAnim.segmentStart = nowTs;
-                activeAnim.fromX = activeAnim.toX;
-                activeAnim.fromY = activeAnim.toY;
-                activeAnim.toX = nextStep.x;
-                activeAnim.toY = nextStep.y;
-                drawX = activeAnim.fromX;
-                drawY = activeAnim.fromY;
-                needsMoveAnimationFrame = true;
-              } else {
-                delete pieceMoveAnimRef.current[pieceKey];
-              }
-            }
-          } else {
-            const t = Math.max(0, Math.min(1, (nowTs - activeAnim.start) / activeAnim.duration));
-            const eased = t < 0 ? 0 : 1 - Math.pow(1 - t, 1.8);
-            drawX = activeAnim.fromX + (activeAnim.toX - activeAnim.fromX) * eased;
-            drawY = activeAnim.fromY + (activeAnim.toY - activeAnim.fromY) * eased;
-
-            if (t < 1) {
-              needsMoveAnimationFrame = true;
-            } else {
-              delete pieceMoveAnimRef.current[pieceKey];
-            }
-          }
-        }
 
         lastPieceCanvasPosRef.current[pieceKey] = { x: px, y: py };
         lastPieceLogicalPosRef.current[pieceKey] = currentLogicalPos;
@@ -1528,13 +1448,6 @@ export default function LudoGame({
     Object.keys(pieceMoveAnimRef.current).forEach((key) => {
       if (!seenPieceKeys.has(key)) delete pieceMoveAnimRef.current[key];
     });
-
-    if (needsMoveAnimationFrame && !boardAnimFrameRef.current) {
-      boardAnimFrameRef.current = requestAnimationFrame(() => {
-        boardAnimFrameRef.current = null;
-        drawBoard();
-      });
-    }
   };
 
   const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
