@@ -1387,37 +1387,37 @@ export default function LudoGame({
     user?.id,
   ]);
 
-  // FIX #1: passTurnToNextPlayer — correct team cycling with independent counter
   const passTurnToNextPlayer = async () => {
     if (!currentSession?.id) { await refreshSession(); return; }
 
-    const sorted = isTeamMode()
-      ? [...players].sort((a, b) => a.seat_number - b.seat_number)
-      : [...players].filter(p => !isPlayerLeft(p)).sort((a, b) => a.seat_number - b.seat_number);
+    const totalPlayers = Number(currentSession?.max_players || 4);
 
-    if (sorted.length < 2) { await refreshSession(); return; }
+    // Clockwise seat order per player count
+    const clockwiseSeats =
+      totalPlayers === 4 ? [1, 4, 3, 2] :
+      totalPlayers === 3 ? [1, 3, 2] :
+                           [1, 3];
+
+    const activeSorted = isTeamMode()
+      ? [...players].filter(p => !p.refunded_at)
+      : [...players].filter(p => !p.refunded_at && !isPlayerLeft(p));
+
+    if (activeSorted.length < 2) { await refreshSession(); return; }
 
     const currentTurnUserId = currentSession.current_turn_user_id || user?.id;
-    const currentIdx = sorted.findIndex(p => String(p.user_id) === String(currentTurnUserId));
-    const baseIdx = currentIdx >= 0 ? currentIdx : sorted.findIndex(p => String(p.user_id) === String(user?.id));
+    const currentPlayer = activeSorted.find(p => String(p.user_id) === String(currentTurnUserId));
+    const currentSeat = currentPlayer?.seat_number || 1;
 
-    if (baseIdx < 0) { await refreshSession(); return; }
+    // Find current seat's index in clockwise order
+    const currentIdx = clockwiseSeats.indexOf(currentSeat);
+    const startIdx = currentIdx >= 0 ? currentIdx : 0;
 
+    // Walk clockwise to find the next active player
     let nextPlayer = null;
-    if (isTeamMode()) {
-      const currentPlayer = sorted[baseIdx];
-      const currentTeam = getEffectiveTeam(currentPlayer);
-      const targetTeam = currentTeam === 'A' ? 'B' : 'A';
-      const targetTeamPlayers = sorted.filter(p => getEffectiveTeam(p) === targetTeam);
-
-      if (targetTeamPlayers.length > 0) {
-        // FIX #1: Use independent cycle counter so both teammates get equal turns
-        const cycleIdx = teamTurnCycleRef.current % targetTeamPlayers.length;
-        nextPlayer = targetTeamPlayers[cycleIdx];
-        teamTurnCycleRef.current += 1;
-      }
-    } else {
-      nextPlayer = sorted[(baseIdx + 1) % sorted.length];
+    for (let i = 1; i <= clockwiseSeats.length; i++) {
+      const nextSeat = clockwiseSeats[(startIdx + i) % clockwiseSeats.length];
+      nextPlayer = activeSorted.find(p => p.seat_number === nextSeat);
+      if (nextPlayer) break;
     }
 
     if (!nextPlayer?.user_id) { await refreshSession(); return; }
