@@ -6382,14 +6382,13 @@ useEffect(() => {
           const eventId = payload?.event_id;
           const payloadRoomId = payload?.room_id;
           const qty = payload?.quantity || 1;
-          const senderId = payload?.sender_id;
 
           if (!eventId) return;
           if (payloadRoomId && String(payloadRoomId) !== String(roomId)) return;
           if (processedRoomGiftIdsRef.current.has(eventId)) return;
 
-          const isSender = senderId && String(senderId) === String(user?.id);
-          await handleIncomingRoomGiftEvent(eventId, 0, qty, !isSender, true, true);
+          // PK score always affects DB regardless of who sent the gift
+          await handleIncomingRoomGiftEvent(eventId, 0, qty, true, true, true);
         } catch (err) {
           console.error("[ROOM_GIFT_BROADCAST_ERROR]", err);
         }
