@@ -585,7 +585,16 @@ export default function LudoGame({
               const w = ps.find(p => String(p.user_id) === String(s.winner_id));
               if (!w) { resultFiredRef.current = false; return; }
 
-              if (Number(w.pieces_finished || 0) < 4) {
+              // Only block if this looks like a false positive (no pieces finished AND
+              // other players are still active — i.e. not a resignation win)
+              const otherActivePlayers = ps.filter(
+                p => String(p.user_id) !== String(s.winner_id) && !p.left_at && !p.refunded_at
+              );
+              const isResignationWin = otherActivePlayers.length === 0;
+              const isNormalWin = Number(w.pieces_finished || 0) >= 4;
+
+              if (!isNormalWin && !isResignationWin) {
+                // False positive — game not actually over
                 resultFiredRef.current = false;
                 setCurrentSession(prev => prev
                   ? { ...s, status: 'playing', winner_id: null, winner_coins: 0 }
@@ -920,28 +929,37 @@ export default function LudoGame({
       const h = rect.h * cellSize;
       const isTurnHome = i === currentTurnVisualIdx;
 
+      // Border — only glow for active turn home
       ctx.save();
-      ctx.shadowColor = isTurnHome ? PLAYER_COLORS[realColorIdx] : 'rgba(0,0,0,0.5)';
-      ctx.shadowBlur = isTurnHome ? 20 : 10;
+      if (isTurnHome) {
+        ctx.shadowColor = PLAYER_COLORS[realColorIdx];
+        ctx.shadowBlur = 24;
+      }
       ctx.fillStyle = homeColors[realColorIdx].border;
       ctx.fillRect(x, y, w, h);
       ctx.restore();
 
+      // Inner gradient — slightly dimmer for inactive homes
       const innerGrad = ctx.createLinearGradient(x, y, x + w, y + h);
-      innerGrad.addColorStop(0, homeColors[realColorIdx].grad1);
-      innerGrad.addColorStop(1, homeColors[realColorIdx].grad2);
+      if (isTurnHome) {
+        innerGrad.addColorStop(0, homeColors[realColorIdx].grad1);
+        innerGrad.addColorStop(1, homeColors[realColorIdx].grad2);
+      } else {
+        // Darker/less saturated for inactive
+        innerGrad.addColorStop(0, homeColors[realColorIdx].grad1 + 'bb');
+        innerGrad.addColorStop(1, homeColors[realColorIdx].grad2 + 'bb');
+      }
       ctx.fillStyle = innerGrad;
       ctx.fillRect(x + cellSize * 0.5, y + cellSize * 0.5, w - cellSize, h - cellSize);
 
+      // Active turn: bright white border ring
       if (isTurnHome) {
-        ctx.fillStyle = 'rgba(255,255,255,0.14)';
-        ctx.fillRect(x + cellSize * 0.5, y + cellSize * 0.5, w - cellSize, h - cellSize);
         ctx.save();
-        ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+        ctx.strokeStyle = 'rgba(255,255,255,0.85)';
         ctx.lineWidth = 3;
         ctx.shadowColor = PLAYER_COLORS[realColorIdx];
-        ctx.shadowBlur = 14;
-        ctx.strokeRect(x + cellSize * 0.5, y + cellSize * 0.5, w - cellSize, h - cellSize);
+        ctx.shadowBlur = 16;
+        ctx.strokeRect(x + cellSize * 0.6, y + cellSize * 0.6, w - cellSize * 1.2, h - cellSize * 1.2);
         ctx.restore();
       }
 
@@ -1132,23 +1150,53 @@ export default function LudoGame({
 
         let drawX = px;
         let drawY = py;
+        let hopY = 0;
 
         if (activeAnim) {
-          const t = Math.max(0, Math.min(1, (nowTs - activeAnim.start) / activeAnim.duration));
-          const eased = 1 - Math.pow(1 - t, 2.5);
+          const elapsed = nowTs - activeAnim.start;
+          const t = Math.max(0, Math.min(1, elapsed / activeAnim.duration));
+          const eased = 1 - Math.pow(1 - t, 2.2);
           drawX = activeAnim.fromX + (activeAnim.toX - activeAnim.fromX) * eased;
           drawY = activeAnim.fromY + (activeAnim.toY - activeAnim.fromY) * eased;
-          if (t < 1) needsMoveAnimationFrame = true;
-          else delete pieceMoveAnimRef.current[pieceKey];
+          // Hop arc — small bounce per step
+          hopY = Math.sin(t * Math.PI) * cellSize * 0.38;
+
+          if (t >= 1) {
+            // Step done — check queue
+            if (activeAnim.queue && activeAnim.queue.length > 0) {
+              const next = activeAnim.queue[0];
+              pieceMoveAnimRef.current[pieceKey] = {
+                fromX: activeAnim.toX, fromY: activeAnim.toY,
+                toX: next.toX, toY: next.toY,
+                start: nowTs,
+                duration: 160,
+                queue: activeAnim.queue.slice(1),
+              };
+              needsMoveAnimationFrame = true;
+            } else {
+              delete pieceMoveAnimRef.current[pieceKey];
+            }
+          } else {
+            needsMoveAnimationFrame = true;
+          }
         }
 
         const r = cellSize * 0.42;
         const isMyPiece = String(player.user_id) === String(user?.id);
         const isMovable = isMyPiece && movablePieces.includes(pieceIdx + 1);
         const isSelected = isMyPiece && selectedPiece === pieceIdx + 1;
-        const drawYFinal = drawY;
+        const drawYFinal = drawY - hopY;
 
         ctx.save();
+
+        // Subtle shadow when hopping
+        if (hopY > 3) {
+          ctx.beginPath();
+          const sc = Math.max(0.5, 1 - hopY / (cellSize * 0.5));
+          ctx.ellipse(drawX, drawY + r * 0.2, r * sc, r * 0.13 * sc, 0, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(0,0,0,${0.22 * sc})`;
+          ctx.fill();
+        }
 
         // Movable / selected glow ring
         if (isMovable || isSelected) {
@@ -1323,6 +1371,9 @@ export default function LudoGame({
   const rollDice = async () => {
     if (!currentSession?.id || !user?.id) return;
     if (!isMyTurn || rolling) return;
+
+    // Player is actively rolling — remove from inactive set so auto-play stops
+    inactivePlayersRef.current.delete(String(user.id));
 
     setRolling(true);
     setDiceAnimating(true);
@@ -1627,26 +1678,60 @@ export default function LudoGame({
       if (typeof data.new_pos === 'number' && data.piece_number) {
         const pieceKey = `piece${data.piece_number}`;
         const pieceRefKey = `${user.id}-${data.piece_number - 1}`;
-        const wasInBase = (players.find(p => String(p.user_id) === String(user.id))?.[pieceKey] ?? -1) === -1;
+        const myPlayerNow = players.find(p => String(p.user_id) === String(user.id));
+        const wasInBase = (myPlayerNow?.[pieceKey] ?? -1) === -1;
 
-        // Capture current canvas position BEFORE updating state — this is the animation start
+        // Build step-by-step path for hop animation
         const canvas = canvasRef.current;
-        if (canvas) {
+        if (canvas && myPlayerNow) {
           const cellSize = canvas.width / 15;
           const boardPlayers = getVisiblePlayersList(players, currentSession);
-          const myPlayerNow = boardPlayers.find(p => String(p.user_id) === String(user.id));
-          if (myPlayerNow) {
-            const fromPos = getPieceCanvasPosition(myPlayerNow, data.piece_number - 1, cellSize, boardPlayers);
-            const toPlayerState = { ...myPlayerNow, [pieceKey]: data.new_pos };
-            const toPos = getPieceCanvasPosition(toPlayerState, data.piece_number - 1, cellSize, boardPlayers);
-            if (fromPos && toPos && (Math.abs(fromPos.x - toPos.x) > 3 || Math.abs(fromPos.y - toPos.y) > 3)) {
-              const dist = Math.hypot(toPos.x - fromPos.x, toPos.y - fromPos.y);
-              const steps = Math.max(1, Math.round(dist / cellSize));
+          const oldPos = myPlayerNow[pieceKey] ?? -1;
+          const newPos = data.new_pos;
+
+          // Build list of intermediate logical positions
+          const steps = [];
+          if (oldPos === -1 && newPos === 0) {
+            steps.push(0);
+          } else if (oldPos >= 0 && newPos > oldPos && newPos <= 57) {
+            // Walk each logical step
+            for (let p = oldPos + 1; p <= newPos; p++) steps.push(p);
+          } else {
+            steps.push(newPos);
+          }
+
+          // Convert logical steps to canvas positions
+          const canvasSteps = steps.map(logPos => {
+            const fakePlayer = { ...myPlayerNow, [pieceKey]: logPos };
+            return getPieceCanvasPosition(fakePlayer, data.piece_number - 1, cellSize, boardPlayers);
+          }).filter(Boolean);
+
+          if (canvasSteps.length >= 1) {
+            const HOP_MS = 160; // ms per step
+            const startNow = performance.now();
+
+            if (canvasSteps.length === 1) {
+              // Single step — simple move
+              const from = getPieceCanvasPosition(myPlayerNow, data.piece_number - 1, cellSize, boardPlayers);
+              if (from) {
+                pieceMoveAnimRef.current[pieceRefKey] = {
+                  fromX: from.x, fromY: from.y,
+                  toX: canvasSteps[0].x, toY: canvasSteps[0].y,
+                  start: startNow, duration: HOP_MS * 1.5,
+                };
+              }
+            } else {
+              // Multi-step: chain animations with per-step delay
               pieceMoveAnimRef.current[pieceRefKey] = {
-                fromX: fromPos.x, fromY: fromPos.y,
-                toX: toPos.x, toY: toPos.y,
-                start: performance.now(),
-                duration: Math.min(480, steps * 260),
+                fromX: canvasSteps[0].x, fromY: canvasSteps[0].y,
+                toX: canvasSteps[1]?.x ?? canvasSteps[0].x,
+                toY: canvasSteps[1]?.y ?? canvasSteps[0].y,
+                start: startNow, duration: HOP_MS,
+                // Queue: remaining steps to animate after this one
+                queue: canvasSteps.slice(2).map((pos, i) => ({
+                  toX: pos.x, toY: pos.y,
+                  delay: HOP_MS * (i + 1),
+                })),
               };
             }
           }
@@ -1732,6 +1817,8 @@ export default function LudoGame({
     if (!movablePieces.includes(pieceNumber)) return;
     if (movingPieceRef.current) return;
     movingPieceRef.current = true;
+    // Player is actively selecting — remove from inactive set
+    inactivePlayersRef.current.delete(String(user?.id));
     setSelectedPiece(pieceNumber);
     try {
       await movePiece(pieceNumber);
