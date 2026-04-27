@@ -393,9 +393,10 @@ export default function RaceGame({
     });
 
     players.forEach((p) => {
-      if (p.position === 0) return;
-      const center = getCellCenter(p.position, cols, rows, cellW, cellH);
-      const playersOnSameCell = players.filter(op => op.position === p.position);
+      // FIX 1: position 0 = show on cell 1 (start), not hidden
+      const displayPos = p.position === 0 ? 1 : p.position;
+      const center = getCellCenter(displayPos, cols, rows, cellW, cellH);
+      const playersOnSameCell = players.filter(op => (op.position === 0 ? 1 : op.position) === displayPos);
       const pidx = playersOnSameCell.findIndex(op => op.user_id === p.user_id);
       let offsetX = 0, offsetY = 0;
       if (playersOnSameCell.length > 1) {
@@ -403,12 +404,46 @@ export default function RaceGame({
         const radius = cellW * 0.22;
         offsetX = Math.cos(angle) * radius; offsetY = Math.sin(angle) * radius;
       }
-      const cx = center.x + offsetX, cy = center.y + offsetY, r = cellW * 0.22;
+      const cx = center.x + offsetX, cy = center.y + offsetY;
+      const r = cellW * 0.22;
+      const isAnimating = String(animatingPlayer) === String(p.user_id);
+      const isResigned = !!p.left_at;
+
       ctx.save();
-      ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = cellW * 0.1; ctx.shadowOffsetY = cellW * 0.05;
-      ctx.beginPath(); ctx.arc(cx, cy, r + cellW * 0.06, 0, Math.PI * 2);
-      ctx.fillStyle = p.color || '#ffffff'; ctx.fill();
+
+      // Resigned player: dim with red border
+      if (isResigned) {
+        ctx.globalAlpha = 0.45;
+      }
+
+      // Outer glow for animating piece
+      if (isAnimating) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, r + cellW * 0.14, 0, Math.PI * 2);
+        ctx.fillStyle = `${p.color || '#ffffff'}55`;
+        ctx.shadowColor = p.color || '#ffffff';
+        ctx.shadowBlur = cellW * 0.3;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+
+      // IMPROVED ring — thick colored border
+      ctx.beginPath();
+      ctx.arc(cx, cy, r + cellW * 0.09, 0, Math.PI * 2);
+      ctx.fillStyle = isResigned ? '#ef4444' : (p.color || '#ffffff');
+      ctx.shadowColor = isResigned ? '#ef4444' : (isAnimating ? (p.color || '#fff') : 'rgba(0,0,0,0.5)');
+      ctx.shadowBlur = isAnimating ? cellW * 0.2 : cellW * 0.08;
+      ctx.shadowOffsetY = cellW * 0.03;
+      ctx.fill();
       ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+
+      // White inner ring
+      ctx.beginPath();
+      ctx.arc(cx, cy, r + cellW * 0.04, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.fill();
+
+      // Avatar clip
       ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip();
       const img = avatarImagesRef.current[p.user_id];
       if (img?.complete && img?.naturalWidth > 0) {
@@ -563,16 +598,28 @@ export default function RaceGame({
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Failed to roll');
       channelRef.current?.send({ type: 'broadcast', event: 'dice_roll', payload: { userId: user.id, roll: data.roll, color: myColor } });
-      const fromPos = myPlayer?.position || 0;
+      const fromPos = Math.max(1, myPlayer?.position || 1); // start from 1 minimum
       setLastRoll(data.roll);
       setAllDiceRolls(prev => ({ ...prev, [user.id]: { roll: data.roll, color: myColor, animating: false } }));
 
-      // Detect special event type for sound
       const specialType = data.special_event?.includes('ladder') ? 'ladder'
         : data.special_event?.includes('snake') ? 'snake' : null;
 
+      // Overshoot: just show message, no animation
+      if (data.special_event === 'overshoot') {
+        setDiceDisplay(null);
+        setAnyoneMoving(false);
+        setSpecialEvent('overshoot');
+        setTimeout(() => setSpecialEvent(null), 2500);
+        await loadPlayers(currentSession.id);
+        const { data: sessionData } = await supabase.from('room_race_sessions').select('*').eq('id', currentSession.id).single();
+        if (sessionData) setCurrentSession(sessionData);
+        return;
+      }
+
       setTimeout(() => {
         setDiceDisplay(null);
+        // Do NOT update players state here — animateSteps handles it step by step
         animateSteps(user.id, fromPos, data.new_position, data.final_position, specialType, async () => {
           setAnyoneMoving(false);
           if (data.special_event) { setSpecialEvent(data.special_event); setTimeout(() => setSpecialEvent(null), 2500); }
@@ -591,12 +638,30 @@ export default function RaceGame({
   const isMyTurn  = String(currentSession?.current_turn_user_id) === String(user?.id);
   const netPrize  = Math.floor((currentSession?.entry_cost || 0) * players.length * 0.9);
 
+  // Auto-play: if it's my turn and I'm inactive, roll automatically after 8s
+  useEffect(() => {
+    if (!isMyTurn || currentSession?.status !== 'playing' || !open) return;
+    if (rolling || anyoneMoving) return;
+    const t = setTimeout(() => {
+      if (isMyTurn && !rolling && !anyoneMoving) rollDice();
+    }, 8000);
+    return () => clearTimeout(t);
+  }, [isMyTurn, currentSession?.current_turn_user_id, rolling, anyoneMoving, open]);
+
   const renderPlayer = (p) => {
     const progressPct = (p.position / TRACK_LENGTH) * 100;
     const isCurrentTurn = String(currentSession?.current_turn_user_id) === String(p.user_id) && currentSession?.status === 'playing';
     const playerLastRoll = playersLastRoll[p.user_id];
+    const isResigned = !!p.left_at;
+
     return (
-      <div key={p.id} className={`relative overflow-hidden flex items-center gap-2 rounded-xl px-2 py-1.5 transition-colors ${isCurrentTurn ? 'bg-white/10 border border-white/20 shadow-md' : 'bg-white/5 border border-transparent'}`}>
+      <div key={p.id} className={`relative overflow-hidden flex items-center gap-2 rounded-xl px-2 py-1.5 transition-colors ${
+        isResigned
+          ? 'bg-rose-950/40 border-2 border-rose-500/70 opacity-60'
+          : isCurrentTurn
+            ? 'bg-white/10 border border-white/20 shadow-md'
+            : 'bg-white/5 border border-transparent'
+      }`}>
         <div className="absolute left-0 top-0 bottom-0 opacity-20 transition-all duration-500" style={{ width: `${progressPct}%`, backgroundColor: p.color }} />
         <div className="relative shrink-0">
           <img src={p.avatar_url || FALLBACK_AVATAR} alt={p.name} className="w-7 h-7 rounded-full object-cover border border-white/20" onError={e => e.currentTarget.src = FALLBACK_AVATAR} />
@@ -605,8 +670,9 @@ export default function RaceGame({
         <div className="flex-1 min-w-0 z-10">
           <div className="flex items-center gap-1">
             <span className="text-white text-[10px] font-bold truncate">{p.name}</span>
-            {String(p.user_id) === String(user?.id) && <span className="text-amber-300 text-[8px] shrink-0">(You)</span>}
-            {p.team_key && (
+            {String(p.user_id) === String(user?.id) && !isResigned && <span className="text-amber-300 text-[8px] shrink-0">(You)</span>}
+            {isResigned && <span className="text-rose-400 text-[8px] font-black shrink-0">Resigned</span>}
+            {p.team_key && !isResigned && (
               <span className={`text-[8px] font-black px-1 py-[1px] rounded-full shrink-0 ${p.team_key === 'A' ? 'bg-cyan-500/30 text-cyan-200' : 'bg-violet-500/30 text-violet-200'}`}>
                 {p.team_key}
               </span>
