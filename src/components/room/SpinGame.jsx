@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { Loader2, X } from 'lucide-react';
+import { Loader2, X, Settings } from 'lucide-react';
 
 const FALLBACK_AVATAR =
   "data:image/svg+xml;utf8," +
@@ -40,20 +40,39 @@ export default function SpinGame({
   const [rotation, setRotation] = useState(0);
   const [joining, setJoining] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [soundMuted, setSoundMuted] = useState(false);
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const canvasRef = useRef(null);
+  const audioCtxRef = useRef(null);
   const spinAudioRef = useRef(null);
   const spinGainRef = useRef(null);
   const spinLfoRef = useRef(null);
-  const resultAudioRef = useRef(null);
   const imageCache = useRef({});
+  const soundMutedRef = useRef(false);
 
-  const startSpinSound = () => {
+  useEffect(() => {
+    soundMutedRef.current = soundMuted;
+  }, [soundMuted]);
+
+  const ensureAudioContext = async () => {
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) return;
-      if (spinAudioRef.current) return;
+      if (!AudioCtx) return null;
+      if (!audioCtxRef.current) audioCtxRef.current = new AudioCtx();
+      if (audioCtxRef.current.state === 'suspended') await audioCtxRef.current.resume();
+      return audioCtxRef.current;
+    } catch (_) {
+      return null;
+    }
+  };
 
-      const ctx = new AudioCtx();
+  const startSpinSound = async () => {
+    try {
+      if (soundMutedRef.current) return;
+      if (spinAudioRef.current) return;
+      const ctx = await ensureAudioContext();
+      if (!ctx) return;
+
       const carrier = ctx.createOscillator();
       const gain = ctx.createGain();
       const lfo = ctx.createOscillator();
@@ -78,7 +97,7 @@ export default function SpinGame({
       carrier.start();
       lfo.start();
 
-      spinAudioRef.current = { ctx, carrier };
+      spinAudioRef.current = { carrier };
       spinGainRef.current = gain;
       spinLfoRef.current = lfo;
     } catch (_) {}
@@ -89,9 +108,10 @@ export default function SpinGame({
       const sound = spinAudioRef.current;
       const gain = spinGainRef.current;
       const lfo = spinLfoRef.current;
-      if (!sound?.ctx || !sound?.carrier || !gain) return;
+      const ctx = audioCtxRef.current;
+      if (!ctx || !sound?.carrier || !gain) return;
 
-      const now = sound.ctx.currentTime;
+      const now = ctx.currentTime;
       gain.gain.cancelScheduledValues(now);
       gain.gain.setValueAtTime(Math.max(gain.gain.value, 0.0001), now);
       gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
@@ -100,7 +120,10 @@ export default function SpinGame({
       if (lfo) lfo.stop(now + 0.22);
 
       setTimeout(() => {
-        try { sound.ctx.close(); } catch (_) {}
+        try {
+          sound.carrier.disconnect();
+          gain.disconnect();
+        } catch (_) {}
       }, 260);
     } catch (_) {
     } finally {
@@ -112,11 +135,9 @@ export default function SpinGame({
 
   const playResultSound = () => {
     try {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) return;
-
-      const ctx = new AudioCtx();
-      resultAudioRef.current = ctx;
+      if (soundMutedRef.current) return;
+      const ctx = audioCtxRef.current;
+      if (!ctx) return;
       const notes = [740, 988, 1245];
 
       notes.forEach((freq, i) => {
@@ -133,11 +154,6 @@ export default function SpinGame({
         osc.start(t);
         osc.stop(t + 0.22);
       });
-
-      setTimeout(() => {
-        try { ctx.close(); } catch (_) {}
-        if (resultAudioRef.current === ctx) resultAudioRef.current = null;
-      }, 700);
     } catch (_) {}
   };
 
@@ -399,19 +415,25 @@ export default function SpinGame({
   useEffect(() => {
     if (open) return;
     stopSpinSound();
+    setShowSettingsMenu(false);
   }, [open]);
 
   useEffect(() => {
     return () => {
       stopSpinSound();
       try {
-        if (resultAudioRef.current) {
-          resultAudioRef.current.close();
-          resultAudioRef.current = null;
+        if (audioCtxRef.current) {
+          audioCtxRef.current.close();
+          audioCtxRef.current = null;
         }
       } catch (_) {}
     };
   }, []);
+
+  useEffect(() => {
+    if (!soundMuted) return;
+    stopSpinSound();
+  }, [soundMuted]);
 
   const createSession = async () => {
     if (!canModerate || !roomId || !user?.id) return;
@@ -507,6 +529,7 @@ export default function SpinGame({
       return;
     }
 
+    await ensureAudioContext();
     startSpinSound();
     setSpinning(true);
     setShowResult(false);
@@ -609,7 +632,7 @@ export default function SpinGame({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[85]" onClick={onClose}>
+    <div className="fixed inset-0 z-[85]" onClick={() => { setShowSettingsMenu(false); onClose(); }}>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div
         className="absolute inset-x-0 bottom-0 bg-slate-900 rounded-t-3xl 
@@ -634,6 +657,40 @@ export default function SpinGame({
                 {(userCoins || 0).toLocaleString()}
               </span>
             </div>
+            {currentSession && (
+              <div className="relative">
+                <button
+                  onClick={() => setShowSettingsMenu(v => !v)}
+                  className="text-white/50 hover:text-white p-0.5"
+                >
+                  <Settings className="w-5 h-5" />
+                </button>
+                {showSettingsMenu && (
+                  <div
+                    className="absolute right-0 top-7 z-50 bg-slate-800 border border-white/10 rounded-xl shadow-xl min-w-[170px] overflow-hidden"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <button
+                      onClick={() => setSoundMuted(v => !v)}
+                      className="w-full text-left px-4 py-2.5 text-white font-bold text-sm hover:bg-white/10 transition"
+                    >
+                      {soundMuted ? '🔇 Unmute Game Sound' : '🔊 Mute Game Sound'}
+                    </button>
+                    {canModerate && currentSession?.status === 'waiting' && (
+                      <button
+                        onClick={() => {
+                          setShowSettingsMenu(false);
+                          cancelSession();
+                        }}
+                        className="w-full text-left px-4 py-2.5 text-rose-400 font-bold text-sm hover:bg-rose-500/10 transition"
+                      >
+                        🚫 Cancel Game
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             <button onClick={onClose} className="text-white/50 hover:text-white">
               <X className="w-5 h-5" />
             </button>
@@ -802,27 +859,17 @@ export default function SpinGame({
                 )}
 
                 {canModerate && currentSession.status === 'waiting' && (
-                  <>
-                    <button
-                      onClick={startSpin}
-                      disabled={spinning || players.length < 2}
-                      className="flex-1 py-3 rounded-2xl bg-emerald-500 
-                        text-white font-black text-sm disabled:opacity-50
-                        hover:bg-emerald-400 transition active:scale-95"
-                    >
-                      {spinning ? (
-                        <Loader2 className="w-4 h-4 animate-spin mx-auto" />
-                      ) : '🎰 Spin!'}
-                    </button>
-                    <button
-                      onClick={cancelSession}
-                      className="px-4 py-3 rounded-2xl border border-rose-500/40 
-                        text-rose-400 font-bold text-sm
-                        hover:bg-rose-500/10 transition active:scale-95"
-                    >
-                      Cancel
-                    </button>
-                  </>
+                  <button
+                    onClick={startSpin}
+                    disabled={spinning || players.length < 2}
+                    className="flex-1 py-3 rounded-2xl bg-emerald-500 
+                      text-white font-black text-sm disabled:opacity-50
+                      hover:bg-emerald-400 transition active:scale-95"
+                  >
+                    {spinning ? (
+                      <Loader2 className="w-4 h-4 animate-spin mx-auto" />
+                    ) : '🎰 Spin!'}
+                  </button>
                 )}
               </div>
             </div>
