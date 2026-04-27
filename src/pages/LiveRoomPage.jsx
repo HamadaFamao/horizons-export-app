@@ -10331,6 +10331,7 @@ useEffect(() => {
           if (gameId === 'spin') setShowSpinGame(true);
           if (gameId === 'race') setShowRaceGame(true);
           if (gameId === 'ludo') setShowLudoGame(true);
+          if (gameId === 'pk') setShowPkModal(true);
         }}
       />
 

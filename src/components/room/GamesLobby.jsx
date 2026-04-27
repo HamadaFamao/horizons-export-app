@@ -3,6 +3,14 @@ import { X } from 'lucide-react';
 
 const GAMES = [
   {
+    id: 'pk',
+    emoji: '⚔️',
+    name: 'PK Battle',
+    description: 'Challenge another player to a live battle!',
+    color: 'from-blue-600 to-purple-600',
+    available: true,
+  },
+  {
     id: 'spin',
     emoji: '🎡✨',
     name: 'Spin Wheel',
