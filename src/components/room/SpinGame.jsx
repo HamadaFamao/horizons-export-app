@@ -42,7 +42,104 @@ export default function SpinGame({
   const [leaving, setLeaving] = useState(false);
   const canvasRef = useRef(null);
   const spinAudioRef = useRef(null);
+  const spinGainRef = useRef(null);
+  const spinLfoRef = useRef(null);
+  const resultAudioRef = useRef(null);
   const imageCache = useRef({});
+
+  const startSpinSound = () => {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      if (spinAudioRef.current) return;
+
+      const ctx = new AudioCtx();
+      const carrier = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const lfo = ctx.createOscillator();
+      const lfoGain = ctx.createGain();
+
+      carrier.type = 'sawtooth';
+      carrier.frequency.setValueAtTime(170, ctx.currentTime);
+
+      lfo.type = 'sine';
+      lfo.frequency.setValueAtTime(6.5, ctx.currentTime);
+      lfoGain.gain.setValueAtTime(24, ctx.currentTime);
+
+      lfo.connect(lfoGain);
+      lfoGain.connect(carrier.frequency);
+
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 0.12);
+
+      carrier.connect(gain);
+      gain.connect(ctx.destination);
+
+      carrier.start();
+      lfo.start();
+
+      spinAudioRef.current = { ctx, carrier };
+      spinGainRef.current = gain;
+      spinLfoRef.current = lfo;
+    } catch (_) {}
+  };
+
+  const stopSpinSound = () => {
+    try {
+      const sound = spinAudioRef.current;
+      const gain = spinGainRef.current;
+      const lfo = spinLfoRef.current;
+      if (!sound?.ctx || !sound?.carrier || !gain) return;
+
+      const now = sound.ctx.currentTime;
+      gain.gain.cancelScheduledValues(now);
+      gain.gain.setValueAtTime(Math.max(gain.gain.value, 0.0001), now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+
+      sound.carrier.stop(now + 0.22);
+      if (lfo) lfo.stop(now + 0.22);
+
+      setTimeout(() => {
+        try { sound.ctx.close(); } catch (_) {}
+      }, 260);
+    } catch (_) {
+    } finally {
+      spinAudioRef.current = null;
+      spinGainRef.current = null;
+      spinLfoRef.current = null;
+    }
+  };
+
+  const playResultSound = () => {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+
+      const ctx = new AudioCtx();
+      resultAudioRef.current = ctx;
+      const notes = [740, 988, 1245];
+
+      notes.forEach((freq, i) => {
+        const t = ctx.currentTime + i * 0.09;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, t);
+        gain.gain.setValueAtTime(0.0001, t);
+        gain.gain.exponentialRampToValueAtTime(0.18, t + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.22);
+      });
+
+      setTimeout(() => {
+        try { ctx.close(); } catch (_) {}
+        if (resultAudioRef.current === ctx) resultAudioRef.current = null;
+      }, 700);
+    } catch (_) {}
+  };
 
   // Load active session for this room
   useEffect(() => {
@@ -295,6 +392,27 @@ export default function SpinGame({
     ctx.fillText('🎰', center, center + 6);
   };
 
+  useEffect(() => {
+    if (showResult) playResultSound();
+  }, [showResult]);
+
+  useEffect(() => {
+    if (open) return;
+    stopSpinSound();
+  }, [open]);
+
+  useEffect(() => {
+    return () => {
+      stopSpinSound();
+      try {
+        if (resultAudioRef.current) {
+          resultAudioRef.current.close();
+          resultAudioRef.current = null;
+        }
+      } catch (_) {}
+    };
+  }, []);
+
   const createSession = async () => {
     if (!canModerate || !roomId || !user?.id) return;
     setCreating(true);
@@ -389,6 +507,7 @@ export default function SpinGame({
       return;
     }
 
+    startSpinSound();
     setSpinning(true);
     setShowResult(false);
     setWinner(null);
@@ -440,6 +559,7 @@ export default function SpinGame({
       if (progress < 1) {
         requestAnimationFrame(animate);
       } else {
+        stopSpinSound();
         // Done spinning
         setTimeout(async () => {
           // Finish session
