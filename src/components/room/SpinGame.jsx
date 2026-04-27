@@ -49,7 +49,6 @@ export default function SpinGame({
   const audioCtxRef = useRef(null);
   const spinAudioRef = useRef(null);
   const spinGainRef = useRef(null);
-  const spinLfoRef = useRef(null);
   const imageCache = useRef({});
   const soundMutedRef = useRef(false);
   const handledFinishRef = useRef(null);
@@ -78,32 +77,31 @@ export default function SpinGame({
       if (!ctx) return;
 
       const carrier = ctx.createOscillator();
+      const filter = ctx.createBiquadFilter();
       const gain = ctx.createGain();
-      const lfo = ctx.createOscillator();
-      const lfoGain = ctx.createGain();
 
-      carrier.type = 'sawtooth';
-      carrier.frequency.setValueAtTime(170, ctx.currentTime);
+      // Ticking sound using a low-frequency square wave
+      carrier.type = 'square';
+      // Start fast (30 ticks per sec), slow down to 1.5 ticks per sec over 5 seconds
+      carrier.frequency.setValueAtTime(30, ctx.currentTime);
+      carrier.frequency.exponentialRampToValueAtTime(1.5, ctx.currentTime + 5);
 
-      lfo.type = 'sine';
-      lfo.frequency.setValueAtTime(6.5, ctx.currentTime);
-      lfoGain.gain.setValueAtTime(24, ctx.currentTime);
+      // Bandpass filter to make it sound like a wooden peg/click
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(1200, ctx.currentTime);
+      filter.Q.setValueAtTime(5, ctx.currentTime);
 
-      lfo.connect(lfoGain);
-      lfoGain.connect(carrier.frequency);
+      gain.gain.setValueAtTime(0, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.8, ctx.currentTime + 0.05);
 
-      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 0.12);
-
-      carrier.connect(gain);
+      carrier.connect(filter);
+      filter.connect(gain);
       gain.connect(ctx.destination);
 
       carrier.start();
-      lfo.start();
 
-      spinAudioRef.current = { carrier };
+      spinAudioRef.current = { carrier, filter };
       spinGainRef.current = gain;
-      spinLfoRef.current = lfo;
     } catch (_) {}
   };
 
@@ -111,7 +109,6 @@ export default function SpinGame({
     try {
       const sound = spinAudioRef.current;
       const gain = spinGainRef.current;
-      const lfo = spinLfoRef.current;
       const ctx = audioCtxRef.current;
       if (!ctx || !sound?.carrier || !gain) return;
 
@@ -121,11 +118,11 @@ export default function SpinGame({
       gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
 
       sound.carrier.stop(now + 0.22);
-      if (lfo) lfo.stop(now + 0.22);
 
       setTimeout(() => {
         try {
           sound.carrier.disconnect();
+          if (sound.filter) sound.filter.disconnect();
           gain.disconnect();
         } catch (_) {}
       }, 260);
@@ -133,7 +130,6 @@ export default function SpinGame({
     } finally {
       spinAudioRef.current = null;
       spinGainRef.current = null;
-      spinLfoRef.current = null;
     }
   };
 
@@ -142,21 +138,27 @@ export default function SpinGame({
       if (soundMutedRef.current) return;
       const ctx = audioCtxRef.current;
       if (!ctx) return;
-      const notes = [740, 988, 1245];
+      
+      // Celebratory Arpeggio
+      const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
 
       notes.forEach((freq, i) => {
-        const t = ctx.currentTime + i * 0.09;
+        const t = ctx.currentTime + i * 0.1;
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
-        osc.type = 'triangle';
+        
+        osc.type = 'sine';
         osc.frequency.setValueAtTime(freq, t);
-        gain.gain.setValueAtTime(0.0001, t);
-        gain.gain.exponentialRampToValueAtTime(0.18, t + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
+        
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(0.2, t + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+        
         osc.connect(gain);
         gain.connect(ctx.destination);
+        
         osc.start(t);
-        osc.stop(t + 0.22);
+        osc.stop(t + 0.45);
       });
     } catch (_) {}
   };
@@ -501,7 +503,7 @@ export default function SpinGame({
     ctx.fillStyle = '#fbbf24';
     ctx.font = 'bold 18px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('🎰', center, center + 6);
+    ctx.fillText('🎡', center, center + 6);
   };
 
   useEffect(() => {
@@ -939,7 +941,7 @@ export default function SpinGame({
                   >
                     {spinning ? (
                       <Loader2 className="w-4 h-4 animate-spin mx-auto" />
-                    ) : '🎰 Spin!'}
+                    ) : '🎡 Spin!'}
                   </button>
                 )}
               </div>
@@ -1022,12 +1024,12 @@ export default function SpinGame({
                 >
                   {creating ? (
                     <Loader2 className="w-5 h-5 animate-spin mx-auto" />
-                  ) : '🎰 Create Spin Game'}
+                  ) : '🎡 Create Spin Game'}
                 </button>
               </div>
             ) : (
               <div className="text-center text-white/40 py-12">
-                <div className="text-4xl mb-3">🎰</div>
+                <div className="text-4xl mb-3">🎡</div>
                 <div className="text-sm">No active spin game</div>
                 <div className="text-xs mt-1">
                   Wait for the host to start one
