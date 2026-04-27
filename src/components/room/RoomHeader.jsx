@@ -449,24 +449,6 @@ export default function RoomHeader({
             {room?.title}
           </button>
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={toggleFollowRoom}
-              className="inline-flex flex-col items-center justify-center gap-0.5 transition active:scale-95"
-              aria-label={isFollowingRoom ? 'Unfollow room' : 'Follow room'}
-            >
-              <Heart
-                className={`w-5 h-5 transition-colors duration-200 ${
-                  isFollowingRoom ? 'text-rose-500' : 'text-slate-400'
-                }`}
-                fill={isFollowingRoom ? 'currentColor' : 'none'}
-              />
-              <span className="text-[10px] font-semibold text-slate-500 tabular-nums">
-                {followsCount}
-              </span>
-            </button>
-          </div>
         </div>
 
         <div className="h-8 w-px bg-slate-200/60 mx-1 shrink-0"></div>
@@ -512,26 +494,6 @@ export default function RoomHeader({
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/60 to-transparent -translate-x-full animate-shimmer"></div>
           <span className="text-xl relative z-10 group-hover:animate-bounce drop-shadow-md">🏆</span>
         </Button>
-
-        {canModerate && (
-          <button
-            type="button"
-            onClick={() => setShowMusicPanel((prev) => !prev)}
-            className={`relative inline-flex flex-col items-center justify-center gap-0.5 transition active:scale-95 ${
-              musicPlaying
-                ? 'text-emerald-400'
-                : 'text-slate-400 hover:text-white'
-            }`}
-            title={showMusicPanel ? "Close music panel" : "Open music panel"}
-          >
-            <span className="text-lg">🎵</span>
-            {musicPlaying && (
-              <span className="text-[9px] font-bold text-emerald-400 animate-pulse">
-                LIVE
-              </span>
-            )}
-          </button>
-        )}
 
         {canModerate ? (
           <Button
