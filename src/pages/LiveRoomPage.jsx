@@ -1750,14 +1750,33 @@ useEffect(() => {
 
   const deleteSong = async (songId) => {
     if (!canModerate) return;
+
+    // If deleting the currently playing song, stop it first
+    const deletingIndex = playlist.findIndex(s => s.id === songId);
+    if (deletingIndex === currentSongIndex && musicPlaying) {
+      await stopMusic();
+    }
+
     const { error } = await supabase
       .from('room_songs')
       .delete()
       .eq('id', songId);
-    if (!error) {
-      await fetchPlaylist();
-      toastSuccess('Song removed', 1200);
+
+    if (error) {
+      toast('Failed to delete song', 1400);
+      return;
     }
+
+    // Fix currentSongIndex after deletion
+    if (deletingIndex < currentSongIndex) {
+      setCurrentSongIndex(prev => prev - 1);
+    } else if (deletingIndex === currentSongIndex) {
+      setCurrentSongIndex(null);
+      setMusicPlaying(false);
+    }
+
+    await fetchPlaylist();
+    toastSuccess('Song removed', 1200);
   };
 
   const moveSong = async (index, direction) => {
@@ -9169,15 +9188,51 @@ useEffect(() => {
                     </div>
                   </div>
                   {canModerate && (
-                    <button
-                      onClick={stopMusic}
-                      className="shrink-0 px-3 py-1.5 rounded-full bg-red-500/80 text-white text-xs font-bold hover:bg-red-500 transition"
-                    >
-                      ⏹ Stop
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => {
+                          const prevIndex = currentSongIndex - 1;
+                          if (prevIndex >= 0) playSong(prevIndex);
+                        }}
+                        disabled={currentSongIndex === 0}
+                        className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white disabled:opacity-30 transition"
+                        title="Previous"
+                      >
+                        ⏮
+                      </button>
+                      <button
+                        onClick={() => {
+                          const nextIndex = currentSongIndex + 1;
+                          if (nextIndex < playlist.length) playSong(nextIndex);
+                        }}
+                        disabled={currentSongIndex >= playlist.length - 1}
+                        className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white disabled:opacity-30 transition"
+                        title="Next"
+                      >
+                        ⏭
+                      </button>
+                      <button
+                        onClick={stopMusic}
+                        className="px-3 py-1.5 rounded-full bg-red-500/80 text-white text-xs font-bold hover:bg-red-500 transition"
+                      >
+                        ⏹
+                      </button>
+                    </div>
                   )}
                 </div>
-                <div className="mt-2 h-1 bg-white/20 rounded-full overflow-hidden">
+                {/* Progress bar - clickable to seek */}
+                <div
+                  className="mt-2 h-2 bg-white/20 rounded-full overflow-hidden cursor-pointer"
+                  onClick={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const percent = x / rect.width;
+                    const duration = roomMusicPlayer.getDuration();
+                    if (duration > 0) {
+                      roomMusicPlayer.seek(percent * duration);
+                    }
+                  }}
+                >
                   <div
                     className="h-full bg-emerald-400 rounded-full transition-all"
                     style={{ width: `${musicProgress}%` }}

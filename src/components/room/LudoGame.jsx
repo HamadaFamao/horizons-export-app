@@ -135,6 +135,7 @@ export default function LudoGame({
   const previousTurnUserIdRef = useRef(null);
   const previousDiceResultKeyRef = useRef('');
   const leftTurnActionRef = useRef({ inFlight: false, key: '' });
+  const stalledTurnActionRef = useRef({ inFlight: false, key: '' });
   const savingTeamsRef = useRef(false);
   const teamTurnCycleRef = useRef(0);
   const soundMutedRef = useRef(false);
@@ -880,9 +881,9 @@ export default function LudoGame({
     const pos = pieces[pieceIndex];
     if (typeof pos !== 'number') return null;
 
-    // geometryIdx: which corner/lane/base to use — always relative to current viewer
-    // so each player sees themselves at bottom-left and others around the board.
-    const geometryIdx = normalizeColorIndex(getRelativeVisualSeat(player, playersList));
+    // Keep board geometry aligned with backend seat/color mapping so capture checks
+    // and visual positions refer to the same real track cells.
+    const geometryIdx = normalizeColorIndex(getPlayerColorIndex(player, playersList));
 
     // colorIdx: the player's absolute color (derived from seat_number) — never changes.
     // Used only for ring color and piece color, NOT for board geometry.
@@ -1712,6 +1713,50 @@ export default function LudoGame({
         leftTurnActionRef.current.inFlight = false;
       }
     })();
+  }, [
+    open,
+    currentSession?.id,
+    currentSession?.status,
+    currentSession?.current_turn_user_id,
+    currentSession?.last_roll,
+    currentSession?.display_roll,
+    players,
+    user?.id,
+  ]);
+
+  // Handle stuck turns (e.g. player went offline without resigning)
+  useEffect(() => {
+    if (!open || currentSession?.status !== 'playing' || !currentSession?.id) return;
+
+    const turnUserId = String(currentSession?.current_turn_user_id || '');
+    if (!turnUserId) return;
+    if (String(turnUserId) === String(user?.id)) return;
+
+    const turnPlayer = players.find(p => String(p.user_id) === turnUserId);
+    if (!turnPlayer) return;
+
+    const key = `${currentSession.id}:${turnUserId}:${currentSession.last_roll || 0}:${currentSession.display_roll || 0}:stalled`;
+    if (stalledTurnActionRef.current.inFlight || stalledTurnActionRef.current.key === key) return;
+
+    const timeoutId = setTimeout(async () => {
+      if (stalledTurnActionRef.current.inFlight) return;
+      stalledTurnActionRef.current.inFlight = true;
+      stalledTurnActionRef.current.key = key;
+      try {
+        await autoPlayLeftTurn(turnPlayer, currentSession);
+      } catch (err) {
+        try {
+          await forceAdvanceTurnFromLeft(turnUserId, currentSession, players);
+          await refreshSession();
+        } catch (innerErr) {
+          console.error('Failed to recover stalled turn:', innerErr || err);
+        }
+      } finally {
+        stalledTurnActionRef.current.inFlight = false;
+      }
+    }, 16000);
+
+    return () => clearTimeout(timeoutId);
   }, [
     open,
     currentSession?.id,
