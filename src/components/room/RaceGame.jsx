@@ -249,6 +249,15 @@ export default function RaceGame({
     drawTrack();
   }, [players, currentSession, animatingPlayer]);
 
+  // Continuous redraw during animation
+  useEffect(() => {
+    if (!animatingPlayer) return;
+    let frameId;
+    const loop = () => { drawTrack(); frameId = requestAnimationFrame(loop); };
+    frameId = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(frameId);
+  }, [animatingPlayer]);
+
   useEffect(() => {
     players.forEach(p => {
       if (p.avatar_url && !avatarImagesRef.current[p.user_id]) {
@@ -393,10 +402,16 @@ export default function RaceGame({
     });
 
     players.forEach((p) => {
-      // FIX 1: position 0 = show on cell 1 (start), not hidden
-      const displayPos = p.position === 0 ? 1 : p.position;
+      // Use animated position if available, else real position
+      const animPos = animatingPosRef.current[p.user_id];
+      const rawPos = animPos !== undefined ? animPos : p.position;
+      const displayPos = rawPos === 0 ? 1 : rawPos;
       const center = getCellCenter(displayPos, cols, rows, cellW, cellH);
-      const playersOnSameCell = players.filter(op => (op.position === 0 ? 1 : op.position) === displayPos);
+      const playersOnSameCell = players.filter(op => {
+        const opAnimPos = animatingPosRef.current[op.user_id];
+        const opRaw = opAnimPos !== undefined ? opAnimPos : op.position;
+        return (opRaw === 0 ? 1 : opRaw) === displayPos;
+      });
       const pidx = playersOnSameCell.findIndex(op => op.user_id === p.user_id);
       let offsetX = 0, offsetY = 0;
       if (playersOnSameCell.length > 1) {
@@ -539,41 +554,61 @@ export default function RaceGame({
     } catch (err) { alert(err.message || 'Failed to cancel'); }
   };
 
-  const animateSteps = (playerId, fromPos, toPos, finalPos, specialEventType, callback) => {
+  // ── Animate player piece step by step on canvas ───────────────────────────
+  // Uses canvas-level interpolation instead of React state updates per step
+  const animatingPosRef = useRef({}); // userId -> current animated position
+
+  const animateSteps = (playerId, fromPos, toPos, finalPos, specialEventType, bumpedUserIds, callback) => {
     if (animationRef.current) clearTimeout(animationRef.current);
     setAnimatingPlayer(playerId);
-    let currentPos = fromPos;
+
+    const startPos = Math.max(1, fromPos);
+    animatingPosRef.current[playerId] = startPos;
+
+    let currentPos = startPos;
+    const STEP_MS = 280; // ms per cell
+
     const step = () => {
       if (currentPos >= toPos) {
+        // Reached roll destination — now handle snake/ladder jump
+        animatingPosRef.current[playerId] = toPos;
+
+        // Apply bump to opponents visually (they snap to 1)
+        if (bumpedUserIds?.length) {
+          setPlayers(prev => prev.map(p =>
+            bumpedUserIds.includes(String(p.user_id)) ? { ...p, position: 0 } : p
+          ));
+          bumpedUserIds.forEach(uid => { animatingPosRef.current[uid] = 1; });
+        }
+
         if (finalPos !== toPos) {
+          // Snake or ladder jump
           setTimeout(() => {
-            setPlayers(prev => prev.map(p =>
-              String(p.user_id) === String(playerId) ? { ...p, position: finalPos } : p
-            ));
-            channelRef.current?.send({ type: 'broadcast', event: 'player_move', payload: { userId: playerId, position: finalPos, isJump: true, isDone: false } });
-            setAnimatingPlayer(null);
-            // Play ladder or snake sound
             if (specialEventType === 'ladder') playSound('ladder');
             else if (specialEventType === 'snake') playSound('snake');
-            setTimeout(() => {
-              channelRef.current?.send({ type: 'broadcast', event: 'player_move', payload: { userId: playerId, position: finalPos, isJump: false, isDone: true } });
-              callback?.();
-            }, 400);
-          }, 400);
+            animatingPosRef.current[playerId] = finalPos;
+            setAnimatingPlayer(null);
+            // Broadcast final position
+            channelRef.current?.send({ type: 'broadcast', event: 'player_move',
+              payload: { userId: playerId, position: finalPos, isDone: true } });
+            setTimeout(() => callback?.(), 300);
+          }, 350);
         } else {
           setAnimatingPlayer(null);
-          channelRef.current?.send({ type: 'broadcast', event: 'player_move', payload: { userId: playerId, position: finalPos, isJump: false, isDone: true } });
-          callback?.();
+          channelRef.current?.send({ type: 'broadcast', event: 'player_move',
+            payload: { userId: playerId, position: finalPos, isDone: true } });
+          setTimeout(() => callback?.(), 150);
         }
         return;
       }
+
       currentPos += 1;
-      setPlayers(prev => prev.map(p =>
-        String(p.user_id) === String(playerId) ? { ...p, position: currentPos } : p
-      ));
-      channelRef.current?.send({ type: 'broadcast', event: 'player_move', payload: { userId: playerId, position: currentPos, isJump: false, isDone: false } });
+      animatingPosRef.current[playerId] = currentPos;
       playSound('move');
-      animationRef.current = setTimeout(step, 500);
+      // Broadcast each step
+      channelRef.current?.send({ type: 'broadcast', event: 'player_move',
+        payload: { userId: playerId, position: currentPos, isDone: false } });
+      animationRef.current = setTimeout(step, STEP_MS);
     };
     step();
   };
@@ -598,37 +633,41 @@ export default function RaceGame({
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Failed to roll');
       channelRef.current?.send({ type: 'broadcast', event: 'dice_roll', payload: { userId: user.id, roll: data.roll, color: myColor } });
-      const fromPos = Math.max(1, myPlayer?.position || 1); // start from 1 minimum
+      const fromPos = Math.max(1, myPlayer?.position || 1);
       setLastRoll(data.roll);
       setAllDiceRolls(prev => ({ ...prev, [user.id]: { roll: data.roll, color: myColor, animating: false } }));
 
       const specialType = data.special_event?.includes('ladder') ? 'ladder'
         : data.special_event?.includes('snake') ? 'snake' : null;
 
-      // Overshoot: just show message, no animation
+      const bumpedIds = data.special_event?.includes('bump')
+        ? players.filter(p => String(p.user_id) !== String(user.id) && p.position === data.final_position).map(p => String(p.user_id))
+        : [];
+
       if (data.special_event === 'overshoot') {
         setDiceDisplay(null);
         setAnyoneMoving(false);
         setSpecialEvent('overshoot');
         setTimeout(() => setSpecialEvent(null), 2500);
         await loadPlayers(currentSession.id);
-        const { data: sessionData } = await supabase.from('room_race_sessions').select('*').eq('id', currentSession.id).single();
-        if (sessionData) setCurrentSession(sessionData);
+        const { data: sd } = await supabase.from('room_race_sessions').select('*').eq('id', currentSession.id).single();
+        if (sd) setCurrentSession(sd);
         return;
       }
 
       setTimeout(() => {
         setDiceDisplay(null);
-        // Do NOT update players state here — animateSteps handles it step by step
-        animateSteps(user.id, fromPos, data.new_position, data.final_position, specialType, async () => {
+        animateSteps(user.id, fromPos, data.new_position, data.final_position, specialType, bumpedIds, async () => {
           setAnyoneMoving(false);
           if (data.special_event) { setSpecialEvent(data.special_event); setTimeout(() => setSpecialEvent(null), 2500); }
           onCoinsUpdated?.();
+          delete animatingPosRef.current[user.id];
+          bumpedIds.forEach(uid => delete animatingPosRef.current[uid]);
           await loadPlayers(currentSession.id);
-          const { data: sessionData } = await supabase.from('room_race_sessions').select('*').eq('id', currentSession.id).single();
-          if (sessionData) setCurrentSession(sessionData);
+          const { data: sd } = await supabase.from('room_race_sessions').select('*').eq('id', currentSession.id).single();
+          if (sd) setCurrentSession(sd);
         });
-      }, 800);
+      }, 600);
     } catch (err) { alert(err.message || 'Failed to roll'); }
     finally { setRolling(false); }
   };
@@ -638,15 +677,25 @@ export default function RaceGame({
   const isMyTurn  = String(currentSession?.current_turn_user_id) === String(user?.id);
   const netPrize  = Math.floor((currentSession?.entry_cost || 0) * players.length * 0.9);
 
-  // Auto-play: if it's my turn and I'm inactive, roll automatically after 8s
+  const autoPlayRef = useRef(false); // true = player missed their turn once
+
+  // Auto-play: 8s first time, then instant for inactive players
   useEffect(() => {
     if (!isMyTurn || currentSession?.status !== 'playing' || !open) return;
     if (rolling || anyoneMoving) return;
+
+    const delay = autoPlayRef.current ? 800 : 8000;
     const t = setTimeout(() => {
-      if (isMyTurn && !rolling && !anyoneMoving) rollDice();
-    }, 8000);
+      if (!rolling && !anyoneMoving) {
+        autoPlayRef.current = true;
+        rollDice();
+      }
+    }, delay);
     return () => clearTimeout(t);
   }, [isMyTurn, currentSession?.current_turn_user_id, rolling, anyoneMoving, open]);
+
+  // Reset auto-play when player manually rolls
+  const markActive = () => { autoPlayRef.current = false; };
 
   const renderPlayer = (p) => {
     const progressPct = (p.position / TRACK_LENGTH) * 100;
@@ -695,7 +744,7 @@ export default function RaceGame({
           };
           const dots = dotPositions[num] || dotPositions[1];
           return (
-            <div onClick={canRoll ? rollDice : undefined}
+            <div onClick={canRoll ? () => { markActive(); rollDice(); } : undefined}
               className={`relative shrink-0 w-10 h-10 rounded-xl flex items-center justify-center border-b-4 border-r-2 z-10 ${canRoll ? 'cursor-pointer active:scale-90 active:border-b-2 active:translate-y-0.5' : 'cursor-default opacity-80'} ${isAnimating ? 'animate-spin' : canRoll ? 'animate-bounce' : ''}`}
               style={{ background: 'linear-gradient(135deg, #ffffff, #e2e8f0)', borderColor: p.color || '#ffffff', boxShadow: canRoll ? `0 4px 12px rgba(0,0,0,0.4), 0 0 15px ${p.color || '#fff'}66` : '0 4px 8px rgba(0,0,0,0.3)' }}>
               {diceData ? dots.map(([dx, dy], di) => (
@@ -830,9 +879,46 @@ export default function RaceGame({
                 </div>
               )}
 
-              <div className={`grid gap-1.5 my-1 ${currentSession.status === 'playing' ? 'grid-cols-2' : 'grid-cols-2'}`}>
-                {players.map(renderPlayer)}
-              </div>
+              {/* Team assignment UI for waiting team mode */}
+              {currentSession.status === 'waiting' && currentSession.team_mode && players.length === 4 && canModerate ? (
+                <div className="flex flex-col gap-2 my-1">
+                  <div className="text-center text-white/70 text-xs font-bold uppercase tracking-wider">🎯 Assign Teams</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {['A','B'].map(team => (
+                      <div key={team} className={`${team==='A' ? 'bg-cyan-500/10 border-cyan-500/30' : 'bg-violet-500/10 border-violet-500/30'} border-2 rounded-xl p-2`}>
+                        <div className={`${team==='A' ? 'text-cyan-300' : 'text-violet-300'} font-bold text-xs text-center mb-1.5`}>Team {team}</div>
+                        <div className="flex flex-col gap-1">
+                          {players.filter(p => p.team_key === team).map(p => (
+                            <div key={p.id} className={`flex items-center gap-1.5 ${team==='A' ? 'bg-cyan-400/10' : 'bg-violet-400/10'} rounded-lg px-2 py-1`}>
+                              <img src={p.avatar_url || FALLBACK_AVATAR} alt={p.name} className="w-5 h-5 rounded-full" onError={e => e.currentTarget.src = FALLBACK_AVATAR} />
+                              <span className="text-white text-[10px] font-bold truncate flex-1">{p.name}</span>
+                              {String(p.user_id) === String(user?.id) && <span className="text-amber-300 text-[8px]">You</span>}
+                            </div>
+                          ))}
+                          {players.filter(p => p.team_key === team).length < 2 && (
+                            <div className="text-white/30 text-[9px] text-center py-1">{2 - players.filter(p => p.team_key === team).length} slot(s) open</div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <button onClick={async () => {
+                    // Shuffle teams randomly
+                    const shuffled = [...players].sort(() => Math.random() - 0.5);
+                    for (let i = 0; i < shuffled.length; i++) {
+                      const team = i < 2 ? 'A' : 'B';
+                      await supabase.from('room_race_players').update({ team_key: team }).eq('id', shuffled[i].id);
+                    }
+                    await loadPlayers(currentSession.id);
+                  }} className="w-full py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-xs active:scale-95 transition">
+                    🔀 Random Teams
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-1.5 my-1">
+                  {players.map(renderPlayer)}
+                </div>
+              )}
 
               <div className="flex flex-wrap gap-2 mt-1">
                 {!isJoined && !isFull && currentSession.status === 'waiting' && (
