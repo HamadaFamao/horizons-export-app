@@ -29,9 +29,11 @@ export default function RaceGame({
   const [creating, setCreating]               = useState(false);
   const [maxPlayers, setMaxPlayers]           = useState(4);
   const [entryCost, setEntryCost]             = useState(100);
+  const [teamMode, setTeamMode]               = useState(false);
   const [joining, setJoining]                 = useState(false);
   const [leaving, setLeaving]                 = useState(false);
   const [rolling, setRolling]                 = useState(false);
+  const [resigning, setResigning]             = useState(false);
   const [lastRoll, setLastRoll]               = useState(null);
   const [winner, setWinner]                   = useState(null);
   const [winnerCoins, setWinnerCoins]         = useState(0);
@@ -44,7 +46,6 @@ export default function RaceGame({
   const [allDiceAnimating, setAllDiceAnimating] = useState({});
   const [anyoneMoving, setAnyoneMoving]       = useState(false);
   const [animatingPlayer, setAnimatingPlayer] = useState(null);
-  // ── 2. Sound mute state ───────────────────────────────────────────────────
   const [soundMuted, setSoundMuted]           = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
 
@@ -428,12 +429,34 @@ export default function RaceGame({
     try {
       const { data, error } = await supabase
         .from('room_race_sessions')
-        .insert({ room_id: roomId, created_by: user.id, max_players: maxPlayers, entry_cost: entryCost, track_length: TRACK_LENGTH, status: 'waiting' })
+        .insert({
+          room_id: roomId, created_by: user.id, max_players: maxPlayers,
+          entry_cost: entryCost, track_length: TRACK_LENGTH, status: 'waiting',
+          team_mode: maxPlayers === 4 && teamMode,
+        })
         .select().single();
       if (error) throw error;
       setCurrentSession(data); setPlayers([]);
     } catch (err) { alert(err.message || 'Failed to create game'); }
     finally { setCreating(false); }
+  };
+
+  const resignSession = async () => {
+    if (!currentSession?.id || !user?.id) return;
+    setResigning(true);
+    try {
+      const { data, error } = await supabase.rpc('resign_race_game', {
+        p_session_id: currentSession.id, p_user_id: user.id,
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Failed to resign');
+      onCoinsUpdated?.();
+      setShowSettingsMenu(false);
+      if (data.game_ended && !data.winner_id) {
+        setCurrentSession(null); setPlayers([]);
+      }
+    } catch (err) { alert(err.message || 'Failed to resign'); }
+    finally { setResigning(false); }
   };
 
   const joinSession = async () => {
@@ -583,6 +606,11 @@ export default function RaceGame({
           <div className="flex items-center gap-1">
             <span className="text-white text-[10px] font-bold truncate">{p.name}</span>
             {String(p.user_id) === String(user?.id) && <span className="text-amber-300 text-[8px] shrink-0">(You)</span>}
+            {p.team_key && (
+              <span className={`text-[8px] font-black px-1 py-[1px] rounded-full shrink-0 ${p.team_key === 'A' ? 'bg-cyan-500/30 text-cyan-200' : 'bg-violet-500/30 text-violet-200'}`}>
+                {p.team_key}
+              </span>
+            )}
           </div>
           <div className="text-white/60 text-[9px] font-bold leading-tight">{p.position}/{TRACK_LENGTH}</div>
         </div>
@@ -649,7 +677,12 @@ export default function RaceGame({
                     <button onClick={() => setSoundMuted(v => !v)} className="w-full text-left px-4 py-2.5 text-white font-bold text-sm hover:bg-white/10 transition flex items-center gap-2">
                       {soundMuted ? '🔇' : '🔊'} {soundMuted ? 'Unmute' : 'Mute'} Sound
                     </button>
-                    {canModerate && (currentSession.status === 'waiting' || currentSession.status === 'playing') && (
+                    {currentSession?.status === 'playing' && isJoined && (
+                      <button onClick={resignSession} disabled={resigning} className="w-full text-left px-4 py-2.5 text-amber-300 font-bold text-sm hover:bg-amber-500/10 transition">
+                        {resigning ? '...' : '🚪 Resign Game'}
+                      </button>
+                    )}
+                    {canModerate && (currentSession?.status === 'waiting' || currentSession?.status === 'playing') && (
                       <button onClick={() => { setShowSettingsMenu(false); cancelSession(); }} className="w-full text-left px-4 py-2.5 text-rose-400 font-bold text-sm hover:bg-rose-500/10 transition">
                         🚫 Cancel Game
                       </button>
@@ -719,10 +752,15 @@ export default function RaceGame({
               </div>
 
               {specialEvent && (
-                <div className={`text-center py-1.5 px-3 rounded-xl font-black text-xs animate-bounce shadow-sm my-1 ${specialEvent.includes('ladder') ? 'bg-gradient-to-r from-emerald-500 to-green-400 text-white border border-emerald-400' : specialEvent.includes('snake') ? 'bg-gradient-to-r from-rose-500 to-red-400 text-white border border-rose-400' : 'bg-gradient-to-r from-purple-500 to-indigo-400 text-white border border-purple-400'}`}>
+                <div className={`text-center py-1.5 px-3 rounded-xl font-black text-xs animate-bounce shadow-sm my-1 ${
+                  specialEvent.includes('ladder') ? 'bg-gradient-to-r from-emerald-500 to-green-400 text-white border border-emerald-400'
+                  : specialEvent.includes('snake') ? 'bg-gradient-to-r from-rose-500 to-red-400 text-white border border-rose-400'
+                  : specialEvent.includes('overshoot') ? 'bg-gradient-to-r from-slate-600 to-slate-500 text-white border border-slate-400'
+                  : 'bg-gradient-to-r from-purple-500 to-indigo-400 text-white border border-purple-400'}`}>
                   {specialEvent.includes('ladder') && '🪜 Ladder! Jump forward!'}
                   {specialEvent.includes('snake') && '🐍 Snake! Slide back!'}
-                  {!specialEvent.includes('ladder') && !specialEvent.includes('snake') && '💥 Bumped!'}
+                  {specialEvent.includes('overshoot') && '🎲 Too high! Need exact number!'}
+                  {specialEvent.includes('bump') && !specialEvent.includes('ladder') && !specialEvent.includes('snake') && !specialEvent.includes('overshoot') && '💥 Bumped opponent to start!'}
                 </div>
               )}
 
@@ -758,12 +796,27 @@ export default function RaceGame({
                 <div className="text-white/70 text-xs font-bold mb-2 uppercase tracking-wider">👥 Number of Players</div>
                 <div className="grid grid-cols-4 gap-2">
                   {MAX_PLAYERS_OPTIONS.map(n => (
-                    <button key={n} onClick={() => setMaxPlayers(n)}
+                    <button key={n} onClick={() => { setMaxPlayers(n); if (n !== 4) setTeamMode(false); }}
                       className={`py-2.5 rounded-xl font-black text-sm transition-all active:scale-95 shadow-sm ${maxPlayers === n ? 'bg-gradient-to-b from-amber-400 to-amber-600 text-white border border-amber-400' : 'bg-white/5 text-white/70 hover:bg-white/10 border border-white/10'}`}>
                       {n}
                     </button>
                   ))}
                 </div>
+              </div>
+
+              <div>
+                <div className="text-white/70 text-xs font-bold mb-2 uppercase tracking-wider">🤝 Mode</div>
+                <button
+                  onClick={() => { if (maxPlayers !== 4) return; setTeamMode(v => !v); }}
+                  disabled={maxPlayers !== 4}
+                  className={`w-full py-2.5 rounded-xl font-bold text-xs active:scale-95 transition ${
+                    maxPlayers === 4
+                      ? teamMode ? 'bg-cyan-500 text-white' : 'bg-white/10 text-white/80 hover:bg-white/20'
+                      : 'bg-white/5 text-white/40 cursor-not-allowed'
+                  }`}>
+                  Team 2v2 {teamMode ? 'ON' : 'OFF'}
+                </button>
+                {maxPlayers !== 4 && <div className="text-[10px] text-white/45 mt-1">Team mode available with 4 players only.</div>}
               </div>
               <div>
                 <div className="text-white/70 text-xs font-bold mb-2 uppercase tracking-wider">🪙 Entry Cost</div>
