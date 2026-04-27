@@ -9637,6 +9637,55 @@ useEffect(() => {
             seatEmojiEffects={seatEmojiEffects}
           />
 
+          {/* Side action column */}
+          <div className="absolute right-0 top-1/2 -translate-y-1/2 z-30 flex flex-col gap-2 pr-1.5">
+            {/* Follow */}
+            <button
+              onClick={toggleFollowRoom}
+              className="flex flex-col items-center gap-0.5 group"
+              title={isFollowingRoom ? 'Unfollow room' : 'Follow room'}
+            >
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xl transition active:scale-90 shadow-lg ${
+                isFollowingRoom
+                  ? 'bg-rose-500 text-white shadow-rose-500/40'
+                  : 'bg-white/15 backdrop-blur-sm border border-white/20 text-white/80'
+              }`}>
+                {isFollowingRoom ? '❤️' : '🤍'}
+              </div>
+              <span className="text-white/60 text-[9px] font-bold">
+                {followsCount > 0 ? followsCount : ''}
+              </span>
+            </button>
+
+            {/* Music */}
+            {canModerate && (
+              <button
+                onClick={() => setShowMusicPanel(true)}
+                className={`w-10 h-10 rounded-full flex items-center justify-center text-xl transition active:scale-90 shadow-lg ${
+                  musicPlaying
+                    ? 'bg-emerald-500 text-white shadow-emerald-500/40 animate-pulse'
+                    : 'bg-white/15 backdrop-blur-sm border border-white/20 text-white/80'
+                }`}
+                title="Music"
+              >
+                🎵
+              </button>
+            )}
+
+            {/* Games */}
+            <button
+              onClick={() => setShowGamesLobby(true)}
+              className={`w-10 h-10 rounded-full flex items-center justify-center text-xl transition active:scale-90 shadow-lg ${
+                activeSpinSession
+                  ? 'bg-amber-500 text-white shadow-amber-500/40 animate-pulse'
+                  : 'bg-white/15 backdrop-blur-sm border border-white/20 text-white/80'
+              }`}
+              title="Games"
+            >
+              🎮
+            </button>
+          </div>
+
           <RoomChat
             chatScrollRef={chatScrollRef}
             chatBottomRef={chatBottomRef}

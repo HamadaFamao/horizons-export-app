@@ -1048,19 +1048,6 @@ export default function RoomChat({
               🌍
             </button>
 
-            <button
-              type="button"
-              onClick={onOpenSpinGame}
-              className={`shrink-0 w-10 h-10 rounded-full flex items-center
-                justify-center text-lg transition active:scale-95
-                bg-white/10 backdrop-blur-sm border border-white/20
-                ${activeSpinSession ? 'ring-2 ring-amber-400 animate-pulse' : ''}
-              `}
-              title="Games"
-            >
-              🎮
-            </button>
-
             <Button
               onClick={sendText}
               disabled={!isJoinedToRoom || sending || !text.trim() || myMutedActive}
