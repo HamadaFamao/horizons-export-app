@@ -205,6 +205,48 @@ export default function LudoGame({
         g.gain.setValueAtTime(0.22, ctx.currentTime);
         g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
         o.start(); o.stop(ctx.currentTime + 0.2);
+      } else if (type === 'applause') {
+        // Applause = repeated white noise bursts
+        const totalDur = 2.8;
+        const burstCount = 18;
+        for (let i = 0; i < burstCount; i++) {
+          const bCtx = new (window.AudioContext || window.webkitAudioContext)();
+          const bufSize = bCtx.sampleRate * 0.06;
+          const buf = bCtx.createBuffer(1, bufSize, bCtx.sampleRate);
+          const data = buf.getChannelData(0);
+          for (let j = 0; j < bufSize; j++) data[j] = (Math.random() * 2 - 1);
+          const src = bCtx.createBufferSource();
+          src.buffer = buf;
+          const bGain = bCtx.createGain();
+          const startT = i * (totalDur / burstCount);
+          // Fade in fast, fade out slower — clap shape
+          const peakT = startT + 0.008;
+          const endT = startT + 0.055;
+          const vol = 0.28 * (1 - i / (burstCount * 1.4)); // fade out over time
+          bGain.gain.setValueAtTime(0, bCtx.currentTime + startT);
+          bGain.gain.linearRampToValueAtTime(vol, bCtx.currentTime + peakT);
+          bGain.gain.exponentialRampToValueAtTime(0.001, bCtx.currentTime + endT);
+          src.connect(bGain); bGain.connect(bCtx.destination);
+          src.start(bCtx.currentTime + startT);
+          src.stop(bCtx.currentTime + endT);
+          // Close context after last burst
+          if (i === burstCount - 1) {
+            setTimeout(() => bCtx.close(), (endT + 0.2) * 1000);
+          }
+        }
+        // Also add a victory fanfare on top
+        [0, 0.15, 0.32, 0.5, 0.7].forEach((delay, i) => {
+          const o2 = ctx.createOscillator();
+          const g2 = ctx.createGain();
+          o2.connect(g2); g2.connect(ctx.destination);
+          o2.type = 'triangle';
+          o2.frequency.setValueAtTime([523, 659, 784, 880, 1047][i], ctx.currentTime + delay);
+          g2.gain.setValueAtTime(0.15, ctx.currentTime + delay);
+          g2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.22);
+          o2.start(ctx.currentTime + delay);
+          o2.stop(ctx.currentTime + delay + 0.23);
+        });
+        return;
       }
     } catch (_) {}
   };
@@ -591,6 +633,7 @@ export default function LudoGame({
               setWinnerCoins(perPlayerPrize);
               setShowResult(true);
               setResignedTeammateName(null);
+              playSound('applause');
               setMessage(`Team ${s.winner_team} wins`);
               setTimeout(() => setMessage(''), 3000);
 
@@ -636,6 +679,7 @@ export default function LudoGame({
               setWinnerCoins(s.winner_coins || 0);
               setShowResult(true);
               setResignedTeammateName(null);
+              playSound('applause');
               if (String(s.winner_id) === String(user?.id)) {
                 onLudoResult?.({
                   winnerName: w.name,
