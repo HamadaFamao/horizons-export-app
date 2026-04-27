@@ -418,51 +418,45 @@ export default function LudoGame({
     const myPlayer = players.find(p => String(p.user_id) === String(user?.id));
     const isMine =
       String(currentSession?.current_turn_user_id) === String(user?.id) &&
-      !!myPlayer &&
-      !myPlayer.left_at;
+      !!myPlayer && !myPlayer.left_at;
 
     if (!isMine || currentSession?.status !== 'playing' || !open) {
       setTurnTimeLeft(12);
-      if (turnTimerRef.current) {
-        clearInterval(turnTimerRef.current);
-        turnTimerRef.current = null;
-      }
+      if (turnTimerRef.current) { clearInterval(turnTimerRef.current); turnTimerRef.current = null; }
       return;
     }
 
     const turnKey = `${currentSession.id}:${currentSession.current_turn_user_id}:${currentSession.last_roll || 0}`;
     const isInactive = inactivePlayersRef.current.has(String(user?.id));
+    const hasRolled = Number(currentSession?.last_roll || 0) > 0;
 
     if (turnTimerRef.current) clearInterval(turnTimerRef.current);
 
     if (isInactive) {
       setTurnTimeLeft(0);
+      // Inactive: wait only 2s before rolling, 400ms before moving piece
+      const waitMs = hasRolled ? 400 : 2000;
       let actionFired = false;
 
-      // Poll every 80ms until we can fire — handles rolling=true delay gracefully
-      turnTimerRef.current = setInterval(() => {
-        if (actionFired) { clearInterval(turnTimerRef.current); turnTimerRef.current = null; return; }
-
-        const currentKey = `${autoActionStateRef.current.sessionId}:${autoActionStateRef.current.turnUserId}:${autoActionStateRef.current.sessionLastRoll || 0}`;
-        if (currentKey !== turnKey) { clearInterval(turnTimerRef.current); turnTimerRef.current = null; return; }
-
-        const { sessionLastRoll: slr, movablePieces: mp, rolling: r } = autoActionStateRef.current;
-
-        // Wait until not rolling before firing
-        if (r) return;
-
-        clearInterval(turnTimerRef.current);
-        turnTimerRef.current = null;
-        actionFired = true;
-
-        if (!slr) {
-          autoActionStateRef.current.rollDice();
-        } else if (slr > 0 && mp && mp.length > 0) {
-          autoActionStateRef.current.handlePieceSelect(mp[0]);
-        }
-      }, 80);
+      // Start a short countdown then poll until not rolling
+      const fireTimeout = setTimeout(() => {
+        // Now poll every 60ms until rolling=false
+        turnTimerRef.current = setInterval(() => {
+          if (actionFired) { clearInterval(turnTimerRef.current); turnTimerRef.current = null; return; }
+          const currentKey = `${autoActionStateRef.current.sessionId}:${autoActionStateRef.current.turnUserId}:${autoActionStateRef.current.sessionLastRoll || 0}`;
+          if (currentKey !== turnKey) { clearInterval(turnTimerRef.current); turnTimerRef.current = null; return; }
+          const { sessionLastRoll: slr, movablePieces: mp, rolling: r } = autoActionStateRef.current;
+          if (r) return; // still rolling — wait
+          clearInterval(turnTimerRef.current);
+          turnTimerRef.current = null;
+          actionFired = true;
+          if (!slr) autoActionStateRef.current.rollDice();
+          else if (slr > 0 && mp?.length > 0) autoActionStateRef.current.handlePieceSelect(mp[0]);
+        }, 60);
+      }, waitMs);
 
       return () => {
+        clearTimeout(fireTimeout);
         if (turnTimerRef.current) { clearInterval(turnTimerRef.current); turnTimerRef.current = null; }
       };
     }
@@ -482,21 +476,15 @@ export default function LudoGame({
         const currentKey = `${autoActionStateRef.current.sessionId}:${autoActionStateRef.current.turnUserId}:${autoActionStateRef.current.sessionLastRoll || 0}`;
         if (actionFired || currentKey !== turnKey) return;
         actionFired = true;
-
-        // Mark as inactive for all future turns in this session
         inactivePlayersRef.current.add(String(user?.id));
-
         const { sessionLastRoll: slr, movablePieces: mp, rolling: r, rollDice: rd, handlePieceSelect: hps } = autoActionStateRef.current;
         if (!slr && !r) rd();
-        else if (slr > 0 && mp && mp.length > 0) hps(mp[0]);
+        else if (slr > 0 && mp?.length > 0) hps(mp[0]);
       }
     }, 1000);
 
     return () => {
-      if (turnTimerRef.current) {
-        clearInterval(turnTimerRef.current);
-        turnTimerRef.current = null;
-      }
+      if (turnTimerRef.current) { clearInterval(turnTimerRef.current); turnTimerRef.current = null; }
     };
   }, [currentSession?.id, currentSession?.current_turn_user_id, currentSession?.last_roll, currentSession?.status, open]);
 
