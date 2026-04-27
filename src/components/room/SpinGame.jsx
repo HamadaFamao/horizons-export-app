@@ -43,12 +43,16 @@ export default function SpinGame({
   const [soundMuted, setSoundMuted] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const canvasRef = useRef(null);
+  const channelRef = useRef(null);
+  const spinFrameRef = useRef(null);
+  const finishTimeoutRef = useRef(null);
   const audioCtxRef = useRef(null);
   const spinAudioRef = useRef(null);
   const spinGainRef = useRef(null);
   const spinLfoRef = useRef(null);
   const imageCache = useRef({});
   const soundMutedRef = useRef(false);
+  const handledFinishRef = useRef(null);
 
   useEffect(() => {
     soundMutedRef.current = soundMuted;
@@ -169,12 +173,24 @@ export default function SpinGame({
 
     const channel = supabase
       .channel(`spin_${roomId}`)
+      .on('broadcast', { event: 'spin_started' }, ({ payload }) => {
+        if (!payload) return;
+        const { sessionId, targetRotation, duration } = payload;
+        if (!currentSession?.id || String(sessionId) !== String(currentSession.id)) return;
+        runSpinAnimation(targetRotation, duration || 5000, null);
+      })
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'room_spin_sessions',
         filter: `room_id=eq.${roomId}`,
-      }, () => loadSession())
+      }, ({ new: nextSession }) => {
+        if (nextSession?.status === 'finished') {
+          handleFinishedSession(nextSession);
+          return;
+        }
+        loadSession();
+      })
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
@@ -182,7 +198,12 @@ export default function SpinGame({
       }, () => loadPlayers(currentSession?.id))
       .subscribe();
 
-    return () => supabase.removeChannel(channel);
+    channelRef.current = channel;
+
+    return () => {
+      channelRef.current = null;
+      supabase.removeChannel(channel);
+    };
   }, [open, roomId, currentSession?.id]);
 
   const loadSession = async () => {
@@ -209,7 +230,7 @@ export default function SpinGame({
   };
 
   const loadPlayers = async (sessionId) => {
-    if (!sessionId) return;
+    if (!sessionId) return [];
     const { data: playersData } = await supabase
       .from('room_spin_players')
       .select('*')
@@ -219,7 +240,7 @@ export default function SpinGame({
 
     if (!playersData?.length) {
       setPlayers([]);
-      return;
+      return [];
     }
 
     const userIds = playersData.map(p => p.user_id);
@@ -236,6 +257,81 @@ export default function SpinGame({
     }));
 
     setPlayers(merged);
+    return merged;
+  };
+
+  const runSpinAnimation = (targetRotation, duration = 5000, onDone = null) => {
+    if (spinFrameRef.current) cancelAnimationFrame(spinFrameRef.current);
+    if (finishTimeoutRef.current) clearTimeout(finishTimeoutRef.current);
+
+    startSpinSound();
+    setSpinning(true);
+    setShowResult(false);
+    setWinner(null);
+
+    const startTime = Date.now();
+    const startRotation = rotation;
+
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 4);
+      const currentRotation = startRotation + targetRotation * eased;
+      setRotation(currentRotation);
+
+      if (progress < 1) {
+        spinFrameRef.current = requestAnimationFrame(animate);
+      } else {
+        spinFrameRef.current = null;
+        stopSpinSound();
+        onDone?.();
+      }
+    };
+
+    spinFrameRef.current = requestAnimationFrame(animate);
+  };
+
+  const handleFinishedSession = async (sessionRow) => {
+    if (!sessionRow?.id) return;
+    if (handledFinishRef.current === sessionRow.id) return;
+    handledFinishRef.current = sessionRow.id;
+
+    setCurrentSession(sessionRow);
+    setSpinning(false);
+    stopSpinSound();
+
+    const playersList = await loadPlayers(sessionRow.id);
+    const winnerPlayer = playersList.find(p => String(p.user_id) === String(sessionRow.winner_id));
+    if (!winnerPlayer) {
+      setTimeout(() => loadSession(), 1000);
+      return;
+    }
+
+    setWinner(winnerPlayer);
+    setWinnerCoins(sessionRow.winner_coins || 0);
+    setShowResult(true);
+
+    if (String(winnerPlayer.user_id) === String(user?.id)) {
+      onSpinResult?.({
+        winnerName: winnerPlayer.name || 'User',
+        winnerAvatar: winnerPlayer.avatar_url || null,
+        winnerId: winnerPlayer.user_id,
+        winnerCoins: sessionRow.winner_coins || 0,
+        totalPlayers: playersList.length,
+        entryCost: sessionRow.entry_cost || 0,
+      });
+    }
+
+    finishTimeoutRef.current = setTimeout(() => {
+      setCurrentSession(null);
+      setPlayers([]);
+      setShowResult(false);
+      setWinner(null);
+      setRotation(0);
+      handledFinishRef.current = null;
+      finishTimeoutRef.current = null;
+      loadSession();
+    }, 5000);
   };
 
   // Draw wheel on canvas
@@ -416,10 +512,20 @@ export default function SpinGame({
     if (open) return;
     stopSpinSound();
     setShowSettingsMenu(false);
+    if (spinFrameRef.current) {
+      cancelAnimationFrame(spinFrameRef.current);
+      spinFrameRef.current = null;
+    }
+    if (finishTimeoutRef.current) {
+      clearTimeout(finishTimeoutRef.current);
+      finishTimeoutRef.current = null;
+    }
   }, [open]);
 
   useEffect(() => {
     return () => {
+      if (spinFrameRef.current) cancelAnimationFrame(spinFrameRef.current);
+      if (finishTimeoutRef.current) clearTimeout(finishTimeoutRef.current);
       stopSpinSound();
       try {
         if (audioCtxRef.current) {
@@ -566,62 +672,27 @@ export default function SpinGame({
     const extraSpins = (6 + Math.floor(Math.random() * 4)) * 2 * Math.PI;
     const targetRotation = extraSpins + targetAngle;
 
-    // Animate spin
     const duration = 5000;
-    const startTime = Date.now();
-    const startRotation = rotation;
 
-    const animate = () => {
-      const elapsed = Date.now() - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      // Ease out
-      const eased = 1 - Math.pow(1 - progress, 4);
-      const currentRotation = startRotation + targetRotation * eased;
-      setRotation(currentRotation);
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'spin_started',
+      payload: {
+        sessionId: currentSession.id,
+        targetRotation,
+        duration,
+      },
+    });
 
-      if (progress < 1) {
-        requestAnimationFrame(animate);
-      } else {
-        stopSpinSound();
-        // Done spinning
-        setTimeout(async () => {
-          // Finish session
-          const { data } = await supabase.rpc('finish_spin_session', {
-            p_session_id: currentSession.id,
-            p_winner_seat: winnerPlayer.seat_number,
-          });
-
-          const actualWinnerId = data?.winner_id;
-          const actualWinner = players.find(
-            p => String(p.user_id) === String(actualWinnerId)
-          ) || winnerPlayer;
-
-          setWinner(actualWinner);
-          setWinnerCoins(data?.winner_coins || 0);
-          setShowResult(true);
-          setSpinning(false);
-          onCoinsUpdated?.();
-          onSpinResult?.({
-            winnerName: actualWinner?.name || 'User',
-            winnerAvatar: actualWinner?.avatar_url || null,
-            winnerId: actualWinner?.user_id,
-            winnerCoins: data?.winner_coins || 0,
-            totalPlayers: players.length,
-            entryCost: currentSession?.entry_cost || 0,
-          });
-
-          setTimeout(() => {
-            setCurrentSession(null);
-            setPlayers([]);
-            setShowResult(false);
-            setWinner(null);
-            setRotation(0);
-          }, 5000);
-        }, 500);
-      }
-    };
-
-    requestAnimationFrame(animate);
+    runSpinAnimation(targetRotation, duration, () => {
+      finishTimeoutRef.current = setTimeout(async () => {
+        await supabase.rpc('finish_spin_session', {
+          p_session_id: currentSession.id,
+          p_winner_seat: winnerPlayer.seat_number,
+        });
+        onCoinsUpdated?.();
+      }, 500);
+    });
   };
 
   const isJoined = players.some(p => String(p.user_id) === String(user?.id));
