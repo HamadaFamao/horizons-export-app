@@ -49,6 +49,7 @@ export default function RaceGame({
   const [turnPausedByResign, setTurnPausedByResign] = useState(false);
   const [soundMuted, setSoundMuted]           = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const [turnIntro, setTurnIntro]             = useState(null);
 
   const canvasRef        = useRef(null);
   const avatarImagesRef  = useRef({});
@@ -57,6 +58,9 @@ export default function RaceGame({
   const resultFiredRef   = useRef(false);
   const soundMutedRef    = useRef(false);
   const playersRef       = useRef([]);
+  const previousTurnRef  = useRef(null);
+  const previousStatusRef = useRef(null);
+  const turnIntroTimeoutRef = useRef(null);
 
   useEffect(() => { soundMutedRef.current = soundMuted; }, [soundMuted]);
   useEffect(() => { playersRef.current = players; }, [players]);
@@ -155,6 +159,23 @@ export default function RaceGame({
           os.start(ctx.currentTime + t); os.stop(ctx.currentTime + t + 0.16);
         });
         return;
+
+      } else if (type === 'turnStart') {
+        const notes = [659, 880, 1175];
+        notes.forEach((freq, index) => {
+          const o2 = ctx.createOscillator();
+          const g2 = ctx.createGain();
+          const startAt = ctx.currentTime + index * 0.08;
+          o2.connect(g2); g2.connect(ctx.destination);
+          o2.type = 'triangle';
+          o2.frequency.setValueAtTime(freq, startAt);
+          g2.gain.setValueAtTime(0, startAt);
+          g2.gain.linearRampToValueAtTime(0.16, startAt + 0.02);
+          g2.gain.exponentialRampToValueAtTime(0.001, startAt + 0.18);
+          o2.start(startAt);
+          o2.stop(startAt + 0.2);
+        });
+        return;
       }
     } catch (_) {}
   };
@@ -163,6 +184,46 @@ export default function RaceGame({
   useEffect(() => {
     if (showResult) playSound('victory');
   }, [showResult]);
+
+  useEffect(() => {
+    if (!open || currentSession?.status !== 'playing' || showResult) return;
+
+    const currentTurn = currentSession?.current_turn_user_id ? String(currentSession.current_turn_user_id) : null;
+    const previousTurn = previousTurnRef.current;
+    const previousStatus = previousStatusRef.current;
+    const gameJustStarted = previousStatus === 'waiting' && currentSession?.status === 'playing';
+    const turnChanged = previousTurn && currentTurn && previousTurn !== currentTurn;
+
+    if (!gameJustStarted && !turnChanged) {
+      previousTurnRef.current = currentTurn;
+      previousStatusRef.current = currentSession?.status || null;
+      return;
+    }
+
+    const activePlayer = players.find(p => String(p.user_id) === currentTurn);
+    setTurnIntro({
+      key: `${currentTurn || 'race'}_${Date.now()}`,
+      title: gameJustStarted ? 'Race Started' : 'New Round',
+      subtitle: activePlayer?.name ? `${activePlayer.name} is up` : 'Next player turn',
+      color: activePlayer?.color || '#38bdf8',
+    });
+    playSound('turnStart');
+
+    if (turnIntroTimeoutRef.current) clearTimeout(turnIntroTimeoutRef.current);
+    turnIntroTimeoutRef.current = setTimeout(() => setTurnIntro(null), 1800);
+
+    previousTurnRef.current = currentTurn;
+    previousStatusRef.current = currentSession?.status || null;
+  }, [open, currentSession?.status, currentSession?.current_turn_user_id, players, showResult]);
+
+  useEffect(() => {
+    previousTurnRef.current = currentSession?.current_turn_user_id ? String(currentSession.current_turn_user_id) : null;
+    previousStatusRef.current = currentSession?.status || null;
+  }, [currentSession?.id]);
+
+  useEffect(() => () => {
+    if (turnIntroTimeoutRef.current) clearTimeout(turnIntroTimeoutRef.current);
+  }, []);
 
   useEffect(() => {
     if (!open || !roomId) return;
@@ -851,6 +912,31 @@ export default function RaceGame({
     <div className="fixed inset-0 z-[85] flex items-end sm:items-center justify-center" onClick={() => { setShowSettingsMenu(false); onClose(); }}>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div className="relative w-full max-w-md bg-slate-900 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden max-h-[95vh] sm:max-h-[90vh]" onClick={e => e.stopPropagation()}>
+        {turnIntro && (
+          <>
+            <div
+              className="pointer-events-none absolute inset-x-6 top-20 z-30 h-24 rounded-[28px] blur-2xl opacity-60 animate-pulse"
+              style={{ background: `radial-gradient(circle at center, ${turnIntro.color}66 0%, transparent 72%)` }}
+            />
+            <div className="pointer-events-none absolute inset-x-5 top-[72px] z-30 flex justify-center">
+              <div
+                key={turnIntro.key}
+                className="relative overflow-hidden rounded-2xl border px-5 py-3 text-center shadow-2xl backdrop-blur-md animate-bounce"
+                style={{
+                  borderColor: `${turnIntro.color}88`,
+                  background: `linear-gradient(135deg, ${turnIntro.color}26, rgba(15,23,42,0.92) 58%, rgba(15,23,42,0.98) 100%)`,
+                  boxShadow: `0 0 30px ${turnIntro.color}55`,
+                }}>
+                <div
+                  className="absolute inset-y-0 -left-10 w-16 rotate-12 opacity-60"
+                  style={{ background: `linear-gradient(90deg, transparent, ${turnIntro.color}88, transparent)` }}
+                />
+                <div className="relative text-[10px] font-black uppercase tracking-[0.35em] text-white/70">{turnIntro.title}</div>
+                <div className="relative mt-1 text-sm font-black text-white drop-shadow-sm">✨ {turnIntro.subtitle}</div>
+              </div>
+            </div>
+          </>
+        )}
         <div className="flex justify-center pt-3 pb-1 sm:hidden"><div className="w-12 h-1.5 rounded-full bg-white/20" /></div>
 
         {/* Header */}
@@ -952,7 +1038,15 @@ export default function RaceGame({
               )}
 
               <div className="bg-slate-900 rounded-xl p-2 overflow-hidden shadow-inner border border-white/5 flex justify-center">
-                <canvas ref={canvasRef} width={800} height={800} className="w-full max-w-[400px] aspect-square rounded-lg shadow-md" />
+                <div className="relative w-full max-w-[400px] aspect-square">
+                  {turnIntro && (
+                    <div
+                      className="pointer-events-none absolute inset-0 z-10 rounded-lg animate-pulse"
+                      style={{ background: `radial-gradient(circle at center, ${turnIntro.color}26 0%, transparent 62%)` }}
+                    />
+                  )}
+                  <canvas ref={canvasRef} width={800} height={800} className="relative z-0 w-full aspect-square rounded-lg shadow-md" />
+                </div>
               </div>
 
               {specialEvent && (
