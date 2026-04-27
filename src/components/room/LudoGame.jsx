@@ -430,28 +430,64 @@ export default function LudoGame({
 
     if (turnTimerRef.current) { clearInterval(turnTimerRef.current); turnTimerRef.current = null; }
 
-    // Read auto mode from ref (not state) — avoids stale closure issues
     const autoMode = inactivePlayersRef.current.has(String(user?.id));
-    const hasRolled = Number(currentSession?.last_roll || 0) > 0;
+    const sessionId = currentSession.id;
+    const userId = user?.id;
+    const lastRollNow = Number(currentSession?.last_roll || 0);
+
+    // Direct DB auto-action — bypasses stale React closures entirely
+    const fireAutoAction = async () => {
+      try {
+        // Check it's still our turn from DB
+        const { data: sess } = await supabase
+          .from('room_ludo_sessions')
+          .select('current_turn_user_id, last_roll, status')
+          .eq('id', sessionId)
+          .single();
+
+        if (!sess || sess.status !== 'playing') return;
+        if (String(sess.current_turn_user_id) !== String(userId)) return;
+
+        if (!sess.last_roll || sess.last_roll === 0) {
+          // Need to roll
+          await supabase.rpc('get_ludo_roll', { p_session_id: sessionId, p_user_id: userId });
+          await refreshSession();
+          // After roll, the last_roll dep will change and trigger this effect again
+        } else {
+          // Need to move — get fresh player data
+          const { data: playerData } = await supabase
+            .from('room_ludo_players')
+            .select('*')
+            .eq('session_id', sessionId)
+            .eq('user_id', userId)
+            .maybeSingle();
+
+          if (!playerData) return;
+          const movable = getMovablePieces(playerData, sess.last_roll);
+          if (movable.length > 0) {
+            await supabase.rpc('move_ludo_piece', {
+              p_session_id: sessionId,
+              p_user_id: userId,
+              p_piece_number: movable[0],
+            });
+          }
+          await refreshSession();
+        }
+      } catch (e) {
+        console.error('Auto-play error:', e);
+      }
+    };
 
     if (autoMode) {
       setTurnTimeLeft(0);
-      const WAIT = hasRolled ? 400 : 1200;
+      const WAIT = lastRollNow > 0 ? 500 : 1200;
       let done = false;
       const t = setTimeout(() => {
         if (done) return;
-        const poll = setInterval(() => {
-          if (done) { clearInterval(poll); return; }
-          const s = autoActionStateRef.current;
-          if (String(s.turnUserId) !== String(user?.id)) { clearInterval(poll); return; }
-          if (s.rolling) return;
-          clearInterval(poll);
-          done = true;
-          if (!s.sessionLastRoll) s.rollDice();
-          else if (s.movablePieces?.length > 0) s.handlePieceSelect(s.movablePieces[0]);
-        }, 60);
+        done = true;
+        fireAutoAction();
       }, WAIT);
-      return () => { done = true; clearTimeout(t); if (turnTimerRef.current) { clearInterval(turnTimerRef.current); turnTimerRef.current = null; } };
+      return () => { done = true; clearTimeout(t); };
     }
 
     // Active: 12s countdown
@@ -469,14 +505,9 @@ export default function LudoGame({
       turnTimerRef.current = null;
       done = true;
 
-      // Mark inactive via ref immediately — bump version to re-trigger useEffect
-      inactivePlayersRef.current.add(String(user?.id));
-      autoPlayVersionRef.current += 1;
-      setIsAutoPlay(v => !v); // toggle to force re-render with new ref value
-
-      const s = autoActionStateRef.current;
-      if (!s.sessionLastRoll && !s.rolling) s.rollDice();
-      else if (s.sessionLastRoll > 0 && s.movablePieces?.length > 0) s.handlePieceSelect(s.movablePieces[0]);
+      inactivePlayersRef.current.add(String(userId));
+      setIsAutoPlay(v => !v); // trigger re-render so next turn uses autoMode
+      fireAutoAction();
     }, 1000);
 
     return () => {
