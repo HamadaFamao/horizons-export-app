@@ -176,9 +176,10 @@ export default function RaceGame({
       .channel(`race_${roomId}`)
       .on('broadcast', { event: 'player_move' }, ({ payload }) => {
         if (!payload) return;
-        const { userId, position, isDone } = payload;
+        const { userId, position, isDone, soundType } = payload;
         if (String(userId) === String(user?.id)) return;
         setAnyoneMoving(true);
+        if (soundType) playSound(soundType);
         setPlayers(prev => prev.map(p =>
           String(p.user_id) === String(userId)
             ? (!isDone && Number(position) < Number(p.position || 0) ? p : { ...p, position })
@@ -193,6 +194,7 @@ export default function RaceGame({
       .on('broadcast', { event: 'dice_roll' }, ({ payload }) => {
         if (!payload) return;
         const { userId, roll, color } = payload;
+        if (String(userId) !== String(user?.id) && roll === 0) playSound('roll');
         const rollingPlayer = playersRef.current.find(p => String(p.user_id) === String(userId));
         if (rollingPlayer) {
           animatingPosRef.current[userId] = Math.max(1, rollingPlayer.position || 1);
@@ -623,13 +625,13 @@ export default function RaceGame({
             setAnimatingPlayer(null);
             // Broadcast final position
             channelRef.current?.send({ type: 'broadcast', event: 'player_move',
-              payload: { userId: playerId, position: finalPos, isDone: true } });
+              payload: { userId: playerId, position: finalPos, isDone: true, soundType: specialEventType || null } });
             setTimeout(() => callback?.(), 300);
           }, 350);
         } else {
           setAnimatingPlayer(null);
           channelRef.current?.send({ type: 'broadcast', event: 'player_move',
-            payload: { userId: playerId, position: finalPos, isDone: true } });
+            payload: { userId: playerId, position: finalPos, isDone: true, soundType: null } });
           setTimeout(() => callback?.(), 150);
         }
         return;
@@ -640,7 +642,7 @@ export default function RaceGame({
       playSound('move');
       // Broadcast each step
       channelRef.current?.send({ type: 'broadcast', event: 'player_move',
-        payload: { userId: playerId, position: currentPos, isDone: false } });
+        payload: { userId: playerId, position: currentPos, isDone: false, soundType: 'move' } });
       animationRef.current = setTimeout(step, STEP_MS);
     };
     step();
