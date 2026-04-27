@@ -139,7 +139,7 @@ export default function LudoGame({
   const teamTurnCycleRef = useRef(0);
   const soundMutedRef = useRef(false);
   const bumpFlashTimerRef = useRef(null);
-  // Tracks user IDs that missed their turn (inactive) — auto-play instantly for them
+  const [isAutoPlay, setIsAutoPlay] = useState(false);
   const inactivePlayersRef = useRef(new Set());
 
   // ─── Sound utility ────────────────────────────
@@ -324,6 +324,7 @@ export default function LudoGame({
     // Reset inactive tracking on new session
     if (!currentSession?.id) {
       inactivePlayersRef.current = new Set();
+      setIsAutoPlay(false);
     }
   }, [currentSession?.id, currentSession?.status]);
 
@@ -427,26 +428,22 @@ export default function LudoGame({
     }
 
     const turnKey = `${currentSession.id}:${currentSession.current_turn_user_id}:${currentSession.last_roll || 0}`;
-    const isInactive = inactivePlayersRef.current.has(String(user?.id));
     const hasRolled = Number(currentSession?.last_roll || 0) > 0;
 
     if (turnTimerRef.current) clearInterval(turnTimerRef.current);
 
-    if (isInactive) {
+    if (isAutoPlay) {
       setTurnTimeLeft(0);
-      // Inactive: wait only 2s before rolling, 400ms before moving piece
       const waitMs = hasRolled ? 400 : 2000;
       let actionFired = false;
 
-      // Start a short countdown then poll until not rolling
       const fireTimeout = setTimeout(() => {
-        // Now poll every 60ms until rolling=false
         turnTimerRef.current = setInterval(() => {
           if (actionFired) { clearInterval(turnTimerRef.current); turnTimerRef.current = null; return; }
           const currentKey = `${autoActionStateRef.current.sessionId}:${autoActionStateRef.current.turnUserId}:${autoActionStateRef.current.sessionLastRoll || 0}`;
           if (currentKey !== turnKey) { clearInterval(turnTimerRef.current); turnTimerRef.current = null; return; }
           const { sessionLastRoll: slr, movablePieces: mp, rolling: r } = autoActionStateRef.current;
-          if (r) return; // still rolling — wait
+          if (r) return;
           clearInterval(turnTimerRef.current);
           turnTimerRef.current = null;
           actionFired = true;
@@ -476,7 +473,9 @@ export default function LudoGame({
         const currentKey = `${autoActionStateRef.current.sessionId}:${autoActionStateRef.current.turnUserId}:${autoActionStateRef.current.sessionLastRoll || 0}`;
         if (actionFired || currentKey !== turnKey) return;
         actionFired = true;
+        // Mark as auto-play for all future turns
         inactivePlayersRef.current.add(String(user?.id));
+        setIsAutoPlay(true);
         const { sessionLastRoll: slr, movablePieces: mp, rolling: r, rollDice: rd, handlePieceSelect: hps } = autoActionStateRef.current;
         if (!slr && !r) rd();
         else if (slr > 0 && mp?.length > 0) hps(mp[0]);
@@ -486,7 +485,7 @@ export default function LudoGame({
     return () => {
       if (turnTimerRef.current) { clearInterval(turnTimerRef.current); turnTimerRef.current = null; }
     };
-  }, [currentSession?.id, currentSession?.current_turn_user_id, currentSession?.last_roll, currentSession?.status, open]);
+  }, [currentSession?.id, currentSession?.current_turn_user_id, currentSession?.last_roll, currentSession?.status, open, isAutoPlay]);
 
   // ─── Resign notifications ─────────────────────
   useEffect(() => {
@@ -1375,6 +1374,7 @@ export default function LudoGame({
 
     // Player is actively rolling — remove from inactive set so auto-play stops
     inactivePlayersRef.current.delete(String(user.id));
+    setIsAutoPlay(false);
 
     setRolling(true);
     setDiceAnimating(true);
@@ -1820,6 +1820,7 @@ export default function LudoGame({
     movingPieceRef.current = true;
     // Player is actively selecting — remove from inactive set
     inactivePlayersRef.current.delete(String(user?.id));
+    setIsAutoPlay(false);
     setSelectedPiece(pieceNumber);
     try {
       await movePiece(pieceNumber);
