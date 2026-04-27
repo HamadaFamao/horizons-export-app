@@ -432,33 +432,46 @@ export default function LudoGame({
 
     const turnKey = `${currentSession.id}:${currentSession.current_turn_user_id}:${currentSession.last_roll || 0}`;
     const isInactive = inactivePlayersRef.current.has(String(user?.id));
-    // Inactive player: fire auto-action almost instantly (300ms) with no countdown UI
-    const delay = isInactive ? 300 : 12000;
 
     if (turnTimerRef.current) clearInterval(turnTimerRef.current);
-    setTurnTimeLeft(isInactive ? 0 : 12);
-
-    let actionFired = false;
 
     if (isInactive) {
-      // Fire immediately without interval
-      turnTimerRef.current = setTimeout(() => {
-        turnTimerRef.current = null;
+      setTurnTimeLeft(0);
+      let actionFired = false;
+
+      // Poll every 80ms until we can fire — handles rolling=true delay gracefully
+      turnTimerRef.current = setInterval(() => {
+        if (actionFired) { clearInterval(turnTimerRef.current); turnTimerRef.current = null; return; }
+
         const currentKey = `${autoActionStateRef.current.sessionId}:${autoActionStateRef.current.turnUserId}:${autoActionStateRef.current.sessionLastRoll || 0}`;
-        if (actionFired || currentKey !== turnKey) return;
+        if (currentKey !== turnKey) { clearInterval(turnTimerRef.current); turnTimerRef.current = null; return; }
+
+        const { sessionLastRoll: slr, movablePieces: mp, rolling: r } = autoActionStateRef.current;
+
+        // Wait until not rolling before firing
+        if (r) return;
+
+        clearInterval(turnTimerRef.current);
+        turnTimerRef.current = null;
         actionFired = true;
-        const { sessionLastRoll: slr, movablePieces: mp, rolling: r, rollDice: rd, handlePieceSelect: hps } = autoActionStateRef.current;
-        if (!slr && !r) rd();
-        else if (slr > 0 && mp && mp.length > 0) hps(mp[0]);
-      }, delay);
+
+        if (!slr) {
+          autoActionStateRef.current.rollDice();
+        } else if (slr > 0 && mp && mp.length > 0) {
+          autoActionStateRef.current.handlePieceSelect(mp[0]);
+        }
+      }, 80);
 
       return () => {
-        if (turnTimerRef.current) { clearTimeout(turnTimerRef.current); turnTimerRef.current = null; }
+        if (turnTimerRef.current) { clearInterval(turnTimerRef.current); turnTimerRef.current = null; }
       };
     }
 
     // Active player: 12s countdown
+    setTurnTimeLeft(12);
     let remaining = 12;
+    let actionFired = false;
+
     turnTimerRef.current = setInterval(() => {
       remaining -= 1;
       setTurnTimeLeft(remaining);
@@ -470,7 +483,7 @@ export default function LudoGame({
         if (actionFired || currentKey !== turnKey) return;
         actionFired = true;
 
-        // Mark as inactive for all future turns
+        // Mark as inactive for all future turns in this session
         inactivePlayersRef.current.add(String(user?.id));
 
         const { sessionLastRoll: slr, movablePieces: mp, rolling: r, rollDice: rd, handlePieceSelect: hps } = autoActionStateRef.current;
