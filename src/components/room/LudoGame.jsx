@@ -427,65 +427,76 @@ export default function LudoGame({
       return;
     }
 
-    const turnKey = `${currentSession.id}:${currentSession.current_turn_user_id}:${currentSession.last_roll || 0}`;
-    const hasRolled = Number(currentSession?.last_roll || 0) > 0;
+    if (turnTimerRef.current) { clearInterval(turnTimerRef.current); turnTimerRef.current = null; }
 
-    if (turnTimerRef.current) clearInterval(turnTimerRef.current);
+    // isAutoPlay ref value at the time this turn starts
+    const autoMode = isAutoPlay;
 
-    if (isAutoPlay) {
+    if (autoMode) {
+      // ── Auto-play mode: fast loop ──────────────
       setTurnTimeLeft(0);
-      const waitMs = hasRolled ? 400 : 2000;
-      let actionFired = false;
+      let fired = false;
 
-      const fireTimeout = setTimeout(() => {
-        turnTimerRef.current = setInterval(() => {
-          if (actionFired) { clearInterval(turnTimerRef.current); turnTimerRef.current = null; return; }
-          const currentKey = `${autoActionStateRef.current.sessionId}:${autoActionStateRef.current.turnUserId}:${autoActionStateRef.current.sessionLastRoll || 0}`;
-          if (currentKey !== turnKey) { clearInterval(turnTimerRef.current); turnTimerRef.current = null; return; }
-          const { sessionLastRoll: slr, movablePieces: mp, rolling: r } = autoActionStateRef.current;
-          if (r) return;
-          clearInterval(turnTimerRef.current);
-          turnTimerRef.current = null;
-          actionFired = true;
-          if (!slr) autoActionStateRef.current.rollDice();
-          else if (slr > 0 && mp?.length > 0) autoActionStateRef.current.handlePieceSelect(mp[0]);
+      // Short initial wait (1.2s for roll, 0.4s for piece move) then fire
+      const WAIT = Number(currentSession?.last_roll || 0) > 0 ? 400 : 1200;
+
+      const t = setTimeout(() => {
+        if (fired) return;
+        const poll = setInterval(() => {
+          if (fired) { clearInterval(poll); return; }
+          // Verify still my turn
+          const sess = autoActionStateRef.current;
+          if (String(sess.turnUserId) !== String(user?.id)) { clearInterval(poll); return; }
+          if (sess.rolling) return; // wait for rolling to finish
+          clearInterval(poll);
+          fired = true;
+          if (!sess.sessionLastRoll) sess.rollDice();
+          else if (sess.movablePieces?.length > 0) sess.handlePieceSelect(sess.movablePieces[0]);
         }, 60);
-      }, waitMs);
+        turnTimerRef.current = poll;
+      }, WAIT);
 
       return () => {
-        clearTimeout(fireTimeout);
+        clearTimeout(t);
         if (turnTimerRef.current) { clearInterval(turnTimerRef.current); turnTimerRef.current = null; }
       };
     }
 
-    // Active player: 12s countdown
+    // ── Active mode: 12s countdown ────────────────
     setTurnTimeLeft(12);
     let remaining = 12;
-    let actionFired = false;
+    let fired = false;
 
     turnTimerRef.current = setInterval(() => {
       remaining -= 1;
       setTurnTimeLeft(remaining);
+      if (remaining > 0) return;
 
-      if (remaining <= 0) {
-        clearInterval(turnTimerRef.current);
-        turnTimerRef.current = null;
-        const currentKey = `${autoActionStateRef.current.sessionId}:${autoActionStateRef.current.turnUserId}:${autoActionStateRef.current.sessionLastRoll || 0}`;
-        if (actionFired || currentKey !== turnKey) return;
-        actionFired = true;
-        // Mark as auto-play for all future turns
-        inactivePlayersRef.current.add(String(user?.id));
-        setIsAutoPlay(true);
-        const { sessionLastRoll: slr, movablePieces: mp, rolling: r, rollDice: rd, handlePieceSelect: hps } = autoActionStateRef.current;
-        if (!slr && !r) rd();
-        else if (slr > 0 && mp?.length > 0) hps(mp[0]);
-      }
+      clearInterval(turnTimerRef.current);
+      turnTimerRef.current = null;
+      if (fired) return;
+      fired = true;
+
+      // Switch to auto-play mode
+      setIsAutoPlay(true);
+
+      // Fire the action now too
+      const sess = autoActionStateRef.current;
+      if (!sess.sessionLastRoll && !sess.rolling) sess.rollDice();
+      else if (sess.sessionLastRoll > 0 && sess.movablePieces?.length > 0) sess.handlePieceSelect(sess.movablePieces[0]);
     }, 1000);
 
     return () => {
       if (turnTimerRef.current) { clearInterval(turnTimerRef.current); turnTimerRef.current = null; }
     };
-  }, [currentSession?.id, currentSession?.current_turn_user_id, currentSession?.last_roll, currentSession?.status, open, isAutoPlay]);
+  }, [
+    currentSession?.id,
+    currentSession?.current_turn_user_id,
+    currentSession?.last_roll,
+    currentSession?.status,
+    open,
+    isAutoPlay,
+  ]);
 
   // ─── Resign notifications ─────────────────────
   useEffect(() => {
