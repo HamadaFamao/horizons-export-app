@@ -46,6 +46,7 @@ export default function RaceGame({
   const [allDiceAnimating, setAllDiceAnimating] = useState({});
   const [anyoneMoving, setAnyoneMoving]       = useState(false);
   const [animatingPlayer, setAnimatingPlayer] = useState(null);
+  const [turnPausedByResign, setTurnPausedByResign] = useState(false);
   const [soundMuted, setSoundMuted]           = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
 
@@ -55,8 +56,10 @@ export default function RaceGame({
   const channelRef       = useRef(null);
   const resultFiredRef   = useRef(false);
   const soundMutedRef    = useRef(false);
+  const playersRef       = useRef([]);
 
   useEffect(() => { soundMutedRef.current = soundMuted; }, [soundMuted]);
+  useEffect(() => { playersRef.current = players; }, [players]);
 
   // ── Sound utility ─────────────────────────────────────────────────────────
   const playSound = (type) => {
@@ -177,13 +180,24 @@ export default function RaceGame({
         if (String(userId) === String(user?.id)) return;
         setAnyoneMoving(true);
         setPlayers(prev => prev.map(p =>
-          String(p.user_id) === String(userId) ? { ...p, position } : p
+          String(p.user_id) === String(userId)
+            ? (!isDone && Number(position) < Number(p.position || 0) ? p : { ...p, position })
+            : p
         ));
-        if (isDone) setAnyoneMoving(false);
+        if (isDone) {
+          setAnyoneMoving(false);
+          setAnimatingPlayer(null);
+          delete animatingPosRef.current[userId];
+        }
       })
       .on('broadcast', { event: 'dice_roll' }, ({ payload }) => {
         if (!payload) return;
         const { userId, roll, color } = payload;
+        const rollingPlayer = playersRef.current.find(p => String(p.user_id) === String(userId));
+        if (rollingPlayer) {
+          animatingPosRef.current[userId] = Math.max(1, rollingPlayer.position || 1);
+          setAnimatingPlayer(userId);
+        }
         setAllDiceAnimating(prev => ({ ...prev, [userId]: true }));
         setAllDiceRolls(prev => ({ ...prev, [userId]: { roll: null, color } }));
         let count = 0;
@@ -534,6 +548,25 @@ export default function RaceGame({
     finally { setLeaving(false); }
   };
 
+  const assignPlayerTeam = async (playerId, teamKey) => {
+    if (!currentSession?.id) return;
+    const nextTeamCount = players.filter(p => p.team_key === teamKey && p.id !== playerId).length;
+    if (nextTeamCount >= 2) {
+      alert(`Team ${teamKey} is full`);
+      return;
+    }
+    const { error } = await supabase
+      .from('room_race_players')
+      .update({ team_key: teamKey })
+      .eq('id', playerId)
+      .eq('session_id', currentSession.id);
+    if (error) {
+      alert(error.message || 'Failed to assign team');
+      return;
+    }
+    await loadPlayers(currentSession.id);
+  };
+
   const startGame = async () => {
     if (!currentSession?.id || !canModerate) return;
     if (players.length < 2) { alert('Need at least 2 players'); return; }
@@ -613,14 +646,18 @@ export default function RaceGame({
     step();
   };
 
-  const rollDice = async () => {
-    if (!currentSession?.id || !user?.id) return;
-    if (String(currentSession.current_turn_user_id) !== String(user.id)) { alert("It's not your turn!"); return; }
+  const rollDice = async (actorUserId = user?.id, options = {}) => {
+    const { silentTurnError = false, silentActionError = false } = options;
+    if (!currentSession?.id || !actorUserId) return;
+    if (String(currentSession.current_turn_user_id) !== String(actorUserId)) {
+      if (!silentTurnError) alert("It's not your turn!");
+      return;
+    }
     if (rolling) return;
     setRolling(true); setAnyoneMoving(true); setDiceAnimating(true);
-    const myPlayer = players.find(p => String(p.user_id) === String(user.id));
-    const myColor = myPlayer?.color || '#ffffff';
-    channelRef.current?.send({ type: 'broadcast', event: 'dice_roll', payload: { userId: user.id, roll: 0, color: myColor } });
+    const actorPlayer = players.find(p => String(p.user_id) === String(actorUserId));
+    const actorColor = actorPlayer?.color || '#ffffff';
+    channelRef.current?.send({ type: 'broadcast', event: 'dice_roll', payload: { userId: actorUserId, roll: 0, color: actorColor } });
     let count = 0;
     const interval = setInterval(() => {
       setDiceDisplay(Math.floor(Math.random() * 6));
@@ -629,19 +666,22 @@ export default function RaceGame({
     }, 80);
     playSound('roll');
     try {
-      const { data, error } = await supabase.rpc('roll_race_dice', { p_session_id: currentSession.id, p_user_id: user.id });
+      const { data, error } = await supabase.rpc('roll_race_dice', { p_session_id: currentSession.id, p_user_id: actorUserId });
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Failed to roll');
-      channelRef.current?.send({ type: 'broadcast', event: 'dice_roll', payload: { userId: user.id, roll: data.roll, color: myColor } });
-      const fromPos = Math.max(1, myPlayer?.position || 1);
+      channelRef.current?.send({ type: 'broadcast', event: 'dice_roll', payload: { userId: actorUserId, roll: data.roll, color: actorColor } });
+      const fromPos = Math.max(1, actorPlayer?.position || 1);
+      // Pin token at source while DB/realtime updates arrive to avoid jump-back animation.
+      animatingPosRef.current[actorUserId] = fromPos;
+      setAnimatingPlayer(actorUserId);
       setLastRoll(data.roll);
-      setAllDiceRolls(prev => ({ ...prev, [user.id]: { roll: data.roll, color: myColor, animating: false } }));
+      setAllDiceRolls(prev => ({ ...prev, [actorUserId]: { roll: data.roll, color: actorColor, animating: false } }));
 
       const specialType = data.special_event?.includes('ladder') ? 'ladder'
         : data.special_event?.includes('snake') ? 'snake' : null;
 
       const bumpedIds = data.special_event?.includes('bump')
-        ? players.filter(p => String(p.user_id) !== String(user.id) && p.position === data.final_position).map(p => String(p.user_id))
+        ? players.filter(p => String(p.user_id) !== String(actorUserId) && p.position === data.final_position).map(p => String(p.user_id))
         : [];
 
       if (data.special_event === 'overshoot') {
@@ -657,24 +697,27 @@ export default function RaceGame({
 
       setTimeout(() => {
         setDiceDisplay(null);
-        animateSteps(user.id, fromPos, data.new_position, data.final_position, specialType, bumpedIds, async () => {
+        animateSteps(actorUserId, fromPos, data.new_position, data.final_position, specialType, bumpedIds, async () => {
           setAnyoneMoving(false);
           if (data.special_event) { setSpecialEvent(data.special_event); setTimeout(() => setSpecialEvent(null), 2500); }
           onCoinsUpdated?.();
-          delete animatingPosRef.current[user.id];
+          delete animatingPosRef.current[actorUserId];
           bumpedIds.forEach(uid => delete animatingPosRef.current[uid]);
           await loadPlayers(currentSession.id);
           const { data: sd } = await supabase.from('room_race_sessions').select('*').eq('id', currentSession.id).single();
           if (sd) setCurrentSession(sd);
         });
       }, 600);
-    } catch (err) { alert(err.message || 'Failed to roll'); }
+    } catch (err) {
+      if (!silentActionError) alert(err.message || 'Failed to roll');
+    }
     finally { setRolling(false); }
   };
 
   const isJoined  = players.some(p => String(p.user_id) === String(user?.id));
   const isFull    = players.length >= (currentSession?.max_players || 0);
   const isMyTurn  = String(currentSession?.current_turn_user_id) === String(user?.id);
+  const myPlayer  = players.find(p => String(p.user_id) === String(user?.id));
   const netPrize  = Math.floor((currentSession?.entry_cost || 0) * players.length * 0.9);
 
   const autoPlayRef = useRef(false); // true = player missed their turn once
@@ -682,6 +725,8 @@ export default function RaceGame({
   // Auto-play: 8s first time, then instant for inactive players
   useEffect(() => {
     if (!isMyTurn || currentSession?.status !== 'playing' || !open) return;
+    if (myPlayer?.left_at) return;
+    if (turnPausedByResign) return;
     if (rolling || anyoneMoving) return;
 
     const delay = autoPlayRef.current ? 800 : 8000;
@@ -692,7 +737,43 @@ export default function RaceGame({
       }
     }, delay);
     return () => clearTimeout(t);
-  }, [isMyTurn, currentSession?.current_turn_user_id, rolling, anyoneMoving, open]);
+  }, [isMyTurn, currentSession?.current_turn_user_id, rolling, anyoneMoving, open, myPlayer?.left_at, turnPausedByResign]);
+
+  useEffect(() => {
+    if (!open || currentSession?.status !== 'playing') {
+      setTurnPausedByResign(false);
+      return;
+    }
+    if (rolling || anyoneMoving) return;
+    const turnPlayer = players.find(p => String(p.user_id) === String(currentSession.current_turn_user_id));
+    if (!turnPlayer?.left_at) {
+      setTurnPausedByResign(false);
+      return;
+    }
+
+    if (currentSession.team_mode) {
+      setTurnPausedByResign(false);
+      const t = setTimeout(() => {
+        rollDice(turnPlayer.user_id, { silentTurnError: true, silentActionError: true });
+      }, 900);
+      return () => clearTimeout(t);
+    }
+
+    if (players.length > 2) {
+      setTurnPausedByResign(true);
+      return;
+    }
+
+    setTurnPausedByResign(false);
+  }, [
+    open,
+    currentSession?.status,
+    currentSession?.team_mode,
+    currentSession?.current_turn_user_id,
+    players,
+    rolling,
+    anyoneMoving,
+  ]);
 
   // Reset auto-play when player manually rolls
   const markActive = () => { autoPlayRef.current = false; };
@@ -734,7 +815,7 @@ export default function RaceGame({
           const diceData = allDiceRolls[uid];
           const isAnimating = allDiceAnimating[uid] || false;
           const isMe = String(uid) === String(user?.id);
-          const canRoll = isMyTurn && isMe && currentSession?.status === 'playing' && !rolling && !anyoneMoving;
+          const canRoll = isMyTurn && isMe && currentSession?.status === 'playing' && !rolling && !anyoneMoving && !isResigned && !turnPausedByResign;
           if (!diceData && !isCurrentTurn) return null;
           const num = Math.min(diceData?.roll || 1, 6);
           const dotPositions = {
@@ -797,7 +878,7 @@ export default function RaceGame({
                         {resigning ? '...' : '🚪 Resign Game'}
                       </button>
                     )}
-                    {canModerate && (currentSession?.status === 'waiting' || currentSession?.status === 'playing') && (
+                    {canModerate && currentSession?.status === 'waiting' && (
                       <button onClick={() => { setShowSettingsMenu(false); cancelSession(); }} className="w-full text-left px-4 py-2.5 text-rose-400 font-bold text-sm hover:bg-rose-500/10 transition">
                         🚫 Cancel Game
                       </button>
@@ -862,6 +943,12 @@ export default function RaceGame({
                 </div>
               )}
 
+              {turnPausedByResign && (
+                <div className="text-center py-1.5 px-3 rounded-xl text-[11px] font-black bg-amber-500/20 border border-amber-400/40 text-amber-200">
+                  ⏸️ Turn paused: a resigned player is on turn (solo match with more than 2 players).
+                </div>
+              )}
+
               <div className="bg-slate-900 rounded-xl p-2 overflow-hidden shadow-inner border border-white/5 flex justify-center">
                 <canvas ref={canvasRef} width={800} height={800} className="w-full max-w-[400px] aspect-square rounded-lg shadow-md" />
               </div>
@@ -893,6 +980,12 @@ export default function RaceGame({
                               <img src={p.avatar_url || FALLBACK_AVATAR} alt={p.name} className="w-5 h-5 rounded-full" onError={e => e.currentTarget.src = FALLBACK_AVATAR} />
                               <span className="text-white text-[10px] font-bold truncate flex-1">{p.name}</span>
                               {String(p.user_id) === String(user?.id) && <span className="text-amber-300 text-[8px]">You</span>}
+                              <button
+                                onClick={() => assignPlayerTeam(p.id, team === 'A' ? 'B' : 'A')}
+                                className="text-[8px] px-1.5 py-0.5 rounded bg-white/15 hover:bg-white/25 text-white font-black"
+                              >
+                                {team === 'A' ? '→B' : '→A'}
+                              </button>
                             </div>
                           ))}
                           {players.filter(p => p.team_key === team).length < 2 && (
@@ -913,6 +1006,35 @@ export default function RaceGame({
                   }} className="w-full py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-xs active:scale-95 transition">
                     🔀 Random Teams
                   </button>
+                  <div className="flex flex-col gap-1.5 rounded-xl bg-white/5 border border-white/10 p-2">
+                    <div className="text-white/70 text-[10px] font-bold text-center uppercase tracking-wider">Manual Team Selection</div>
+                    {players.map(p => {
+                      const countA = players.filter(x => x.team_key === 'A' && x.id !== p.id).length;
+                      const countB = players.filter(x => x.team_key === 'B' && x.id !== p.id).length;
+                      const lockA = countA >= 2 && p.team_key !== 'A';
+                      const lockB = countB >= 2 && p.team_key !== 'B';
+                      return (
+                        <div key={`manual-${p.id}`} className="flex items-center gap-2 bg-white/5 rounded-lg px-2 py-1.5">
+                          <img src={p.avatar_url || FALLBACK_AVATAR} alt={p.name} className="w-5 h-5 rounded-full" onError={e => e.currentTarget.src = FALLBACK_AVATAR} />
+                          <span className="text-white text-[10px] font-bold truncate flex-1">{p.name}</span>
+                          <button
+                            disabled={lockA}
+                            onClick={() => assignPlayerTeam(p.id, 'A')}
+                            className={`text-[9px] px-2 py-0.5 rounded font-black ${p.team_key === 'A' ? 'bg-cyan-500 text-white' : 'bg-cyan-500/20 text-cyan-200'} disabled:opacity-40`}
+                          >
+                            A
+                          </button>
+                          <button
+                            disabled={lockB}
+                            onClick={() => assignPlayerTeam(p.id, 'B')}
+                            className={`text-[9px] px-2 py-0.5 rounded font-black ${p.team_key === 'B' ? 'bg-violet-500 text-white' : 'bg-violet-500/20 text-violet-200'} disabled:opacity-40`}
+                          >
+                            B
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-1.5 my-1">
