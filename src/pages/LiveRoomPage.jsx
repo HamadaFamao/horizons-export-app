@@ -9638,7 +9638,7 @@ useEffect(() => {
           />
 
           {/* Side action column */}
-          <div className="absolute right-0 top-1/2 -translate-y-1/2 z-30 flex flex-col gap-2 pr-1.5">
+          <div className="absolute right-0 bottom-16 z-30 flex flex-col gap-2 pr-1.5">
             {/* Follow */}
             <button
               onClick={toggleFollowRoom}
