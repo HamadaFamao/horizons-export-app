@@ -1665,9 +1665,14 @@ useEffect(() => {
 
   const playSong = async (index) => {
     if (!canModerate) return;
+
+    // Stop current song silently before playing new one
     if (musicPlaying) {
-      toast('⏹ Stop current song first', 1400);
-      return;
+      roomMusicPlayer.stop();
+      setMusicPlaying(false);
+      setMusicProgress(0);
+      clearInterval(musicProgressIntervalRef.current);
+      await new Promise(resolve => setTimeout(resolve, 200));
     }
 
     const song = playlist[index];
@@ -9334,13 +9339,15 @@ useEffect(() => {
                       {canModerate && (
                         <div className="shrink-0 flex items-center gap-1">
                           <button
-                            onClick={() => playSong(index)}
-                            disabled={musicPlaying && currentSongIndex !== index}
-                            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm transition ${
-                              musicPlaying && currentSongIndex !== index
-                                ? 'bg-white/5 text-white/20 cursor-not-allowed'
-                                : 'bg-white/10 hover:bg-emerald-500/80 text-white cursor-pointer'
-                            }`}
+                            onClick={() => {
+                              if (currentSongIndex === index && musicPlaying) {
+                                roomMusicPlayer.pause();
+                                setMusicPlaying(false);
+                              } else {
+                                playSong(index);
+                              }
+                            }}
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-sm transition bg-white/10 hover:bg-emerald-500/80 text-white cursor-pointer"
                           >
                             {currentSongIndex === index && musicPlaying ? '⏸' : '▶'}
                           </button>
