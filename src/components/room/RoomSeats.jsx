@@ -1,5 +1,5 @@
 import React from "react";
-import RoomEmojiAsset from "./RoomChat.jsx";
+import { RoomEmojiAsset } from "./RoomChat.jsx";
 import { XCircle, MicOff } from "lucide-react";
 import { ROOM_EMOJIS } from "@/lib/roomEmojis";
 

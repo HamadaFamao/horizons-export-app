@@ -1,4 +1,4 @@
-function RoomEmojiAsset({
+export function RoomEmojiAsset({
   src,
   alt = "emoji",
   className = "",
