@@ -313,24 +313,13 @@ export default function LudoGame({
   };
 
   const getRelativeVisualSeat = (player, playersList = players) => {
-    // Returns which UI corner to show this player's card:
-    // 0=bottom-left, 1=bottom-right, 2=top-right, 3=top-left
-    // Each viewer sees THEMSELVES at bottom-left (0)
-    const totalPlayers = playersList.length;
-    if (!totalPlayers) return 0;
-    const layout = VISUAL_SEAT_LAYOUTS[totalPlayers] || [0, 1, 2, 3];
-
-    // My absolute color index
-    const myPlayer = playersList.find(p => String(p.user_id) === String(user?.id));
-    const myColorIdx = myPlayer ? normalizeColorIndex(getPlayerColorIndex(myPlayer, playersList)) : 0;
-
-    // This player's absolute color index
-    const playerColorIdx = normalizeColorIndex(getPlayerColorIndex(player, playersList));
-
-    // Relative index: how far is this player from me (clockwise)
-    const relativeColorIdx = (playerColorIdx - myColorIdx + 4) % 4;
-
-    return layout[relativeColorIdx] ?? relativeColorIdx;
+    // Returns FIXED UI corner based on absolute color index:
+    // color 0 (Red/seat1)   = corner 0 (bottom-left)
+    // color 1 (Blue/seat2)  = corner 1 (bottom-right)
+    // color 2 (Yellow/seat3)= corner 2 (top-right)
+    // color 3 (Green/seat4) = corner 3 (top-left)
+    const colorIdx = normalizeColorIndex(getPlayerColorIndex(player, playersList));
+    return colorIdx;
   };
 
   // ─── Cleanup ─────────────────────────────────
@@ -954,19 +943,10 @@ export default function LudoGame({
     const boardPlayers = getVisiblePlayersList(players, currentSession);
 
     const getVisualColorIndex = (cornerIdx) => {
-      // Rotate board colors so each viewer sees THEIR color at bottom-left (cornerIdx=0)
-      // cornerIdx: 0=bottom-left, 1=bottom-right, 2=top-right, 3=top-left
-      const myPlayer = boardPlayers.find(p => String(p.user_id) === String(user?.id));
-      const myColorIdx = myPlayer
-        ? normalizeColorIndex(getPlayerColorIndex(myPlayer, boardPlayers))
-        : 0;
-      // Which absolute color belongs at this visual corner?
-      // If I'm color 2 (Yellow), then:
-      //   corner 0 (my corner) → color 2
-      //   corner 1 → color 3
-      //   corner 2 → color 0
-      //   corner 3 → color 1
-      return (cornerIdx + myColorIdx) % 4;
+      // Board is COMPLETELY FIXED for all viewers
+      // corner 0 (bottom-left) = Red(0), corner 1 (bottom-right) = Blue(1)
+      // corner 2 (top-right) = Yellow(2), corner 3 (top-left) = Green(3)
+      return normalizeColorIndex(cornerIdx);
     };
 
     ctx.clearRect(0, 0, W, W);
