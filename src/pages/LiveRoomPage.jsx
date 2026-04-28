@@ -9205,8 +9205,11 @@ useEffect(() => {
                         onClick={async () => {
                           const prevIndex = (currentSongIndex ?? 0) - 1;
                           if (prevIndex >= 0) {
-                            await stopMusic();
-                            setTimeout(() => playSong(prevIndex), 300);
+                            roomMusicPlayer.stop();
+                            setMusicPlaying(false);
+                            setMusicProgress(0);
+                            clearInterval(musicProgressIntervalRef.current);
+                            setTimeout(() => playSong(prevIndex), 100);
                           }
                         }}
                         disabled={!currentSongIndex || currentSongIndex === 0}
@@ -9219,8 +9222,11 @@ useEffect(() => {
                         onClick={async () => {
                           const nextIndex = (currentSongIndex ?? 0) + 1;
                           if (nextIndex < playlist.length) {
-                            await stopMusic();
-                            setTimeout(() => playSong(nextIndex), 300);
+                            roomMusicPlayer.stop();
+                            setMusicPlaying(false);
+                            setMusicProgress(0);
+                            clearInterval(musicProgressIntervalRef.current);
+                            setTimeout(() => playSong(nextIndex), 100);
                           }
                         }}
                         disabled={currentSongIndex === null || currentSongIndex >= playlist.length - 1}
