@@ -1,6 +1,74 @@
+function RoomEmojiAsset({
+  src,
+  alt = "emoji",
+  className = "",
+  style,
+  loop = true,
+  autoplay = true,
+}) {
+  const [animationData, setAnimationData] = React.useState(null);
+  const isLottie = String(src || "").toLowerCase().endsWith(".json");
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    if (!isLottie || !src) {
+      setAnimationData(null);
+      return;
+    }
+
+    fetch(src)
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to load lottie");
+        return res.json();
+      })
+      .then((json) => {
+        if (!cancelled) setAnimationData(json);
+      })
+      .catch(() => {
+        if (!cancelled) setAnimationData(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [src, isLottie]);
+
+  if (isLottie) {
+    if (!animationData) {
+      return <div className={className} style={style} aria-label={alt} />;
+    }
+
+    return (
+      <Lottie
+        animationData={animationData}
+        loop={loop}
+        autoplay={autoplay}
+        className={className}
+        style={style}
+        rendererSettings={{
+          preserveAspectRatio: "xMidYMid meet",
+        }}
+      />
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      loading="lazy"
+      decoding="async"
+      className={className}
+      style={style}
+      draggable={false}
+    />
+  );
+}
 import React from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import Lottie from "lottie-react";
 import { Loader2, Send, Mic, MicOff, Gift } from "lucide-react";
 import { ROOM_EMOJIS } from "@/lib/roomEmojis";
 import { VOICE_FILTERS } from "@/lib/voiceFilters";
@@ -296,13 +364,9 @@ export default function RoomChat({
         onClick={() => handleEmojiSend(emoji)}
         className="flex items-center justify-center p-1 hover:bg-white/10 rounded-xl transition active:scale-90"
       >
-        <img
+        <RoomEmojiAsset
           src={emoji.src}
           alt={emoji.label}
-          loading="lazy"
-          decoding="async"
-          width={40}
-          height={40}
           className="w-10 h-10 object-contain select-none"
           style={{
             transform: emoji.flip ? "scaleX(-1)" : undefined,
@@ -325,14 +389,14 @@ export default function RoomChat({
             <div className="fixed bottom-[80px] right-4 pointer-events-none z-[60] flex flex-col-reverse items-end gap-2">
               {chatEmojiEffects.map((effect) => (
                 <div key={effect.id}>
-                  <img
+                  <RoomEmojiAsset
                     src={effect.src}
                     alt="reaction"
-                    className="w-14 h-14 object-contain drop-shadow-lg"
+                    className="w-14 h-14 object-contain drop-shadow-lg select-none"
                     style={{
-  animation: "chatEmojiRise 2.8s ease-out forwards",
-  transform: effect.flip ? "scaleX(-1)" : undefined,
-}}
+                      animation: "chatEmojiRise 2.8s ease-out forwards",
+                      transform: effect.flip ? "scaleX(-1)" : undefined,
+                    }}
                   />
                 </div>
               ))}
@@ -749,17 +813,13 @@ export default function RoomChat({
                           onClick={() => handleEmojiSend(emoji)}
                           className="flex items-center justify-center p-1 hover:bg-white/10 rounded-xl transition active:scale-90"
                         >
-                          <img
+                          <RoomEmojiAsset
                             src={emoji.src}
                             alt={emoji.label}
-                            loading="lazy"
-                            decoding="async"
-                            width={40}
-                            height={40}
-                            className="w-10 h-10 object-contain"
+                            className="w-10 h-10 object-contain select-none"
                             style={{
-  transform: emoji.flip ? "scaleX(-1)" : undefined,
-}}
+                              transform: emoji.flip ? "scaleX(-1)" : undefined,
+                            }}
                           />
                         </button>
                       ))
@@ -989,14 +1049,15 @@ export default function RoomChat({
                   isAutoRepeating ? "animate-pulse ring-2 ring-white/40" : ""
                 }`}
               >
-                <img
+                <RoomEmojiAsset
                   src={lastUsedEmoji.src}
                   alt={lastUsedEmoji.label}
-                  loading="lazy"
-                  width={28}
-                  height={28}
                   className="w-7 h-7 object-contain select-none"
-                  style={lastUsedEmoji.flip ? { transform: 'scaleX(-1)' } : undefined}
+                  style={
+                    lastUsedEmoji.flip
+                      ? { transform: "scaleX(-1)" }
+                      : undefined
+                  }
                 />
                 <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-white/90 flex items-center justify-center text-[9px] font-black text-slate-700">
                   ↺
