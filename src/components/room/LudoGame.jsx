@@ -313,16 +313,25 @@ export default function LudoGame({
   };
 
   const getRelativeVisualSeat = (player, playersList = players) => {
-    // Returns ABSOLUTE UI corner — same for all viewers
-    // seat 1=Red=corner 0(bottom-left), seat 2=Blue=corner 1(bottom-right)
-    // seat 3=Yellow=corner 2(top-right), seat 4=Green=corner 3(top-left)
     const totalPlayers = playersList.length;
     if (!totalPlayers) return 0;
+
     const layout = VISUAL_SEAT_LAYOUTS[totalPlayers] || [0, 1, 2, 3];
-    let seat = Number(player?.seat_number || 1);
-    if (seat > 100) seat = seat - 100;
-    const seatIdx = Math.max(0, seat - 1);
-    return layout[seatIdx] ?? seatIdx;
+    const sortedBySeat = [...playersList].sort((a, b) => a.seat_number - b.seat_number);
+
+    // FIX #6: Graceful fallback when user is not in the game (observer mode)
+    const myPlayerInGame = sortedBySeat.find(
+      p => String(p.user_id) === String(user?.id)
+    );
+    const myBaseIndex = myPlayerInGame
+      ? sortedBySeat.findIndex(p => String(p.user_id) === String(myPlayerInGame.user_id))
+      : 0;
+
+    const playerIndex = sortedBySeat.findIndex(p => String(p.user_id) === String(player.user_id));
+    if (playerIndex === -1) return 0;
+
+    const relativeIndex = ((playerIndex - myBaseIndex) % totalPlayers + totalPlayers) % totalPlayers;
+    return layout[relativeIndex] ?? 0;
   };
 
   // ─── Cleanup ─────────────────────────────────
@@ -817,20 +826,12 @@ export default function LudoGame({
     if (!sessionArg?.id || sessionArg?.status !== 'playing') return;
     if (!isTeamMode(sessionArg)) return;
 
-    // Count ALL players per team (including resigned ones who auto-play)
-    // Only end if BOTH players of a team have left — one resignation keeps the team alive
-    const allPlayers = (playersList || []).filter(p => !p.refunded_at);
-    const teamAAll = allPlayers.filter(p => getEffectiveTeam(p) === 'A');
-    const teamBAll = allPlayers.filter(p => getEffectiveTeam(p) === 'B');
-    const teamAActive = teamAAll.filter(p => !p.left_at);
-    const teamBActive = teamBAll.filter(p => !p.left_at);
+    const activePlayers = (playersList || []).filter(p => !p.refunded_at && !p.left_at);
+    const teamAPlayers = activePlayers.filter(p => getEffectiveTeam(p) === 'A');
+    const teamBPlayers = activePlayers.filter(p => getEffectiveTeam(p) === 'B');
 
-    // Team is eliminated only when ALL its members have left
-    const teamAEliminated = teamAAll.length > 0 && teamAActive.length === 0;
-    const teamBEliminated = teamBAll.length > 0 && teamBActive.length === 0;
-
-    if (teamAEliminated && !teamBEliminated) { await endGame('B', sessionArg); return; }
-    if (teamBEliminated && !teamAEliminated) { await endGame('A', sessionArg); }
+    if (teamAPlayers.length === 0 && teamBPlayers.length > 0) { await endGame('B', sessionArg); return; }
+    if (teamBPlayers.length === 0 && teamAPlayers.length > 0) { await endGame('A', sessionArg); }
   };
 
   // ─── Board geometry ───────────────────────────
@@ -839,14 +840,13 @@ export default function LudoGame({
     const pos = pieces[pieceIndex];
     if (typeof pos !== 'number') return null;
 
-    // geometryIdx: FIXED based on seat/color — same for ALL viewers
-    // This ensures pieces move on the same track regardless of who's watching
-    // seat 1=Red(0)=bottom-left, seat 2=Blue(1)=bottom-right
-    // seat 3=Yellow(2)=top-right, seat 4=Green(3)=top-left
-    const geometryIdx = normalizeColorIndex(getPlayerColorIndex(player, playersList));
+    // geometryIdx: which corner/lane/base to use — always relative to current viewer
+    // so each player sees themselves at bottom-left and others around the board.
+    const geometryIdx = normalizeColorIndex(getRelativeVisualSeat(player, playersList));
 
-    // colorIdx: same — used for piece ring color
-    const colorIdx = geometryIdx;
+    // colorIdx: the player's absolute color (derived from seat_number) — never changes.
+    // Used only for ring color and piece color, NOT for board geometry.
+    const colorIdx = normalizeColorIndex(getPlayerColorIndex(player, playersList));
     const finishedTriangleSlots = [
       [[8.35, 7.2], [8.35, 7.8], [8.7, 7.35], [8.7, 7.65]],
       [[7.2, 8.35], [7.8, 8.35], [7.35, 8.7], [7.65, 8.7]],
@@ -954,37 +954,22 @@ export default function LudoGame({
     const cellSize = W / CELLS;
     const boardPlayers = getVisiblePlayersList(players, currentSession);
 
-    // My color index — used for board rotation
-    const myBoardPlayer = boardPlayers.find(p => String(p.user_id) === String(user?.id));
-    const myColorIdx = myBoardPlayer
-      ? normalizeColorIndex(getPlayerColorIndex(myBoardPlayer, boardPlayers))
-      : 0;
-    // Rotate board so viewer always sees themselves at bottom-left
-    // colorIdx 0=0°, 1=90°CW, 2=180°, 3=270°CW
-    const boardRotRad = myColorIdx * Math.PI / 2;
-
     const getVisualColorIndex = (visualIdx) => {
-      // After rotation, corner 0 shows myColorIdx
-      return (visualIdx + myColorIdx) % 4;
+      const playerAtVisual = boardPlayers.find(p => getRelativeVisualSeat(p, boardPlayers) === visualIdx);
+      return normalizeColorIndex(playerAtVisual ? getPlayerColorIndex(playerAtVisual, boardPlayers) : visualIdx);
     };
 
     ctx.clearRect(0, 0, W, W);
 
-    // Six flash — drawn before rotation
+    // Six flash glow border
     if (sixFlash) {
       ctx.save();
-      ctx.shadowColor = '#fbbf24'; ctx.shadowBlur = 40;
-      ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 6;
+      ctx.shadowColor = '#fbbf24';
+      ctx.shadowBlur = 40;
+      ctx.strokeStyle = '#fbbf24';
+      ctx.lineWidth = 6;
       ctx.strokeRect(3, 3, W - 6, W - 6);
       ctx.restore();
-    }
-
-    // Apply board rotation so viewer sees themselves at bottom-left
-    ctx.save();
-    if (boardRotRad !== 0) {
-      ctx.translate(W / 2, W / 2);
-      ctx.rotate(boardRotRad);
-      ctx.translate(-W / 2, -W / 2);
     }
 
     const bgGrad = ctx.createRadialGradient(W/2, W/2, 0, W/2, W/2, W);
@@ -1320,10 +1305,7 @@ export default function LudoGame({
           ctx.fill();
           ctx.save();
           ctx.clip();
-          // Counter-rotate image so avatar stays upright despite board rotation
-          ctx.translate(drawX, drawYFinal);
-          ctx.rotate(-boardRotRad);
-          ctx.drawImage(img, -r, -r, r * 2, r * 2);
+          ctx.drawImage(img, drawX - r, drawYFinal - r, r * 2, r * 2);
           ctx.restore();
         } else {
           const pieceGrad = ctx.createRadialGradient(drawX - r*0.3, drawYFinal - r*0.3, r*0.1, drawX, drawYFinal, r);
@@ -1416,9 +1398,6 @@ export default function LudoGame({
         drawBoard();
       });
     }
-
-    // Close board rotation
-    ctx.restore();
   };
 
   // ─── Game logic ───────────────────────────────
@@ -1704,132 +1683,6 @@ export default function LudoGame({
     user?.id,
   ]);
 
-  // Handle stalled turns — player went offline without resigning
-  const stalledPlayersRef = useRef(new Set());
-  const stalledTurnRef = useRef({ inFlight: false, firedKey: '' });
-  const stalledTurnCounterRef = useRef(0);
-
-  useEffect(() => {
-    if (!open || currentSession?.status !== 'playing' || !currentSession?.id) return;
-
-    const turnUserId = String(currentSession?.current_turn_user_id || '');
-    if (!turnUserId || turnUserId === String(user?.id)) return;
-
-    const me = players.find(p => String(p.user_id) === String(user?.id));
-    if (!me || isPlayerLeft(me)) return;
-
-    const turnPlayer = players.find(p => String(p.user_id) === turnUserId);
-    if (!turnPlayer) return;
-    // This handler is for NON-resigned offline players only
-    // Resigned players are handled by leftTurnAction useEffect
-    if (isPlayerLeft(turnPlayer)) return;
-
-    const isKnownStalled = stalledPlayersRef.current.has(turnUserId);
-    const waitMs = isKnownStalled ? 2000 : 25000;
-
-    // Each time this effect runs for a new turn, increment counter
-    const myCounter = ++stalledTurnCounterRef.current;
-    const turnKey = `${currentSession.id}:${turnUserId}:${myCounter}`;
-
-    const t = setTimeout(async () => {
-      if (stalledTurnRef.current.firedKey === turnKey) return;
-      if (stalledTurnRef.current.inFlight) return;
-
-      stalledTurnRef.current.inFlight = true;
-      stalledTurnRef.current.firedKey = turnKey;
-      stalledPlayersRef.current.add(turnUserId);
-
-      try {
-        const sessionId = currentSession.id;
-
-        // Verify it's still this player's turn
-        const { data: sess } = await supabase
-          .from('room_ludo_sessions')
-          .select('current_turn_user_id, last_roll, status')
-          .eq('id', sessionId)
-          .single();
-
-        if (!sess || sess.status !== 'playing') return;
-        if (String(sess.current_turn_user_id) !== turnUserId) return;
-
-        if (!sess.last_roll || sess.last_roll === 0) {
-          // Roll for them
-          const { data: rollData } = await supabase.rpc('get_ludo_roll', {
-            p_session_id: sessionId,
-            p_user_id: turnUserId,
-          });
-
-          if (!rollData?.success || rollData?.turn_passed || rollData?.triple_six) {
-            await refreshSession();
-            return;
-          }
-
-          // Get fresh player data and move
-          const { data: playerData } = await supabase
-            .from('room_ludo_players')
-            .select('*')
-            .eq('session_id', sessionId)
-            .eq('user_id', turnUserId)
-            .maybeSingle();
-
-          if (playerData) {
-            const { data: freshSess } = await supabase
-              .from('room_ludo_sessions')
-              .select('last_roll')
-              .eq('id', sessionId)
-              .single();
-
-            const rollVal = freshSess?.last_roll || rollData?.roll || 0;
-            const movable = getMovablePieces(playerData, rollVal);
-            if (movable.length > 0) {
-              await supabase.rpc('move_ludo_piece', {
-                p_session_id: sessionId,
-                p_user_id: turnUserId,
-                p_piece_number: movable[0],
-              });
-            }
-          }
-        } else {
-          // Already rolled — just move
-          const { data: playerData } = await supabase
-            .from('room_ludo_players')
-            .select('*')
-            .eq('session_id', sessionId)
-            .eq('user_id', turnUserId)
-            .maybeSingle();
-
-          if (playerData) {
-            const movable = getMovablePieces(playerData, sess.last_roll);
-            if (movable.length > 0) {
-              await supabase.rpc('move_ludo_piece', {
-                p_session_id: sessionId,
-                p_user_id: turnUserId,
-                p_piece_number: movable[0],
-              });
-            }
-          }
-        }
-
-        await refreshSession();
-      } catch (e) {
-        console.error('Stalled turn error:', e);
-        try { await refreshSession(); } catch (_) {}
-      } finally {
-        stalledTurnRef.current.inFlight = false;
-      }
-    }, waitMs);
-
-    return () => clearTimeout(t);
-  }, [
-    open,
-    currentSession?.id,
-    currentSession?.status,
-    currentSession?.current_turn_user_id,
-    currentSession?.last_roll,
-    players,
-    user?.id,
-  ]);
-
   const passTurnToNextPlayer = async () => {
     if (!currentSession?.id) { await refreshSession(); return; }
 
@@ -2067,20 +1920,8 @@ export default function LudoGame({
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
-    let clickX = (e.clientX - rect.left) * scaleX;
-    let clickY = (e.clientY - rect.top) * scaleY;
-
-    // Reverse the board rotation to get geometry coordinates
-    const myColorIdx = normalizeColorIndex(getPlayerColorIndex(myPlayerLocal, boardPlayers));
-    if (myColorIdx !== 0) {
-      const cx = canvas.width / 2, cy = canvas.height / 2;
-      const angle = -(myColorIdx * Math.PI / 2);
-      const cos = Math.cos(angle), sin = Math.sin(angle);
-      const dx = clickX - cx, dy = clickY - cy;
-      clickX = cx + dx * cos - dy * sin;
-      clickY = cy + dx * sin + dy * cos;
-    }
-
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
     const cellSize = canvas.width / 15;
     const hitRadius = cellSize * 0.62;
 
@@ -2111,8 +1952,8 @@ export default function LudoGame({
       const [offX, offY] = movablePieceOffsetMap.get(pieceNum) || [0, 0];
       const px = piecePos.x + offX;
       const py = piecePos.y + offY;
-      const dx = clickX - px;
-      const dy = clickY - py;
+      const dx = x - px;
+      const dy = y - py;
       if (dx * dx + dy * dy <= hitRadius * hitRadius) {
         handlePieceSelect(pieceNum);
         return;
@@ -2466,8 +2307,6 @@ export default function LudoGame({
     const isResultPulse = showSettledValue && displayRollUserId === pid && diceResultPulseKey === resultRollKey;
     const isSixGlow = !isRollingNow && displayRollUserId === pid && displayRoll === 6 && diceSixGlowKey === resultRollKey;
 
-    const isWaitingForRoll = isCurrentTurnPlayer && !hasValue && !isRollingNow;
-
     return (
       <button
         type="button"
@@ -2482,14 +2321,9 @@ export default function LudoGame({
           style={{
             borderColor: PLAYER_COLORS[colorIdx],
             background: `linear-gradient(135deg, ${PLAYER_COLORS[colorIdx]}22, ${PLAYER_COLORS[colorIdx]}55)`,
-            boxShadow: isWaitingForRoll
-              ? `0 4px 12px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.25), 0 0 20px ${PLAYER_COLORS[colorIdx]}99, 0 0 8px ${PLAYER_COLORS[colorIdx]}`
-              : `0 4px 12px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.25), 0 0 12px ${PLAYER_COLORS[colorIdx]}55${isSixGlow ? ', 0 0 14px rgba(250,204,21,0.55)' : ''}`,
+            boxShadow: `0 4px 12px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.25), 0 0 12px ${PLAYER_COLORS[colorIdx]}55${isSixGlow ? ', 0 0 14px rgba(250,204,21,0.55)' : ''}`,
             transformOrigin: 'center center',
-            animation: isRollingNow ? 'ludoDiceSingleSpin 620ms linear 1 both'
-              : isTurnPulseDice ? 'ludoTurnDiceNudge 360ms ease-out 1'
-              : isWaitingForRoll ? 'ludoTurnDiceNudge 1.2s ease-in-out infinite'
-              : 'none',
+            animation: isRollingNow ? 'ludoDiceSingleSpin 620ms linear 1 both' : (isTurnPulseDice ? 'ludoTurnDiceNudge 360ms ease-out 1' : 'none'),
           }}
         >
           {showSettledValue ? (
@@ -2504,11 +2338,6 @@ export default function LudoGame({
           )}
         </div>
         {canRoll && <span className="absolute top-2 right-2 sm:top-3 sm:right-3 w-3 h-3 rounded-full bg-emerald-400 animate-ping" />}
-        {/* Show waiting pulse to ALL viewers when this player hasn't rolled yet */}
-        {!canRoll && isCurrentTurnPlayer && !hasValue && !isRollingNow && (
-          <span className="absolute top-2 right-2 sm:top-3 sm:right-3 w-3 h-3 rounded-full animate-ping"
-            style={{ backgroundColor: PLAYER_COLORS[colorIdx] }} />
-        )}
       </button>
     );
   };
