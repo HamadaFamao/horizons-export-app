@@ -1751,10 +1751,23 @@ useEffect(() => {
   const deleteSong = async (songId) => {
     if (!canModerate) return;
 
-    // If deleting the currently playing song, stop it first
     const deletingIndex = playlist.findIndex(s => s.id === songId);
+
+    // Stop if deleting currently playing song
     if (deletingIndex === currentSongIndex && musicPlaying) {
-      await stopMusic();
+      roomMusicPlayer.stop();
+      setMusicPlaying(false);
+      setCurrentSongIndex(null);
+      setMusicProgress(0);
+      clearInterval(musicProgressIntervalRef.current);
+
+      if (channelRef.current) {
+        await channelRef.current.send({
+          type: 'broadcast',
+          event: 'music_playing',
+          payload: { room_id: roomId, action: 'stop', ts: Date.now() },
+        });
+      }
     }
 
     const { error } = await supabase
@@ -1767,16 +1780,15 @@ useEffect(() => {
       return;
     }
 
-    // Fix currentSongIndex after deletion
-    if (deletingIndex < currentSongIndex) {
-      setCurrentSongIndex(prev => prev - 1);
-    } else if (deletingIndex === currentSongIndex) {
-      setCurrentSongIndex(null);
-      setMusicPlaying(false);
+    // Adjust index
+    if (currentSongIndex !== null) {
+      if (deletingIndex < currentSongIndex) {
+        setCurrentSongIndex(prev => prev - 1);
+      }
     }
 
     await fetchPlaylist();
-    toastSuccess('Song removed', 1200);
+    toastSuccess('🗑 Song removed', 1200);
   };
 
   const moveSong = async (index, direction) => {
@@ -9190,22 +9202,28 @@ useEffect(() => {
                   {canModerate && (
                     <div className="flex items-center gap-2 shrink-0">
                       <button
-                        onClick={() => {
-                          const prevIndex = currentSongIndex - 1;
-                          if (prevIndex >= 0) playSong(prevIndex);
+                        onClick={async () => {
+                          const prevIndex = (currentSongIndex ?? 0) - 1;
+                          if (prevIndex >= 0) {
+                            await stopMusic();
+                            setTimeout(() => playSong(prevIndex), 300);
+                          }
                         }}
-                        disabled={currentSongIndex === 0}
+                        disabled={!currentSongIndex || currentSongIndex === 0}
                         className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white disabled:opacity-30 transition"
                         title="Previous"
                       >
                         ⏮
                       </button>
                       <button
-                        onClick={() => {
-                          const nextIndex = currentSongIndex + 1;
-                          if (nextIndex < playlist.length) playSong(nextIndex);
+                        onClick={async () => {
+                          const nextIndex = (currentSongIndex ?? 0) + 1;
+                          if (nextIndex < playlist.length) {
+                            await stopMusic();
+                            setTimeout(() => playSong(nextIndex), 300);
+                          }
                         }}
-                        disabled={currentSongIndex >= playlist.length - 1}
+                        disabled={currentSongIndex === null || currentSongIndex >= playlist.length - 1}
                         className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white disabled:opacity-30 transition"
                         title="Next"
                       >
@@ -9213,31 +9231,30 @@ useEffect(() => {
                       </button>
                       <button
                         onClick={stopMusic}
-                        className="px-3 py-1.5 rounded-full bg-red-500/80 text-white text-xs font-bold hover:bg-red-500 transition"
+                        className="w-8 h-8 rounded-full bg-red-500/80 text-white flex items-center justify-center hover:bg-red-500 transition"
                       >
                         ⏹
                       </button>
                     </div>
                   )}
                 </div>
-                {/* Progress bar - clickable to seek */}
-                <div
-                  className="mt-2 h-2 bg-white/20 rounded-full overflow-hidden cursor-pointer"
-                  onClick={(e) => {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const x = e.clientX - rect.left;
-                    const percent = x / rect.width;
+                {/* Progress bar - draggable */}
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  value={musicProgress}
+                  onChange={(e) => {
+                    const percent = Number(e.target.value) / 100;
                     const duration = roomMusicPlayer.getDuration();
                     if (duration > 0) {
                       roomMusicPlayer.seekTo(percent * duration);
                     }
                   }}
-                >
-                  <div
-                    className="h-full bg-emerald-400 rounded-full transition-all"
-                    style={{ width: `${musicProgress}%` }}
-                  />
-                </div>
+                  className="mt-2 w-full accent-emerald-400 cursor-pointer"
+                  style={{ height: '4px' }}
+                />
               </div>
             )}
 
