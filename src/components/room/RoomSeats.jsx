@@ -1,4 +1,5 @@
 import React from "react";
+import RoomEmojiAsset from "./RoomChat.jsx";
 import { XCircle, MicOff } from "lucide-react";
 import { ROOM_EMOJIS } from "@/lib/roomEmojis";
 
@@ -194,7 +195,7 @@ export default function RoomSeats({
                             key={activeEffect.id}
                             className="absolute inset-0 flex items-center justify-center pointer-events-none z-20"
                           >
-                            <img
+                            <RoomEmojiAsset
                               src={activeEffect.src}
                               alt={activeEmojiMeta?.label || "reaction"}
                               className="w-16 h-16 object-contain drop-shadow-lg"
