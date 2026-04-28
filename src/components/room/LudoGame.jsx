@@ -942,16 +942,21 @@ export default function LudoGame({
     const cellSize = W / CELLS;
     const boardPlayers = getVisiblePlayersList(players, currentSession);
 
+    // ── Canvas rotation per viewer ─────────────────────────────────────────
+    const myBoardPlayer = boardPlayers.find(p => String(p.user_id) === String(user?.id));
+    const myColorIdx = myBoardPlayer
+      ? normalizeColorIndex(getPlayerColorIndex(myBoardPlayer, boardPlayers))
+      : 0;
+    const rotationRad = (myColorIdx * 90 * Math.PI) / 180;
+
     const getVisualColorIndex = (cornerIdx) => {
-      // Board is COMPLETELY FIXED for all viewers
-      // corner 0 (bottom-left) = Red(0), corner 1 (bottom-right) = Blue(1)
-      // corner 2 (top-right) = Yellow(2), corner 3 (top-left) = Green(3)
-      return normalizeColorIndex(cornerIdx);
+      // After rotation, corner 0 (bottom-left) shows myColor
+      return (cornerIdx + myColorIdx) % 4;
     };
 
     ctx.clearRect(0, 0, W, W);
 
-    // Six flash glow border
+    // Six flash glow border (drawn before rotation)
     if (sixFlash) {
       ctx.save();
       ctx.shadowColor = '#fbbf24';
@@ -960,6 +965,14 @@ export default function LudoGame({
       ctx.lineWidth = 6;
       ctx.strokeRect(3, 3, W - 6, W - 6);
       ctx.restore();
+    }
+
+    // Apply board rotation around center
+    ctx.save();
+    if (rotationRad !== 0) {
+      ctx.translate(W / 2, W / 2);
+      ctx.rotate(rotationRad);
+      ctx.translate(-W / 2, -W / 2);
     }
 
     const bgGrad = ctx.createRadialGradient(W/2, W/2, 0, W/2, W/2, W);
@@ -1388,6 +1401,9 @@ export default function LudoGame({
         drawBoard();
       });
     }
+
+    // Close board rotation transform
+    ctx.restore();
   };
 
   // ─── Game logic ───────────────────────────────
@@ -1910,8 +1926,23 @@ export default function LudoGame({
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
-    const x = (e.clientX - rect.left) * scaleX;
-    const y = (e.clientY - rect.top) * scaleY;
+    let x = (e.clientX - rect.left) * scaleX;
+    let y = (e.clientY - rect.top) * scaleY;
+
+    // Reverse-rotate click coordinates to match fixed geometry
+    const myColorIdx = normalizeColorIndex(getPlayerColorIndex(myPlayerLocal, boardPlayers));
+    if (myColorIdx !== 0) {
+      const cx = canvas.width / 2;
+      const cy = canvas.height / 2;
+      const angle = -(myColorIdx * Math.PI / 2); // reverse rotation
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      const dx = x - cx;
+      const dy = y - cy;
+      x = cx + dx * cos - dy * sin;
+      y = cy + dx * sin + dy * cos;
+    }
+
     const cellSize = canvas.width / 15;
     const hitRadius = cellSize * 0.62;
 
