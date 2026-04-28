@@ -1614,18 +1614,23 @@ export default function LudoGame({
       candidates.find(p => p.seat_number > currentPlayer.seat_number) || candidates[0];
     if (!nextPlayer?.user_id) return false;
 
-    const { error } = await supabase
+    // المحاولة الأولى: update مع شرط current_turn_user_id
+    let { error } = await supabase
       .from('room_ludo_sessions')
       .update({ current_turn_user_id: nextPlayer.user_id, last_roll: 0, display_roll: null, display_roll_user_id: null })
       .eq('id', sessionArg.id)
       .eq('status', 'playing')
       .eq('current_turn_user_id', leftUserId);
 
-    // Always refresh session after advancing
-    const refreshed = await refreshSession();
-    // If still stuck on same user, try again (max 2 attempts)
+    let refreshed = await refreshSession();
+    // المحاولة الثانية: إذا لم يتغير الدور، أعد المحاولة بنفس الشرط
     if (refreshed?.session?.current_turn_user_id === leftUserId) {
-      await supabase.from('room_ludo_sessions').update({ current_turn_user_id: nextPlayer.user_id, last_roll: 0, display_roll: null, display_roll_user_id: null }).eq('id', sessionArg.id);
+      await supabase.from('room_ludo_sessions').update({ current_turn_user_id: nextPlayer.user_id, last_roll: 0, display_roll: null, display_roll_user_id: null }).eq('id', sessionArg.id).eq('status', 'playing').eq('current_turn_user_id', leftUserId);
+      refreshed = await refreshSession();
+    }
+    // fallback: إذا مازال الدور لم يتغير، أعد update بدون شرط current_turn_user_id
+    if (refreshed?.session?.current_turn_user_id === leftUserId) {
+      await supabase.from('room_ludo_sessions').update({ current_turn_user_id: nextPlayer.user_id, last_roll: 0, display_roll: null, display_roll_user_id: null }).eq('id', sessionArg.id).eq('status', 'playing');
       await refreshSession();
     }
     return !error;
