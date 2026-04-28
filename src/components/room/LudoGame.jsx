@@ -1691,8 +1691,7 @@ export default function LudoGame({
   ]);
 
   // Handle stalled turns — player went offline without resigning
-  // First time: 25s. All subsequent turns for same player: 2s.
-  const stalledPlayersRef = useRef(new Set()); // persists across renders
+  const stalledPlayersRef = useRef(new Set());
   const stalledTurnRef = useRef({ inFlight: false, firedKey: '' });
 
   useEffect(() => {
@@ -1701,34 +1700,104 @@ export default function LudoGame({
     const turnUserId = String(currentSession?.current_turn_user_id || '');
     if (!turnUserId || turnUserId === String(user?.id)) return;
 
-    const turnPlayer = players.find(p => String(p.user_id) === turnUserId);
-    if (!turnPlayer || isPlayerLeft(turnPlayer)) return;
-
     const me = players.find(p => String(p.user_id) === String(user?.id));
     if (!me || isPlayerLeft(me)) return;
 
-    // Unique key per turn action
-    const firedKey = `${currentSession.id}:${turnUserId}:${currentSession.last_roll || 0}`;
-    if (stalledTurnRef.current.firedKey === firedKey) return;
+    const turnPlayer = players.find(p => String(p.user_id) === turnUserId);
+    if (!turnPlayer) return;
+    // This handler is for NON-resigned offline players only
+    // Resigned players are handled by leftTurnAction useEffect
+    if (isPlayerLeft(turnPlayer)) return;
 
     const isKnownStalled = stalledPlayersRef.current.has(turnUserId);
     const waitMs = isKnownStalled ? 2000 : 25000;
 
+    // Key includes turn + roll state to detect new turns
+    const turnKey = `${currentSession.id}:${turnUserId}:${currentSession.last_roll || 0}`;
+
     const t = setTimeout(async () => {
-      // Double-check not already fired for this key
-      if (stalledTurnRef.current.firedKey === firedKey) return;
+      if (stalledTurnRef.current.firedKey === turnKey) return;
       if (stalledTurnRef.current.inFlight) return;
 
       stalledTurnRef.current.inFlight = true;
-      stalledTurnRef.current.firedKey = firedKey;
-      stalledPlayersRef.current.add(turnUserId); // mark as stalled for next turn
+      stalledTurnRef.current.firedKey = turnKey;
+      stalledPlayersRef.current.add(turnUserId);
+
       try {
-        await autoPlayLeftTurn(turnPlayer, currentSession);
-      } catch (err) {
-        try {
-          await forceAdvanceTurnFromLeft(turnUserId, currentSession, players);
-          await refreshSession();
-        } catch (e) { console.error('Stalled turn fallback failed:', e); }
+        const sessionId = currentSession.id;
+
+        // Verify it's still this player's turn
+        const { data: sess } = await supabase
+          .from('room_ludo_sessions')
+          .select('current_turn_user_id, last_roll, status')
+          .eq('id', sessionId)
+          .single();
+
+        if (!sess || sess.status !== 'playing') return;
+        if (String(sess.current_turn_user_id) !== turnUserId) return;
+
+        if (!sess.last_roll || sess.last_roll === 0) {
+          // Roll for them
+          const { data: rollData } = await supabase.rpc('get_ludo_roll', {
+            p_session_id: sessionId,
+            p_user_id: turnUserId,
+          });
+
+          if (!rollData?.success || rollData?.turn_passed || rollData?.triple_six) {
+            await refreshSession();
+            return;
+          }
+
+          // Get fresh player data and move
+          const { data: playerData } = await supabase
+            .from('room_ludo_players')
+            .select('*')
+            .eq('session_id', sessionId)
+            .eq('user_id', turnUserId)
+            .maybeSingle();
+
+          if (playerData) {
+            const { data: freshSess } = await supabase
+              .from('room_ludo_sessions')
+              .select('last_roll')
+              .eq('id', sessionId)
+              .single();
+
+            const rollVal = freshSess?.last_roll || rollData?.roll || 0;
+            const movable = getMovablePieces(playerData, rollVal);
+            if (movable.length > 0) {
+              await supabase.rpc('move_ludo_piece', {
+                p_session_id: sessionId,
+                p_user_id: turnUserId,
+                p_piece_number: movable[0],
+              });
+            }
+          }
+        } else {
+          // Already rolled — just move
+          const { data: playerData } = await supabase
+            .from('room_ludo_players')
+            .select('*')
+            .eq('session_id', sessionId)
+            .eq('user_id', turnUserId)
+            .maybeSingle();
+
+          if (playerData) {
+            const movable = getMovablePieces(playerData, sess.last_roll);
+            if (movable.length > 0) {
+              await supabase.rpc('move_ludo_piece', {
+                p_session_id: sessionId,
+                p_user_id: turnUserId,
+                p_piece_number: movable[0],
+              });
+            }
+          }
+        }
+
+        await refreshSession();
+      } catch (e) {
+        console.error('Stalled turn error:', e);
+        try { await refreshSession(); } catch (_) {}
       } finally {
         stalledTurnRef.current.inFlight = false;
       }
