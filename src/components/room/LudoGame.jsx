@@ -1693,6 +1693,7 @@ export default function LudoGame({
   // Handle stalled turns — player went offline without resigning
   const stalledPlayersRef = useRef(new Set());
   const stalledTurnRef = useRef({ inFlight: false, firedKey: '' });
+  const stalledTurnCounterRef = useRef(0);
 
   useEffect(() => {
     if (!open || currentSession?.status !== 'playing' || !currentSession?.id) return;
@@ -1712,8 +1713,9 @@ export default function LudoGame({
     const isKnownStalled = stalledPlayersRef.current.has(turnUserId);
     const waitMs = isKnownStalled ? 2000 : 25000;
 
-    // Key includes turn + roll state to detect new turns
-    const turnKey = `${currentSession.id}:${turnUserId}:${currentSession.last_roll || 0}`;
+    // Each time this effect runs for a new turn, increment counter
+    const myCounter = ++stalledTurnCounterRef.current;
+    const turnKey = `${currentSession.id}:${turnUserId}:${myCounter}`;
 
     const t = setTimeout(async () => {
       if (stalledTurnRef.current.firedKey === turnKey) return;
