@@ -9341,9 +9341,15 @@ useEffect(() => {
                           <button
                             onClick={() => {
                               if (currentSongIndex === index && musicPlaying) {
+                                // Pause
                                 roomMusicPlayer.pause();
                                 setMusicPlaying(false);
+                              } else if (currentSongIndex === index && !musicPlaying) {
+                                // Resume same song
+                                roomMusicPlayer.resume();
+                                setMusicPlaying(true);
                               } else {
+                                // Play new song
                                 playSong(index);
                               }
                             }}
