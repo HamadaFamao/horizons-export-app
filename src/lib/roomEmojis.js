@@ -1,28 +1,5 @@
-const EMOJI_ANIMATION_PATTERN = [
-  "emojiWiggle 0.6s ease-in-out infinite",
-  "emojiBounce 0.8s ease-in-out infinite",
-  "emojiShake 0.5s ease-in-out infinite",
-  "emojiPulse 0.7s ease-in-out infinite",
-  "emojiFloat 1s ease-in-out infinite",
-  "emojiSpin 1.2s linear infinite",
-];
 
-function getEmojiAnimation(id) {
-  if (id === "e3f") return "emojiShake 0.5s ease-in-out infinite";
-
-  const numericId = Number(String(id).replace("e", ""));
-  if (!Number.isFinite(numericId)) return "emojiBounce 0.8s ease-in-out infinite";
-
-  if (numericId === 1) return "emojiWiggle 0.6s ease-in-out infinite";
-  if (numericId === 2) return "emojiBounce 0.8s ease-in-out infinite";
-  if (numericId === 3) return "emojiShake 0.5s ease-in-out infinite";
-  if (numericId === 4) return "emojiPulse 0.7s ease-in-out infinite";
-  if (numericId === 5) return "emojiFloat 1s ease-in-out infinite";
-
-  const cycleIndex = (numericId - 6) % EMOJI_ANIMATION_PATTERN.length;
-  return EMOJI_ANIMATION_PATTERN[cycleIndex];
-}
-
+// All emoji animation CSS removed; Lottie handles all animation now.
 const BASE_ROOM_EMOJIS = [
   { id: "e1",  src: "/emojis/lottie (1).json",  label: "reaction 1",  flip: false, type: "lottie" },
   { id: "e2",  src: "/emojis/lottie (2).json",  label: "reaction 2",  flip: false, type: "lottie" },
