@@ -1691,8 +1691,8 @@ export default function LudoGame({
   ]);
 
   // Handle stalled turns — player went offline without resigning
-  // After 25s, auto-play their turn (classic) or just pass it (team)
-  const stalledTurnRef = useRef({ inFlight: false, key: '' });
+  // First occurrence: 25s wait. Subsequent turns for same player: 2s wait.
+  const stalledTurnRef = useRef({ inFlight: false, key: '', stalledPlayers: new Set() });
   useEffect(() => {
     if (!open || currentSession?.status !== 'playing' || !currentSession?.id) return;
 
@@ -1700,23 +1700,23 @@ export default function LudoGame({
     if (!turnUserId || turnUserId === String(user?.id)) return;
 
     const turnPlayer = players.find(p => String(p.user_id) === turnUserId);
-    // Only handle non-resigned players (resigned handled above)
     if (!turnPlayer || isPlayerLeft(turnPlayer)) return;
 
     const me = players.find(p => String(p.user_id) === String(user?.id));
     if (!me || isPlayerLeft(me)) return;
 
     const key = `${currentSession.id}:${turnUserId}:${currentSession.last_roll || 0}:stalled`;
+    const isKnownStalled = stalledTurnRef.current.stalledPlayers.has(turnUserId);
+    const waitMs = isKnownStalled ? 2000 : 25000;
 
     const t = setTimeout(async () => {
       if (stalledTurnRef.current.inFlight || stalledTurnRef.current.key === key) return;
       stalledTurnRef.current.inFlight = true;
       stalledTurnRef.current.key = key;
+      stalledTurnRef.current.stalledPlayers.add(turnUserId);
       try {
-        // Don't resign them — just play their turn and pass
         await autoPlayLeftTurn(turnPlayer, currentSession);
       } catch (err) {
-        // Fallback: just advance the turn
         try {
           await forceAdvanceTurnFromLeft(turnUserId, currentSession, players);
           await refreshSession();
@@ -1724,7 +1724,7 @@ export default function LudoGame({
       } finally {
         stalledTurnRef.current.inFlight = false;
       }
-    }, 25000);
+    }, waitMs);
 
     return () => clearTimeout(t);
   }, [
@@ -2361,6 +2361,8 @@ export default function LudoGame({
     const isResultPulse = showSettledValue && displayRollUserId === pid && diceResultPulseKey === resultRollKey;
     const isSixGlow = !isRollingNow && displayRollUserId === pid && displayRoll === 6 && diceSixGlowKey === resultRollKey;
 
+    const isWaitingForRoll = isCurrentTurnPlayer && !hasValue && !isRollingNow;
+
     return (
       <button
         type="button"
@@ -2375,9 +2377,14 @@ export default function LudoGame({
           style={{
             borderColor: PLAYER_COLORS[colorIdx],
             background: `linear-gradient(135deg, ${PLAYER_COLORS[colorIdx]}22, ${PLAYER_COLORS[colorIdx]}55)`,
-            boxShadow: `0 4px 12px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.25), 0 0 12px ${PLAYER_COLORS[colorIdx]}55${isSixGlow ? ', 0 0 14px rgba(250,204,21,0.55)' : ''}`,
+            boxShadow: isWaitingForRoll
+              ? `0 4px 12px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.25), 0 0 20px ${PLAYER_COLORS[colorIdx]}99, 0 0 8px ${PLAYER_COLORS[colorIdx]}`
+              : `0 4px 12px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.25), 0 0 12px ${PLAYER_COLORS[colorIdx]}55${isSixGlow ? ', 0 0 14px rgba(250,204,21,0.55)' : ''}`,
             transformOrigin: 'center center',
-            animation: isRollingNow ? 'ludoDiceSingleSpin 620ms linear 1 both' : (isTurnPulseDice ? 'ludoTurnDiceNudge 360ms ease-out 1' : 'none'),
+            animation: isRollingNow ? 'ludoDiceSingleSpin 620ms linear 1 both'
+              : isTurnPulseDice ? 'ludoTurnDiceNudge 360ms ease-out 1'
+              : isWaitingForRoll ? 'ludoTurnDiceNudge 1.2s ease-in-out infinite'
+              : 'none',
           }}
         >
           {showSettledValue ? (
@@ -2392,6 +2399,11 @@ export default function LudoGame({
           )}
         </div>
         {canRoll && <span className="absolute top-2 right-2 sm:top-3 sm:right-3 w-3 h-3 rounded-full bg-emerald-400 animate-ping" />}
+        {/* Show waiting pulse to ALL viewers when this player hasn't rolled yet */}
+        {!canRoll && isCurrentTurnPlayer && !hasValue && !isRollingNow && (
+          <span className="absolute top-2 right-2 sm:top-3 sm:right-3 w-3 h-3 rounded-full animate-ping"
+            style={{ backgroundColor: PLAYER_COLORS[colorIdx] }} />
+        )}
       </button>
     );
   };
