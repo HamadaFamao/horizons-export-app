@@ -1586,7 +1586,12 @@ export default function LudoGame({
     const candidates = isTeamMode(sessionArg)
       ? sorted.filter(p => String(p.user_id) !== String(leftUserId))
       : sorted.filter(p => !isPlayerLeft(p));
-    if (candidates.length === 0) return false;
+    if (candidates.length === 0) {
+      // No active players left, end session
+      await supabase.from('room_ludo_sessions').update({ status: 'finished' }).eq('id', sessionArg.id);
+      await refreshSession();
+      return false;
+    }
 
     const nextPlayer =
       candidates.find(p => p.seat_number > currentPlayer.seat_number) || candidates[0];
@@ -1599,6 +1604,13 @@ export default function LudoGame({
       .eq('status', 'playing')
       .eq('current_turn_user_id', leftUserId);
 
+    // Always refresh session after advancing
+    const refreshed = await refreshSession();
+    // If still stuck on same user, try again (max 2 attempts)
+    if (refreshed?.session?.current_turn_user_id === leftUserId) {
+      await supabase.from('room_ludo_sessions').update({ current_turn_user_id: nextPlayer.user_id, last_roll: 0, display_roll: null, display_roll_user_id: null }).eq('id', sessionArg.id);
+      await refreshSession();
+    }
     return !error;
   };
 
