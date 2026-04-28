@@ -313,24 +313,16 @@ export default function LudoGame({
   };
 
   const getRelativeVisualSeat = (player, playersList = players) => {
+    // Returns ABSOLUTE UI corner — same for all viewers
+    // seat 1=Red=corner 0(bottom-left), seat 2=Blue=corner 1(bottom-right)
+    // seat 3=Yellow=corner 2(top-right), seat 4=Green=corner 3(top-left)
     const totalPlayers = playersList.length;
     if (!totalPlayers) return 0;
-
     const layout = VISUAL_SEAT_LAYOUTS[totalPlayers] || [0, 1, 2, 3];
-    const sortedBySeat = [...playersList].sort((a, b) => a.seat_number - b.seat_number);
-
-    const myPlayerInGame = sortedBySeat.find(
-      p => String(p.user_id) === String(user?.id)
-    );
-    const myBaseIndex = myPlayerInGame
-      ? sortedBySeat.findIndex(p => String(p.user_id) === String(myPlayerInGame.user_id))
-      : 0;
-
-    const playerIndex = sortedBySeat.findIndex(p => String(p.user_id) === String(player.user_id));
-    if (playerIndex === -1) return 0;
-
-    const relativeIndex = ((playerIndex - myBaseIndex) % totalPlayers + totalPlayers) % totalPlayers;
-    return layout[relativeIndex] ?? 0;
+    let seat = Number(player?.seat_number || 1);
+    if (seat > 100) seat = seat - 100;
+    const seatIdx = Math.max(0, seat - 1);
+    return layout[seatIdx] ?? seatIdx;
   };
 
   // ─── Cleanup ─────────────────────────────────
@@ -847,13 +839,14 @@ export default function LudoGame({
     const pos = pieces[pieceIndex];
     if (typeof pos !== 'number') return null;
 
-    // geometryIdx: which corner/lane/base to use — always relative to current viewer
-    // so each player sees themselves at bottom-left and others around the board.
-    const geometryIdx = normalizeColorIndex(getRelativeVisualSeat(player, playersList));
+    // geometryIdx: FIXED based on seat/color — same for ALL viewers
+    // This ensures pieces move on the same track regardless of who's watching
+    // seat 1=Red(0)=bottom-left, seat 2=Blue(1)=bottom-right
+    // seat 3=Yellow(2)=top-right, seat 4=Green(3)=top-left
+    const geometryIdx = normalizeColorIndex(getPlayerColorIndex(player, playersList));
 
-    // colorIdx: the player's absolute color (derived from seat_number) — never changes.
-    // Used only for ring color and piece color, NOT for board geometry.
-    const colorIdx = normalizeColorIndex(getPlayerColorIndex(player, playersList));
+    // colorIdx: same — used for piece ring color
+    const colorIdx = geometryIdx;
     const finishedTriangleSlots = [
       [[8.35, 7.2], [8.35, 7.8], [8.7, 7.35], [8.7, 7.65]],
       [[7.2, 8.35], [7.8, 8.35], [7.35, 8.7], [7.65, 8.7]],
@@ -962,8 +955,9 @@ export default function LudoGame({
     const boardPlayers = getVisiblePlayersList(players, currentSession);
 
     const getVisualColorIndex = (visualIdx) => {
-      const playerAtVisual = boardPlayers.find(p => getRelativeVisualSeat(p, boardPlayers) === visualIdx);
-      return normalizeColorIndex(playerAtVisual ? getPlayerColorIndex(playerAtVisual, boardPlayers) : visualIdx);
+      // Board is FIXED for all viewers — no rotation
+      // corner 0(bottom-left)=Red, 1(bottom-right)=Blue, 2(top-right)=Yellow, 3(top-left)=Green
+      return normalizeColorIndex(visualIdx);
     };
 
     ctx.clearRect(0, 0, W, W);
