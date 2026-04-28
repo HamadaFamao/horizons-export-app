@@ -135,7 +135,6 @@ export default function LudoGame({
   const previousTurnUserIdRef = useRef(null);
   const previousDiceResultKeyRef = useRef('');
   const leftTurnActionRef = useRef({ inFlight: false, key: '' });
-  const stalledTurnActionRef = useRef({ inFlight: false, key: '' });
   const savingTeamsRef = useRef(false);
   const teamTurnCycleRef = useRef(0);
   const soundMutedRef = useRef(false);
@@ -149,150 +148,110 @@ export default function LudoGame({
     if (soundMutedRef.current) return;
     try {
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      
-      const createNoiseBuffer = (duration) => {
-        const bufferSize = ctx.sampleRate * duration;
-        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-        const data = buffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) {
-          data[i] = Math.random() * 2 - 1;
-        }
-        return buffer;
-      };
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
 
       if (type === 'roll') {
-        // Dice clatter
-        const bounceTimes = [0, 0.08, 0.15, 0.21, 0.26];
-        bounceTimes.forEach(t => {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.connect(gain); gain.connect(ctx.destination);
-          osc.type = 'square';
-          osc.frequency.setValueAtTime(800 + Math.random() * 400, ctx.currentTime + t);
-          osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + t + 0.05);
-          gain.gain.setValueAtTime(0.15, ctx.currentTime + t);
-          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + t + 0.05);
-          osc.start(ctx.currentTime + t);
-          osc.stop(ctx.currentTime + t + 0.06);
-        });
+        o.type = 'square'; o.frequency.setValueAtTime(220, ctx.currentTime);
+        o.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.08);
+        g.gain.setValueAtTime(0.18, ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+        o.start(); o.stop(ctx.currentTime + 0.12);
       } else if (type === 'six') {
-        // Magical chime for rolling a 6
-        const notes = [523.25, 659.25, 783.99, 1046.50];
-        notes.forEach((freq, i) => {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.connect(gain); gain.connect(ctx.destination);
-          osc.type = 'sine';
-          osc.frequency.value = freq;
-          gain.gain.setValueAtTime(0, ctx.currentTime + i * 0.08);
-          gain.gain.linearRampToValueAtTime(0.2, ctx.currentTime + i * 0.08 + 0.02);
-          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.08 + 0.3);
-          osc.start(ctx.currentTime + i * 0.08);
-          osc.stop(ctx.currentTime + i * 0.08 + 0.35);
+        // Fanfare for 6
+        [0, 0.07, 0.14].forEach((delay, i) => {
+          const o2 = ctx.createOscillator();
+          const g2 = ctx.createGain();
+          o2.connect(g2); g2.connect(ctx.destination);
+          o2.type = 'triangle';
+          o2.frequency.setValueAtTime([523, 659, 784][i], ctx.currentTime + delay);
+          g2.gain.setValueAtTime(0.22, ctx.currentTime + delay);
+          g2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.12);
+          o2.start(ctx.currentTime + delay);
+          o2.stop(ctx.currentTime + delay + 0.13);
         });
+        return;
       } else if (type === 'move') {
-        // Plastic/wood piece moving "tock"
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain); gain.connect(ctx.destination);
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(450, ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(150, ctx.currentTime + 0.04);
-        gain.gain.setValueAtTime(0.3, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.06);
+        o.type = 'sine'; o.frequency.setValueAtTime(660, ctx.currentTime);
+        o.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.06);
+        g.gain.setValueAtTime(0.12, ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.09);
+        o.start(); o.stop(ctx.currentTime + 0.09);
       } else if (type === 'exit') {
-        // Piece exiting base "pop"
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain); gain.connect(ctx.destination);
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(300, ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.1);
-        gain.gain.setValueAtTime(0, ctx.currentTime);
-        gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.16);
+        // Exit base — ascending pop
+        o.type = 'sine'; o.frequency.setValueAtTime(330, ctx.currentTime);
+        o.frequency.exponentialRampToValueAtTime(660, ctx.currentTime + 0.1);
+        g.gain.setValueAtTime(0.2, ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+        o.start(); o.stop(ctx.currentTime + 0.15);
       } else if (type === 'finish') {
-        // Piece reached center
-        const notes = [
-          { f: 523.25, t: 0 },
-          { f: 659.25, t: 0.1 },
-          { f: 783.99, t: 0.2 },
-          { f: 1046.50, t: 0.3 }
-        ];
-        notes.forEach(({ f, t }) => {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.connect(gain); gain.connect(ctx.destination);
-          osc.type = 'triangle';
-          osc.frequency.value = f;
-          gain.gain.setValueAtTime(0, ctx.currentTime + t);
-          gain.gain.linearRampToValueAtTime(0.25, ctx.currentTime + t + 0.02);
-          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.4);
-          osc.start(ctx.currentTime + t);
-          osc.stop(ctx.currentTime + t + 0.45);
+        // Goal reached — victory chime
+        [0, 0.1, 0.2, 0.32].forEach((delay, i) => {
+          const o2 = ctx.createOscillator();
+          const g2 = ctx.createGain();
+          o2.connect(g2); g2.connect(ctx.destination);
+          o2.type = 'sine';
+          o2.frequency.setValueAtTime([523, 659, 784, 1047][i], ctx.currentTime + delay);
+          g2.gain.setValueAtTime(0.2, ctx.currentTime + delay);
+          g2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.18);
+          o2.start(ctx.currentTime + delay);
+          o2.stop(ctx.currentTime + delay + 0.19);
         });
+        return;
       } else if (type === 'bump') {
-        // Hitting opponent "thwack" + descending tone
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain); gain.connect(ctx.destination);
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(350, ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(50, ctx.currentTime + 0.25);
-        gain.gain.setValueAtTime(0.4, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.3);
-
-        const noise = ctx.createBufferSource();
-        noise.buffer = createNoiseBuffer(0.1);
-        const noiseGain = ctx.createGain();
-        const filter = ctx.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.value = 1200;
-        noise.connect(filter); filter.connect(noiseGain); noiseGain.connect(ctx.destination);
-        noiseGain.gain.setValueAtTime(0.4, ctx.currentTime);
-        noiseGain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
-        noise.start();
+        o.type = 'sawtooth'; o.frequency.setValueAtTime(180, ctx.currentTime);
+        o.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + 0.18);
+        g.gain.setValueAtTime(0.22, ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+        o.start(); o.stop(ctx.currentTime + 0.2);
       } else if (type === 'applause') {
-        // Grand fanfare for winning
-        const chords = [
-          { f: [523.25, 659.25, 783.99], t: 0, dur: 0.2 },
-          { f: [587.33, 698.46, 880.00], t: 0.25, dur: 0.2 },
-          { f: [659.25, 783.99, 987.77], t: 0.5, dur: 0.2 },
-          { f: [698.46, 880.00, 1046.50], t: 0.75, dur: 0.2 },
-          { f: [783.99, 987.77, 1174.66], t: 1.0, dur: 0.8 }
+        // Energetic victory fanfare — ascending chords + sparkle
+        const notes = [
+          { f: 523, t: 0,    dur: 0.35 },
+          { f: 659, t: 0.08, dur: 0.35 },
+          { f: 784, t: 0.16, dur: 0.35 },
+          { f: 1047,t: 0.28, dur: 0.5  },
+          { f: 880, t: 0.36, dur: 0.4  },
+          { f: 1047,t: 0.48, dur: 0.55 },
+          { f: 1319,t: 0.6,  dur: 0.7  },
         ];
-
-        chords.forEach(({ f, t, dur }) => {
-          f.forEach(freq => {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            const filter = ctx.createBiquadFilter();
-            
-            osc.type = 'square';
-            osc.frequency.value = freq;
-            
-            filter.type = 'lowpass';
-            filter.frequency.setValueAtTime(2500, ctx.currentTime + t);
-            filter.frequency.exponentialRampToValueAtTime(600, ctx.currentTime + t + dur);
-            
-            gain.gain.setValueAtTime(0, ctx.currentTime + t);
-            gain.gain.linearRampToValueAtTime(0.12, ctx.currentTime + t + 0.05);
-            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + dur);
-            
-            osc.connect(filter);
-            filter.connect(gain);
-            gain.connect(ctx.destination);
-            
-            osc.start(ctx.currentTime + t);
-            osc.stop(ctx.currentTime + t + dur + 0.1);
-          });
+        notes.forEach(({ f, t, dur }) => {
+          const o2 = ctx.createOscillator();
+          const g2 = ctx.createGain();
+          o2.connect(g2); g2.connect(ctx.destination);
+          o2.type = 'triangle';
+          o2.frequency.setValueAtTime(f, ctx.currentTime + t);
+          g2.gain.setValueAtTime(0, ctx.currentTime + t);
+          g2.gain.linearRampToValueAtTime(0.22, ctx.currentTime + t + 0.02);
+          g2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + dur);
+          o2.start(ctx.currentTime + t);
+          o2.stop(ctx.currentTime + t + dur + 0.05);
         });
+        // Bass punch at start
+        const bass = ctx.createOscillator();
+        const bassGain = ctx.createGain();
+        bass.connect(bassGain); bassGain.connect(ctx.destination);
+        bass.type = 'sine';
+        bass.frequency.setValueAtTime(130, ctx.currentTime);
+        bass.frequency.exponentialRampToValueAtTime(65, ctx.currentTime + 0.3);
+        bassGain.gain.setValueAtTime(0.3, ctx.currentTime);
+        bassGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+        bass.start(ctx.currentTime);
+        bass.stop(ctx.currentTime + 0.36);
+        // Sparkle high notes
+        [0.3, 0.5, 0.65, 0.8].forEach((t, i) => {
+          const os = ctx.createOscillator();
+          const gs = ctx.createGain();
+          os.connect(gs); gs.connect(ctx.destination);
+          os.type = 'sine';
+          os.frequency.setValueAtTime([1568, 1760, 1976, 2093][i], ctx.currentTime + t);
+          gs.gain.setValueAtTime(0.1, ctx.currentTime + t);
+          gs.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.15);
+          os.start(ctx.currentTime + t);
+          os.stop(ctx.currentTime + t + 0.16);
+        });
+        return;
       }
     } catch (_) {}
   };
@@ -881,13 +840,13 @@ export default function LudoGame({
     const pos = pieces[pieceIndex];
     if (typeof pos !== 'number') return null;
 
-    // Keep board geometry aligned with backend seat/color mapping so capture checks
-    // and visual positions refer to the same real track cells.
+    // geometryIdx: FIXED per player based on absolute seat/color — never rotates.
+    // Each player always uses the same corner, home base, and track start.
+    // seat 1=Red(0), seat 2=Blue(1), seat 3=Yellow(2), seat 4=Green(3)
     const geometryIdx = normalizeColorIndex(getPlayerColorIndex(player, playersList));
 
-    // colorIdx: the player's absolute color (derived from seat_number) — never changes.
-    // Used only for ring color and piece color, NOT for board geometry.
-    const colorIdx = normalizeColorIndex(getPlayerColorIndex(player, playersList));
+    // colorIdx: same as geometryIdx — kept separate for clarity
+    const colorIdx = geometryIdx;
     const finishedTriangleSlots = [
       [[8.35, 7.2], [8.35, 7.8], [8.7, 7.35], [8.7, 7.65]],
       [[7.2, 8.35], [7.8, 8.35], [7.35, 8.7], [7.65, 8.7]],
@@ -1713,50 +1672,6 @@ export default function LudoGame({
         leftTurnActionRef.current.inFlight = false;
       }
     })();
-  }, [
-    open,
-    currentSession?.id,
-    currentSession?.status,
-    currentSession?.current_turn_user_id,
-    currentSession?.last_roll,
-    currentSession?.display_roll,
-    players,
-    user?.id,
-  ]);
-
-  // Handle stuck turns (e.g. player went offline without resigning)
-  useEffect(() => {
-    if (!open || currentSession?.status !== 'playing' || !currentSession?.id) return;
-
-    const turnUserId = String(currentSession?.current_turn_user_id || '');
-    if (!turnUserId) return;
-    if (String(turnUserId) === String(user?.id)) return;
-
-    const turnPlayer = players.find(p => String(p.user_id) === turnUserId);
-    if (!turnPlayer) return;
-
-    const key = `${currentSession.id}:${turnUserId}:${currentSession.last_roll || 0}:${currentSession.display_roll || 0}:stalled`;
-    if (stalledTurnActionRef.current.inFlight || stalledTurnActionRef.current.key === key) return;
-
-    const timeoutId = setTimeout(async () => {
-      if (stalledTurnActionRef.current.inFlight) return;
-      stalledTurnActionRef.current.inFlight = true;
-      stalledTurnActionRef.current.key = key;
-      try {
-        await autoPlayLeftTurn(turnPlayer, currentSession);
-      } catch (err) {
-        try {
-          await forceAdvanceTurnFromLeft(turnUserId, currentSession, players);
-          await refreshSession();
-        } catch (innerErr) {
-          console.error('Failed to recover stalled turn:', innerErr || err);
-        }
-      } finally {
-        stalledTurnActionRef.current.inFlight = false;
-      }
-    }, 16000);
-
-    return () => clearTimeout(timeoutId);
   }, [
     open,
     currentSession?.id,
