@@ -954,23 +954,37 @@ export default function LudoGame({
     const cellSize = W / CELLS;
     const boardPlayers = getVisiblePlayersList(players, currentSession);
 
+    // My color index — used for board rotation
+    const myBoardPlayer = boardPlayers.find(p => String(p.user_id) === String(user?.id));
+    const myColorIdx = myBoardPlayer
+      ? normalizeColorIndex(getPlayerColorIndex(myBoardPlayer, boardPlayers))
+      : 0;
+    // Rotate board so viewer always sees themselves at bottom-left
+    // colorIdx 0=0°, 1=90°CW, 2=180°, 3=270°CW
+    const boardRotRad = myColorIdx * Math.PI / 2;
+
     const getVisualColorIndex = (visualIdx) => {
-      // Board is FIXED for all viewers — no rotation
-      // corner 0(bottom-left)=Red, 1(bottom-right)=Blue, 2(top-right)=Yellow, 3(top-left)=Green
-      return normalizeColorIndex(visualIdx);
+      // After rotation, corner 0 shows myColorIdx
+      return (visualIdx + myColorIdx) % 4;
     };
 
     ctx.clearRect(0, 0, W, W);
 
-    // Six flash glow border
+    // Six flash — drawn before rotation
     if (sixFlash) {
       ctx.save();
-      ctx.shadowColor = '#fbbf24';
-      ctx.shadowBlur = 40;
-      ctx.strokeStyle = '#fbbf24';
-      ctx.lineWidth = 6;
+      ctx.shadowColor = '#fbbf24'; ctx.shadowBlur = 40;
+      ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 6;
       ctx.strokeRect(3, 3, W - 6, W - 6);
       ctx.restore();
+    }
+
+    // Apply board rotation so viewer sees themselves at bottom-left
+    ctx.save();
+    if (boardRotRad !== 0) {
+      ctx.translate(W / 2, W / 2);
+      ctx.rotate(boardRotRad);
+      ctx.translate(-W / 2, -W / 2);
     }
 
     const bgGrad = ctx.createRadialGradient(W/2, W/2, 0, W/2, W/2, W);
@@ -1306,7 +1320,10 @@ export default function LudoGame({
           ctx.fill();
           ctx.save();
           ctx.clip();
-          ctx.drawImage(img, drawX - r, drawYFinal - r, r * 2, r * 2);
+          // Counter-rotate image so avatar stays upright despite board rotation
+          ctx.translate(drawX, drawYFinal);
+          ctx.rotate(-boardRotRad);
+          ctx.drawImage(img, -r, -r, r * 2, r * 2);
           ctx.restore();
         } else {
           const pieceGrad = ctx.createRadialGradient(drawX - r*0.3, drawYFinal - r*0.3, r*0.1, drawX, drawYFinal, r);
@@ -1399,6 +1416,9 @@ export default function LudoGame({
         drawBoard();
       });
     }
+
+    // Close board rotation
+    ctx.restore();
   };
 
   // ─── Game logic ───────────────────────────────
@@ -2047,8 +2067,20 @@ export default function LudoGame({
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
-    const x = (e.clientX - rect.left) * scaleX;
-    const y = (e.clientY - rect.top) * scaleY;
+    let clickX = (e.clientX - rect.left) * scaleX;
+    let clickY = (e.clientY - rect.top) * scaleY;
+
+    // Reverse the board rotation to get geometry coordinates
+    const myColorIdx = normalizeColorIndex(getPlayerColorIndex(myPlayerLocal, boardPlayers));
+    if (myColorIdx !== 0) {
+      const cx = canvas.width / 2, cy = canvas.height / 2;
+      const angle = -(myColorIdx * Math.PI / 2);
+      const cos = Math.cos(angle), sin = Math.sin(angle);
+      const dx = clickX - cx, dy = clickY - cy;
+      clickX = cx + dx * cos - dy * sin;
+      clickY = cy + dx * sin + dy * cos;
+    }
+
     const cellSize = canvas.width / 15;
     const hitRadius = cellSize * 0.62;
 
@@ -2079,8 +2111,8 @@ export default function LudoGame({
       const [offX, offY] = movablePieceOffsetMap.get(pieceNum) || [0, 0];
       const px = piecePos.x + offX;
       const py = piecePos.y + offY;
-      const dx = x - px;
-      const dy = y - py;
+      const dx = clickX - px;
+      const dy = clickY - py;
       if (dx * dx + dy * dy <= hitRadius * hitRadius) {
         handlePieceSelect(pieceNum);
         return;
