@@ -9229,7 +9229,7 @@ useEffect(() => {
                     const percent = x / rect.width;
                     const duration = roomMusicPlayer.getDuration();
                     if (duration > 0) {
-                      roomMusicPlayer.seek(percent * duration);
+                      roomMusicPlayer.seekTo(percent * duration);
                     }
                   }}
                 >
