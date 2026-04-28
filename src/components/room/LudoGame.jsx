@@ -313,25 +313,13 @@ export default function LudoGame({
   };
 
   const getRelativeVisualSeat = (player, playersList = players) => {
-    const totalPlayers = playersList.length;
-    if (!totalPlayers) return 0;
-
-    const layout = VISUAL_SEAT_LAYOUTS[totalPlayers] || [0, 1, 2, 3];
-    const sortedBySeat = [...playersList].sort((a, b) => a.seat_number - b.seat_number);
-
-    // FIX #6: Graceful fallback when user is not in the game (observer mode)
-    const myPlayerInGame = sortedBySeat.find(
-      p => String(p.user_id) === String(user?.id)
-    );
-    const myBaseIndex = myPlayerInGame
-      ? sortedBySeat.findIndex(p => String(p.user_id) === String(myPlayerInGame.user_id))
-      : 0;
-
-    const playerIndex = sortedBySeat.findIndex(p => String(p.user_id) === String(player.user_id));
-    if (playerIndex === -1) return 0;
-
-    const relativeIndex = ((playerIndex - myBaseIndex) % totalPlayers + totalPlayers) % totalPlayers;
-    return layout[relativeIndex] ?? 0;
+    // Returns FIXED UI corner based on absolute color index:
+    // color 0 (Red/seat1)   = corner 0 (bottom-left)
+    // color 1 (Blue/seat2)  = corner 1 (bottom-right)
+    // color 2 (Yellow/seat3)= corner 2 (top-right)
+    // color 3 (Green/seat4) = corner 3 (top-left)
+    const colorIdx = normalizeColorIndex(getPlayerColorIndex(player, playersList));
+    return colorIdx;
   };
 
   // ─── Cleanup ─────────────────────────────────
@@ -826,12 +814,20 @@ export default function LudoGame({
     if (!sessionArg?.id || sessionArg?.status !== 'playing') return;
     if (!isTeamMode(sessionArg)) return;
 
-    const activePlayers = (playersList || []).filter(p => !p.refunded_at && !p.left_at);
-    const teamAPlayers = activePlayers.filter(p => getEffectiveTeam(p) === 'A');
-    const teamBPlayers = activePlayers.filter(p => getEffectiveTeam(p) === 'B');
+    // Count ALL players per team (including resigned ones who auto-play)
+    // Only end if BOTH players of a team have left — one resignation keeps the team alive
+    const allPlayers = (playersList || []).filter(p => !p.refunded_at);
+    const teamAAll = allPlayers.filter(p => getEffectiveTeam(p) === 'A');
+    const teamBAll = allPlayers.filter(p => getEffectiveTeam(p) === 'B');
+    const teamAActive = teamAAll.filter(p => !p.left_at);
+    const teamBActive = teamBAll.filter(p => !p.left_at);
 
-    if (teamAPlayers.length === 0 && teamBPlayers.length > 0) { await endGame('B', sessionArg); return; }
-    if (teamBPlayers.length === 0 && teamAPlayers.length > 0) { await endGame('A', sessionArg); }
+    // Team is eliminated only when ALL its members have left
+    const teamAEliminated = teamAAll.length > 0 && teamAActive.length === 0;
+    const teamBEliminated = teamBAll.length > 0 && teamBActive.length === 0;
+
+    if (teamAEliminated && !teamBEliminated) { await endGame('B', sessionArg); return; }
+    if (teamBEliminated && !teamAEliminated) { await endGame('A', sessionArg); }
   };
 
   // ─── Board geometry ───────────────────────────
@@ -840,13 +836,13 @@ export default function LudoGame({
     const pos = pieces[pieceIndex];
     if (typeof pos !== 'number') return null;
 
-    // geometryIdx: which corner/lane/base to use — always relative to current viewer
-    // so each player sees themselves at bottom-left and others around the board.
-    const geometryIdx = normalizeColorIndex(getRelativeVisualSeat(player, playersList));
+    // geometryIdx: FIXED per player based on absolute seat/color — never rotates.
+    // Each player always uses the same corner, home base, and track start.
+    // seat 1=Red(0), seat 2=Blue(1), seat 3=Yellow(2), seat 4=Green(3)
+    const geometryIdx = normalizeColorIndex(getPlayerColorIndex(player, playersList));
 
-    // colorIdx: the player's absolute color (derived from seat_number) — never changes.
-    // Used only for ring color and piece color, NOT for board geometry.
-    const colorIdx = normalizeColorIndex(getPlayerColorIndex(player, playersList));
+    // colorIdx: same as geometryIdx — kept separate for clarity
+    const colorIdx = geometryIdx;
     const finishedTriangleSlots = [
       [[8.35, 7.2], [8.35, 7.8], [8.7, 7.35], [8.7, 7.65]],
       [[7.2, 8.35], [7.8, 8.35], [7.35, 8.7], [7.65, 8.7]],
@@ -954,10 +950,15 @@ export default function LudoGame({
     const cellSize = W / CELLS;
     const boardPlayers = getVisiblePlayersList(players, currentSession);
 
-    const getVisualColorIndex = (visualIdx) => {
-      const playerAtVisual = boardPlayers.find(p => getRelativeVisualSeat(p, boardPlayers) === visualIdx);
-      return normalizeColorIndex(playerAtVisual ? getPlayerColorIndex(playerAtVisual, boardPlayers) : visualIdx);
-    };
+    // ── Board is FIXED for all viewers ────────────────────────────────────
+    // Red(0)=bottom-left, Blue(1)=bottom-right, Yellow(2)=top-right, Green(3)=top-left
+    // Everyone sees the same board - cards appear at their respective corners
+    const myBoardPlayer = boardPlayers.find(p => String(p.user_id) === String(user?.id));
+    const myColorIdx = myBoardPlayer
+      ? normalizeColorIndex(getPlayerColorIndex(myBoardPlayer, boardPlayers))
+      : 0;
+
+    const getVisualColorIndex = (cornerIdx) => normalizeColorIndex(cornerIdx);
 
     ctx.clearRect(0, 0, W, W);
 
@@ -1053,6 +1054,19 @@ export default function LudoGame({
       ctx.strokeStyle = 'rgba(0,0,0,0.1)';
       ctx.lineWidth = 1;
       ctx.stroke();
+
+      // "YOU" label on my home corner
+      if (realColorIdx === myColorIdx && myBoardPlayer) {
+        ctx.save();
+        ctx.font = `bold ${cellSize * 0.55}px sans-serif`;
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.shadowColor = 'rgba(0,0,0,0.8)';
+        ctx.shadowBlur = 4;
+        ctx.fillText('YOU', cx, y + cellSize * 0.85);
+        ctx.restore();
+      }
     });
 
     for (let i = 0; i < TRACK_CELLS.length; i++) {
@@ -1679,6 +1693,53 @@ export default function LudoGame({
     currentSession?.current_turn_user_id,
     currentSession?.last_roll,
     currentSession?.display_roll,
+    players,
+    user?.id,
+  ]);
+
+  // Handle stalled turns — player went offline without resigning
+  // After 25s, auto-play their turn (classic) or just pass it (team)
+  const stalledTurnRef = useRef({ inFlight: false, key: '' });
+  useEffect(() => {
+    if (!open || currentSession?.status !== 'playing' || !currentSession?.id) return;
+
+    const turnUserId = String(currentSession?.current_turn_user_id || '');
+    if (!turnUserId || turnUserId === String(user?.id)) return;
+
+    const turnPlayer = players.find(p => String(p.user_id) === turnUserId);
+    // Only handle non-resigned players (resigned handled above)
+    if (!turnPlayer || isPlayerLeft(turnPlayer)) return;
+
+    const me = players.find(p => String(p.user_id) === String(user?.id));
+    if (!me || isPlayerLeft(me)) return;
+
+    const key = `${currentSession.id}:${turnUserId}:${currentSession.last_roll || 0}:stalled`;
+
+    const t = setTimeout(async () => {
+      if (stalledTurnRef.current.inFlight || stalledTurnRef.current.key === key) return;
+      stalledTurnRef.current.inFlight = true;
+      stalledTurnRef.current.key = key;
+      try {
+        // Don't resign them — just play their turn and pass
+        await autoPlayLeftTurn(turnPlayer, currentSession);
+      } catch (err) {
+        // Fallback: just advance the turn
+        try {
+          await forceAdvanceTurnFromLeft(turnUserId, currentSession, players);
+          await refreshSession();
+        } catch (e) { console.error('Stalled turn fallback failed:', e); }
+      } finally {
+        stalledTurnRef.current.inFlight = false;
+      }
+    }, 25000);
+
+    return () => clearTimeout(t);
+  }, [
+    open,
+    currentSession?.id,
+    currentSession?.status,
+    currentSession?.current_turn_user_id,
+    currentSession?.last_roll,
     players,
     user?.id,
   ]);
