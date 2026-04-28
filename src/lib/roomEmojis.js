@@ -1,4 +1,3 @@
-
 // All emoji animation CSS removed; Lottie handles all animation now.
 const BASE_ROOM_EMOJIS = [
   { id: "e1",  src: "/emojis/lottie (1).json",  label: "reaction 1",  flip: false, type: "lottie" },
@@ -58,7 +57,4 @@ const BASE_ROOM_EMOJIS = [
   { id: "e54", src: "/room-emojis/e54.json", label: "reaction 54", flip: false, type: "lottie" },
 ];
 
-export const ROOM_EMOJIS = BASE_ROOM_EMOJIS.map((emoji) => ({
-  ...emoji,
-  animation: getEmojiAnimation(emoji.id),
-}));
+export const ROOM_EMOJIS = BASE_ROOM_EMOJIS;
