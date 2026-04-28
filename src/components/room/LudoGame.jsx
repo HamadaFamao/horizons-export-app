@@ -312,26 +312,19 @@ export default function LudoGame({
     return normalizeColorIndex(layout[seatIdx] ?? seatIdx);
   };
 
+  // Always put the current user at visualIdx 0 (أسفل يسار اللوحة)
   const getRelativeVisualSeat = (player, playersList = players) => {
     const totalPlayers = playersList.length;
     if (!totalPlayers) return 0;
-
-    const layout = VISUAL_SEAT_LAYOUTS[totalPlayers] || [0, 1, 2, 3];
     const sortedBySeat = [...playersList].sort((a, b) => a.seat_number - b.seat_number);
-
-    // FIX #6: Graceful fallback when user is not in the game (observer mode)
-    const myPlayerInGame = sortedBySeat.find(
-      p => String(p.user_id) === String(user?.id)
-    );
-    const myBaseIndex = myPlayerInGame
-      ? sortedBySeat.findIndex(p => String(p.user_id) === String(myPlayerInGame.user_id))
-      : 0;
-
-    const playerIndex = sortedBySeat.findIndex(p => String(p.user_id) === String(player.user_id));
-    if (playerIndex === -1) return 0;
-
-    const relativeIndex = ((playerIndex - myBaseIndex) % totalPlayers + totalPlayers) % totalPlayers;
-    return layout[relativeIndex] ?? 0;
+    // إذا كان اللاعب هو المستخدم الحالي، دائماً visualIdx=0
+    if (String(player.user_id) === String(user?.id)) return 0;
+    // رتب الباقين بعد المستخدم الحالي
+    const others = sortedBySeat.filter(p => String(p.user_id) !== String(user?.id));
+    const idx = others.findIndex(p => String(p.user_id) === String(player.user_id));
+    // fallback: إذا كان المستخدم غير مشارك (مشاهد)
+    if (idx === -1) return sortedBySeat.findIndex(p => String(p.user_id) === String(player.user_id));
+    return idx + 1;
   };
 
   // ─── Cleanup ─────────────────────────────────
