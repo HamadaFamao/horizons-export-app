@@ -313,25 +313,16 @@ export default function LudoGame({
   };
 
   const getRelativeVisualSeat = (player, playersList = players) => {
+    // Return ABSOLUTE visual position based on seat_number
+    // seat 1 = bottom-left (0), seat 2 = bottom-right (1)
+    // seat 3 = top-right (2), seat 4 = top-left (3)
     const totalPlayers = playersList.length;
     if (!totalPlayers) return 0;
-
     const layout = VISUAL_SEAT_LAYOUTS[totalPlayers] || [0, 1, 2, 3];
-    const sortedBySeat = [...playersList].sort((a, b) => a.seat_number - b.seat_number);
-
-    // FIX #6: Graceful fallback when user is not in the game (observer mode)
-    const myPlayerInGame = sortedBySeat.find(
-      p => String(p.user_id) === String(user?.id)
-    );
-    const myBaseIndex = myPlayerInGame
-      ? sortedBySeat.findIndex(p => String(p.user_id) === String(myPlayerInGame.user_id))
-      : 0;
-
-    const playerIndex = sortedBySeat.findIndex(p => String(p.user_id) === String(player.user_id));
-    if (playerIndex === -1) return 0;
-
-    const relativeIndex = ((playerIndex - myBaseIndex) % totalPlayers + totalPlayers) % totalPlayers;
-    return layout[relativeIndex] ?? 0;
+    let seat = Number(player?.seat_number || 1);
+    if (seat > 100) seat = seat - 100;
+    const seatIdx = Math.max(0, seat - 1);
+    return layout[seatIdx] ?? 0;
   };
 
   // ─── Cleanup ─────────────────────────────────
@@ -954,9 +945,10 @@ export default function LudoGame({
     const cellSize = W / CELLS;
     const boardPlayers = getVisiblePlayersList(players, currentSession);
 
-    const getVisualColorIndex = (visualIdx) => {
-      const playerAtVisual = boardPlayers.find(p => getRelativeVisualSeat(p, boardPlayers) === visualIdx);
-      return normalizeColorIndex(playerAtVisual ? getPlayerColorIndex(playerAtVisual, boardPlayers) : visualIdx);
+    const getVisualColorIndex = (cornerIdx) => {
+      // Board is FIXED — corner 0=Red(seat1), 1=Blue(seat2), 2=Yellow(seat3), 3=Green(seat4)
+      // No rotation per viewer — everyone sees the same board
+      return normalizeColorIndex(cornerIdx);
     };
 
     ctx.clearRect(0, 0, W, W);
