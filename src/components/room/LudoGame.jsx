@@ -1654,6 +1654,11 @@ export default function LudoGame({
     const isOffline = turnPlayer && (turnPlayer.offline || turnPlayer.disconnected || turnPlayer.isDisconnected);
     if (!turnPlayer || (!isPlayerLeft(turnPlayer) && !isOffline)) return;
 
+    // Force auto play immediately (skip timer)
+    setTurnTimeLeft(0);
+    inactivePlayersRef.current.add(String(turnUserId));
+    setIsAutoPlay(v => !v); // trigger re-render so next turn uses autoMode
+
     const key = `${currentSession.id}:${turnUserId}:${currentSession.last_roll || 0}:${currentSession.display_roll || 0}`;
     if (leftTurnActionRef.current.inFlight || leftTurnActionRef.current.key === key) return;
 
