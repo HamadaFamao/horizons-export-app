@@ -1639,7 +1639,7 @@ export default function LudoGame({
     await refreshSession();
   };
 
-  // Handle resigned player turns
+  // Handle resigned or offline/disconnected player turns
   useEffect(() => {
     if (!open || currentSession?.status !== 'playing' || !currentSession?.id) return;
 
@@ -1650,7 +1650,9 @@ export default function LudoGame({
     if (!me || isPlayerLeft(me)) return;
 
     const turnPlayer = players.find(p => String(p.user_id) === turnUserId);
-    if (!turnPlayer || !isPlayerLeft(turnPlayer)) return;
+    // Check if player is left, or offline/disconnected (add your own logic for offline/disconnected)
+    const isOffline = turnPlayer && (turnPlayer.offline || turnPlayer.disconnected || turnPlayer.isDisconnected);
+    if (!turnPlayer || (!isPlayerLeft(turnPlayer) && !isOffline)) return;
 
     const key = `${currentSession.id}:${turnUserId}:${currentSession.last_roll || 0}:${currentSession.display_roll || 0}`;
     if (leftTurnActionRef.current.inFlight || leftTurnActionRef.current.key === key) return;
@@ -1667,7 +1669,7 @@ export default function LudoGame({
           await refreshSession();
         }
       } catch (err) {
-        console.error('Failed to process resigned turn:', err);
+        console.error('Failed to process resigned/offline turn:', err);
       } finally {
         leftTurnActionRef.current.inFlight = false;
       }
