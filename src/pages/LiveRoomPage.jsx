@@ -9202,33 +9202,21 @@ useEffect(() => {
                   {canModerate && (
                     <div className="flex items-center gap-2 shrink-0">
                       <button
-                        onClick={async () => {
-                          const prevIndex = (currentSongIndex ?? 0) - 1;
-                          if (prevIndex >= 0) {
-                            roomMusicPlayer.stop();
-                            setMusicPlaying(false);
-                            setMusicProgress(0);
-                            clearInterval(musicProgressIntervalRef.current);
-                            setTimeout(() => playSong(prevIndex), 100);
-                          }
-                        }}
+                          onClick={() => {
+                            const prevIndex = (currentSongIndex ?? 0) - 1;
+                            if (prevIndex >= 0) playSong(prevIndex);
+                          }}
                         disabled={!currentSongIndex || currentSongIndex === 0}
                         className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white disabled:opacity-30 transition"
                         title="Previous"
                       >
                         ⏮
                       </button>
-                      <button
-                        onClick={async () => {
-                          const nextIndex = (currentSongIndex ?? 0) + 1;
-                          if (nextIndex < playlist.length) {
-                            roomMusicPlayer.stop();
-                            setMusicPlaying(false);
-                            setMusicProgress(0);
-                            clearInterval(musicProgressIntervalRef.current);
-                            setTimeout(() => playSong(nextIndex), 100);
-                          }
-                        }}
+                        <button
+                          onClick={() => {
+                            const nextIndex = (currentSongIndex ?? 0) + 1;
+                            if (nextIndex < playlist.length) playSong(nextIndex);
+                          }}
                         disabled={currentSongIndex === null || currentSongIndex >= playlist.length - 1}
                         className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white disabled:opacity-30 transition"
                         title="Next"
