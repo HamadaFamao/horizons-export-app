@@ -288,31 +288,30 @@ export default function RoomChat({
 
   // Memoized All tab grid — only re-renders when visibleCount changes
   const allEmojiGrid = React.useMemo(
-    () =>
-      ROOM_EMOJIS.slice(0, visibleCount).map((emoji) => (
-        <button
-          key={emoji.id}
-          type="button"
-          onClick={() => handleEmojiSend(emoji)}
-          className="flex items-center justify-center p-1 hover:bg-white/10 rounded-xl transition active:scale-90"
-        >
-          <img
-            src={emoji.src}
-            alt={emoji.label}
-            loading="lazy"
-            decoding="async"
-            width={40}
-            height={40}
-            className="w-10 h-10 object-contain"
-            style={{
-              animation: emoji.animation || "emojiBounce 0.8s ease-in-out infinite",
-              transform: emoji.flip ? "scaleX(-1)" : undefined,
-            }}
-          />
-        </button>
-      )),
-    [visibleCount, handleEmojiSend]
-  );
+  () =>
+    ROOM_EMOJIS.slice(0, visibleCount).map((emoji) => (
+      <button
+        key={emoji.id}
+        type="button"
+        onClick={() => handleEmojiSend(emoji)}
+        className="flex items-center justify-center p-1 hover:bg-white/10 rounded-xl transition active:scale-90"
+      >
+        <img
+          src={emoji.src}
+          alt={emoji.label}
+          loading="lazy"
+          decoding="async"
+          width={40}
+          height={40}
+          className="w-10 h-10 object-contain select-none"
+          style={{
+            transform: emoji.flip ? "scaleX(-1)" : undefined,
+          }}
+        />
+      </button>
+    )),
+  [visibleCount, handleEmojiSend]
+);
 
   return (
     <div className="flex flex-col min-h-0 h-full relative lg:w-2/3 bg-black/30 backdrop-blur-sm">
@@ -331,9 +330,9 @@ export default function RoomChat({
                     alt="reaction"
                     className="w-14 h-14 object-contain drop-shadow-lg"
                     style={{
-                      animation: `${effect.animation || "emojiBounce 0.8s ease-in-out infinite"}, chatEmojiRise 3s ease-out forwards`,
-                      transform: effect.flip ? "scaleX(-1)" : undefined,
-                    }}
+  animation: "chatEmojiRise 2.8s ease-out forwards",
+  transform: effect.flip ? "scaleX(-1)" : undefined,
+}}
                   />
                 </div>
               ))}
@@ -759,9 +758,8 @@ export default function RoomChat({
                             height={40}
                             className="w-10 h-10 object-contain"
                             style={{
-                              animation: emoji.animation || "emojiBounce 0.8s ease-in-out infinite",
-                              transform: emoji.flip ? "scaleX(-1)" : undefined,
-                            }}
+  transform: emoji.flip ? "scaleX(-1)" : undefined,
+}}
                           />
                         </button>
                       ))
@@ -997,7 +995,7 @@ export default function RoomChat({
                   loading="lazy"
                   width={28}
                   height={28}
-                  className="w-7 h-7 object-contain"
+                  className="w-7 h-7 object-contain select-none"
                   style={lastUsedEmoji.flip ? { transform: 'scaleX(-1)' } : undefined}
                 />
                 <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-white/90 flex items-center justify-center text-[9px] font-black text-slate-700">
