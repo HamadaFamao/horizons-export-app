@@ -1691,8 +1691,10 @@ export default function LudoGame({
   ]);
 
   // Handle stalled turns — player went offline without resigning
-  // First occurrence: 25s wait. Subsequent turns for same player: 2s wait.
-  const stalledTurnRef = useRef({ inFlight: false, key: '', stalledPlayers: new Set() });
+  // First time: 25s. All subsequent turns for same player: 2s.
+  const stalledPlayersRef = useRef(new Set()); // persists across renders
+  const stalledTurnRef = useRef({ inFlight: false, firedKey: '' });
+
   useEffect(() => {
     if (!open || currentSession?.status !== 'playing' || !currentSession?.id) return;
 
@@ -1705,15 +1707,21 @@ export default function LudoGame({
     const me = players.find(p => String(p.user_id) === String(user?.id));
     if (!me || isPlayerLeft(me)) return;
 
-    const key = `${currentSession.id}:${turnUserId}:${currentSession.last_roll || 0}:stalled`;
-    const isKnownStalled = stalledTurnRef.current.stalledPlayers.has(turnUserId);
+    // Unique key per turn action
+    const firedKey = `${currentSession.id}:${turnUserId}:${currentSession.last_roll || 0}`;
+    if (stalledTurnRef.current.firedKey === firedKey) return;
+
+    const isKnownStalled = stalledPlayersRef.current.has(turnUserId);
     const waitMs = isKnownStalled ? 2000 : 25000;
 
     const t = setTimeout(async () => {
-      if (stalledTurnRef.current.inFlight || stalledTurnRef.current.key === key) return;
+      // Double-check not already fired for this key
+      if (stalledTurnRef.current.firedKey === firedKey) return;
+      if (stalledTurnRef.current.inFlight) return;
+
       stalledTurnRef.current.inFlight = true;
-      stalledTurnRef.current.key = key;
-      stalledTurnRef.current.stalledPlayers.add(turnUserId);
+      stalledTurnRef.current.firedKey = firedKey;
+      stalledPlayersRef.current.add(turnUserId); // mark as stalled for next turn
       try {
         await autoPlayLeftTurn(turnPlayer, currentSession);
       } catch (err) {
