@@ -61,6 +61,8 @@ function getPieceStackOffset(index) {
   return [Math.cos(angle) * radius, Math.sin(angle) * radius];
 }
 
+// 2: [0,2] = متقابلين (أسفل شمال وأعلى يمين)
+// 4: [0,1,2,3] = ترتيب دائري
 const VISUAL_SEAT_LAYOUTS = {
   2: [0, 2],
   3: [0, 1, 2],
@@ -313,16 +315,39 @@ export default function LudoGame({
   };
 
   // Always put the current user at visualIdx 0 (أسفل يسار اللوحة)
+  // في 2 لاعبين: الخصم دائماً visualIdx=2 (أعلى يمين)
+  // في 4 لاعبين (2vs2): شريك الفريق visualIdx=2، الخصمان 1 و3
   const getRelativeVisualSeat = (player, playersList = players) => {
     const totalPlayers = playersList.length;
     if (!totalPlayers) return 0;
     const sortedBySeat = [...playersList].sort((a, b) => a.seat_number - b.seat_number);
-    // إذا كان اللاعب هو المستخدم الحالي، دائماً visualIdx=0
     if (String(player.user_id) === String(user?.id)) return 0;
-    // رتب الباقين بعد المستخدم الحالي
+
+    // 2 لاعبين: الخصم دائماً visualIdx=2
+    if (totalPlayers === 2) {
+      const other = sortedBySeat.find(p => String(p.user_id) !== String(user?.id));
+      if (other && String(player.user_id) === String(other.user_id)) return 2;
+      return 1; // fallback
+    }
+
+    // 4 لاعبين (2vs2): شريك الفريق visualIdx=2
+    if (totalPlayers === 4 && currentSession?.team_mode) {
+      const myPlayer = sortedBySeat.find(p => String(p.user_id) === String(user?.id));
+      const myTeam = myPlayer ? getEffectiveTeam(myPlayer) : null;
+      if (myTeam) {
+        const teammates = sortedBySeat.filter(p => getEffectiveTeam(p) === myTeam);
+        const others = sortedBySeat.filter(p => getEffectiveTeam(p) !== myTeam);
+        if (String(player.user_id) === String(user?.id)) return 0;
+        if (teammates.length === 2 && String(player.user_id) === String(teammates.find(p => String(p.user_id) !== String(user?.id))?.user_id)) return 2;
+        // الخصمان
+        const oppIdx = others.findIndex(p => String(p.user_id) === String(player.user_id));
+        return oppIdx === 0 ? 1 : 3;
+      }
+    }
+
+    // الوضع الافتراضي: رتب الباقين بعد المستخدم الحالي
     const others = sortedBySeat.filter(p => String(p.user_id) !== String(user?.id));
     const idx = others.findIndex(p => String(p.user_id) === String(player.user_id));
-    // fallback: إذا كان المستخدم غير مشارك (مشاهد)
     if (idx === -1) return sortedBySeat.findIndex(p => String(p.user_id) === String(player.user_id));
     return idx + 1;
   };
