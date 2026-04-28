@@ -570,9 +570,8 @@ export default function LudoGame({
       turnTimerRef.current = null;
       done = true;
 
-      inactivePlayersRef.current.add(String(userId));
-      setIsAutoPlay(v => !v); // trigger re-render so next turn uses autoMode
-      fireAutoAction();
+      // تجاوز الدور تلقائياً لأي لاعب انتهى وقته ولم يتفاعل
+      forceAdvanceTurnFromLeft(userId, currentSession, players);
     }, 1000);
 
     return () => {
