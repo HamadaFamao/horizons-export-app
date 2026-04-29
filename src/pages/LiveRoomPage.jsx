@@ -47,14 +47,7 @@ import SpinGame from "@/components/room/SpinGame";
 import RaceGame from "@/components/room/RaceGame";
 import LudoGame from "@/components/room/LudoGame";
 
-const FALLBACK_AVATAR =
-  "data:image/svg+xml;utf8," +
-  encodeURIComponent(`
-  <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128">
-    <rect width="128" height="128" rx="64" fill="#f1f5f9"/>
-    <circle cx="64" cy="52" r="22" fill="#cbd5e1"/>
-    <path d="M24 112c8-22 28-34 40-34s32 12 40 34" fill="#cbd5e1"/>
-  </svg>`);
+import { FALLBACK_AVATAR } from "@/components/room/ludoUtils";
 
 function isVipActive(profile) {
   if (!profile?.is_vip) return false;
