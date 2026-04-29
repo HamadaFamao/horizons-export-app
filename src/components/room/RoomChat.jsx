@@ -47,16 +47,19 @@ export function RoomEmojiAsset({
   }, [src, isJsonLottie]);
 
   if (isDotLottie) {
-    return (
-      <DotLottieReact
-        src={src}
-        autoplay={autoplay}
-        loop={loop}
-        className={className}
-        style={style}
-      />
-    );
-  }
+  return (
+    <DotLottieReact
+      src={src}
+      autoplay={autoplay}
+      loop={loop}
+      className={className}
+      style={{
+        ...style,
+        pointerEvents: "none",
+      }}
+    />
+  );
+}
 
   if (isJsonLottie) {
     if (!animationData) {

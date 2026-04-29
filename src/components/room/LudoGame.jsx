@@ -2788,32 +2788,39 @@ useEffect(() => {
     </button>
 
     {emojiPickerFor === String(p.user_id) && (
-      <div
-        className="absolute z-[90] bottom-8 left-1/2 -translate-x-1/2
-          flex gap-1 rounded-2xl bg-slate-950/95 border border-white/15
-          px-2 py-1.5 shadow-2xl backdrop-blur-md flex-wrap max-w-[220px]"
-        onClick={(e) => e.stopPropagation()}
+  <div
+    className="absolute z-[120] bottom-10 left-1/2 -translate-x-1/2
+      w-[230px] max-h-[220px] overflow-y-auto
+      grid grid-cols-4 gap-2 rounded-2xl bg-slate-950/95
+      border border-white/15 p-2 shadow-2xl backdrop-blur-md"
+    onClick={(e) => e.stopPropagation()}
+    onMouseDown={(e) => e.stopPropagation()}
+    onTouchStart={(e) => e.stopPropagation()}
+  >
+    {LUDO_EMOJIS.map((em) => (
+      <button
+        key={em.id}
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          sendLudoEmoji(p.user_id, em);
+        }}
+        className="w-11 h-11 rounded-xl bg-white/5 hover:bg-white/15
+          flex items-center justify-center active:scale-90 transition"
+        title={em.label}
       >
-        {LUDO_EMOJIS.map((em) => (
-          <button
-            key={em.id}
-            type="button"
-            onClick={() => sendLudoEmoji(p.user_id, em)}
-            className="w-8 h-8 rounded-full hover:bg-white/15
-              flex items-center justify-center active:scale-90 transition"
-          >
-            <RoomEmojiAsset
-              src={em.src}
-              alt={em.label}
-              className="w-6 h-6 object-contain"
-              style={{
-                transform: em.flip ? "scaleX(-1)" : undefined,
-              }}
-            />
-          </button>
-        ))}
-      </div>
-    )}
+        <RoomEmojiAsset
+          src={em.src}
+          alt={em.label}
+          className="w-9 h-9 object-contain pointer-events-none"
+          style={{
+            transform: em.flip ? "scaleX(-1)" : undefined,
+          }}
+        />
+      </button>
+    ))}
+  </div>
+)}
 
     {ludoEmojiEffects
       .filter(x => String(x.targetUserId) === String(p.user_id))
