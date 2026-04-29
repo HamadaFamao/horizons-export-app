@@ -45,7 +45,7 @@ import RoomModals from "@/components/room/RoomModals";
 import GamesLobby from "@/components/room/GamesLobby";
 import SpinGame from "@/components/room/SpinGame";
 import RaceGame from "@/components/room/RaceGame";
-import LudoGame from './LudoGame';
+import LudoGame from "@/components/room/LudoGame";
 
 import { FALLBACK_AVATAR } from "@/components/room/ludoUtils";
 
