@@ -302,7 +302,7 @@ export default function LiveRoomPage() {
   // ==========================================
   const { roomId } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const { setMiniRoomActive, setRoomData, miniRoomActive } = useMiniRoom();
 
   // ==========================================
@@ -319,6 +319,8 @@ export default function LiveRoomPage() {
   const roomBackgroundVipInputRef = useRef(null);
 
   const miniRoomActiveRef = useRef(false);
+  const activeLudoSessionIdRef = useRef(null);
+  const accessTokenRef = useRef(null);
   const livekitRoomRef = useRef(null);
   const mountedRef = useRef(true);
   const profilesCacheRef = useRef(new Map());
@@ -430,6 +432,25 @@ export default function LiveRoomPage() {
       inRoomChatThreadId,
     });
   }, [inRoomChatOpen, inRoomChatThreadId]);
+
+  // Keep access token ref current so keepalive fetch works during page unload
+  useEffect(() => {
+    accessTokenRef.current = session?.access_token ?? null;
+  }, [session?.access_token]);
+
+  // Cache the active Ludo session ID so it's available synchronously in beforeunload
+  useEffect(() => {
+    if (!showLudoGame || !roomId) return;
+    supabase
+      .from('room_ludo_sessions')
+      .select('id')
+      .eq('room_id', roomId)
+      .eq('status', 'playing')
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.id) activeLudoSessionIdRef.current = data.id;
+      });
+  }, [showLudoGame, roomId]);
 
   const processGlobalMsgQueue = useCallback(() => {
     setGlobalMsgQueue(prev => {
@@ -6019,6 +6040,26 @@ useEffect(() => {
 
     const onBeforeUnload = () => {
       if (miniRoomActiveRef.current) return;
+      // keepalive: true guarantees the request completes even after the page unloads.
+      // This handles the browser-close case where async calls are normally cancelled.
+      if (activeLudoSessionIdRef.current && user?.id && accessTokenRef.current) {
+        fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/rpc/resign_ludo_game`,
+          {
+            method: 'POST',
+            keepalive: true,
+            headers: {
+              apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${accessTokenRef.current}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              p_session_id: activeLudoSessionIdRef.current,
+              p_user_id: user.id,
+            }),
+          }
+        ).catch(() => {});
+      }
       leaveRoomPresence();
     };
     window.addEventListener("beforeunload", onBeforeUnload);
