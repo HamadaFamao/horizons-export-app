@@ -2371,9 +2371,8 @@ export default function LudoGame({
   };
 
   // ─── Render ───────────────────────────────────
-  // يجب أن تكون جملة if (!open) return null; داخل جسم الدالة وليس top-level
-  // homeColors needed inside drawBoard but also in JSX (piece fallback gradient)
   if (!open) return null;
+  // homeColors needed inside drawBoard but also in JSX (piece fallback gradient)
   const homeColors = [
     { bg: '#fca5a5', border: '#ef4444', grad1: '#f87171', grad2: '#dc2626' },
     { bg: '#93c5fd', border: '#3b82f6', grad1: '#60a5fa', grad2: '#2563eb' },
