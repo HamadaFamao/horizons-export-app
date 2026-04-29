@@ -1,4 +1,33 @@
 import React, { useState, useEffect, useRef } from 'react';
+// --- Helper: Detect if window/tab is closed or user left room
+function useAutoResign(onResign, isMyTurn, open, currentSession, user) {
+  const resignTimeoutRef = useRef();
+  useEffect(() => {
+    function handleUnload() {
+      if (isMyTurn && open && currentSession?.status === 'playing') {
+        resignTimeoutRef.current = setTimeout(() => {
+          onResign();
+        }, 40000); // 40 ثانية
+      }
+    }
+    function clearResign() {
+      if (resignTimeoutRef.current) clearTimeout(resignTimeoutRef.current);
+    }
+    window.addEventListener('beforeunload', handleUnload);
+    window.addEventListener('unload', handleUnload);
+    window.addEventListener('focus', clearResign);
+    window.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') clearResign();
+    });
+    return () => {
+      window.removeEventListener('beforeunload', handleUnload);
+      window.removeEventListener('unload', handleUnload);
+      window.removeEventListener('focus', clearResign);
+      window.removeEventListener('visibilitychange', clearResign);
+      clearResign();
+    };
+  }, [isMyTurn, open, currentSession, user, onResign]);
+}
 import { supabase } from '@/lib/supabaseClient';
 import { Loader2, X, Settings } from 'lucide-react';
 
@@ -783,24 +812,51 @@ export default function RaceGame({
   const myPlayer  = players.find(p => String(p.user_id) === String(user?.id));
   const netPrize  = Math.floor((currentSession?.entry_cost || 0) * players.length * 0.9);
 
-  const autoPlayRef = useRef(false); // true = player missed their turn once
 
-  // Auto-play: 8s first time, then instant for inactive players
+  // --- Auto-play logic ---
+  const autoPlayRef = useRef(false); // true = player تأخر مرة واحدة
+  const autoPlayUsedRef = useRef(false); // يمنع الانتظار مرة أخرى
+  const autoPlayDiceTimeout = useRef();
+  const autoPlayMoveTimeout = useRef();
+
   useEffect(() => {
     if (!isMyTurn || currentSession?.status !== 'playing' || !open) return;
     if (myPlayer?.left_at) return;
     if (turnPausedByResign) return;
     if (rolling || anyoneMoving) return;
 
-    const delay = autoPlayRef.current ? 800 : 8000;
-    const t = setTimeout(() => {
-      if (!rolling && !anyoneMoving) {
-        autoPlayRef.current = true;
-        rollDice();
-      }
-    }, delay);
-    return () => clearTimeout(t);
+    // أول مرة فقط: 12 ثانية انتظار
+    if (!autoPlayUsedRef.current) {
+      autoPlayDiceTimeout.current = setTimeout(() => {
+        if (!rolling && !anyoneMoving) {
+          autoPlayRef.current = true;
+          autoPlayUsedRef.current = true;
+          rollDice();
+        }
+      }, 12000);
+      return () => clearTimeout(autoPlayDiceTimeout.current);
+    }
+    // بعد ذلك: 2 ثانية للنرد ثم 2 ثانية للحركة
+    if (autoPlayRef.current) {
+      autoPlayDiceTimeout.current = setTimeout(() => {
+        if (!rolling && !anyoneMoving) {
+          rollDice();
+          autoPlayMoveTimeout.current = setTimeout(() => {
+            // بعد رمي النرد، حرك القطعة تلقائياً (يفترض أن هناك دالة movePiece أو منطق مشابه)
+            // إذا كان هناك منطق للحركة اليدوية، أضف هنا استدعاء الحركة التلقائية
+            // مثال: movePieceAuto();
+          }, 2000);
+        }
+      }, 2000);
+      return () => {
+        clearTimeout(autoPlayDiceTimeout.current);
+        clearTimeout(autoPlayMoveTimeout.current);
+      };
+    }
   }, [isMyTurn, currentSession?.current_turn_user_id, rolling, anyoneMoving, open, myPlayer?.left_at, turnPausedByResign]);
+
+  // --- Auto-resign logic ---
+  useAutoResign(resignSession, isMyTurn, open, currentSession, user);
 
   useEffect(() => {
     if (!open || currentSession?.status !== 'playing') {
@@ -841,6 +897,7 @@ export default function RaceGame({
   // Reset auto-play when player manually rolls
   const markActive = () => { autoPlayRef.current = false; };
 
+  // --- تأثير ضوئي للاعب صاحب الدور (الكارت + النرد) ---
   const renderPlayer = (p) => {
     const progressPct = (p.position / TRACK_LENGTH) * 100;
     const isCurrentTurn = String(currentSession?.current_turn_user_id) === String(p.user_id) && currentSession?.status === 'playing';
@@ -852,12 +909,12 @@ export default function RaceGame({
         isResigned
           ? 'bg-rose-950/40 border-2 border-rose-500/70 opacity-60'
           : isCurrentTurn
-            ? 'bg-white/10 border border-white/20 shadow-md'
+            ? 'bg-white/10 border-2 border-amber-400 shadow-lg ring-2 ring-amber-300/60 animate-pulse'
             : 'bg-white/5 border border-transparent'
-      }`}>
+      }`} style={isCurrentTurn ? { boxShadow: '0 0 16px 4px #facc15, 0 0 0 4px #fde68a55' } : {}}>
         <div className="absolute left-0 top-0 bottom-0 opacity-20 transition-all duration-500" style={{ width: `${progressPct}%`, backgroundColor: p.color }} />
         <div className="relative shrink-0">
-          <img src={p.avatar_url || FALLBACK_AVATAR} alt={p.name} className="w-7 h-7 rounded-full object-cover border border-white/20" onError={e => e.currentTarget.src = FALLBACK_AVATAR} />
+          <img src={p.avatar_url || FALLBACK_AVATAR} alt={p.name} className={`w-7 h-7 rounded-full object-cover border border-white/20 ${isCurrentTurn ? 'ring-2 ring-amber-300 animate-pulse' : ''}`} onError={e => e.currentTarget.src = FALLBACK_AVATAR} />
           <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-slate-900" style={{ backgroundColor: p.color }} />
         </div>
         <div className="flex-1 min-w-0 z-10">
@@ -887,10 +944,11 @@ export default function RaceGame({
             6:[[25,20],[75,20],[25,50],[75,50],[25,80],[75,80]],
           };
           const dots = dotPositions[num] || dotPositions[1];
+          // تأثير ضوئي للنرد للاعب صاحب الدور
           return (
             <div onClick={canRoll ? () => { markActive(); rollDice(); } : undefined}
-              className={`relative shrink-0 w-10 h-10 rounded-xl flex items-center justify-center border-b-4 border-r-2 z-10 ${canRoll ? 'cursor-pointer active:scale-90 active:border-b-2 active:translate-y-0.5' : 'cursor-default opacity-80'} ${isAnimating ? 'animate-spin' : canRoll ? 'animate-bounce' : ''}`}
-              style={{ background: 'linear-gradient(135deg, #ffffff, #e2e8f0)', borderColor: p.color || '#ffffff', boxShadow: canRoll ? `0 4px 12px rgba(0,0,0,0.4), 0 0 15px ${p.color || '#fff'}66` : '0 4px 8px rgba(0,0,0,0.3)' }}>
+              className={`relative shrink-0 w-10 h-10 rounded-xl flex items-center justify-center border-b-4 border-r-2 z-10 ${canRoll ? 'cursor-pointer active:scale-90 active:border-b-2 active:translate-y-0.5' : 'cursor-default opacity-80'} ${isAnimating ? 'animate-spin' : canRoll ? 'animate-bounce' : ''} ${isCurrentTurn ? 'ring-4 ring-amber-300/70 shadow-lg animate-pulse' : ''}`}
+              style={isCurrentTurn ? { boxShadow: '0 0 16px 4px #facc15, 0 0 0 4px #fde68a55' } : { background: 'linear-gradient(135deg, #ffffff, #e2e8f0)', borderColor: p.color || '#ffffff', boxShadow: canRoll ? `0 4px 12px rgba(0,0,0,0.4), 0 0 15px ${p.color || '#fff'}66` : '0 4px 8px rgba(0,0,0,0.3)' }}>
               {diceData ? dots.map(([dx, dy], di) => (
                 <div key={di} className="absolute w-1.5 h-1.5 rounded-full"
                   style={{ left: `${dx}%`, top: `${dy}%`, transform: 'translate(-50%,-50%)', backgroundColor: p.color || '#1e293b' }} />
@@ -913,76 +971,77 @@ export default function RaceGame({
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div className="relative w-full max-w-md bg-slate-900 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden max-h-[95vh] sm:max-h-[90vh]" onClick={e => e.stopPropagation()}>
         {turnIntro && (
-          <>
-            <div
-              className="pointer-events-none absolute inset-x-6 top-20 z-30 h-24 rounded-[28px] blur-2xl opacity-60 animate-pulse"
-              style={{ background: `radial-gradient(circle at center, ${turnIntro.color}66 0%, transparent 72%)` }}
-            />
-            <div className="pointer-events-none absolute inset-x-5 top-[72px] z-30 flex justify-center">
-              <div
-                key={turnIntro.key}
-                className="relative overflow-hidden rounded-2xl border px-5 py-3 text-center shadow-2xl backdrop-blur-md animate-bounce"
-                style={{
-                  borderColor: `${turnIntro.color}88`,
-                  background: `linear-gradient(135deg, ${turnIntro.color}26, rgba(15,23,42,0.92) 58%, rgba(15,23,42,0.98) 100%)`,
-                  boxShadow: `0 0 30px ${turnIntro.color}55`,
-                }}>
-                <div
-                  className="absolute inset-y-0 -left-10 w-16 rotate-12 opacity-60"
-                  style={{ background: `linear-gradient(90deg, transparent, ${turnIntro.color}88, transparent)` }}
-                />
-                <div className="relative text-[10px] font-black uppercase tracking-[0.35em] text-white/70">{turnIntro.title}</div>
-                <div className="relative mt-1 text-sm font-black text-white drop-shadow-sm">✨ {turnIntro.subtitle}</div>
-              </div>
-            </div>
-          </>
-        )}
-        <div className="flex justify-center pt-3 pb-1 sm:hidden"><div className="w-12 h-1.5 rounded-full bg-white/20" /></div>
+          players.forEach((p) => {
+            // Use animated position if available, else real position
+            const animPos = animatingPosRef.current[p.user_id];
+            const rawPos = animPos !== undefined ? animPos : p.position;
+            const displayPos = rawPos === 0 ? 1 : rawPos;
+            const center = getCellCenter(displayPos, cols, rows, cellW, cellH);
+            const playersOnSameCell = players.filter(op => {
+              const opAnimPos = animatingPosRef.current[op.user_id];
+              const opRaw = opAnimPos !== undefined ? opAnimPos : op.position;
+              return (opRaw === 0 ? 1 : opRaw) === displayPos;
+            });
+            const pidx = playersOnSameCell.findIndex(op => op.user_id === p.user_id);
+            let offsetX = 0, offsetY = 0;
+            if (playersOnSameCell.length > 1) {
+              const angle = (pidx / playersOnSameCell.length) * Math.PI * 2 - Math.PI / 2;
+              const radius = cellW * 0.22;
+              offsetX = Math.cos(angle) * radius; offsetY = Math.sin(angle) * radius;
+            }
+            const cx = center.x + offsetX, cy = center.y + offsetY;
+            const r = cellW * 0.22;
+            const isAnimating = String(animatingPlayer) === String(p.user_id);
+            const isResigned = !!p.left_at;
+            const isCurrentTurn = String(currentSession?.current_turn_user_id) === String(p.user_id) && currentSession?.status === 'playing';
 
-        {/* Header */}
-        <div className="px-4 py-2.5 flex items-center justify-between border-b border-white/10">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">🎲</span>
-            <span className="font-bold text-white text-lg">Race Game</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1 bg-amber-500/20 border border-amber-500/30 rounded-full px-3 py-1">
-              <span className="text-sm">🪙</span>
-              <span className="text-amber-300 font-black text-sm">{(userCoins || 0).toLocaleString()}</span>
-            </div>
-            {/* ── Settings with mute button ──────────────────────────────── */}
-            {currentSession && (
-              <div className="relative">
-                <button onClick={() => setShowSettingsMenu(v => !v)} className="text-white/50 hover:text-white p-0.5">
-                  <Settings className="w-5 h-5" />
-                </button>
-                {showSettingsMenu && (
-                  <div className="absolute right-0 top-7 z-50 bg-slate-800 border border-white/10 rounded-xl shadow-xl min-w-[160px] overflow-hidden" onClick={e => e.stopPropagation()}>
-                    <button onClick={() => setSoundMuted(v => !v)} className="w-full text-left px-4 py-2.5 text-white font-bold text-sm hover:bg-white/10 transition flex items-center gap-2">
-                      {soundMuted ? '🔇' : '🔊'} {soundMuted ? 'Unmute' : 'Mute'} Sound
-                    </button>
-                    {currentSession?.status === 'playing' && isJoined && (
-                      <button onClick={resignSession} disabled={resigning} className="w-full text-left px-4 py-2.5 text-amber-300 font-bold text-sm hover:bg-amber-500/10 transition">
-                        {resigning ? '...' : '🚪 Resign Game'}
-                      </button>
-                    )}
-                    {canModerate && currentSession?.status === 'waiting' && (
-                      <button onClick={() => { setShowSettingsMenu(false); cancelSession(); }} className="w-full text-left px-4 py-2.5 text-rose-400 font-bold text-sm hover:bg-rose-500/10 transition">
-                        🚫 Cancel Game
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-            <button onClick={onClose} className="text-white/50 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
-          </div>
-        </div>
+            ctx.save();
 
-        <div className="flex-1 overflow-y-auto p-3">
-          {loading ? (
-            <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-white/50" /></div>
-          ) : showResult && winner ? (
+            // Resigned player: dim with red border
+            if (isResigned) {
+              ctx.globalAlpha = 0.45;
+            }
+
+            // Outer glow for animating piece أو صاحب الدور
+            if (isAnimating || isCurrentTurn) {
+              ctx.beginPath();
+              ctx.arc(cx, cy, r + cellW * 0.18, 0, Math.PI * 2);
+              ctx.fillStyle = `${p.color || '#fff'}33`;
+              ctx.shadowColor = isCurrentTurn ? '#facc15' : (p.color || '#fff');
+              ctx.shadowBlur = isCurrentTurn ? cellW * 0.45 : cellW * 0.3;
+              ctx.fill();
+              ctx.shadowBlur = 0;
+            }
+
+            // IMPROVED ring — thick colored border
+            ctx.beginPath();
+            ctx.arc(cx, cy, r + cellW * 0.09, 0, Math.PI * 2);
+            ctx.fillStyle = isResigned ? '#ef4444' : (p.color || '#ffffff');
+            ctx.shadowColor = isResigned ? '#ef4444' : (isAnimating || isCurrentTurn ? '#facc15' : 'rgba(0,0,0,0.5)');
+            ctx.shadowBlur = (isAnimating || isCurrentTurn) ? cellW * 0.25 : cellW * 0.08;
+            ctx.shadowOffsetY = cellW * 0.03;
+            ctx.fill();
+            ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+
+            // White inner ring
+            ctx.beginPath();
+            ctx.arc(cx, cy, r + cellW * 0.04, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255,255,255,0.9)';
+            ctx.fill();
+
+            // Avatar clip
+            ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip();
+            const img = avatarImagesRef.current[p.user_id];
+            if (img?.complete && img?.naturalWidth > 0) {
+              ctx.drawImage(img, cx - r, cy - r, r * 2, r * 2);
+            } else {
+              ctx.fillStyle = p.color || '#334155'; ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+              ctx.fillStyle = '#ffffff'; ctx.font = `bold ${r * 0.9}px sans-serif`;
+              ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+              ctx.fillText((p.name || 'U')[0].toUpperCase(), cx, cy + cellW * 0.03);
+            }
+            ctx.restore();
+          });
             <div className="flex flex-col items-center gap-4 py-8">
               <div className="text-7xl animate-bounce drop-shadow-[0_0_30px_rgba(251,191,36,0.6)]">🏆</div>
               <div className="text-white font-black text-3xl tracking-wide">WINNER!</div>
