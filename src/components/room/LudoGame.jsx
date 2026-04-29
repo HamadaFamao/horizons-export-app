@@ -61,8 +61,6 @@ function getPieceStackOffset(index) {
   return [Math.cos(angle) * radius, Math.sin(angle) * radius];
 }
 
-// 2: [0,2] = متقابلين (أسفل شمال وأعلى يمين)
-// 4: [0,1,2,3] = ترتيب دائري
 const VISUAL_SEAT_LAYOUTS = {
   2: [0, 2],
   3: [0, 1, 2],
@@ -279,7 +277,7 @@ export default function LudoGame({
     const s = sessionArg || currentSession;
     if (Number(s?.max_players || 0) !== 4) return false;
     return s?.team_mode === true;
-  // نهاية دالة drawBoard
+  }
 
   const getEffectiveSeat = (player) => {
     if (!player) return 0;
@@ -314,42 +312,26 @@ export default function LudoGame({
     return normalizeColorIndex(layout[seatIdx] ?? seatIdx);
   };
 
-  // Always put the current user at visualIdx 0 (أسفل يسار اللوحة)
-  // في 2 لاعبين: الخصم دائماً visualIdx=2 (أعلى يمين)
-  // في 4 لاعبين (2vs2): شريك الفريق visualIdx=2، الخصمان 1 و3
   const getRelativeVisualSeat = (player, playersList = players) => {
     const totalPlayers = playersList.length;
     if (!totalPlayers) return 0;
+
+    const layout = VISUAL_SEAT_LAYOUTS[totalPlayers] || [0, 1, 2, 3];
     const sortedBySeat = [...playersList].sort((a, b) => a.seat_number - b.seat_number);
-    if (String(player.user_id) === String(user?.id)) return 0;
 
-    // 2 لاعبين: الخصم دائماً visualIdx=2
-    if (totalPlayers === 2) {
-      const other = sortedBySeat.find(p => String(p.user_id) !== String(user?.id));
-      if (other && String(player.user_id) === String(other.user_id)) return 2;
-      return 1; // fallback
-    }
+    // FIX #6: Graceful fallback when user is not in the game (observer mode)
+    const myPlayerInGame = sortedBySeat.find(
+      p => String(p.user_id) === String(user?.id)
+    );
+    const myBaseIndex = myPlayerInGame
+      ? sortedBySeat.findIndex(p => String(p.user_id) === String(myPlayerInGame.user_id))
+      : 0;
 
-    // 4 لاعبين (2vs2): شريك الفريق visualIdx=2
-    if (totalPlayers === 4 && currentSession?.team_mode) {
-      const myPlayer = sortedBySeat.find(p => String(p.user_id) === String(user?.id));
-      const myTeam = myPlayer ? getEffectiveTeam(myPlayer) : null;
-      if (myTeam) {
-        const teammates = sortedBySeat.filter(p => getEffectiveTeam(p) === myTeam);
-        const others = sortedBySeat.filter(p => getEffectiveTeam(p) !== myTeam);
-        if (String(player.user_id) === String(user?.id)) return 0;
-        if (teammates.length === 2 && String(player.user_id) === String(teammates.find(p => String(p.user_id) !== String(user?.id))?.user_id)) return 2;
-        // الخصمان
-        const oppIdx = others.findIndex(p => String(p.user_id) === String(player.user_id));
-        return oppIdx === 0 ? 1 : 3;
-      }
-    }
+    const playerIndex = sortedBySeat.findIndex(p => String(p.user_id) === String(player.user_id));
+    if (playerIndex === -1) return 0;
 
-    // الوضع الافتراضي: رتب الباقين بعد المستخدم الحالي
-    const others = sortedBySeat.filter(p => String(p.user_id) !== String(user?.id));
-    const idx = others.findIndex(p => String(p.user_id) === String(player.user_id));
-    if (idx === -1) return sortedBySeat.findIndex(p => String(p.user_id) === String(player.user_id));
-    return idx + 1;
+    const relativeIndex = ((playerIndex - myBaseIndex) % totalPlayers + totalPlayers) % totalPlayers;
+    return layout[relativeIndex] ?? 0;
   };
 
   // ─── Cleanup ─────────────────────────────────
@@ -570,8 +552,9 @@ export default function LudoGame({
       turnTimerRef.current = null;
       done = true;
 
-      // تجاوز الدور تلقائياً لأي لاعب انتهى وقته ولم يتفاعل
-      forceAdvanceTurnFromLeft(userId, currentSession, players);
+      inactivePlayersRef.current.add(String(userId));
+      setIsAutoPlay(v => !v); // trigger re-render so next turn uses autoMode
+      fireAutoAction();
     }, 1000);
 
     return () => {
@@ -989,25 +972,6 @@ export default function LudoGame({
       ctx.restore();
     }
 
-    // مؤثر ضوئي على بيت اللاعب صاحب الدور
-    if (currentTurnPlayer) {
-      const visualIdx = getRelativeVisualSeat(currentTurnPlayer, boardPlayers);
-      const rect = homeRects[visualIdx];
-      if (rect) {
-        const x = rect.c * cellSize;
-        const y = rect.r * cellSize;
-        const w = rect.w * cellSize;
-        const h = rect.h * cellSize;
-        ctx.save();
-        ctx.shadowColor = PLAYER_COLORS[getPlayerColorIndex(currentTurnPlayer, boardPlayers)];
-        ctx.shadowBlur = 32;
-        ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-        ctx.lineWidth = 7;
-        ctx.strokeRect(x + cellSize * 0.5, y + cellSize * 0.5, w - cellSize, h - cellSize);
-        ctx.restore();
-      }
-    }
-
     const bgGrad = ctx.createRadialGradient(W/2, W/2, 0, W/2, W/2, W);
     bgGrad.addColorStop(0, '#1e293b');
     bgGrad.addColorStop(1, '#0f172a');
@@ -1241,22 +1205,66 @@ export default function LudoGame({
     let needsMoveAnimationFrame = false;
     const seenPieceKeys = new Set();
 
+    stackedByCell.forEach((cellPieces) => {
+      cellPieces.forEach((item, stackIndex) => {
+        const { player, pieceIdx, piecePos } = item;
+        const { x, y, colorIdx: rawColorIdx } = piecePos;
+        const colorIdx = normalizeColorIndex(rawColorIdx);
+        const [offX, offY] = getPieceStackOffset(stackIndex);
+        const px = x + offX;
+        const py = y + offY;
+        const pieceKey = `${player.user_id}-${pieceIdx}`;
+        seenPieceKeys.add(pieceKey);
 
-        // مؤثر ضوئي على قطع اللاعب صاحب الدور
-        const isCurrentTurnPiece = currentTurnPlayer && String(player.user_id) === String(currentTurnPlayer.user_id);
-        if (isCurrentTurnPiece) {
-          ctx.save();
-          ctx.beginPath();
-          ctx.arc(px, py, cellSize * 0.52, 0, Math.PI * 2);
-          ctx.shadowColor = PLAYER_COLORS[colorIdx];
-          ctx.shadowBlur = 24;
-          ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-          ctx.lineWidth = 4;
-          ctx.stroke();
-          ctx.restore();
+        const prevPos = lastPieceCanvasPosRef.current[pieceKey];
+
+        // Always record current position — no animation to avoid false movement bugs
+        lastPieceCanvasPosRef.current[pieceKey] = { x: px, y: py };
+
+        // Only animate if an animation is already in progress (from movePiece RPC)
+        const activeAnim = pieceMoveAnimRef.current[pieceKey];
+
+        let drawX = px;
+        let drawY = py;
+        let hopY = 0;
+
+        if (activeAnim) {
+          const elapsed = nowTs - activeAnim.start;
+          const t = Math.max(0, Math.min(1, elapsed / activeAnim.duration));
+          const eased = 1 - Math.pow(1 - t, 2.2);
+          drawX = activeAnim.fromX + (activeAnim.toX - activeAnim.fromX) * eased;
+          drawY = activeAnim.fromY + (activeAnim.toY - activeAnim.fromY) * eased;
+          // Hop arc — small bounce per step
+          hopY = Math.sin(t * Math.PI) * cellSize * 0.38;
+
+          if (t >= 1) {
+            // Step done — check queue
+            if (activeAnim.queue && activeAnim.queue.length > 0) {
+              const next = activeAnim.queue[0];
+              pieceMoveAnimRef.current[pieceKey] = {
+                fromX: activeAnim.toX, fromY: activeAnim.toY,
+                toX: next.toX, toY: next.toY,
+                start: nowTs,
+                duration: 160,
+                queue: activeAnim.queue.slice(1),
+              };
+              needsMoveAnimationFrame = true;
+            } else {
+              delete pieceMoveAnimRef.current[pieceKey];
+            }
+          } else {
+            needsMoveAnimationFrame = true;
+          }
         }
 
-        // ...existing code...
+        const r = cellSize * 0.42;
+        const isMyPiece = String(player.user_id) === String(user?.id);
+        const isMovable = isMyPiece && movablePieces.includes(pieceIdx + 1);
+        const isSelected = isMyPiece && selectedPiece === pieceIdx + 1;
+        const drawYFinal = drawY - hopY;
+
+        ctx.save();
+
         // Subtle shadow when hopping
         if (hopY > 3) {
           ctx.beginPath();
@@ -1325,51 +1333,39 @@ export default function LudoGame({
         ctx.arc(drawX, drawYFinal, r + 2.5, 0, Math.PI * 2);
         ctx.lineWidth = 4;
         ctx.strokeStyle = PLAYER_COLORS[colorIdx];
-        // مؤثر ضوئي حول النرد للاعب صاحب الدور
-        return (
-          <button
-            type="button"
-            disabled={!canRoll}
-            onPointerDown={(e) => { e.stopPropagation(); if (canRoll) rollDice(); }}
-            onClick={(e) => { e.stopPropagation(); }}
-            className={`relative z-[80] w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center select-none ${canRoll ? 'cursor-pointer active:scale-95' : 'cursor-default'}`}
-            style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent', pointerEvents: 'auto' }}
-          >
-            <div
-              className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl border-2 flex items-center justify-center shadow-lg"
-              style={{
-                borderColor: PLAYER_COLORS[colorIdx],
-                background: `linear-gradient(135deg, ${PLAYER_COLORS[colorIdx]}22, ${PLAYER_COLORS[colorIdx]}55)`,
-                boxShadow: `0 4px 12px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.25), 0 0 12px ${PLAYER_COLORS[colorIdx]}55${isSixGlow ? ', 0 0 14px rgba(250,204,21,0.55)' : ''}`,
-                transformOrigin: 'center center',
-                animation: isRollingNow ? 'ludoDiceSingleSpin 620ms linear 1 both' : (isTurnPulseDice ? 'ludoTurnDiceNudge 360ms ease-out 1' : 'none'),
-                boxShadow: isCurrentTurnPlayer ? `0 0 0 4px ${PLAYER_COLORS[colorIdx]}99, 0 0 18px ${PLAYER_COLORS[colorIdx]}cc` : undefined,
-              }}
-            >
-              {showSettledValue ? (
-                <span
-                  className="text-2xl sm:text-3xl font-black leading-none"
-                  style={{ color: PLAYER_COLORS[colorIdx], animation: isResultPulse ? 'ludoDiceResultPop 360ms ease-out 1' : 'none', transformOrigin: 'center center' }}
-                >
-                  {faceValue}
-                </span>
-              ) : (
-                <span className="text-xl sm:text-2xl opacity-80">🎲</span>
-              )}
-            </div>
-            {canRoll && <span className="absolute top-2 right-2 sm:top-3 sm:right-3 w-3 h-3 rounded-full bg-emerald-400 animate-ping" />}
-            {/* مؤثر ضوئي حول النرد للاعب صاحب الدور */}
-            {isCurrentTurnPlayer && (
-              <span className="absolute inset-0 rounded-2xl pointer-events-none animate-pulse"
-                style={{
-                  boxShadow: `0 0 0 6px ${PLAYER_COLORS[colorIdx]}55, 0 0 18px ${PLAYER_COLORS[colorIdx]}cc`,
-                  zIndex: 1,
-                  borderRadius: '1.2rem',
-                }}
-              />
-            )}
-          </button>
-        );
+        ctx.stroke();
+        // Inner white ring
+        ctx.beginPath();
+        ctx.arc(drawX, drawYFinal, r, 0, Math.PI * 2);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+        ctx.stroke();
+
+        // Gloss
+        ctx.beginPath();
+        ctx.arc(drawX, drawYFinal - r * 0.28, r * 0.52, 0, Math.PI * 2);
+        const glossGrad = ctx.createLinearGradient(drawX, drawYFinal - r, drawX, drawYFinal);
+        glossGrad.addColorStop(0, 'rgba(255,255,255,0.52)');
+        glossGrad.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = glossGrad;
+        ctx.fill();
+
+        ctx.restore();
+      });
+    });
+
+    // ── Bump flash overlay ────────────────────────
+    if (bumpFlash) {
+      const flashAge = nowTs - bumpFlash.startTs;
+      const flashDur = 450;
+      if (flashAge < flashDur) {
+        needsMoveAnimationFrame = true;
+        const alpha = (1 - flashAge / flashDur) * 0.8;
+        const flashR = (flashAge / flashDur) * cellSize * 1.5;
+        ctx.save();
+        const radGrad = ctx.createRadialGradient(bumpFlash.x, bumpFlash.y, 0, bumpFlash.x, bumpFlash.y, flashR);
+        radGrad.addColorStop(0, `rgba(255,100,0,${alpha})`);
+        radGrad.addColorStop(0.45, `rgba(255,220,0,${alpha * 0.55})`);
         radGrad.addColorStop(1, 'rgba(255,180,0,0)');
         ctx.beginPath();
         ctx.arc(bumpFlash.x, bumpFlash.y, flashR, 0, Math.PI * 2);
@@ -1402,7 +1398,7 @@ export default function LudoGame({
         drawBoard();
       });
     }
-  }
+  };
 
   // ─── Game logic ───────────────────────────────
   const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -1590,36 +1586,19 @@ export default function LudoGame({
     const candidates = isTeamMode(sessionArg)
       ? sorted.filter(p => String(p.user_id) !== String(leftUserId))
       : sorted.filter(p => !isPlayerLeft(p));
-    if (candidates.length === 0) {
-      // No active players left, end session
-      await supabase.from('room_ludo_sessions').update({ status: 'finished' }).eq('id', sessionArg.id);
-      await refreshSession();
-      return false;
-    }
+    if (candidates.length === 0) return false;
 
     const nextPlayer =
       candidates.find(p => p.seat_number > currentPlayer.seat_number) || candidates[0];
     if (!nextPlayer?.user_id) return false;
 
-    // المحاولة الأولى: update مع شرط current_turn_user_id
-    let { error } = await supabase
+    const { error } = await supabase
       .from('room_ludo_sessions')
       .update({ current_turn_user_id: nextPlayer.user_id, last_roll: 0, display_roll: null, display_roll_user_id: null })
       .eq('id', sessionArg.id)
       .eq('status', 'playing')
       .eq('current_turn_user_id', leftUserId);
 
-    let refreshed = await refreshSession();
-    // المحاولة الثانية: إذا لم يتغير الدور، أعد المحاولة بنفس الشرط
-    if (refreshed?.session?.current_turn_user_id === leftUserId) {
-      await supabase.from('room_ludo_sessions').update({ current_turn_user_id: nextPlayer.user_id, last_roll: 0, display_roll: null, display_roll_user_id: null }).eq('id', sessionArg.id).eq('status', 'playing').eq('current_turn_user_id', leftUserId);
-      refreshed = await refreshSession();
-    }
-    // fallback: إذا مازال الدور لم يتغير، أعد update بدون شرط current_turn_user_id
-    if (refreshed?.session?.current_turn_user_id === leftUserId) {
-      await supabase.from('room_ludo_sessions').update({ current_turn_user_id: nextPlayer.user_id, last_roll: 0, display_roll: null, display_roll_user_id: null }).eq('id', sessionArg.id).eq('status', 'playing');
-      await refreshSession();
-    }
     return !error;
   };
 
@@ -1660,7 +1639,7 @@ export default function LudoGame({
     await refreshSession();
   };
 
-  // Handle resigned or offline/disconnected player turns
+  // Handle resigned player turns
   useEffect(() => {
     if (!open || currentSession?.status !== 'playing' || !currentSession?.id) return;
 
@@ -1671,14 +1650,7 @@ export default function LudoGame({
     if (!me || isPlayerLeft(me)) return;
 
     const turnPlayer = players.find(p => String(p.user_id) === turnUserId);
-    // Check if player is left, or offline/disconnected (add your own logic for offline/disconnected)
-    const isOffline = turnPlayer && (turnPlayer.offline || turnPlayer.disconnected || turnPlayer.isDisconnected);
-    if (!turnPlayer || (!isPlayerLeft(turnPlayer) && !isOffline)) return;
-
-    // Force auto play immediately (skip timer)
-    setTurnTimeLeft(0);
-    inactivePlayersRef.current.add(String(turnUserId));
-    setIsAutoPlay(v => !v); // trigger re-render so next turn uses autoMode
+    if (!turnPlayer || !isPlayerLeft(turnPlayer)) return;
 
     const key = `${currentSession.id}:${turnUserId}:${currentSession.last_roll || 0}:${currentSession.display_roll || 0}`;
     if (leftTurnActionRef.current.inFlight || leftTurnActionRef.current.key === key) return;
@@ -1695,7 +1667,7 @@ export default function LudoGame({
           await refreshSession();
         }
       } catch (err) {
-        console.error('Failed to process resigned/offline turn:', err);
+        console.error('Failed to process resigned turn:', err);
       } finally {
         leftTurnActionRef.current.inFlight = false;
       }
@@ -2371,10 +2343,9 @@ export default function LudoGame({
   };
 
   // ─── Render ───────────────────────────────────
-  // كل منطق العرض يجب أن يكون داخل جسم الدالة LudoGame
-  // ─── Render ───────────────────────────────────
-  // كل منطق العرض التالي داخل جسم الدالة فقط
   if (!open) return null;
+
+  // homeColors needed inside drawBoard but also in JSX (piece fallback gradient)
   const homeColors = [
     { bg: '#fca5a5', border: '#ef4444', grad1: '#f87171', grad2: '#dc2626' },
     { bg: '#93c5fd', border: '#3b82f6', grad1: '#60a5fa', grad2: '#2563eb' },
@@ -2810,4 +2781,5 @@ export default function LudoGame({
         </div>
       </div>
     </div>
-    );
+  );
+}
