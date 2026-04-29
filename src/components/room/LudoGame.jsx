@@ -2373,8 +2373,8 @@ export default function LudoGame({
   // ─── Render ───────────────────────────────────
   // كل منطق العرض يجب أن يكون داخل جسم الدالة LudoGame
   // ─── Render ───────────────────────────────────
+  // كل منطق العرض التالي داخل جسم الدالة فقط
   if (!open) return null;
-  // homeColors needed inside drawBoard but also in JSX (piece fallback gradient)
   const homeColors = [
     { bg: '#fca5a5', border: '#ef4444', grad1: '#f87171', grad2: '#dc2626' },
     { bg: '#93c5fd', border: '#3b82f6', grad1: '#60a5fa', grad2: '#2563eb' },
