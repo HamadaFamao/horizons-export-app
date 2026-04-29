@@ -279,7 +279,7 @@ export default function LudoGame({
     const s = sessionArg || currentSession;
     if (Number(s?.max_players || 0) !== 4) return false;
     return s?.team_mode === true;
-  }
+  // نهاية دالة drawBoard
 
   const getEffectiveSeat = (player) => {
     if (!player) return 0;
@@ -1402,7 +1402,7 @@ export default function LudoGame({
         drawBoard();
       });
     }
-  };
+  }
 
   // ─── Game logic ───────────────────────────────
   const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -2810,4 +2810,4 @@ export default function LudoGame({
       </div>
     </div>
   );
-}
+// نهاية الملف بدون أقواس زائدة
