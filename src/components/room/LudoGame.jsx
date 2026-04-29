@@ -705,16 +705,17 @@ export default function LudoGame({
       .on('broadcast', { event: 'ludo_emoji' }, ({ payload }) => {
   if (!payload?.emoji || !payload?.target_user_id) return;
 
-  const id = `${payload.sender_id}_${payload.target_user_id}_${payload.ts || Date.now()}`;
+  const id = `${payload.sender_user_id || payload.sender_id}_${payload.target_user_id}_${payload.ts || Date.now()}`;
 
   setLudoEmojiEffects(prev => [
-    ...prev,
-    {
-      id,
-      emoji: payload.emoji,
-      targetUserId: String(payload.target_user_id),
-    }
-  ]);
+  ...prev,
+  {
+    id,
+    emoji: payload.emoji,
+    senderUserId: String(payload.sender_user_id || payload.sender_id || ''),
+    targetUserId: String(payload.target_user_id),
+  }
+]);
 
   setTimeout(() => {
     setLudoEmojiEffects(prev => prev.filter(x => x.id !== id));
@@ -1602,19 +1603,36 @@ export default function LudoGame({
   if (!channelRef.current || !currentSession?.id || !user?.id) return;
 
   const payload = {
-    session_id: currentSession.id,
-    room_id: roomId,
-    sender_id: user.id,
-    target_user_id: targetUserId,
-    emoji: emoji?.id || emoji,
-    ts: Date.now(),
-  };
+  session_id: currentSession.id,
+  room_id: roomId,
+  sender_id: user.id,
+  sender_user_id: user.id, //
+  target_user_id: targetUserId,
+  emoji: emoji?.id || emoji,
+  ts: Date.now(),
+};
 
   await channelRef.current.send({
     type: "broadcast",
     event: "ludo_emoji",
     payload,
   });
+
+  const localId = `${user.id}_${targetUserId}_${payload.ts}_local`;
+
+setLudoEmojiEffects(prev => [
+  ...prev,
+  {
+    id: localId,
+    emoji: payload.emoji,
+    senderUserId: String(user.id),
+    targetUserId: String(targetUserId),
+  }
+]);
+
+setTimeout(() => {
+  setLudoEmojiEffects(prev => prev.filter(x => x.id !== localId));
+}, 1800);
 
   setEmojiPickerFor(null);
 };
@@ -2542,6 +2560,24 @@ useEffect(() => {
     <div className="fixed inset-0 z-[85] flex items-end sm:items-center justify-center"
       onClick={() => { setShowSettingsMenu(false); onClose(); }}>
       <style>{`
+      @keyframes ludoEmojiFly {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 0) scale(0.5);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(-50%, -12px) scale(1.15);
+  }
+  75% {
+    opacity: 1;
+    transform: translate(calc(-50% + var(--emoji-dx)), var(--emoji-dy)) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--emoji-dx)), calc(var(--emoji-dy) - 35px)) scale(0.9);
+  }
+}
         @keyframes ludoDiceSingleSpin {
           0%   { transform: rotate(0deg)   scale(1);    }
           50%  { transform: rotate(180deg) scale(1.03); }
@@ -2789,14 +2825,14 @@ useEffect(() => {
 
     {emojiPickerFor === String(p.user_id) && (
   <div
-    className="absolute z-[120] bottom-10 left-1/2 -translate-x-1/2
-      w-[230px] max-h-[220px] overflow-y-auto
-      grid grid-cols-4 gap-2 rounded-2xl bg-slate-950/95
-      border border-white/15 p-2 shadow-2xl backdrop-blur-md"
-    onClick={(e) => e.stopPropagation()}
-    onMouseDown={(e) => e.stopPropagation()}
-    onTouchStart={(e) => e.stopPropagation()}
-  >
+  className="fixed z-[120] left-3 right-3 bottom-[120px]
+    max-h-[260px] overflow-y-auto
+    grid grid-cols-5 gap-2 rounded-2xl bg-slate-950/95
+    border border-white/15 p-2 shadow-2xl backdrop-blur-md"
+  onClick={(e) => e.stopPropagation()}
+  onMouseDown={(e) => e.stopPropagation()}
+  onTouchStart={(e) => e.stopPropagation()}
+>
     {LUDO_EMOJIS.map((em) => (
       <button
         key={em.id}
@@ -2823,33 +2859,44 @@ useEffect(() => {
 )}
 
     {ludoEmojiEffects
-      .filter(x => String(x.targetUserId) === String(p.user_id))
-      .map(x => {
-        const em = LUDO_EMOJIS.find(e => e.id === x.emoji);
-        if (!em) return null;
+  .filter(x => String(x.senderUserId) === String(p.user_id))
+  .map(x => {
+    const em = LUDO_EMOJIS.find(e => e.id === x.emoji);
+    if (!em) return null;
 
-        return (
-          <div
-            key={x.id}
-            className="pointer-events-none absolute -top-14 left-1/2 -translate-x-1/2
-              z-[95]"
-            style={{
-              animation: "ludoEmojiFloat 1.8s ease-out forwards",
-              filter: "drop-shadow(0 4px 10px rgba(0,0,0,0.65))",
-            }}
-          >
-            <RoomEmojiAsset
-              src={em.src}
-              alt={em.label}
-              className="w-16 h-16 object-contain"
-              style={{
-                transform: em.flip ? "scaleX(-1)" : undefined,
-              }}
-              loop={false}
-            />
-          </div>
-        );
-      })}
+    const targetPlayer = players.find(
+      pl => String(pl.user_id) === String(x.targetUserId)
+    );
+
+    const senderSeat = getRelativeVisualSeat(p, players);
+    const targetSeat = targetPlayer ? getRelativeVisualSeat(targetPlayer, players) : senderSeat;
+
+    const dx = (targetSeat - senderSeat) * 90;
+    const dy = targetSeat === senderSeat ? -70 : -40;
+
+    return (
+      <div
+        key={x.id}
+        className="pointer-events-none absolute -top-8 left-1/2 z-[95]"
+        style={{
+          "--emoji-dx": `${dx}px`,
+          "--emoji-dy": `${dy}px`,
+          animation: "ludoEmojiFly 1.8s ease-out forwards",
+          filter: "drop-shadow(0 4px 10px rgba(0,0,0,0.65))",
+        }}
+      >
+        <RoomEmojiAsset
+          src={em.src}
+          alt={em.label}
+          className="w-16 h-16 object-contain"
+          style={{
+            transform: em.flip ? "scaleX(-1)" : undefined,
+          }}
+          loop={false}
+        />
+      </div>
+    );
+  })}
   </div>
 );
 
