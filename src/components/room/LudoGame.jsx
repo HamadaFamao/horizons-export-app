@@ -2157,6 +2157,82 @@ useEffect(() => {
   };
 }, [roomId, currentSession?.id, currentSession?.status]);
 
+useEffect(() => {
+  if (!roomId || !currentSession?.id || currentSession?.status !== 'playing') return;
+
+  let stopped = false;
+
+  const tick = async () => {
+    try {
+      const turnUserId = currentSession.current_turn_user_id;
+      if (!turnUserId) return;
+
+      const turnPlayer = players.find(
+        p => String(p.user_id) === String(turnUserId)
+      );
+
+      if (!turnPlayer || turnPlayer.left_at || turnPlayer.refunded_at) return;
+
+      const { data: participant } = await supabase
+        .from('live_room_participants')
+        .select('user_id,left_at,last_seen_at')
+        .eq('room_id', roomId)
+        .eq('user_id', turnUserId)
+        .maybeSingle();
+
+      if (stopped) return;
+
+      const lastSeen = participant?.last_seen_at
+        ? new Date(participant.last_seen_at).getTime()
+        : 0;
+
+      const offlineMs = Date.now() - lastSeen;
+
+      // heartbeat عندك كل 20 ثانية، لذلك 45 ثانية آمنة
+      const isDisconnected =
+        !participant ||
+        participant.left_at ||
+        !lastSeen ||
+        offlineMs > 45000;
+
+      if (!isDisconnected) return;
+
+      const key = `${currentSession.id}:${turnUserId}`;
+      if (disconnectedResignRef.current.has(key)) return;
+      disconnectedResignRef.current.add(key);
+
+      const { data, error } = await supabase.rpc('resign_ludo_game', {
+        p_session_id: currentSession.id,
+        p_user_id: turnUserId,
+      });
+
+      if (error || data?.success === false) {
+        console.warn('[LUDO_AUTO_RESIGN_FAILED]', error || data?.error);
+        disconnectedResignRef.current.delete(key);
+        return;
+      }
+
+      await refreshSession();
+    } catch (e) {
+      console.warn('[LUDO_AUTO_RESIGN_WATCHDOG_ERROR]', e);
+    }
+  };
+
+  tick();
+  const interval = setInterval(tick, 5000);
+
+  return () => {
+    stopped = true;
+    clearInterval(interval);
+  };
+}, [
+  roomId,
+  currentSession?.id,
+  currentSession?.status,
+  currentSession?.current_turn_user_id,
+  players,
+]);
+
   // ─── Derived state ────────────────────────────
   const visiblePlayers = getVisiblePlayersList(players, currentSession);
   const activePlayers = getActivePlayersList(players);
