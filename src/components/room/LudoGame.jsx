@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { Loader2, X, Settings } from 'lucide-react';
+import { ROOM_EMOJIS } from "@/lib/roomEmojis";
+import { RoomEmojiAsset } from "@/components/room/RoomChat";
 
 import {
   FALLBACK_AVATAR,
@@ -71,7 +73,7 @@ export default function LudoGame({
   const [sixFlash, setSixFlash] = useState(false);
   const [emojiPickerFor, setEmojiPickerFor] = useState(null);
   const [ludoEmojiEffects, setLudoEmojiEffects] = useState([]);
-  const LUDO_EMOJIS = ['😂', '🔥', '👏', '😎', '😭', '😡', '❤️', '🎉'];
+  const LUDO_EMOJIS = ROOM_EMOJIS.slice(0, 12);
   
 
   const canvasRef = useRef(null);
@@ -1604,13 +1606,13 @@ export default function LudoGame({
     room_id: roomId,
     sender_id: user.id,
     target_user_id: targetUserId,
-    emoji,
+    emoji: emoji?.id || emoji,
     ts: Date.now(),
   };
 
   await channelRef.current.send({
-    type: 'broadcast',
-    event: 'ludo_emoji',
+    type: "broadcast",
+    event: "ludo_emoji",
     payload,
   });
 
@@ -2774,7 +2776,9 @@ useEffect(() => {
       type="button"
       onClick={(e) => {
         e.stopPropagation();
-        setEmojiPickerFor(prev => prev === String(p.user_id) ? null : String(p.user_id));
+        setEmojiPickerFor(prev =>
+          prev === String(p.user_id) ? null : String(p.user_id)
+        );
       }}
       className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 border border-white/15
         text-sm flex items-center justify-center active:scale-95 transition"
@@ -2787,18 +2791,25 @@ useEffect(() => {
       <div
         className="absolute z-[90] bottom-8 left-1/2 -translate-x-1/2
           flex gap-1 rounded-2xl bg-slate-950/95 border border-white/15
-          px-2 py-1.5 shadow-2xl backdrop-blur-md"
+          px-2 py-1.5 shadow-2xl backdrop-blur-md flex-wrap max-w-[220px]"
         onClick={(e) => e.stopPropagation()}
       >
-        {LUDO_EMOJIS.map(em => (
+        {LUDO_EMOJIS.map((em) => (
           <button
-            key={em}
+            key={em.id}
             type="button"
             onClick={() => sendLudoEmoji(p.user_id, em)}
-            className="w-7 h-7 rounded-full hover:bg-white/15 text-lg
+            className="w-8 h-8 rounded-full hover:bg-white/15
               flex items-center justify-center active:scale-90 transition"
           >
-            {em}
+            <RoomEmojiAsset
+              src={em.src}
+              alt={em.label}
+              className="w-6 h-6 object-contain"
+              style={{
+                transform: em.flip ? "scaleX(-1)" : undefined,
+              }}
+            />
           </button>
         ))}
       </div>
@@ -2806,19 +2817,32 @@ useEffect(() => {
 
     {ludoEmojiEffects
       .filter(x => String(x.targetUserId) === String(p.user_id))
-      .map(x => (
-        <div
-          key={x.id}
-          className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2
-            text-3xl z-[95] animate-bounce"
-          style={{
-            animation: 'ludoEmojiFloat 1.8s ease-out forwards',
-            filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.65))',
-          }}
-        >
-          {x.emoji}
-        </div>
-      ))}
+      .map(x => {
+        const em = LUDO_EMOJIS.find(e => e.id === x.emoji);
+        if (!em) return null;
+
+        return (
+          <div
+            key={x.id}
+            className="pointer-events-none absolute -top-14 left-1/2 -translate-x-1/2
+              z-[95]"
+            style={{
+              animation: "ludoEmojiFloat 1.8s ease-out forwards",
+              filter: "drop-shadow(0 4px 10px rgba(0,0,0,0.65))",
+            }}
+          >
+            <RoomEmojiAsset
+              src={em.src}
+              alt={em.label}
+              className="w-16 h-16 object-contain"
+              style={{
+                transform: em.flip ? "scaleX(-1)" : undefined,
+              }}
+              loop={false}
+            />
+          </div>
+        );
+      })}
   </div>
 );
 
