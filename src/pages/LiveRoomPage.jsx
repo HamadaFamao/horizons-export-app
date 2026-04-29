@@ -46,6 +46,7 @@ import GamesLobby from "@/components/room/GamesLobby";
 import SpinGame from "@/components/room/SpinGame";
 import RaceGame from "@/components/room/RaceGame";
 import LudoGame from "@/components/room/LudoGame";
+import LudoGame from './LudoGame';
 
 import { FALLBACK_AVATAR } from "@/components/room/ludoUtils";
 
