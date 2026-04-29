@@ -60,6 +60,7 @@ export default function RaceGame({
   const previousTurnRef  = useRef(null);
   const previousStatusRef = useRef(null);
   const turnIntroTimeoutRef = useRef(null);
+  const disconnectedResignRef = useRef(new Set());
 
   useEffect(() => { soundMutedRef.current = soundMuted; }, [soundMuted]);
   useEffect(() => { playersRef.current = players; }, [players]);
@@ -765,6 +766,91 @@ export default function RaceGame({
   const netPrize  = Math.floor((currentSession?.entry_cost || 0) * players.length * 0.9);
 
   const autoPlayRef = useRef(false);
+
+  // Auto-resign disconnected current-turn player
+useEffect(() => {
+  if (!roomId || !currentSession?.id || currentSession?.status !== 'playing') return;
+
+  let stopped = false;
+
+  const tick = async () => {
+    try {
+      const turnUserId = currentSession.current_turn_user_id;
+      if (!turnUserId) return;
+
+      const turnPlayer = players.find(
+        p => String(p.user_id) === String(turnUserId)
+      );
+
+      if (!turnPlayer || turnPlayer.left_at || turnPlayer.refunded_at) return;
+
+      const { data: participant } = await supabase
+        .from('live_room_participants')
+        .select('user_id,left_at,last_seen_at')
+        .eq('room_id', roomId)
+        .eq('user_id', turnUserId)
+        .maybeSingle();
+
+      if (stopped) return;
+
+      const lastSeen = participant?.last_seen_at
+        ? new Date(participant.last_seen_at).getTime()
+        : 0;
+
+      const offlineMs = Date.now() - lastSeen;
+
+      const isDisconnected =
+        !participant ||
+        participant.left_at ||
+        !lastSeen ||
+        offlineMs > 45000;
+
+      if (!isDisconnected) return;
+
+      const key = `${currentSession.id}:${turnUserId}`;
+      if (disconnectedResignRef.current.has(key)) return;
+      disconnectedResignRef.current.add(key);
+
+      const { data, error } = await supabase.rpc('resign_race_game', {
+        p_session_id: currentSession.id,
+        p_user_id: turnUserId,
+      });
+
+      if (error || data?.success === false) {
+        console.warn('[RACE_AUTO_RESIGN_FAILED]', error || data?.error);
+        disconnectedResignRef.current.delete(key);
+        return;
+      }
+
+      onCoinsUpdated?.();
+      await loadPlayers(currentSession.id);
+
+      const { data: sd } = await supabase
+        .from('room_race_sessions')
+        .select('*')
+        .eq('id', currentSession.id)
+        .maybeSingle();
+
+      if (sd) setCurrentSession(sd);
+    } catch (e) {
+      console.warn('[RACE_AUTO_RESIGN_WATCHDOG_ERROR]', e);
+    }
+  };
+
+  tick();
+  const interval = setInterval(tick, 5000);
+
+  return () => {
+    stopped = true;
+    clearInterval(interval);
+  };
+}, [
+  roomId,
+  currentSession?.id,
+  currentSession?.status,
+  currentSession?.current_turn_user_id,
+  players,
+]);
 
   // Auto-play: 12s first time, then 2s for inactive players. Also 2s if panel closed.
   useEffect(() => {
