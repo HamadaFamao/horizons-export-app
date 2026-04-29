@@ -140,6 +140,7 @@ export default function LudoGame({
   const soundMutedRef = useRef(false);
   const bumpFlashTimerRef = useRef(null);
   const [isAutoPlay, setIsAutoPlay] = useState(false);
+  const [turnGlowTick, setTurnGlowTick] = useState(0);
   const inactivePlayersRef = useRef(new Set());
   const autoPlayVersionRef = useRef(0);
 
@@ -345,6 +346,13 @@ export default function LudoGame({
       lastPieceCanvasPosRef.current = {};
     };
   }, []);
+
+  // Drive the turn-owner glow pulse via state tick — triggers fresh drawBoard with current players
+  useEffect(() => {
+    if (currentSession?.status !== 'playing' || !currentSession?.current_turn_user_id) return;
+    const interval = setInterval(() => setTurnGlowTick(t => (t + 1) % 1000), 80);
+    return () => clearInterval(interval);
+  }, [currentSession?.status, currentSession?.current_turn_user_id]);
 
   useEffect(() => { soundMutedRef.current = soundMuted; }, [soundMuted]);
 
@@ -728,7 +736,7 @@ export default function LudoGame({
   useEffect(() => {
     if (!canvasRef.current || !currentSession) return;
     drawBoard();
-  }, [players, currentSession, movablePieces, selectedPiece, user?.id, sixFlash, bumpFlash]);
+  }, [players, currentSession, movablePieces, selectedPiece, user?.id, sixFlash, bumpFlash, turnGlowTick]);
 
   // Preload avatars
   useEffect(() => {
@@ -1410,11 +1418,6 @@ export default function LudoGame({
     Object.keys(pieceMoveAnimRef.current).forEach((key) => {
       if (!seenPieceKeys.has(key)) delete pieceMoveAnimRef.current[key];
     });
-
-    // Keep animating while the game is active to drive the turn-owner glow pulse
-    if (currentSession?.status === 'playing' && currentSession?.current_turn_user_id) {
-      needsMoveAnimationFrame = true;
-    }
 
     if (needsMoveAnimationFrame && !boardAnimFrameRef.current) {
       boardAnimFrameRef.current = requestAnimationFrame(() => {
