@@ -3922,6 +3922,23 @@ console.log("MODERATORS MAP:", nextMap);
   const leaveRoomPresence = async () => {
     if (!user?.id || !roomId) return;
 
+    // If the player is in an active Ludo game, resign so the turn passes
+    // to the next player and the game doesn't freeze for other participants.
+    try {
+      const { data: ludoSession } = await supabase
+        .from("room_ludo_sessions")
+        .select("id")
+        .eq("room_id", roomId)
+        .eq("status", "playing")
+        .maybeSingle();
+      if (ludoSession?.id) {
+        await supabase.rpc("resign_ludo_game", {
+          p_session_id: ludoSession.id,
+          p_user_id: user.id,
+        });
+      }
+    } catch (_) {}
+
     try {
       const { error: rpcErr } = await supabase.rpc("leave_live_room", {
         p_room_id: roomId
