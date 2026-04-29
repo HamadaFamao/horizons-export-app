@@ -619,8 +619,10 @@ export default function LudoGame({
   }, [players, currentSession?.id, currentSession?.team_mode, currentSession?.max_players, user?.id]);
 
   // ─── Realtime ─────────────────────────────────
+  // Subscription stays active even when the board is closed so turn changes
+  // reach the auto-play logic and the game never freezes.
   useEffect(() => {
-    if (!open || !roomId) return;
+    if (!roomId) return;
 
     const channel = supabase
       .channel(`ludo_${roomId}`)
@@ -742,7 +744,7 @@ export default function LudoGame({
 
     channelRef.current = channel;
     return () => supabase.removeChannel(channel);
-  }, [open, roomId, currentSession?.id]);
+  }, [roomId, currentSession?.id]);
 
   // FIX #5: drawBoard depends on movablePieces, selectedPiece, user too
   useEffect(() => {
