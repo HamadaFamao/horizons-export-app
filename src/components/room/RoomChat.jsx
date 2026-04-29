@@ -1,3 +1,13 @@
+import React from "react";
+import { DotLottieReact } from "@lottiefiles/dotlottie-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import Lottie from "lottie-react";
+import { Loader2, Send, Mic, MicOff, Gift } from "lucide-react";
+import { ROOM_EMOJIS } from "@/lib/roomEmojis";
+import { VOICE_FILTERS } from "@/lib/voiceFilters";
+import { GLOBAL_MESSAGE_TEMPLATES } from "@/lib/globalMessageTemplates";
+
 export function RoomEmojiAsset({
   src,
   alt = "emoji",
@@ -7,12 +17,14 @@ export function RoomEmojiAsset({
   autoplay = true,
 }) {
   const [animationData, setAnimationData] = React.useState(null);
-  const isLottie = String(src || "").toLowerCase().endsWith(".json");
+  const srcStr = String(src || "").toLowerCase();
+  const isJsonLottie = srcStr.endsWith(".json");
+  const isDotLottie = srcStr.endsWith(".lottie");
 
   React.useEffect(() => {
     let cancelled = false;
 
-    if (!isLottie || !src) {
+    if (!isJsonLottie || !src) {
       setAnimationData(null);
       return;
     }
@@ -32,9 +44,21 @@ export function RoomEmojiAsset({
     return () => {
       cancelled = true;
     };
-  }, [src, isLottie]);
+  }, [src, isJsonLottie]);
 
-  if (isLottie) {
+  if (isDotLottie) {
+    return (
+      <DotLottieReact
+        src={src}
+        autoplay={autoplay}
+        loop={loop}
+        className={className}
+        style={style}
+      />
+    );
+  }
+
+  if (isJsonLottie) {
     if (!animationData) {
       return <div className={className} style={style} aria-label={alt} />;
     }
@@ -65,14 +89,6 @@ export function RoomEmojiAsset({
     />
   );
 }
-import React from "react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import Lottie from "lottie-react";
-import { Loader2, Send, Mic, MicOff, Gift } from "lucide-react";
-import { ROOM_EMOJIS } from "@/lib/roomEmojis";
-import { VOICE_FILTERS } from "@/lib/voiceFilters";
-import { GLOBAL_MESSAGE_TEMPLATES } from "@/lib/globalMessageTemplates";
 
 const FALLBACK_AVATAR =
   "data:image/svg+xml;utf8," +
