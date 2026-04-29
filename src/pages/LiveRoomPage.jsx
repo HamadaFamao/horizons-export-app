@@ -438,6 +438,7 @@ export default function LiveRoomPage() {
   }, []);
 
   // Cache the active Ludo session ID so it's available synchronously in beforeunload
+  const [showLudoGame, setShowLudoGame] = useState(false);
   useEffect(() => {
     if (!showLudoGame || !roomId) return;
     supabase
@@ -1123,7 +1124,6 @@ useEffect(() => {
   const [showGamesLobby, setShowGamesLobby] = useState(false);
   const [showSpinGame, setShowSpinGame] = useState(false);
   const [showRaceGame, setShowRaceGame] = useState(false);
-  const [showLudoGame, setShowLudoGame] = useState(false);
   const [activeSpinSession, setActiveSpinSession] = useState(null);
   const [pkSeatA, setPkSeatA] = useState("");
   const [pkSeatB, setPkSeatB] = useState("");
