@@ -97,6 +97,7 @@ export default function LudoGame({
   const [turnGlowTick, setTurnGlowTick] = useState(0);
   const inactivePlayersRef = useRef(new Set());
   const autoPlayVersionRef = useRef(0);
+  const disconnectedResignRef = useRef(new Set());
 
   // ─── Sound utility ────────────────────────────
   const playSound = (type) => {
@@ -2093,6 +2094,68 @@ export default function LudoGame({
       setCreating(false);
     }
   };
+
+  // Auto-resign Ludo players who left the live room/browser
+useEffect(() => {
+  if (!roomId || !currentSession?.id || currentSession?.status !== 'playing') return;
+
+  let cancelled = false;
+
+  const checkDisconnectedPlayers = async () => {
+    try {
+      const { data: activeRows } = await supabase
+        .from('live_room_participants')
+        .select('user_id')
+        .eq('room_id', roomId)
+        .is('left_at', null);
+
+      const activeRoomUserIds = new Set(
+        (activeRows || []).map(r => String(r.user_id))
+      );
+
+      const { data: ludoRows } = await supabase
+        .from('room_ludo_players')
+        .select('user_id,left_at,refunded_at')
+        .eq('session_id', currentSession.id)
+        .is('refunded_at', null);
+
+      if (cancelled) return;
+
+      for (const p of ludoRows || []) {
+        const uid = String(p.user_id);
+        if (!uid || p.left_at) continue;
+        if (activeRoomUserIds.has(uid)) continue;
+
+        const key = `${currentSession.id}:${uid}`;
+        if (disconnectedResignRef.current.has(key)) continue;
+        disconnectedResignRef.current.add(key);
+
+        const { data, error } = await supabase.rpc('resign_ludo_game', {
+          p_session_id: currentSession.id,
+          p_user_id: uid,
+        });
+
+        if (error || data?.success === false) {
+          console.warn('[LUDO_AUTO_RESIGN_FAILED]', uid, error || data?.error);
+          disconnectedResignRef.current.delete(key);
+          continue;
+        }
+
+        await refreshSession();
+      }
+    } catch (e) {
+      console.warn('[LUDO_DISCONNECT_WATCHDOG_ERROR]', e);
+    }
+  };
+
+  checkDisconnectedPlayers();
+  const interval = setInterval(checkDisconnectedPlayers, 4000);
+
+  return () => {
+    cancelled = true;
+    clearInterval(interval);
+  };
+}, [roomId, currentSession?.id, currentSession?.status]);
 
   // ─── Derived state ────────────────────────────
   const visiblePlayers = getVisiblePlayersList(players, currentSession);
