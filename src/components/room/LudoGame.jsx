@@ -2371,19 +2371,21 @@ export default function LudoGame({
   };
 
   // ─── Render ───────────────────────────────────
-  if (!open) return null;
-  // homeColors needed inside drawBoard but also in JSX (piece fallback gradient)
-  const homeColors = [
-    { bg: '#fca5a5', border: '#ef4444', grad1: '#f87171', grad2: '#dc2626' },
-    { bg: '#93c5fd', border: '#3b82f6', grad1: '#60a5fa', grad2: '#2563eb' },
-    { bg: '#fcd34d', border: '#f59e0b', grad1: '#fbbf24', grad2: '#d97706' },
-    { bg: '#86efac', border: '#22c55e', grad1: '#4ade80', grad2: '#16a34a' },
-  ];
+  // كل منطق العرض يجب أن يكون داخل جسم الدالة LudoGame
+  function renderLudoModal() {
+    if (!open) return null;
+    // homeColors needed inside drawBoard but also in JSX (piece fallback gradient)
+    const homeColors = [
+      { bg: '#fca5a5', border: '#ef4444', grad1: '#f87171', grad2: '#dc2626' },
+      { bg: '#93c5fd', border: '#3b82f6', grad1: '#60a5fa', grad2: '#2563eb' },
+      { bg: '#fcd34d', border: '#f59e0b', grad1: '#fbbf24', grad2: '#d97706' },
+      { bg: '#86efac', border: '#22c55e', grad1: '#4ade80', grad2: '#16a34a' },
+    ];
 
-  return (
-    <div className="fixed inset-0 z-[85] flex items-end sm:items-center justify-center"
-      onClick={() => { setShowSettingsMenu(false); onClose(); }}>
-      <style>{`
+    return (
+      <div className="fixed inset-0 z-[85] flex items-end sm:items-center justify-center"
+        onClick={() => { setShowSettingsMenu(false); onClose(); }}>
+        <style>{`
         @keyframes ludoDiceSingleSpin {
           0%   { transform: rotate(0deg)   scale(1);    }
           50%  { transform: rotate(180deg) scale(1.03); }
@@ -2808,5 +2810,8 @@ export default function LudoGame({
         </div>
       </div>
     </div>
-  );
+      );
+    }
+
+    return renderLudoModal();
 // نهاية الملف بدون أقواس زائدة
