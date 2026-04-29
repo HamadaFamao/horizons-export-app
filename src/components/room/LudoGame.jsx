@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { Loader2, X, Settings } from 'lucide-react';
+import LiveRoomPage from './LiveRoomPage';
 
 const FALLBACK_AVATAR =
   "data:image/svg+xml;utf8," +
