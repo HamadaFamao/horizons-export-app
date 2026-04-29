@@ -2811,4 +2811,3 @@ export default function LudoGame({
       </div>
     </div>
     );
-// نهاية الملف بدون أقواس زائدة
