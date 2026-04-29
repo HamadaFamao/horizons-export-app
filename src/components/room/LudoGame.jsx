@@ -959,6 +959,11 @@ export default function LudoGame({
       return normalizeColorIndex(playerAtVisual ? getPlayerColorIndex(playerAtVisual, boardPlayers) : visualIdx);
     };
 
+    // Pulsing glow phase (0→1→0) on a ~1.2 s cycle — drives home + piece glow
+    const glowPhase = (currentSession?.status === 'playing' && currentSession?.current_turn_user_id)
+      ? (Math.sin(performance.now() / 600 * Math.PI) + 1) / 2
+      : 0;
+
     ctx.clearRect(0, 0, W, W);
 
     // Six flash glow border
@@ -1005,11 +1010,11 @@ export default function LudoGame({
       const h = rect.h * cellSize;
       const isTurnHome = i === currentTurnVisualIdx;
 
-      // Border — only glow for active turn home
+      // Border — pulsing glow for active turn home
       ctx.save();
       if (isTurnHome) {
         ctx.shadowColor = PLAYER_COLORS[realColorIdx];
-        ctx.shadowBlur = 24;
+        ctx.shadowBlur = 16 + glowPhase * 26;
       }
       ctx.fillStyle = homeColors[realColorIdx].border;
       ctx.fillRect(x, y, w, h);
@@ -1028,13 +1033,13 @@ export default function LudoGame({
       ctx.fillStyle = innerGrad;
       ctx.fillRect(x + cellSize * 0.5, y + cellSize * 0.5, w - cellSize, h - cellSize);
 
-      // Active turn: bright white border ring
+      // Active turn: pulsing white border ring
       if (isTurnHome) {
         ctx.save();
-        ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+        ctx.strokeStyle = `rgba(255,255,255,${(0.55 + glowPhase * 0.4).toFixed(2)})`;
         ctx.lineWidth = 3;
         ctx.shadowColor = PLAYER_COLORS[realColorIdx];
-        ctx.shadowBlur = 16;
+        ctx.shadowBlur = 10 + glowPhase * 20;
         ctx.strokeRect(x + cellSize * 0.6, y + cellSize * 0.6, w - cellSize * 1.2, h - cellSize * 1.2);
         ctx.restore();
       }
@@ -1292,6 +1297,20 @@ export default function LudoGame({
           }
         }
 
+        // Turn-owner pulsing ring on ALL pieces of the active player
+        const isTurnOwnerPiece = String(player.user_id) === String(currentSession?.current_turn_user_id);
+        if (isTurnOwnerPiece && !isMovable && !isSelected && glowPhase > 0) {
+          const ringAlpha = Math.round((0.28 + glowPhase * 0.45) * 255).toString(16).padStart(2, '0');
+          ctx.beginPath();
+          ctx.arc(drawX, drawYFinal, r + 5 + glowPhase * 5, 0, Math.PI * 2);
+          ctx.shadowColor = PLAYER_COLORS[colorIdx];
+          ctx.shadowBlur = 8 + glowPhase * 14;
+          ctx.strokeStyle = `${PLAYER_COLORS[colorIdx]}${ringAlpha}`;
+          ctx.lineWidth = 2.5;
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+        }
+
         ctx.shadowColor = 'rgba(0,0,0,0.55)';
         ctx.shadowBlur = 6;
         ctx.shadowOffsetY = 3;
@@ -1391,6 +1410,11 @@ export default function LudoGame({
     Object.keys(pieceMoveAnimRef.current).forEach((key) => {
       if (!seenPieceKeys.has(key)) delete pieceMoveAnimRef.current[key];
     });
+
+    // Keep animating while the game is active to drive the turn-owner glow pulse
+    if (currentSession?.status === 'playing' && currentSession?.current_turn_user_id) {
+      needsMoveAnimationFrame = true;
+    }
 
     if (needsMoveAnimationFrame && !boardAnimFrameRef.current) {
       boardAnimFrameRef.current = requestAnimationFrame(() => {
@@ -2323,7 +2347,11 @@ export default function LudoGame({
             background: `linear-gradient(135deg, ${PLAYER_COLORS[colorIdx]}22, ${PLAYER_COLORS[colorIdx]}55)`,
             boxShadow: `0 4px 12px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.25), 0 0 12px ${PLAYER_COLORS[colorIdx]}55${isSixGlow ? ', 0 0 14px rgba(250,204,21,0.55)' : ''}`,
             transformOrigin: 'center center',
-            animation: isRollingNow ? 'ludoDiceSingleSpin 620ms linear 1 both' : (isTurnPulseDice ? 'ludoTurnDiceNudge 360ms ease-out 1' : 'none'),
+            animation: isRollingNow
+              ? 'ludoDiceSingleSpin 620ms linear 1 both'
+              : (isTurnPulseDice
+                ? 'ludoTurnDiceNudge 360ms ease-out 1'
+                : (isCurrentTurnPlayer ? 'ludoActiveTurnDicePulse 1.2s ease-in-out infinite' : 'none')),
           }}
         >
           {showSettledValue ? (
@@ -2380,6 +2408,14 @@ export default function LudoGame({
         @keyframes ludoHomePulse {
           0%,100% { opacity: 1; }
           50%      { opacity: 0.6; }
+        }
+        @keyframes ludoActiveTurnDicePulse {
+          0%,100% { transform: scale(1);    filter: brightness(1);   }
+          50%     { transform: scale(1.07); filter: brightness(1.18); }
+        }
+        @keyframes ludoActiveTurnCardGlow {
+          0%,100% { transform: scale(1); }
+          50%     { transform: scale(1.045); }
         }
       `}</style>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
@@ -2542,7 +2578,9 @@ export default function LudoGame({
                         background: isCurrentTurn ? `${PLAYER_COLORS[colorIdx]}44` : 'rgba(0,0,0,0.55)',
                         outline: isCurrentTurn ? `2px solid ${PLAYER_COLORS[colorIdx]}` : 'none',
                         boxShadow: isFinishFx ? `0 0 0 2px ${PLAYER_COLORS[colorIdx]}, 0 0 18px ${PLAYER_COLORS[colorIdx]}cc` : undefined,
-                        animation: isTurnPulseCard ? 'ludoTurnCardGlow 360ms ease-out 1' : 'none',
+                        animation: isTurnPulseCard
+                          ? 'ludoTurnCardGlow 360ms ease-out 1'
+                          : (isCurrentTurn ? 'ludoActiveTurnCardGlow 1.2s ease-in-out infinite' : 'none'),
                         maxWidth: '60px',
                       }}
                     >
