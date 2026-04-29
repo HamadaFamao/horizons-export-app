@@ -470,6 +470,18 @@ export default function LudoGame({
     currentSession?.last_roll,
   ]);
 
+  // ─── Auto-play when board is closed ──────────
+  // When the player closes the board mid-game, immediately mark them inactive
+  // so the turn timer fires auto-play instead of freezing the game.
+  useEffect(() => {
+    if (open) return;
+    if (currentSession?.status !== 'playing' || !currentSession?.id) return;
+    const myPlayer = players.find(p => String(p.user_id) === String(user?.id));
+    if (!myPlayer || myPlayer.left_at || myPlayer.refunded_at) return;
+    inactivePlayersRef.current.add(String(user?.id));
+    setIsAutoPlay(v => !v);
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ─── Turn countdown timer ─────────────────────
   useEffect(() => {
     const myPlayer = players.find(p => String(p.user_id) === String(user?.id));
@@ -477,7 +489,7 @@ export default function LudoGame({
       String(currentSession?.current_turn_user_id) === String(user?.id) &&
       !!myPlayer && !myPlayer.left_at;
 
-    if (!isMine || currentSession?.status !== 'playing' || !open) {
+    if (!isMine || currentSession?.status !== 'playing') {
       setTurnTimeLeft(12);
       if (turnTimerRef.current) { clearInterval(turnTimerRef.current); turnTimerRef.current = null; }
       return;
