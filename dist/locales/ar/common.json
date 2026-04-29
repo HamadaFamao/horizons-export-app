@@ -1,0 +1,37 @@
+{
+  "discover": "اكتشف",
+  "plans": "الخطط",
+  "profile": "الملف الشخصي",
+  "messages": "الرسائل",
+  "matches": "المطابقات",
+  "settings": "الإعدادات",
+  "logout": "تسجيل الخروج",
+  "login": "تسجيل الدخول",
+  "create_account": "إنشاء حساب",
+  "save": "حفظ",
+  "back": "رجوع",
+  "add": "إضافة",
+  "agency": {
+    "dashboard": "لوحة تحكم الوكالة",
+    "refresh": "تحديث",
+    "daily_reward": "المكافأة اليومية",
+    "claimed_today": "تم الاستلام اليوم",
+    "earnings_reports": "تقارير الأرباح",
+    "audit_logging_active": "سجل التدقيق نشط: يتم تسجيل جميع تغييرات الدورة والرصيد بشكل دائم.",
+    "cycle_history": {
+      "title": "سجل دورات السحب",
+      "description": "عرض تاريخي لجميع دورات السحب السابقة والحالية",
+      "filter_placeholder": "تصفية الحالة",
+      "all": "الكل",
+      "open": "مفتوح",
+      "closed": "مغلق",
+      "month": "الشهر",
+      "status": "الحالة",
+      "locked_amount": "المبلغ المقفل",
+      "opened_at": "تاريخ الفتح",
+      "notes": "ملاحظات",
+      "no_cycles": "لا توجد دورات سحب مطابقة.",
+      "invalid": "غير صالح"
+    }
+  }
+}

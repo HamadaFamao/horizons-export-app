@@ -302,7 +302,7 @@ export default function LiveRoomPage() {
   // ==========================================
   const { roomId } = useParams();
   const navigate = useNavigate();
-  const { user, session } = useAuth();
+  const { user } = useAuth();
   const { setMiniRoomActive, setRoomData, miniRoomActive } = useMiniRoom();
 
   // ==========================================
@@ -435,8 +435,14 @@ export default function LiveRoomPage() {
 
   // Keep access token ref current so keepalive fetch works during page unload
   useEffect(() => {
-    accessTokenRef.current = session?.access_token ?? null;
-  }, [session?.access_token]);
+    supabase.auth.getSession().then(({ data: { session: s } }) => {
+      accessTokenRef.current = s?.access_token ?? null;
+    });
+    const { data: { subscription: _tokenSub } } = supabase.auth.onAuthStateChange((_, s) => {
+      accessTokenRef.current = s?.access_token ?? null;
+    });
+    return () => _tokenSub.unsubscribe();
+  }, []);
 
   // Cache the active Ludo session ID so it's available synchronously in beforeunload
   useEffect(() => {
