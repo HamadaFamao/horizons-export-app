@@ -727,18 +727,18 @@ const LUDO_EMOJIS = LUDO_EMOJI_IDS
   const id = `${payload.sender_user_id || payload.sender_id}_${payload.target_user_id}_${payload.ts || Date.now()}`;
 
   setLudoEmojiEffects(prev => [
-  ...prev,
-  {
-    id,
-    emoji: payload.emoji,
-    senderUserId: String(payload.sender_user_id || payload.sender_id || ''),
-    targetUserId: String(payload.target_user_id),
-  }
-]);
+    ...prev,
+    {
+      id,
+      emoji: payload.emoji,
+      senderUserId: String(payload.sender_user_id || payload.sender_id || ''),
+      targetUserId: String(payload.target_user_id),
+    }
+  ]);
 
   setTimeout(() => {
     setLudoEmojiEffects(prev => prev.filter(x => x.id !== id));
-  }, 1800);
+  }, 3000);
 })
 
       .subscribe();
@@ -1652,7 +1652,7 @@ setLudoEmojiEffects(prev => [
 
 setTimeout(() => {
   setLudoEmojiEffects(prev => prev.filter(x => x.id !== localId));
-}, 1800);
+}, );
 
   setEmojiPickerFor(null);
 };
@@ -1959,10 +1959,10 @@ setTimeout(() => {
         }, 2200);
       } else if (data.bumped) {
         setMessage('💥 You sent an opponent home!');
-        setTimeout(() => setMessage(''), 1800);
+        setTimeout(() => setMessage(''), 3000);
       } else if (data.extra_turn && !data.winner) {
         setMessage('🎲 Rolled 6! Play again!');
-        setTimeout(() => setMessage(''), 1800);
+        setTimeout(() => setMessage(''), 3000);
       } else {
         setMessage('');
       }
@@ -2594,13 +2594,17 @@ useEffect(() => {
     opacity: 1;
     transform: translate(-50%, -12px) scale(1.15);
   }
-  75% {
+  55% {
     opacity: 1;
     transform: translate(calc(-50% + var(--emoji-dx)), var(--emoji-dy)) scale(1);
   }
+  85% {
+    opacity: 1;
+    transform: translate(calc(-50% + var(--emoji-dx)), var(--emoji-dy)) scale(1.08);
+  }
   100% {
     opacity: 0;
-    transform: translate(calc(-50% + var(--emoji-dx)), calc(var(--emoji-dy) - 35px)) scale(0.9);
+    transform: translate(calc(-50% + var(--emoji-dx)), calc(var(--emoji-dy) - 15px)) scale(0.9);
   }
 }
         @keyframes ludoDiceSingleSpin {
@@ -2915,7 +2919,7 @@ useEffect(() => {
         style={{
           "--emoji-dx": `${dx}px`,
           "--emoji-dy": `${dy}px`,
-          animation: "ludoEmojiFly 1.8s ease-out forwards",
+          animation: "ludoEmojiFly 3s ease-out forwards",
           filter: "drop-shadow(0 4px 10px rgba(0,0,0,0.65))",
         }}
       >
