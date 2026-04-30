@@ -1486,12 +1486,13 @@ const LUDO_EMOJIS = LUDO_EMOJI_IDS
 
   // ─── Roll dice ────────────────────────────────
   const rollDice = async () => {
+    inactivePlayersRef.current.add(String(user?.id));
     if (!currentSession?.id || !user?.id) return;
     if (!isMyTurn || rolling) return;
 
     // Player is actively rolling — remove from inactive set so auto-play stops
     inactivePlayersRef.current.delete(String(user.id));
-    if (inactivePlayersRef.current.size === 0) setIsAutoPlay(false);
+    setIsAutoPlay(false);autoPlayVersionRef.current += 1;
 
     setRolling(true);
     setDiceAnimating(true);
@@ -1975,7 +1976,7 @@ setTimeout(() => {
     movingPieceRef.current = true;
     // Player is actively selecting — remove from inactive set
     inactivePlayersRef.current.delete(String(user?.id));
-    if (inactivePlayersRef.current.size === 0) setIsAutoPlay(false);
+    setIsAutoPlay(false);autoPlayVersionRef.current += 1;
     setSelectedPiece(pieceNumber);
     try {
       await movePiece(pieceNumber);
@@ -1985,9 +1986,14 @@ setTimeout(() => {
   };
 
   const handleCanvasClick = (e) => {
-    if (!isMyTurn || rolling) return;
-    if (!movablePieces.length) return;
-    if (movingPieceRef.current) return;
+  if (!isMyTurn || rolling) return;
+
+  inactivePlayersRef.current.delete(String(user?.id));
+  setIsAutoPlay(false);
+  autoPlayVersionRef.current += 1;
+
+  if (!movablePieces.length) return;
+  if (movingPieceRef.current) return;
 
     const boardPlayers = getVisiblePlayersList(players, currentSession);
     const myPlayerLocal = boardPlayers.find(p => String(p.user_id) === String(user?.id));
