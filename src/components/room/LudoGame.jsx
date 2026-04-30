@@ -2887,14 +2887,18 @@ useEffect(() => {
     const em = LUDO_EMOJIS.find(e => e.id === x.emoji);
     if (!em) return null;
 
-    const targetPlayer = players.find(
-      pl => String(pl.user_id) === String(x.targetUserId)
-    );
+    const senderSeat = getRelativeVisualSeat(p, players);
 
-    const isSelfTarget = String(x.targetUserId) === String(x.senderUserId);
+const targetPlayer = players.find(
+  pl => String(pl.user_id) === String(x.targetUserId)
+);
 
-const dx = isSelfTarget ? 0 : 110;
-const dy = isSelfTarget ? -70 : -45;
+const targetSeat = targetPlayer
+  ? getRelativeVisualSeat(targetPlayer, players)
+  : senderSeat;
+
+const dx = (targetSeat - senderSeat) * 90;
+const dy = targetSeat === senderSeat ? -70 : -40;
 
     return (
       <div
