@@ -121,6 +121,8 @@ const LUDO_EMOJIS = LUDO_EMOJI_IDS
   const inactivePlayersRef = useRef(new Set());
   const autoPlayVersionRef = useRef(0);
   const disconnectedResignRef = useRef(new Set());
+  const playerCardRefs = useRef({});
+  
 
   // ─── Sound utility ────────────────────────────
   const playSound = (type) => {
@@ -2887,36 +2889,29 @@ useEffect(() => {
     const em = LUDO_EMOJIS.find(e => e.id === x.emoji);
     if (!em) return null;
 
-    const senderSeat = getRelativeVisualSeat(p, players);
+    const senderEl = playerCardRefs.current[String(x.senderUserId)];
+    const targetEl = playerCardRefs.current[String(x.targetUserId)];
 
-const targetPlayer = players.find(
-  pl => String(pl.user_id) === String(x.targetUserId)
-);
+    let dx = 0;
+    let dy = -70;
 
-const targetSeat = targetPlayer
-  ? getRelativeVisualSeat(targetPlayer, players)
-  : senderSeat;
+    if (senderEl && targetEl) {
+      const s = senderEl.getBoundingClientRect();
+      const t = targetEl.getBoundingClientRect();
 
-const seatDelta = ((targetSeat - senderSeat) + 4) % 4;
+      const sx = s.left + s.width / 2;
+      const sy = s.top + s.height / 2;
+      const tx = t.left + t.width / 2;
+      const ty = t.top + t.height / 2;
 
-let dx = 0;
-let dy = -70;
-
-if (seatDelta === 1) {
-  dx = 120;
-  dy = -25;
-} else if (seatDelta === 2) {
-  dx = 0;
-  dy = -150;
-} else if (seatDelta === 3) {
-  dx = -120;
-  dy = -25;
-}
+      dx = tx - sx;
+      dy = ty - sy;
+    }
 
     return (
       <div
         key={x.id}
-        className="pointer-events-none absolute -top-8 left-1/2 z-[95]"
+        className="pointer-events-none absolute top-1/2 left-1/2 z-[95]"
         style={{
           "--emoji-dx": `${dx}px`,
           "--emoji-dy": `${dy}px`,
@@ -2940,7 +2935,13 @@ if (seatDelta === 1) {
 );
 
                   return (
-  <div key={p.id} className={`flex items-center gap-1 sm:gap-2 min-h-[64px] sm:min-h-[80px] ${isFinishFx ? 'animate-bounce' : ''}`}>
+  <div
+  key={p.id}
+  ref={(el) => {
+    if (el) playerCardRefs.current[String(p.user_id)] = el;
+  }}
+  className={`relative flex items-center gap-1 sm:gap-2 min-h-[64px] sm:min-h-[80px] ${isFinishFx ? 'animate-bounce' : ''}`}
+>
     {diceSide === 'left' && renderDiceSlot(p)}
     {playerCard}
     {emojiButton}
