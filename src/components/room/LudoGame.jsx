@@ -2897,8 +2897,21 @@ const targetSeat = targetPlayer
   ? getRelativeVisualSeat(targetPlayer, players)
   : senderSeat;
 
-const dx = (targetSeat - senderSeat) * 90;
-const dy = targetSeat === senderSeat ? -70 : -40;
+const seatDelta = ((targetSeat - senderSeat) + 4) % 4;
+
+let dx = 0;
+let dy = -70;
+
+if (seatDelta === 1) {
+  dx = 120;
+  dy = -25;
+} else if (seatDelta === 2) {
+  dx = 0;
+  dy = -150;
+} else if (seatDelta === 3) {
+  dx = -120;
+  dy = -25;
+}
 
     return (
       <div
