@@ -73,7 +73,25 @@ export default function LudoGame({
   const [sixFlash, setSixFlash] = useState(false);
   const [emojiPickerFor, setEmojiPickerFor] = useState(null);
   const [ludoEmojiEffects, setLudoEmojiEffects] = useState([]);
-  const LUDO_EMOJIS = ROOM_EMOJIS.slice(0, 12);
+  const LUDO_EMOJI_IDS = [
+  "fist",
+  "Bottle",
+  "kissing",
+  "kiss",
+  "Alarm-clockjson",
+  "Clinking",
+  "clap",
+  "dancer",
+  "donkey",
+  "laughing",
+  "Running",
+  "Clinking",
+  "Money-face",
+];
+
+const LUDO_EMOJIS = LUDO_EMOJI_IDS
+  .map(id => ROOM_EMOJIS.find(e => e.id === id))
+  .filter(Boolean);
   
 
   const canvasRef = useRef(null);
@@ -2868,11 +2886,10 @@ useEffect(() => {
       pl => String(pl.user_id) === String(x.targetUserId)
     );
 
-    const senderSeat = getRelativeVisualSeat(p, players);
-    const targetSeat = targetPlayer ? getRelativeVisualSeat(targetPlayer, players) : senderSeat;
+    const isSelfTarget = String(x.targetUserId) === String(x.senderUserId);
 
-    const dx = (targetSeat - senderSeat) * 90;
-    const dy = targetSeat === senderSeat ? -70 : -40;
+const dx = isSelfTarget ? 0 : 110;
+const dy = isSelfTarget ? -70 : -45;
 
     return (
       <div
