@@ -75,18 +75,17 @@ export default function LudoGame({
   const [ludoEmojiEffects, setLudoEmojiEffects] = useState([]);
   const LUDO_EMOJI_IDS = [
   "fist",
-  "Bottle",
+  "bottle",
   "kissing",
   "kiss",
-  "Alarm-clockjson",
-  "Clinking",
+  "alarm_clock",
+  "clinking",
   "clap",
   "dancer",
   "donkey",
   "laughing",
-  "Running",
-  "Clinking",
-  "Money-face",
+  "running",
+  "money_face",
 ];
 
 const LUDO_EMOJIS = LUDO_EMOJI_IDS
@@ -1443,7 +1442,7 @@ const LUDO_EMOJIS = LUDO_EMOJI_IDS
 
   // ─── Game logic ───────────────────────────────
   const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-  const DICE_REVEAL_DELAY = 1400;
+  const DICE_REVEAL_DELAY = 650;
   const TRIPLE_SIX_REVEAL_DELAY = 320;
 
   const getLogicalNextPos = (pos, roll) => {
@@ -1486,13 +1485,13 @@ const LUDO_EMOJIS = LUDO_EMOJI_IDS
 
   // ─── Roll dice ────────────────────────────────
   const rollDice = async () => {
-    inactivePlayersRef.current.add(String(user?.id));
     if (!currentSession?.id || !user?.id) return;
     if (!isMyTurn || rolling) return;
 
     // Player is actively rolling — remove from inactive set so auto-play stops
     inactivePlayersRef.current.delete(String(user.id));
-    setIsAutoPlay(false);autoPlayVersionRef.current += 1;
+    setIsAutoPlay(false);
+autoPlayVersionRef.current += 1;
 
     setRolling(true);
     setDiceAnimating(true);
@@ -1517,6 +1516,7 @@ const LUDO_EMOJIS = LUDO_EMOJI_IDS
 
       clearInterval(interval);
       setDiceAnimating(false);
+      setRolling(false);
       setDiceDisplay(finalRoll);
       setLastRoll(finalRoll);
 
@@ -1590,10 +1590,9 @@ const LUDO_EMOJIS = LUDO_EMOJI_IDS
       }
 
       if (movable.length === 1) {
-        await wait(300);
-        await movePiece(movable[0]);
-        return;
-      }
+  await movePiece(movable[0]);
+  return;
+}
 
       setMessage('Tap a highlighted piece to move.');
     } catch (err) {
@@ -1986,7 +1985,7 @@ setTimeout(() => {
   };
 
   const handleCanvasClick = (e) => {
-  if (!isMyTurn || rolling) return;
+  if (!isMyTurn) return;
 
   inactivePlayersRef.current.delete(String(user?.id));
   setIsAutoPlay(false);
@@ -2008,7 +2007,7 @@ setTimeout(() => {
     const x = (e.clientX - rect.left) * scaleX;
     const y = (e.clientY - rect.top) * scaleY;
     const cellSize = canvas.width / 15;
-    const hitRadius = cellSize * 0.62;
+    const hitRadius = cellSize * 1.1;
 
     const stackedByCell = new Map();
     boardPlayers.forEach((player) => {
