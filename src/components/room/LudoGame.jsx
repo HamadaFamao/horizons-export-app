@@ -1652,7 +1652,7 @@ setLudoEmojiEffects(prev => [
 
 setTimeout(() => {
   setLudoEmojiEffects(prev => prev.filter(x => x.id !== localId));
-}, );
+}, 3000);
 
   setEmojiPickerFor(null);
 };
@@ -2800,8 +2800,11 @@ useEffect(() => {
                   })();
 
                   const playerCard = (
-                    <div
-                      className="flex flex-col items-center gap-0.5 rounded-xl p-1 backdrop-blur-sm transition"
+  <div
+    ref={(el) => {
+      if (el) playerCardRefs.current[String(p.user_id)] = el;
+    }}
+    className="flex flex-col items-center gap-0.5 rounded-xl p-1 backdrop-blur-sm transition"
                       style={{
                         background: isCurrentTurn ? `${PLAYER_COLORS[colorIdx]}44` : 'rgba(0,0,0,0.55)',
                         outline: isCurrentTurn ? `2px solid ${PLAYER_COLORS[colorIdx]}` : 'none',
@@ -2940,12 +2943,9 @@ useEffect(() => {
 
                   return (
   <div
-  key={p.id}
-  ref={(el) => {
-    if (el) playerCardRefs.current[String(p.user_id)] = el;
-  }}
-  className={`relative flex items-center gap-1 sm:gap-2 min-h-[64px] sm:min-h-[80px] ${isFinishFx ? 'animate-bounce' : ''}`}
->
+    key={p.id}
+    className={`relative flex items-center gap-1 sm:gap-2 min-h-[64px] sm:min-h-[80px] ${isFinishFx ? 'animate-bounce' : ''}`}
+  >
     {diceSide === 'left' && renderDiceSlot(p)}
     {playerCard}
     {emojiButton}
