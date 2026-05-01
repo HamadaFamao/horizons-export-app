@@ -729,10 +729,10 @@ const LUDO_EMOJIS = LUDO_EMOJI_IDS
   const isAll = String(payload.target_user_id) === 'all';
 
   const targets = isAll
-    ? players
-        .filter(p => String(p.user_id) !== senderId)
-        .map(p => String(p.user_id))
-    : [String(payload.target_user_id)];
+  ? (payload.target_user_ids || [])
+      .filter(id => String(id) !== senderId)
+      .map(id => String(id))
+  : [String(payload.target_user_id)];
 
   const createdIds = targets.map(targetId => {
     const id = `${senderId}_${targetId}_${payload.ts || Date.now()}`;
@@ -1637,14 +1637,19 @@ autoPlayVersionRef.current += 1;
   if (!channelRef.current || !currentSession?.id || !user?.id) return;
 
   const payload = {
-    session_id: currentSession.id,
-    room_id: roomId,
-    sender_id: user.id,
-    sender_user_id: user.id,
-    target_user_id: targetUserId,
-    emoji: emoji?.id || emoji,
-    ts: Date.now(),
-  };
+  session_id: currentSession.id,
+  room_id: roomId,
+  sender_id: user.id,
+  sender_user_id: user.id,
+  target_user_id: targetUserId,
+  target_user_ids: String(targetUserId) === "all"
+    ? players
+        .filter(p => String(p.user_id) !== String(user.id))
+        .map(p => String(p.user_id))
+    : [String(targetUserId)],
+  emoji: emoji?.id || emoji,
+  ts: Date.now(),
+};
 
   await channelRef.current.send({
     type: "broadcast",
