@@ -73,6 +73,7 @@ export default function LudoGame({
   const [sixFlash, setSixFlash] = useState(false);
   const [emojiPickerFor, setEmojiPickerFor] = useState(null);
   const [ludoEmojiEffects, setLudoEmojiEffects] = useState([]);
+  const [sendToAll, setSendToAll] = useState(false);
   const LUDO_EMOJI_IDS = [
   "fist",
   "bottle",
@@ -2892,25 +2893,29 @@ useEffect(() => {
   type="button"
   onClick={(e) => {
     e.stopPropagation();
-    const firstEmoji = LUDO_EMOJIS[0];
-if (firstEmoji) {
-  sendLudoEmoji("all", firstEmoji);
-}
+    setSendToAll(prev => !prev);
   }}
-  className="col-span-5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30
-    border border-amber-300/30 text-amber-100 text-xs font-black
-    py-2 active:scale-95 transition"
+  className={`col-span-5 rounded-xl border px-3 py-2 text-xs font-bold transition
+    ${sendToAll
+      ? 'bg-green-500/20 border-green-400 text-green-200'
+      : 'bg-white/10 border-white/20 text-white/70'
+    }`}
 >
-  🎉 Send first emoji to all
+  {sendToAll ? "✅ Send to ALL" : "Send to ALL"}
 </button>
     {LUDO_EMOJIS.map((em) => (
       <button
         key={em.id}
         type="button"
         onClick={(e) => {
-          e.stopPropagation();
-          sendLudoEmoji(p.user_id, em);
-        }}
+  e.stopPropagation();
+  sendLudoEmoji(sendToAll ? "all" : p.user_id, em);
+}}
+onContextMenu={(e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  sendLudoEmoji("all", em);
+}}
         className="w-11 h-11 rounded-xl bg-white/5 hover:bg-white/15
           flex items-center justify-center active:scale-90 transition"
         title={em.label}
