@@ -1632,7 +1632,53 @@ autoPlayVersionRef.current += 1;
     return { players: refreshedPlayers || [], session: sd || null };
   };
 
-  const sendLudoEmoji = async
+  const sendLudoEmoji = async (targetUserId, emoji) => {
+  if (!channelRef.current || !currentSession?.id || !user?.id) return;
+
+  const payload = {
+    session_id: currentSession.id,
+    room_id: roomId,
+    sender_id: user.id,
+    sender_user_id: user.id,
+    target_user_id: targetUserId,
+    emoji: emoji?.id || emoji,
+    ts: Date.now(),
+  };
+
+  await channelRef.current.send({
+    type: "broadcast",
+    event: "ludo_emoji",
+    payload,
+  });
+
+  const targets = String(targetUserId) === "all"
+    ? players
+        .filter(p => String(p.user_id) !== String(user.id))
+        .map(p => String(p.user_id))
+    : [String(targetUserId)];
+
+  const localIds = targets.map(targetId => {
+    const localId = `${user.id}_${targetId}_${payload.ts}_local`;
+
+    setLudoEmojiEffects(prev => [
+      ...prev,
+      {
+        id: localId,
+        emoji: payload.emoji,
+        senderUserId: String(user.id),
+        targetUserId: targetId,
+      }
+    ]);
+
+    return localId;
+  });
+
+  setTimeout(() => {
+    setLudoEmojiEffects(prev => prev.filter(x => !localIds.includes(x.id)));
+  }, 3000);
+
+  setEmojiPickerFor(null);
+};
 
   const forceAdvanceTurnFromLeft = async (leftUserId, sessionArg = currentSession, playersList = players) => {
     if (!sessionArg?.id || !leftUserId) return false;
