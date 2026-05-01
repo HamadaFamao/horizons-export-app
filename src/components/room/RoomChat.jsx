@@ -541,7 +541,10 @@ export default function RoomChat({
                             {m.winner_name}
                           </span>
                           <span className="text-white/60 text-xs mx-1">
-                            {m.game_type === 'race' ? 'won the Race Game!' : 'won the Spin Game!'}
+                            {m.game_type === 'race' ? 'won the Race Game!' : 
+                             m.game_type === 'trivia' ? 'won the Trivia Quiz!' :
+                             m.game_type === 'ludo' ? 'won the Ludo Game!' :
+                             'won the Spin Game!'}
                           </span>
                           <span className="text-emerald-300 font-black text-xs">
                             🪙 {(m.winner_coins || 0).toLocaleString()}

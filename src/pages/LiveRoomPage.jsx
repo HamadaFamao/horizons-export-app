@@ -46,6 +46,7 @@ import GamesLobby from "@/components/room/GamesLobby";
 import SpinGame from "@/components/room/SpinGame";
 import RaceGame from "@/components/room/RaceGame";
 import LudoGame from "@/components/room/LudoGame";
+import TriviaGame from "@/components/room/TriviaGame";
 
 import { FALLBACK_AVATAR } from "@/components/room/ludoUtils";
 
@@ -439,6 +440,7 @@ export default function LiveRoomPage() {
 
   // Cache the active Ludo session ID so it's available synchronously in beforeunload
   const [showLudoGame, setShowLudoGame] = useState(false);
+  const [showTriviaGame, setShowTriviaGame] = useState(false);
   useEffect(() => {
     if (!showLudoGame || !roomId) return;
     supabase
@@ -10427,6 +10429,7 @@ useEffect(() => {
           if (gameId === 'spin') setShowSpinGame(true);
           if (gameId === 'race') setShowRaceGame(true);
           if (gameId === 'ludo') setShowLudoGame(true);
+          if (gameId === 'trivia') setShowTriviaGame(true);
           if (gameId === 'pk') setShowPkModal(true);
         }}
       />
@@ -10770,6 +10773,68 @@ useEffect(() => {
                 },
               });
             }, 500);
+          }
+        }}
+      />
+
+      <TriviaGame
+        open={showTriviaGame}
+        onClose={() => setShowTriviaGame(false)}
+        roomId={roomId}
+        user={user}
+        canModerate={canModerate}
+        userCoins={userWalletCoins}
+        channelRef={channelRef}
+        onCoinsUpdated={() => {
+          if (user?.id) {
+            fetchUserWallet(user.id)
+              .then(({ data }) => {
+                if (data) setUserWalletCoins(data.coins || 0);
+              })
+              .catch(console.error);
+          }
+        }}
+        onTriviaResult={({ winnerName, winnerAvatar, winnerId, winnerCoins, totalPlayers }) => {
+          const now = Date.now();
+          const resultMsg = {
+            id: `result_trivia_${winnerId}_${roomId}`,
+            type: 'spin_result',
+            winner_name: winnerName,
+            winner_avatar: winnerAvatar,
+            winner_id: winnerId,
+            winner_coins: winnerCoins,
+            total_players: totalPlayers,
+            game_type: 'trivia',
+            created_at: new Date(now + 1000).toISOString(),
+          };
+
+          setRoomGiftMessages(prev => {
+            if (prev.some(m => m.id === resultMsg.id)) return prev;
+            return [...prev, resultMsg];
+          });
+
+          if (channelRef.current) {
+            channelRef.current.send({
+              type: 'broadcast',
+              event: 'spin_result',
+              payload: { room_id: roomId, ...resultMsg, ts: now },
+            });
+          }
+
+          if (winnerCoins >= 10000) {
+            if (largeGiftBannerTimerRef.current) clearTimeout(largeGiftBannerTimerRef.current);
+            setLargeGiftBanner({
+              senderName: winnerName,
+              senderAvatar: winnerAvatar,
+              receiverName: `🪙 ${winnerCoins.toLocaleString()}`,
+              receiverAvatar: null,
+              giftName: '🧠 Trivia Winner',
+              giftIcon: null,
+              isToAll: false,
+              roomId: roomId,
+              isGlobal: winnerCoins >= 50000,
+            });
+            largeGiftBannerTimerRef.current = setTimeout(() => setLargeGiftBanner(null), 10000);
           }
         }}
       />

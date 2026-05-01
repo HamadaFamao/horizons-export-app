@@ -44,11 +44,11 @@ const GAMES = [
   },
   {
     id: 'trivia',
-    emoji: '🧠✨',
-    name: 'Trivia',
-    description: 'Answer questions faster than others.',
-    color: 'from-emerald-500 to-teal-400',
-    available: false,
+    emoji: '🧠',
+    name: 'Trivia Quiz',
+    description: 'Answer questions and beat the competition!',
+    color: 'from-purple-500 to-blue-500',
+    available: true,
   },
 ];
 
