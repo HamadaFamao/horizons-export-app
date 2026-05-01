@@ -86,10 +86,24 @@ export default function TriviaGame({
       })
       .subscribe();
 
-    // Listen for question broadcasts
+    // Listen for all trivia broadcasts
     if (channelRef?.current) {
+      channelRef.current.on?.('broadcast', { event: 'trivia_session_created' }, ({ payload }) => {
+        if (String(payload.room_id) !== String(roomId)) return;
+        setCurrentSession(payload.session);
+        setPlayers([]);
+        setCurrentQuestion(null);
+        loadPlayers(payload.session.id);
+      });
+
+      channelRef.current.on?.('broadcast', { event: 'trivia_player_joined' }, ({ payload }) => {
+        if (String(payload.room_id) !== String(roomId)) return;
+        loadPlayers(payload.session_id);
+      });
+
       channelRef.current.on?.('broadcast', { event: 'trivia_question' }, ({ payload }) => {
         if (String(payload.room_id) !== String(roomId)) return;
+        setCurrentSession(prev => prev ? { ...prev, status: 'active' } : prev);
         setCurrentQIndex(payload.question_order);
         setCurrentQuestion(payload.question);
         setSelectedAnswer(null);
@@ -293,6 +307,17 @@ Return ONLY a JSON array, no markdown, no explanation:
       setCurrentSession(session);
       setPlayers([]);
       setQuestions(validQs);
+
+      // Broadcast new session to all users
+      channelRef?.current?.send({
+        type: 'broadcast',
+        event: 'trivia_session_created',
+        payload: {
+          room_id: roomId,
+          session: session,
+          ts: Date.now(),
+        },
+      });
     } catch (err) {
       alert(err.message);
     } finally {
@@ -312,6 +337,17 @@ Return ONLY a JSON array, no markdown, no explanation:
       if (!data?.success) throw new Error(data?.error);
       onCoinsUpdated?.();
       await loadPlayers(currentSession.id);
+
+      // Broadcast player joined
+      channelRef?.current?.send({
+        type: 'broadcast',
+        event: 'trivia_player_joined',
+        payload: {
+          room_id: roomId,
+          session_id: currentSession.id,
+          ts: Date.now(),
+        },
+      });
     } catch (err) {
       alert(err.message);
     } finally {

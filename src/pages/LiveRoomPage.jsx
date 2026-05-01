@@ -7556,6 +7556,17 @@ useEffect(() => {
         }
       });
 
+      ch.on("broadcast", { event: "trivia_session_created" }, ({ payload }) => {
+        if (String(payload.room_id) !== String(roomId)) return;
+        // Auto-open trivia for all users in room
+        setShowTriviaGame(true);
+      });
+
+      ch.on("broadcast", { event: "trivia_question" }, ({ payload }) => {
+        if (String(payload.room_id) !== String(roomId)) return;
+        setShowTriviaGame(true);
+      });
+
       ch.on("broadcast", { event: "spin_result" }, ({ payload }) => {
         if (!payload) return;
         if (String(payload.room_id) !== String(roomId)) return;
