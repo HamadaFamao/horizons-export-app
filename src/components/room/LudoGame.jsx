@@ -724,20 +724,33 @@ const LUDO_EMOJIS = LUDO_EMOJI_IDS
       .on('broadcast', { event: 'ludo_emoji' }, ({ payload }) => {
   if (!payload?.emoji || !payload?.target_user_id) return;
 
-  const id = `${payload.sender_user_id || payload.sender_id}_${payload.target_user_id}_${payload.ts || Date.now()}`;
+  const senderId = String(payload.sender_user_id || payload.sender_id || '');
+  const isAll = String(payload.target_user_id) === 'all';
 
-  setLudoEmojiEffects(prev => [
-    ...prev,
-    {
-      id,
-      emoji: payload.emoji,
-      senderUserId: String(payload.sender_user_id || payload.sender_id || ''),
-      targetUserId: String(payload.target_user_id),
-    }
-  ]);
+  const targets = isAll
+    ? players
+        .filter(p => String(p.user_id) !== senderId)
+        .map(p => String(p.user_id))
+    : [String(payload.target_user_id)];
+
+  const createdIds = targets.map(targetId => {
+    const id = `${senderId}_${targetId}_${payload.ts || Date.now()}`;
+
+    setLudoEmojiEffects(prev => [
+      ...prev,
+      {
+        id,
+        emoji: payload.emoji,
+        senderUserId: senderId,
+        targetUserId: targetId,
+      }
+    ]);
+
+    return id;
+  });
 
   setTimeout(() => {
-    setLudoEmojiEffects(prev => prev.filter(x => x.id !== id));
+    setLudoEmojiEffects(prev => prev.filter(x => !createdIds.includes(x.id)));
   }, 3000);
 })
 
@@ -1619,43 +1632,7 @@ autoPlayVersionRef.current += 1;
     return { players: refreshedPlayers || [], session: sd || null };
   };
 
-  const sendLudoEmoji = async (targetUserId, emoji) => {
-  if (!channelRef.current || !currentSession?.id || !user?.id) return;
-
-  const payload = {
-  session_id: currentSession.id,
-  room_id: roomId,
-  sender_id: user.id,
-  sender_user_id: user.id, //
-  target_user_id: targetUserId,
-  emoji: emoji?.id || emoji,
-  ts: Date.now(),
-};
-
-  await channelRef.current.send({
-    type: "broadcast",
-    event: "ludo_emoji",
-    payload,
-  });
-
-  const localId = `${user.id}_${targetUserId}_${payload.ts}_local`;
-
-setLudoEmojiEffects(prev => [
-  ...prev,
-  {
-    id: localId,
-    emoji: payload.emoji,
-    senderUserId: String(user.id),
-    targetUserId: String(targetUserId),
-  }
-]);
-
-setTimeout(() => {
-  setLudoEmojiEffects(prev => prev.filter(x => x.id !== localId));
-}, 3000);
-
-  setEmojiPickerFor(null);
-};
+  const sendLudoEmoji = async
 
   const forceAdvanceTurnFromLeft = async (leftUserId, sessionArg = currentSession, playersList = players) => {
     if (!sessionArg?.id || !leftUserId) return false;
@@ -2865,6 +2842,21 @@ useEffect(() => {
   onMouseDown={(e) => e.stopPropagation()}
   onTouchStart={(e) => e.stopPropagation()}
 >
+  <button
+  type="button"
+  onClick={(e) => {
+    e.stopPropagation();
+    const firstEmoji = LUDO_EMOJIS[0];
+if (firstEmoji) {
+  sendLudoEmoji("all", firstEmoji);
+}
+  }}
+  className="col-span-5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30
+    border border-amber-300/30 text-amber-100 text-xs font-black
+    py-2 active:scale-95 transition"
+>
+  🎉 Send first emoji to all
+</button>
     {LUDO_EMOJIS.map((em) => (
       <button
         key={em.id}
