@@ -51,11 +51,7 @@ export default function TriviaGame({
   const [timeExpired, setTimeExpired] = useState(false);
   const [playerAnswerCounts, setPlayerAnswerCounts] = useState({});
   const [isMuted, setIsMuted] = useState(false);
-  const [viewport, setViewport] = useState({
-    height: typeof window !== 'undefined' ? window.innerHeight : 0,
-    offsetTop: 0,
-    keyboard: 0,
-  });
+  const [editingMode, setEditingMode] = useState(false);
   const audioRef = useRef(null);
 
   const timerRef = useRef(null);
@@ -153,30 +149,6 @@ export default function TriviaGame({
     };
   }, [open, roomId, currentSession?.id]);
 
-  useEffect(() => {
-    if (!open) return;
-
-    const updateViewport = () => {
-      const vv = window.visualViewport;
-      if (!vv) {
-        setViewport({ height: window.innerHeight, offsetTop: 0, keyboard: 0 });
-        return;
-      }
-      const keyboard = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-      setViewport({ height: vv.height, offsetTop: vv.offsetTop, keyboard });
-    };
-
-    updateViewport();
-    window.visualViewport?.addEventListener('resize', updateViewport);
-    window.visualViewport?.addEventListener('scroll', updateViewport);
-    window.addEventListener('resize', updateViewport);
-
-    return () => {
-      window.visualViewport?.removeEventListener('resize', updateViewport);
-      window.visualViewport?.removeEventListener('scroll', updateViewport);
-      window.removeEventListener('resize', updateViewport);
-    };
-  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -699,22 +671,18 @@ Return ONLY a JSON array, no markdown, no explanation:
   };
 
   const handleInputFocus = (e) => {
+    setEditingMode(true);
     setTimeout(() => {
-      const input = e.target;
-      const scrollParent = input.closest('[data-trivia-scroll]');
-      if (!scrollParent) return;
+      e.target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+    }, 500);
+  };
 
-      const parentRect = scrollParent.getBoundingClientRect();
-      const inputRect = input.getBoundingClientRect();
-      const safeBottom = parentRect.bottom - 120;
-
-      if (inputRect.bottom > safeBottom) {
-        scrollParent.scrollBy({ top: inputRect.bottom - safeBottom, behavior: 'smooth' });
+  const handleInputBlur = () => {
+    setTimeout(() => {
+      if (!document.activeElement || document.activeElement.tagName !== 'INPUT') {
+        setEditingMode(false);
       }
-      if (inputRect.top < parentRect.top + 80) {
-        scrollParent.scrollBy({ top: inputRect.top - parentRect.top - 80, behavior: 'smooth' });
-      }
-    }, 350);
+    }, 150);
   };
 
   const isJoined = players.some(p => String(p.user_id) === String(user?.id));
@@ -731,18 +699,14 @@ Return ONLY a JSON array, no markdown, no explanation:
 
   return (
     <div
-      className="fixed left-0 right-0 z-[85] flex items-end sm:items-center justify-center sm:p-4"
-      style={{ top: viewport.offsetTop, height: viewport.height }}
+      className="fixed inset-0 z-[85] flex items-end sm:items-center justify-center sm:p-4"
       onClick={onClose}
     >
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div
-        className="relative w-full max-w-md bg-slate-900 sm:bg-slate-900/95 sm:backdrop-blur-xl rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden border-t sm:border border-white/10"
-        style={{
-          maxHeight: viewport.keyboard > 0
-            ? `${Math.max(320, viewport.height - 8)}px`
-            : '90dvh',
-        }}
+        className={`relative w-full max-w-md bg-slate-900 sm:bg-slate-900/95 sm:backdrop-blur-xl rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden border-t sm:border border-white/10 transition-all duration-300 ${
+          editingMode ? 'h-[52dvh]' : 'max-h-[90dvh] sm:max-h-[85dvh]'
+        }`}
         onClick={e => e.stopPropagation()}
       >
         {/* Handle for mobile */}
@@ -786,10 +750,9 @@ Return ONLY a JSON array, no markdown, no explanation:
         </div>
 
         <div
-          data-trivia-scroll
           className="flex-1 overflow-y-auto overscroll-contain p-4 sm:pb-4"
           style={{
-            paddingBottom: viewport.keyboard > 0 ? 160 : 32,
+            paddingBottom: editingMode ? 180 : 32,
             WebkitOverflowScrolling: 'touch',
           }}
         >
@@ -1035,67 +998,72 @@ Return ONLY a JSON array, no markdown, no explanation:
           ) : canModerate ? (
             // Create session form
             <div className="flex flex-col gap-2">
-              <div className="text-center text-white/50 text-sm mb-4">Configure your Trivia game</div>
+              {!editingMode && (
+                <>
+                  <div className="text-center text-white/50 text-sm mb-4">Configure your Trivia game</div>
 
-              {/* Entry cost */}
-              <div className="mb-4">
-                <div className="text-white/60 text-xs font-bold mb-2 uppercase tracking-wider flex items-center gap-1.5">
-                  <span className="text-amber-400">🪙</span> Entry Cost
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {ENTRY_COST_OPTIONS.map(c => (
-                    <button key={c} onClick={() => setEntryCost(c)}
-                      className={`py-2.5 rounded-xl font-bold text-xs active:scale-95 transition-all border ${
-                        entryCost === c 
-                          ? 'bg-amber-500/20 border-amber-500/50 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.2)]' 
-                          : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
-                      }`}>
-                      {c === 0 ? 'Free' : c >= 1000 ? `${c / 1000}k` : c}
-                    </button>
-                  ))}
-                </div>
-              </div>
+                  {/* Entry cost */}
+                  <div className="mb-4">
+                    <div className="text-white/60 text-xs font-bold mb-2 uppercase tracking-wider flex items-center gap-1.5">
+                      <span className="text-amber-400">🪙</span> Entry Cost
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {ENTRY_COST_OPTIONS.map(c => (
+                        <button key={c} onClick={() => setEntryCost(c)}
+                          className={`py-2.5 rounded-xl font-bold text-xs active:scale-95 transition-all border ${
+                            entryCost === c
+                              ? 'bg-amber-500/20 border-amber-500/50 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.2)]'
+                              : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
+                          }`}>
+                          {c === 0 ? 'Free' : c >= 1000 ? `${c / 1000}k` : c}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
-              {/* Time per question */}
-              <div className="mb-5">
-                <div className="text-white/60 text-xs font-bold mb-2 uppercase tracking-wider flex items-center gap-1.5">
-                  <Timer className="w-3.5 h-3.5 text-blue-400" /> Seconds per Question
-                </div>
-                <div className="grid grid-cols-4 gap-2">
-                  {TIME_OPTIONS.map(t => (
-                    <button key={t} onClick={() => setTimePerQ(t)}
-                      className={`py-2.5 rounded-xl font-bold text-xs active:scale-95 transition-all border ${
-                        timePerQ === t 
-                          ? 'bg-blue-500/20 border-blue-500/50 text-blue-300 shadow-[0_0_10px_rgba(59,130,246,0.2)]' 
-                          : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
-                      }`}>
-                      {t}s
-                    </button>
-                  ))}
-                </div>
-              </div>
+                  {/* Time per question */}
+                  <div className="mb-5">
+                    <div className="text-white/60 text-xs font-bold mb-2 uppercase tracking-wider flex items-center gap-1.5">
+                      <Timer className="w-3.5 h-3.5 text-blue-400" /> Seconds per Question
+                    </div>
+                    <div className="grid grid-cols-4 gap-2">
+                      {TIME_OPTIONS.map(t => (
+                        <button key={t} onClick={() => setTimePerQ(t)}
+                          className={`py-2.5 rounded-xl font-bold text-xs active:scale-95 transition-all border ${
+                            timePerQ === t
+                              ? 'bg-blue-500/20 border-blue-500/50 text-blue-300 shadow-[0_0_10px_rgba(59,130,246,0.2)]'
+                              : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
+                          }`}>
+                          {t}s
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
-              {/* AI Generate */}
-              <div className="bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/20 rounded-2xl p-4 mb-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Sparkles className="w-4 h-4 text-purple-400" />
-                  <div className="text-purple-300 text-xs font-bold uppercase tracking-wider">Generate with AI</div>
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={aiTopic}
-                    onChange={e => setAiTopic(e.target.value)}
-                    onFocus={handleInputFocus}
-                    placeholder="Topic (e.g. Football, Science...)"
-                    className="flex-1 bg-black/20 border border-white/10 focus:border-purple-500/50 rounded-xl px-3 py-2.5 text-white text-sm outline-none placeholder:text-white/30 transition-all"
-                  />
-                  <button onClick={generateWithAI} disabled={generatingAI || !aiTopic.trim()}
-                    className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-400 hover:to-blue-400 text-white font-bold text-sm disabled:opacity-50 active:scale-95 transition-all shadow-lg shadow-purple-500/25 flex items-center gap-2">
-                    {generatingAI ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Go'}
-                  </button>
-                </div>
-              </div>
+                  {/* AI Generate */}
+                  <div className="bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/20 rounded-2xl p-4 mb-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Sparkles className="w-4 h-4 text-purple-400" />
+                      <div className="text-purple-300 text-xs font-bold uppercase tracking-wider">Generate with AI</div>
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={aiTopic}
+                        onChange={e => setAiTopic(e.target.value)}
+                        onFocus={handleInputFocus}
+                        onBlur={handleInputBlur}
+                        placeholder="Topic (e.g. Football, Science...)"
+                        className="flex-1 bg-black/20 border border-white/10 focus:border-purple-500/50 rounded-xl px-3 py-2.5 text-white text-sm outline-none placeholder:text-white/30 transition-all"
+                      />
+                      <button onClick={generateWithAI} disabled={generatingAI || !aiTopic.trim()}
+                        className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-400 hover:to-blue-400 text-white font-bold text-sm disabled:opacity-50 active:scale-95 transition-all shadow-lg shadow-purple-500/25 flex items-center gap-2">
+                        {generatingAI ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Go'}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
 
               {/* Questions */}
               <div>
@@ -1129,6 +1097,7 @@ Return ONLY a JSON array, no markdown, no explanation:
                         type="text" value={q.question_text}
                         onChange={e => setNewQuestions(prev => prev.map((x, idx) => idx === i ? { ...x, question_text: e.target.value } : x))}
                         onFocus={handleInputFocus}
+                        onBlur={handleInputBlur}
                         placeholder="Enter question here..."
                         className="w-full bg-black/20 border border-white/10 focus:border-blue-500/50 rounded-lg px-3 py-2.5 text-white text-sm outline-none placeholder:text-white/30 transition-colors"
                       />
@@ -1149,6 +1118,7 @@ Return ONLY a JSON array, no markdown, no explanation:
                               type="text" value={q[`option_${opt}`]}
                               onChange={e => setNewQuestions(prev => prev.map((x, idx) => idx === i ? { ...x, [`option_${opt}`]: e.target.value } : x))}
                               onFocus={handleInputFocus}
+                              onBlur={handleInputBlur}
                               placeholder={`Option ${opt.toUpperCase()}`}
                               className="flex-1 bg-black/20 border border-white/10 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-white text-sm outline-none placeholder:text-white/30 transition-colors"
                             />
