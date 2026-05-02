@@ -51,7 +51,7 @@ export default function TriviaGame({
   const [timeExpired, setTimeExpired] = useState(false);
   const [playerAnswerCounts, setPlayerAnswerCounts] = useState({});
   const [isMuted, setIsMuted] = useState(false);
-  const [editingMode, setEditingMode] = useState(false);
+  const [focusedInput, setFocusedInput] = useState(false);
   const audioRef = useRef(null);
 
   const timerRef = useRef(null);
@@ -671,18 +671,18 @@ Return ONLY a JSON array, no markdown, no explanation:
   };
 
   const handleInputFocus = (e) => {
-    setEditingMode(true);
+    setFocusedInput(true);
     setTimeout(() => {
       e.target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
-    }, 500);
+    }, 300);
   };
 
   const handleInputBlur = () => {
     setTimeout(() => {
       if (!document.activeElement || document.activeElement.tagName !== 'INPUT') {
-        setEditingMode(false);
+        setFocusedInput(false);
       }
-    }, 150);
+    }, 200);
   };
 
   const isJoined = players.some(p => String(p.user_id) === String(user?.id));
@@ -704,9 +704,7 @@ Return ONLY a JSON array, no markdown, no explanation:
     >
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div
-        className={`relative w-full max-w-md bg-slate-900 sm:bg-slate-900/95 sm:backdrop-blur-xl rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden border-t sm:border border-white/10 transition-all duration-300 ${
-          editingMode ? 'h-[52dvh]' : 'max-h-[90dvh] sm:max-h-[85dvh]'
-        }`}
+        className="relative w-full max-w-md bg-slate-900 sm:bg-slate-900/95 sm:backdrop-blur-xl rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden border-t sm:border border-white/10 max-h-[90dvh] sm:max-h-[85dvh]"
         onClick={e => e.stopPropagation()}
       >
         {/* Handle for mobile */}
@@ -752,7 +750,7 @@ Return ONLY a JSON array, no markdown, no explanation:
         <div
           className="flex-1 overflow-y-auto overscroll-contain p-4 sm:pb-4"
           style={{
-            paddingBottom: editingMode ? 180 : 32,
+            paddingBottom: focusedInput ? 280 : 32,
             WebkitOverflowScrolling: 'touch',
           }}
         >
@@ -998,7 +996,7 @@ Return ONLY a JSON array, no markdown, no explanation:
           ) : canModerate ? (
             // Create session form
             <div className="flex flex-col gap-2">
-              {!editingMode && (
+              {!focusedInput && (
                 <>
                   <div className="text-center text-white/50 text-sm mb-4">Configure your Trivia game</div>
 
