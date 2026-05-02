@@ -668,6 +668,13 @@ Return ONLY a JSON array, no markdown, no explanation:
     onCoinsUpdated?.();
   };
 
+  const handleInputFocus = (e) => {
+    const target = e.target;
+    setTimeout(() => {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 300);
+  };
+
   const isJoined = players.some(p => String(p.user_id) === String(user?.id));
   const myPlayer = players.find(p => String(p.user_id) === String(user?.id));
   const OPTION_COLORS = {
@@ -727,10 +734,7 @@ Return ONLY a JSON array, no markdown, no explanation:
           </div>
         </div>
 
-        <div
-          className="flex-1 overflow-y-auto p-4 pb-8 sm:pb-4"
-          style={{ scrollPaddingBottom: '200px' }}
-        >
+        <div className="flex-1 overflow-y-auto p-4 pb-8 sm:pb-4">
           {loading ? (
             <div className="flex items-center justify-center py-20">
               <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
@@ -1024,7 +1028,7 @@ Return ONLY a JSON array, no markdown, no explanation:
                     type="text"
                     value={aiTopic}
                     onChange={e => setAiTopic(e.target.value)}
-                    onFocus={e => setTimeout(() => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' }), 400)}
+                    onFocus={handleInputFocus}
                     placeholder="Topic (e.g. Football, Science...)"
                     className="flex-1 bg-black/20 border border-white/10 focus:border-purple-500/50 rounded-xl px-3 py-2.5 text-white text-sm outline-none placeholder:text-white/30 transition-all"
                   />
@@ -1051,7 +1055,7 @@ Return ONLY a JSON array, no markdown, no explanation:
                   </button>
                 </div>
 
-                <div className="space-y-3 overflow-y-auto pb-32 pr-2">
+                <div className="space-y-3 pb-2 pr-2">
                   {newQuestions.map((q, i) => (
                     <div key={i} className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-3 shadow-sm relative group">
                       <div className="flex items-center justify-between mb-1">
@@ -1066,7 +1070,7 @@ Return ONLY a JSON array, no markdown, no explanation:
                       <input
                         type="text" value={q.question_text}
                         onChange={e => setNewQuestions(prev => prev.map((x, idx) => idx === i ? { ...x, question_text: e.target.value } : x))}
-                        onFocus={e => setTimeout(() => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' }), 400)}
+                        onFocus={handleInputFocus}
                         placeholder="Enter question here..."
                         className="w-full bg-black/20 border border-white/10 focus:border-blue-500/50 rounded-lg px-3 py-2.5 text-white text-sm outline-none placeholder:text-white/30 transition-colors"
                       />
@@ -1086,7 +1090,7 @@ Return ONLY a JSON array, no markdown, no explanation:
                             <input
                               type="text" value={q[`option_${opt}`]}
                               onChange={e => setNewQuestions(prev => prev.map((x, idx) => idx === i ? { ...x, [`option_${opt}`]: e.target.value } : x))}
-                              onFocus={e => setTimeout(() => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' }), 400)}
+                              onFocus={handleInputFocus}
                               placeholder={`Option ${opt.toUpperCase()}`}
                               className="flex-1 bg-black/20 border border-white/10 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-white text-sm outline-none placeholder:text-white/30 transition-colors"
                             />
@@ -1098,12 +1102,10 @@ Return ONLY a JSON array, no markdown, no explanation:
                 </div>
               </div>
 
-              <div className="sticky bottom-0 pt-3 pb-2 bg-slate-900">
-                <button onClick={createSession} disabled={creating}
-                  className="w-full py-4 rounded-xl bg-gradient-to-r from-purple-500 to-blue-500 text-white font-black text-sm active:scale-95 transition-all shadow-lg shadow-purple-500/25 disabled:opacity-50 flex items-center justify-center gap-2">
-                  {creating ? <Loader2 className="w-5 h-5 animate-spin" /> : <><BrainCircuit className="w-5 h-5"/> Create Trivia Game</>}
-                </button>
-              </div>
+              <button onClick={createSession} disabled={creating}
+                className="w-full py-4 rounded-xl bg-gradient-to-r from-purple-500 to-blue-500 text-white font-black text-sm active:scale-95 transition-all shadow-lg shadow-purple-500/25 disabled:opacity-50 flex items-center justify-center gap-2 mt-2">
+                {creating ? <Loader2 className="w-5 h-5 animate-spin" /> : <><BrainCircuit className="w-5 h-5"/> Create Trivia Game</>}
+              </button>
             </div>
 
           ) : (
