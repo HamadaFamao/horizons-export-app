@@ -8,6 +8,7 @@ const FALLBACK_AVATAR =
 
 const ENTRY_COST_OPTIONS = [0, 100, 200, 500, 1000, 5000];
 const TIME_OPTIONS = [10, 15, 20, 30];
+const POINTS_OPTIONS = [50, 100, 200, 500, 1000];
 
 export default function TriviaGame({
   open,
@@ -31,6 +32,7 @@ export default function TriviaGame({
   // Create form
   const [entryCost, setEntryCost] = useState(0);
   const [timePerQ, setTimePerQ] = useState(15);
+  const [pointsPerQ, setPointsPerQ] = useState(100);
   const [newQuestions, setNewQuestions] = useState([
     { question_text: '', option_a: '', option_b: '', option_c: '', option_d: '', correct_answer: 'A' }
   ]);
@@ -343,25 +345,32 @@ export default function TriviaGame({
     try {
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
           max_tokens: 1000,
           messages: [{
             role: 'user',
             content: `Generate 5 multiple choice trivia questions about "${aiTopic}". 
-Return ONLY a JSON array, no markdown, no explanation:
-[{"question_text":"...","option_a":"...","option_b":"...","option_c":"...","option_d":"...","correct_answer":"A or B or C or D"}]`
+Return ONLY a valid JSON array with no markdown, no explanation, no backticks:
+[{"question_text":"...","option_a":"...","option_b":"...","option_c":"...","option_d":"...","correct_answer":"A"}]
+correct_answer must be exactly one of: A, B, C, or D`
           }]
         })
       });
+      if (!response.ok) throw new Error(`API error: ${response.status}`);
       const data = await response.json();
       const text = data.content?.[0]?.text || '';
-      const clean = text.replace(/```json|```/g, '').trim();
-      const parsed = JSON.parse(clean);
+      const match = text.match(/\[[\s\S]*\]/);
+      if (!match) throw new Error('No JSON array found in response');
+      const parsed = JSON.parse(match[0]);
+      if (!Array.isArray(parsed) || !parsed.length) throw new Error('Invalid response format');
       setNewQuestions(parsed);
-    } catch (_err) {
-      alert('Failed to generate questions');
+    } catch (err) {
+      alert('Failed to generate: ' + err.message);
     } finally {
       setGeneratingAI(false);
     }
@@ -386,6 +395,7 @@ Return ONLY a JSON array, no markdown, no explanation:
           created_by: user.id,
           entry_cost: entryCost,
           time_per_question: timePerQ,
+          points_per_question: pointsPerQ,
           total_questions: validQs.length,
           status: 'waiting',
         })
@@ -1021,6 +1031,25 @@ Return ONLY a JSON array, no markdown, no explanation:
                 </div>
               </div>
 
+              {/* Points per question */}
+              <div className="mb-5">
+                <div className="text-white/60 text-xs font-bold mb-2 uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="text-emerald-400">⭐</span> Points per Question
+                </div>
+                <div className="grid grid-cols-5 gap-2">
+                  {POINTS_OPTIONS.map(p => (
+                    <button key={p} onClick={() => setPointsPerQ(p)}
+                      className={`py-2.5 rounded-xl font-bold text-xs active:scale-95 transition-all border ${
+                        pointsPerQ === p
+                          ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300'
+                          : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
+                      }`}>
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* AI Generate */}
               <div className="bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/20 rounded-2xl p-4 mb-4">
                 <div className="flex items-center gap-2 mb-3">
@@ -1061,47 +1090,64 @@ Return ONLY a JSON array, no markdown, no explanation:
 
                 <div className="space-y-3 pb-2 pr-2">
                   {newQuestions.map((q, i) => (
-                    <div key={i} className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-3 shadow-sm relative group">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="bg-white/10 text-white/70 text-xs font-black px-2 py-1 rounded-md">Q {i + 1}</span>
-                        {newQuestions.length > 1 && (
-                          <button onClick={() => setNewQuestions(prev => prev.filter((_, idx) => idx !== i))}
-                            className="text-rose-400/70 hover:text-rose-400 transition-colors p-1">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                      <input
-                        type="text" value={q.question_text}
-                        onChange={e => setNewQuestions(prev => prev.map((x, idx) => idx === i ? { ...x, question_text: e.target.value } : x))}
-                        onFocus={handleInputFocus}
-                        placeholder="Enter question here..."
-                        className="w-full bg-black/20 border border-white/10 focus:border-blue-500/50 rounded-lg px-3 py-2.5 text-white text-sm outline-none placeholder:text-white/30 transition-colors scroll-mt-20"
-                      />
-                      <div className="grid grid-cols-1 gap-2 mt-2">
-                        {['a','b','c','d'].map(opt => (
-                          <div key={opt} className="flex items-center gap-2">
-                            <button
-                              onClick={() => setNewQuestions(prev => prev.map((x, idx) => idx === i ? { ...x, correct_answer: opt.toUpperCase() } : x))}
-                              className={`w-8 h-8 rounded-lg text-xs font-black shrink-0 transition-all border ${
-                                q.correct_answer === opt.toUpperCase() 
-                                  ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.2)]' 
-                                  : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'
-                              }`}
-                            >
-                              {opt.toUpperCase()}
+                    <React.Fragment key={i}>
+                      <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-3 shadow-sm relative group">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="bg-white/10 text-white/70 text-xs font-black px-2 py-1 rounded-md">Q {i + 1}</span>
+                          {newQuestions.length > 1 && (
+                            <button onClick={() => setNewQuestions(prev => prev.filter((_, idx) => idx !== i))}
+                              className="text-rose-400/70 hover:text-rose-400 transition-colors p-1">
+                              <Trash2 className="w-4 h-4" />
                             </button>
-                            <input
-                              type="text" value={q[`option_${opt}`]}
-                              onChange={e => setNewQuestions(prev => prev.map((x, idx) => idx === i ? { ...x, [`option_${opt}`]: e.target.value } : x))}
-                              onFocus={handleInputFocus}
-                              placeholder={`Option ${opt.toUpperCase()}`}
-                              className="flex-1 bg-black/20 border border-white/10 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-white text-sm outline-none placeholder:text-white/30 transition-colors scroll-mt-20"
-                            />
-                          </div>
-                        ))}
+                          )}
+                        </div>
+                        <input
+                          type="text" value={q.question_text}
+                          onChange={e => setNewQuestions(prev => prev.map((x, idx) => idx === i ? { ...x, question_text: e.target.value } : x))}
+                          onFocus={handleInputFocus}
+                          placeholder="Enter question here..."
+                          className="w-full bg-black/20 border border-white/10 focus:border-blue-500/50 rounded-lg px-3 py-2.5 text-white text-sm outline-none placeholder:text-white/30 transition-colors scroll-mt-20"
+                        />
+                        <div className="grid grid-cols-1 gap-2 mt-2">
+                          {['a','b','c','d'].map(opt => (
+                            <div key={opt} className="flex items-center gap-2">
+                              <button
+                                onClick={() => setNewQuestions(prev => prev.map((x, idx) => idx === i ? { ...x, correct_answer: opt.toUpperCase() } : x))}
+                                className={`w-8 h-8 rounded-lg text-xs font-black shrink-0 transition-all border ${
+                                  q.correct_answer === opt.toUpperCase() 
+                                    ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.2)]' 
+                                    : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'
+                                }`}
+                              >
+                                {opt.toUpperCase()}
+                              </button>
+                              <input
+                                type="text" value={q[`option_${opt}`]}
+                                onChange={e => setNewQuestions(prev => prev.map((x, idx) => idx === i ? { ...x, [`option_${opt}`]: e.target.value } : x))}
+                                onFocus={handleInputFocus}
+                                placeholder={`Option ${opt.toUpperCase()}`}
+                                className="flex-1 bg-black/20 border border-white/10 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-white text-sm outline-none placeholder:text-white/30 transition-colors scroll-mt-20"
+                              />
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                      {/* Add question button after each question */}
+                      <button
+                        onClick={() => {
+                          const newQ = { question_text: '', option_a: '', option_b: '', option_c: '', option_d: '', correct_answer: 'A' };
+                          setNewQuestions(prev => {
+                            const next = [...prev];
+                            next.splice(i + 1, 0, newQ);
+                            return next;
+                          });
+                          setTimeout(() => handleInputFocus({ target: document.querySelector(`[data-q="${i+1}"]`) }), 200);
+                        }}
+                        className="w-full py-2 rounded-xl border border-dashed border-blue-500/30 text-blue-400/70 hover:border-blue-500/60 hover:text-blue-400 transition-all text-xs font-bold flex items-center justify-center gap-1.5"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Add Question Here
+                      </button>
+                    </React.Fragment>
                   ))}
                 </div>
               </div>
