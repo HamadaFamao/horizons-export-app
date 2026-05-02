@@ -343,32 +343,14 @@ export default function TriviaGame({
     if (!aiTopic.trim()) return;
     setGeneratingAI(true);
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'anthropic-dangerous-direct-browser-access': 'true',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
-          messages: [{
-            role: 'user',
-            content: `Generate 5 multiple choice trivia questions about "${aiTopic}". 
-Return ONLY a valid JSON array with no markdown, no explanation, no backticks:
-[{"question_text":"...","option_a":"...","option_b":"...","option_c":"...","option_d":"...","correct_answer":"A"}]
-correct_answer must be exactly one of: A, B, C, or D`
-          }]
-        })
+      const { data, error } = await supabase.functions.invoke('generate-trivia', {
+        body: { topic: aiTopic.trim() }
       });
-      if (!response.ok) throw new Error(`API error: ${response.status}`);
-      const data = await response.json();
-      const text = data.content?.[0]?.text || '';
-      const match = text.match(/\[[\s\S]*\]/);
-      if (!match) throw new Error('No JSON array found in response');
-      const parsed = JSON.parse(match[0]);
-      if (!Array.isArray(parsed) || !parsed.length) throw new Error('Invalid response format');
-      setNewQuestions(parsed);
+
+      if (error) throw new Error(error.message);
+      if (!data?.questions?.length) throw new Error('No questions generated');
+
+      setNewQuestions(data.questions);
     } catch (err) {
       alert('Failed to generate: ' + err.message);
     } finally {
