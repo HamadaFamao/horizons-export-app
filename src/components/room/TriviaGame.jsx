@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { Loader2, X, Plus, Trash2 } from 'lucide-react';
+import { Loader2, X, Plus, Trash2, BrainCircuit, Target, Trophy, Sparkles, Timer } from 'lucide-react';
 
 const FALLBACK_AVATAR =
   "data:image/svg+xml;utf8," +
-  encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128"><rect width="128" height="128" rx="64" fill="#f1f5f9"/><circle cx="64" cy="52" r="22" fill="#cbd5e1"/><path d="M24 112c8-22 28-34 40-34s32 12 40 34" fill="#cbd5e1"/></svg>`);
+  encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128"><rect width="128" height="128" rx="64" fill="#1e293b"/><circle cx="64" cy="52" r="22" fill="#334155"/><path d="M24 112c8-22 28-34 40-34s32 12 40 34" fill="#334155"/></svg>`);
 
 const ENTRY_COST_OPTIONS = [0, 100, 200, 500, 1000, 5000];
 const TIME_OPTIONS = [10, 15, 20, 30];
@@ -50,9 +50,11 @@ export default function TriviaGame({
   const [leaderboard, setLeaderboard] = useState([]);
   const [timeExpired, setTimeExpired] = useState(false);
   const [playerAnswerCounts, setPlayerAnswerCounts] = useState({});
+  const [isMuted, setIsMuted] = useState(false);
   const audioRef = useRef(null);
 
   const timerRef = useRef(null);
+  const questionsRef = useRef([]);
   const resultFiredRef = useRef(false);
   const channelSubscriptionRef = useRef(null);
 
@@ -112,7 +114,7 @@ export default function TriviaGame({
         setSelectedAnswer(null);
         setAnswerResult(null);
         setTimeExpired(false);
-        setPlayerAnswerCounts({});
+        // Don't reset counts - accumulate across all questions
         setQuestionStartedAt(Date.now());
         setTimeLeft(payload.time_per_question);
         startTimer(payload.time_per_question);
@@ -146,6 +148,27 @@ export default function TriviaGame({
     };
   }, [open, roomId, currentSession?.id]);
 
+  useEffect(() => {
+    if (!open) return;
+    const unlock = () => {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const buf = ctx.createBuffer(1, 1, 22050);
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+        src.connect(ctx.destination);
+        src.start(0);
+        ctx.close();
+      } catch {}
+    };
+    document.addEventListener('touchstart', unlock, { once: true });
+    document.addEventListener('click', unlock, { once: true });
+    return () => {
+      document.removeEventListener('touchstart', unlock);
+      document.removeEventListener('click', unlock);
+    };
+  }, [open]);
+
   const startTimer = (seconds) => {
     clearInterval(timerRef.current);
     setTimeLeft(seconds);
@@ -165,6 +188,7 @@ export default function TriviaGame({
   };
 
   const playSound = (type) => {
+    if (isMuted) return;
     try {
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
       audioRef.current = ctx;
@@ -307,8 +331,10 @@ export default function TriviaGame({
       .select('*')
       .eq('session_id', sessionId)
       .order('question_order', { ascending: true });
-    setQuestions(data || []);
-    return data || [];
+    const qs = data || [];
+    setQuestions(qs);
+    questionsRef.current = qs;
+    return qs;
   };
 
   const generateWithAI = async () => {
@@ -494,10 +520,16 @@ Return ONLY a JSON array, no markdown, no explanation:
 
   const nextQuestion = async () => {
     if (!canModerate || !currentSession?.id) return;
-    const qs = questions.length ? questions : await loadQuestions(currentSession.id);
+
+    // Always use ref to avoid stale state
+    let qs = questionsRef.current;
+    if (!qs.length) {
+      qs = await loadQuestions(currentSession.id);
+    }
+
     const nextIdx = currentQIndex + 1;
 
-    if (nextIdx > qs.length) {
+    if (nextIdx > currentSession.total_questions) {
       // Finish game
       const { data } = await supabase.rpc('finish_trivia_session', {
         p_session_id: currentSession.id,
@@ -516,6 +548,11 @@ Return ONLY a JSON array, no markdown, no explanation:
     }
 
     const nextQ = qs[nextIdx - 1];
+    if (!nextQ) {
+      console.error('Question not found at index', nextIdx - 1, 'qs length:', qs.length);
+      return;
+    }
+
     await supabase
       .from('room_trivia_sessions')
       .update({ current_question: nextIdx, question_started_at: new Date().toISOString() })
@@ -546,6 +583,7 @@ Return ONLY a JSON array, no markdown, no explanation:
     setCurrentQuestion(questionPayload.question);
     setSelectedAnswer(null);
     setAnswerResult(null);
+    setTimeExpired(false);
     setQuestionStartedAt(Date.now());
     setTimeLeft(currentSession.time_per_question);
     startTimer(currentSession.time_per_question);
@@ -643,76 +681,94 @@ Return ONLY a JSON array, no markdown, no explanation:
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[85] flex items-end sm:items-center justify-center"
-      onClick={onClose}>
+    <div className="fixed inset-0 z-[85] flex items-end sm:items-center justify-center sm:p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div
-        className="relative w-full max-w-md bg-slate-900 rounded-t-3xl sm:rounded-3xl
-          shadow-2xl flex flex-col overflow-hidden max-h-[95vh]"
+        className="relative w-full max-w-md bg-slate-900 sm:bg-slate-900/95 sm:backdrop-blur-xl rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden max-h-[90dvh] sm:max-h-[85dvh] border-t sm:border border-white/10"
         onClick={e => e.stopPropagation()}
       >
-        {/* Handle */}
+        {/* Handle for mobile */}
         <div className="flex justify-center pt-3 pb-1 sm:hidden">
           <div className="w-12 h-1.5 rounded-full bg-white/20" />
         </div>
 
         {/* Header */}
-        <div className="px-4 py-2.5 flex items-center justify-between border-b border-white/10">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">🧠</span>
-            <span className="font-bold text-white text-lg">Trivia</span>
-            {currentSession?.status === 'active' && currentQuestion && (
-              <span className="text-white/50 text-sm">
-                {currentQIndex}/{currentSession.total_questions}
-              </span>
-            )}
+        <div className="px-5 py-4 flex items-center justify-between border-b border-white/10 bg-white/5">
+          <div className="flex items-center gap-3">
+            <div className="bg-gradient-to-br from-purple-500 to-blue-500 p-2 rounded-xl shadow-lg shadow-purple-500/20">
+              <BrainCircuit className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <div className="font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-400 text-lg tracking-tight leading-none">Trivia Master</div>
+              {currentSession?.status === 'active' && currentQuestion && (
+                <div className="text-white/50 text-[10px] font-bold uppercase tracking-wider mt-1">
+                  Question {currentQIndex} of {currentSession.total_questions}
+                </div>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1 bg-amber-500/20 border border-amber-500/30 rounded-full px-3 py-1">
+            <div className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/20 rounded-full px-3 py-1.5 shadow-inner">
               <span className="text-sm">🪙</span>
-              <span className="text-amber-300 font-black text-sm">
+              <span className="text-amber-400 font-black text-sm">
                 {(userCoins || 0).toLocaleString()}
               </span>
             </div>
-            <button onClick={onClose} className="text-white/50 hover:text-white">
-              <X className="w-5 h-5" />
+            <button
+              onClick={() => setIsMuted(prev => !prev)}
+              className="text-white/50 hover:text-white transition-colors text-lg bg-white/5 w-8 h-8 rounded-full flex items-center justify-center"
+              title={isMuted ? 'Unmute' : 'Mute'}
+            >
+              {isMuted ? '🔇' : '🔊'}
+            </button>
+            <button onClick={onClose} className="text-white/50 hover:text-rose-400 transition-colors bg-white/5 w-8 h-8 rounded-full flex items-center justify-center">
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-3">
+        <div className="flex-1 overflow-y-auto p-4 pb-8 sm:pb-4">
           {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-6 h-6 animate-spin text-white/50" />
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
             </div>
 
           ) : showResult ? (
             // Results screen
-            <div className="flex flex-col items-center gap-4 py-6">
-              <div className="text-6xl animate-bounce">🏆</div>
-              <div className="text-white font-black text-2xl">WINNER!</div>
-              <img
-                src={winner?.avatar_url || FALLBACK_AVATAR}
-                alt={winner?.name}
-                className="w-20 h-20 rounded-full border-4 border-amber-400 object-cover"
-              />
-              <div className="text-amber-300 font-black text-xl">{winner?.name}</div>
+            <div className="flex flex-col items-center gap-5 py-8">
+              <div className="relative">
+                <div className="absolute inset-0 bg-amber-500 blur-3xl opacity-20 rounded-full animate-pulse" />
+                <Trophy className="w-20 h-20 text-amber-400 drop-shadow-[0_0_15px_rgba(251,191,36,0.5)] animate-bounce" />
+              </div>
+              <div className="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 to-yellow-500 font-black text-3xl tracking-widest uppercase">Winner!</div>
+              
+              <div className="relative mt-2">
+                <div className="absolute -inset-1 bg-gradient-to-r from-amber-400 to-yellow-500 rounded-full blur opacity-50" />
+                <img
+                  src={winner?.avatar_url || FALLBACK_AVATAR}
+                  alt={winner?.name}
+                  className="relative w-24 h-24 rounded-full border-4 border-slate-900 object-cover"
+                />
+              </div>
+              <div className="text-white font-black text-2xl">{winner?.name}</div>
+              
               {winnerCoins > 0 && (
-                <div className="bg-amber-500/20 border border-amber-500/40 rounded-2xl px-6 py-3 text-center">
-                  <div className="text-amber-200 text-3xl font-black">
+                <div className="bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border border-amber-500/40 rounded-2xl px-8 py-4 text-center shadow-[0_0_30px_rgba(245,158,11,0.15)]">
+                  <div className="text-amber-300 text-4xl font-black drop-shadow-md">
                     🪙 {winnerCoins.toLocaleString()}
                   </div>
                 </div>
               )}
+              
               {/* Leaderboard */}
-              <div className="w-full space-y-2 mt-2">
+              <div className="w-full space-y-2 mt-4 px-2">
                 {leaderboard.slice(0, 5).map((p, i) => (
-                  <div key={p.id} className="flex items-center gap-3 bg-white/5 rounded-xl px-3 py-2">
-                    <span className="text-lg">{['🥇','🥈','🥉','4️⃣','5️⃣'][i]}</span>
+                  <div key={p.id} className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 shadow-sm">
+                    <span className="text-xl w-6 text-center">{['🥇','🥈','🥉','4️⃣','5️⃣'][i]}</span>
                     <img src={p.avatar_url || FALLBACK_AVATAR} alt={p.name}
-                      className="w-8 h-8 rounded-full object-cover" />
+                      className="w-8 h-8 rounded-full object-cover border border-white/20" />
                     <span className="text-white font-bold flex-1 truncate">{p.name}</span>
-                    <span className="text-amber-300 font-black">{p.score} pts</span>
+                    <span className="text-amber-400 font-black bg-amber-400/10 px-2 py-1 rounded-lg">{p.score} pts</span>
                   </div>
                 ))}
               </div>
@@ -720,32 +776,36 @@ Return ONLY a JSON array, no markdown, no explanation:
 
           ) : currentSession?.status === 'active' && currentQuestion ? (
             // Active game - question screen
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-4">
               {/* Timer */}
-              <div className="flex items-center justify-between">
-                <span className="text-white/60 text-sm">Question {currentQIndex}</span>
-                <div className={`text-2xl font-black ${timeLeft <= 5 ? 'text-rose-400 animate-pulse' : 'text-white'}`}>
-                  ⏱ {timeLeft}s
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-lg">
+                  <BrainCircuit className="w-4 h-4 text-purple-400" />
+                  <span className="text-white/80 text-sm font-bold">Q {currentQIndex} <span className="text-white/40">/ {currentSession.total_questions}</span></span>
+                </div>
+                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-black text-lg ${timeLeft <= 5 ? 'bg-rose-500/20 text-rose-400 animate-pulse' : 'bg-white/10 text-white'}`}>
+                  <Timer className="w-5 h-5" />
+                  {timeLeft}s
                 </div>
               </div>
 
               {/* Progress bar */}
-              <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+              <div className="h-2 bg-white/5 rounded-full overflow-hidden mb-2 border border-white/10">
                 <div
-                  className="h-full bg-emerald-400 rounded-full transition-all"
+                  className={`h-full rounded-full transition-all duration-1000 ease-linear ${timeLeft <= 5 ? 'bg-rose-500' : 'bg-gradient-to-r from-emerald-400 to-emerald-500'}`}
                   style={{ width: `${(timeLeft / (currentSession.time_per_question || 15)) * 100}%` }}
                 />
               </div>
 
               {/* Question */}
-              <div className="bg-white/10 rounded-2xl p-4 text-center">
-                <p className="text-white font-bold text-lg leading-snug">
+              <div className="bg-gradient-to-br from-white/10 to-white/5 border border-white/10 rounded-2xl p-6 text-center shadow-lg">
+                <p className="text-white font-black text-xl leading-snug drop-shadow-md">
                   {currentQuestion.question_text}
                 </p>
               </div>
 
               {/* Options */}
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-3">
                 {['A','B','C','D'].map(opt => {
                   const optText = currentQuestion[`option_${opt.toLowerCase()}`];
                   const isSelected = selectedAnswer === opt;
@@ -754,9 +814,9 @@ Return ONLY a JSON array, no markdown, no explanation:
 
                   let bg = `bg-gradient-to-br ${OPTION_COLORS[opt]}`;
                   if (answerResult) {
-                    if (isCorrect) bg = 'bg-emerald-500';
-                    else if (isWrong) bg = 'bg-rose-500';
-                    else bg = 'bg-white/10';
+                    if (isCorrect) bg = 'bg-gradient-to-br from-emerald-500 to-emerald-600 border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.4)]';
+                    else if (isWrong) bg = 'bg-gradient-to-br from-rose-500 to-rose-600 border-rose-400';
+                    else bg = 'bg-white/5 border-white/10 opacity-50';
                   }
 
                   return (
@@ -764,10 +824,13 @@ Return ONLY a JSON array, no markdown, no explanation:
                       key={opt}
                       onClick={() => submitAnswer(opt)}
                       disabled={!!selectedAnswer}
-                      className={`${bg} rounded-2xl p-3 text-left transition active:scale-95 disabled:cursor-default`}
+                      className={`${bg} rounded-2xl p-4 text-left transition-all duration-300 active:scale-95 disabled:cursor-default border ${!answerResult ? 'border-white/10 hover:brightness-110' : ''} relative overflow-hidden group`}
                     >
-                      <div className="text-white/70 text-xs font-black mb-1">{OPTION_LABELS[opt]}</div>
-                      <div className="text-white font-bold text-sm leading-tight">{optText}</div>
+                      <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <Target className="w-8 h-8" />
+                      </div>
+                      <div className="text-white/70 text-xs font-black mb-1.5">{OPTION_LABELS[opt]}</div>
+                      <div className="text-white font-bold text-base leading-tight relative z-10">{optText}</div>
                     </button>
                   );
                 })}
@@ -775,17 +838,22 @@ Return ONLY a JSON array, no markdown, no explanation:
 
               {/* Answer feedback */}
               {answerResult && (
-                <div className={`text-center py-2 rounded-xl font-black text-lg ${
-                  answerResult.isCorrect ? 'text-emerald-400' : 'text-rose-400'
+                <div className={`text-center py-3 rounded-xl font-black text-lg shadow-lg border ${
+                  answerResult.isCorrect 
+                    ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' 
+                    : 'bg-rose-500/20 text-rose-400 border-rose-500/30'
                 }`}>
-                  {answerResult.isCorrect ? `✅ +${answerResult.points} pts` : '❌ Wrong!'}
+                  {answerResult.isCorrect ? `✅ Correct! +${answerResult.points} pts` : `❌ Wrong! Correct was ${answerResult.correctAnswer}`}
                 </div>
               )}
 
               {/* My score */}
               {myPlayer && (
-                <div className="text-center text-white/50 text-sm">
-                  My score: <span className="text-amber-300 font-black">{myPlayer.score} pts</span>
+                <div className="flex items-center justify-center gap-2 mt-2">
+                  <div className="bg-white/5 border border-white/10 rounded-full px-4 py-1.5 flex items-center gap-2">
+                    <span className="text-white/50 text-xs font-bold uppercase tracking-wider">My Score</span>
+                    <span className="text-amber-400 font-black text-sm">{myPlayer.score} pts</span>
+                  </div>
                 </div>
               )}
 
@@ -794,34 +862,37 @@ Return ONLY a JSON array, no markdown, no explanation:
                 <button
                   onClick={nextQuestion}
                   disabled={!timeExpired}
-                  className={`w-full py-3 rounded-xl font-black text-sm active:scale-95 transition ${
+                  className={`w-full py-3.5 rounded-xl font-black text-sm active:scale-95 transition-all shadow-lg mt-2 ${
                     timeExpired
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-white/10 text-white/30 cursor-not-allowed'
+                      ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-blue-500/25'
+                      : 'bg-white/5 text-white/30 cursor-not-allowed border border-white/10'
                   }`}
                 >
                   {!timeExpired
                     ? `⏳ Wait ${timeLeft}s...`
-                    : currentQIndex >= currentSession.total_questions
+                    : currentQIndex >= (currentSession.total_questions ?? 0)
                     ? '🏁 End Game'
-                    : '⏭ Next Question'
+                    : `⏭ Next Question (${currentQIndex}/${currentSession.total_questions})`
                   }
                 </button>
               )}
 
               {/* Players scores */}
-              <div className="space-y-1.5">
+              <div className="space-y-2 mt-4">
+                <div className="text-white/40 text-xs font-bold uppercase tracking-wider mb-2 px-1">Live Scores</div>
                 {[...players].sort((a,b) => b.score - a.score).map((p, i) => {
                   const counts = playerAnswerCounts[p.user_id] || { correct: 0, wrong: 0 };
                   return (
-                    <div key={p.id} className="flex items-center gap-2 bg-white/5 rounded-xl px-3 py-1.5">
-                      <span className="text-sm">{['🥇','🥈','🥉'][i] || `${i + 1}`}</span>
+                    <div key={p.id} className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
+                      <span className="text-sm w-5 text-center">{['🥇','🥈','🥉'][i] || `${i + 1}`}</span>
                       <img src={p.avatar_url || FALLBACK_AVATAR} alt={p.name}
-                        className="w-6 h-6 rounded-full object-cover" />
-                      <span className="text-white text-xs font-bold flex-1 truncate">{p.name}</span>
-                      <span className="text-emerald-400 text-xs font-black">✅{counts.correct}</span>
-                      <span className="text-rose-400 text-xs font-black">❌{counts.wrong}</span>
-                      <span className="text-amber-300 font-black text-xs">{p.score}</span>
+                        className="w-7 h-7 rounded-full object-cover border border-white/20" />
+                      <span className="text-white text-sm font-bold flex-1 truncate">{p.name}</span>
+                      <div className="flex items-center gap-2 bg-black/20 px-2 py-1 rounded-lg">
+                        <span className="text-emerald-400 text-xs font-black">✅ {counts.correct}</span>
+                        <span className="text-rose-400 text-xs font-black">❌ {counts.wrong}</span>
+                      </div>
+                      <span className="text-amber-400 font-black text-sm w-8 text-right">{p.score}</span>
                     </div>
                   );
                 })}
@@ -830,65 +901,66 @@ Return ONLY a JSON array, no markdown, no explanation:
 
           ) : currentSession ? (
             // Waiting room
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between bg-slate-800 border border-white/10 rounded-xl px-3 py-2">
-                <div className="text-center">
-                  <div className="text-white/40 text-[9px] uppercase font-bold">Entry</div>
-                  <div className="text-amber-400 font-black text-xs">
+            <div className="flex flex-col gap-4">
+              <div className="grid grid-cols-4 gap-2 mb-2">
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-3 text-center flex flex-col items-center justify-center">
+                  <div className="text-white/40 text-[10px] uppercase font-black tracking-wider mb-1">Entry</div>
+                  <div className="text-amber-400 font-black text-sm">
                     {currentSession.entry_cost > 0 ? `🪙 ${currentSession.entry_cost}` : 'Free'}
                   </div>
                 </div>
-                <div className="text-center">
-                  <div className="text-white/40 text-[9px] uppercase font-bold">Questions</div>
-                  <div className="text-white font-black text-xs">{currentSession.total_questions}</div>
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-3 text-center flex flex-col items-center justify-center">
+                  <div className="text-white/40 text-[10px] uppercase font-black tracking-wider mb-1">Questions</div>
+                  <div className="text-white font-black text-sm">{currentSession.total_questions}</div>
                 </div>
-                <div className="text-center">
-                  <div className="text-white/40 text-[9px] uppercase font-bold">Time/Q</div>
-                  <div className="text-white font-black text-xs">{currentSession.time_per_question}s</div>
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-3 text-center flex flex-col items-center justify-center">
+                  <div className="text-white/40 text-[10px] uppercase font-black tracking-wider mb-1">Time/Q</div>
+                  <div className="text-white font-black text-sm">{currentSession.time_per_question}s</div>
                 </div>
-                <div className="text-center">
-                  <div className="text-white/40 text-[9px] uppercase font-bold">Players</div>
-                  <div className="text-white font-black text-xs">{players.length}</div>
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-3 text-center flex flex-col items-center justify-center">
+                  <div className="text-white/40 text-[10px] uppercase font-black tracking-wider mb-1">Players</div>
+                  <div className="text-white font-black text-sm">{players.length}</div>
                 </div>
               </div>
 
               {/* Players list */}
-              <div className="grid grid-cols-2 gap-1.5">
+              <div className="text-white/40 text-xs font-bold uppercase tracking-wider mb-1 px-1">Players Joined</div>
+              <div className="grid grid-cols-2 gap-2">
                 {players.map(p => (
-                  <div key={p.id} className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
+                  <div key={p.id} className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl p-2 shadow-sm">
                     <img src={p.avatar_url || FALLBACK_AVATAR} alt={p.name}
-                      className="w-7 h-7 rounded-full object-cover" />
-                    <span className="text-white text-xs font-bold truncate">{p.name}</span>
+                      className="w-8 h-8 rounded-full object-cover border border-white/20" />
+                    <span className="text-white text-sm font-bold truncate flex-1">{p.name}</span>
                     {String(p.user_id) === String(user?.id) && (
-                      <span className="text-amber-300 text-[9px] ml-auto">You</span>
+                      <span className="bg-amber-500/20 text-amber-300 text-[10px] font-black px-2 py-0.5 rounded-full">You</span>
                     )}
                   </div>
                 ))}
               </div>
 
               {/* Actions */}
-              <div className="flex flex-wrap gap-2 mt-1">
+              <div className="flex flex-wrap gap-2 mt-4">
                 {!isJoined && (
                   <button onClick={joinSession} disabled={joining}
-                    className="flex-1 py-2.5 rounded-xl bg-amber-500 text-white font-black text-xs disabled:opacity-50 active:scale-95 transition">
-                    {joining ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : `Join ${currentSession.entry_cost > 0 ? `🪙 ${currentSession.entry_cost}` : 'Free'}`}
+                    className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black text-sm disabled:opacity-50 active:scale-95 transition-all shadow-lg shadow-amber-500/25 flex items-center justify-center gap-2">
+                    {joining ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Join {currentSession.entry_cost > 0 ? `🪙 ${currentSession.entry_cost}` : 'Free'}</>}
                   </button>
                 )}
                 {isJoined && (
                   <button onClick={leaveSession} disabled={leaving}
-                    className="flex-1 py-2.5 rounded-xl border border-white/20 text-white/70 font-bold text-xs bg-white/5 active:scale-95 transition">
-                    {leaving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Leave'}
+                    className="flex-1 py-3.5 rounded-xl border border-white/20 text-white/80 font-bold text-sm bg-white/5 hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center gap-2">
+                    {leaving ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Leave Game'}
                   </button>
                 )}
                 {canModerate && players.length >= 1 && (
                   <button onClick={startGame}
-                    className="flex-1 py-2.5 rounded-xl bg-emerald-500 text-white font-black text-xs active:scale-95 transition">
-                    🧠 Start Trivia
+                    className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-emerald-400 to-emerald-600 text-white font-black text-sm active:scale-95 transition-all shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2">
+                    <Target className="w-5 h-5"/> Start Trivia
                   </button>
                 )}
                 {canModerate && (
                   <button onClick={cancelSession}
-                    className="px-3 py-2.5 rounded-xl border border-rose-500/40 text-rose-400 font-bold text-xs bg-rose-500/5 active:scale-95 transition">
+                    className="px-4 py-3.5 rounded-xl border border-rose-500/40 text-rose-400 font-bold text-sm bg-rose-500/10 hover:bg-rose-500/20 active:scale-95 transition-all">
                     Cancel
                   </button>
                 )}
@@ -897,17 +969,21 @@ Return ONLY a JSON array, no markdown, no explanation:
 
           ) : canModerate ? (
             // Create session form
-            <div className="flex flex-col gap-4 py-2">
-              <div className="text-center text-white/50 text-sm">Create a Trivia game!</div>
+            <div className="flex flex-col gap-2">
+              <div className="text-center text-white/50 text-sm mb-4">Configure your Trivia game</div>
 
               {/* Entry cost */}
-              <div>
-                <div className="text-white/70 text-xs font-bold mb-2 uppercase tracking-wider">🪙 Entry Cost</div>
+              <div className="mb-4">
+                <div className="text-white/60 text-xs font-bold mb-2 uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="text-amber-400">🪙</span> Entry Cost
+                </div>
                 <div className="grid grid-cols-3 gap-2">
                   {ENTRY_COST_OPTIONS.map(c => (
                     <button key={c} onClick={() => setEntryCost(c)}
-                      className={`py-2.5 rounded-xl font-bold text-xs active:scale-95 transition ${
-                        entryCost === c ? 'bg-amber-500 text-white' : 'bg-white/10 text-white/70'
+                      className={`py-2.5 rounded-xl font-bold text-xs active:scale-95 transition-all border ${
+                        entryCost === c 
+                          ? 'bg-amber-500/20 border-amber-500/50 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.2)]' 
+                          : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
                       }`}>
                       {c === 0 ? 'Free' : c >= 1000 ? `${c / 1000}k` : c}
                     </button>
@@ -916,13 +992,17 @@ Return ONLY a JSON array, no markdown, no explanation:
               </div>
 
               {/* Time per question */}
-              <div>
-                <div className="text-white/70 text-xs font-bold mb-2 uppercase tracking-wider">⏱ Seconds per Question</div>
+              <div className="mb-5">
+                <div className="text-white/60 text-xs font-bold mb-2 uppercase tracking-wider flex items-center gap-1.5">
+                  <Timer className="w-3.5 h-3.5 text-blue-400" /> Seconds per Question
+                </div>
                 <div className="grid grid-cols-4 gap-2">
                   {TIME_OPTIONS.map(t => (
                     <button key={t} onClick={() => setTimePerQ(t)}
-                      className={`py-2.5 rounded-xl font-bold text-xs active:scale-95 transition ${
-                        timePerQ === t ? 'bg-blue-500 text-white' : 'bg-white/10 text-white/70'
+                      className={`py-2.5 rounded-xl font-bold text-xs active:scale-95 transition-all border ${
+                        timePerQ === t 
+                          ? 'bg-blue-500/20 border-blue-500/50 text-blue-300 shadow-[0_0_10px_rgba(59,130,246,0.2)]' 
+                          : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
                       }`}>
                       {t}s
                     </button>
@@ -931,91 +1011,102 @@ Return ONLY a JSON array, no markdown, no explanation:
               </div>
 
               {/* AI Generate */}
-              <div>
-                <div className="text-white/70 text-xs font-bold mb-2 uppercase tracking-wider">🤖 Generate with AI</div>
+              <div className="bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/20 rounded-2xl p-4 mb-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Sparkles className="w-4 h-4 text-purple-400" />
+                  <div className="text-purple-300 text-xs font-bold uppercase tracking-wider">Generate with AI</div>
+                </div>
                 <div className="flex gap-2">
                   <input
                     type="text"
                     value={aiTopic}
                     onChange={e => setAiTopic(e.target.value)}
-                    placeholder="Topic (e.g. Football, Egypt, Science...)"
-                    className="flex-1 bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-white text-sm outline-none placeholder:text-white/30"
+                    placeholder="Topic (e.g. Football, Science...)"
+                    className="flex-1 bg-black/20 border border-white/10 focus:border-purple-500/50 rounded-xl px-3 py-2.5 text-white text-sm outline-none placeholder:text-white/30 transition-all"
                   />
                   <button onClick={generateWithAI} disabled={generatingAI || !aiTopic.trim()}
-                    className="px-3 py-2 rounded-xl bg-purple-500 text-white font-bold text-xs disabled:opacity-50 active:scale-95 transition">
-                    {generatingAI ? <Loader2 className="w-4 h-4 animate-spin" /> : '✨ Go'}
+                    className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-400 hover:to-blue-400 text-white font-bold text-sm disabled:opacity-50 active:scale-95 transition-all shadow-lg shadow-purple-500/25 flex items-center gap-2">
+                    {generatingAI ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Go'}
                   </button>
                 </div>
               </div>
 
               {/* Questions */}
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-white/70 text-xs font-bold uppercase tracking-wider">
-                    ❓ Questions ({newQuestions.length})
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-white/60 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
+                    <BrainCircuit className="w-3.5 h-3.5 text-emerald-400" /> Questions ({newQuestions.length})
                   </div>
                   <button
                     onClick={() => setNewQuestions(prev => [...prev, {
                       question_text: '', option_a: '', option_b: '', option_c: '', option_d: '', correct_answer: 'A'
                     }])}
-                    className="flex items-center gap-1 text-xs text-blue-400 font-bold"
+                    className="flex items-center gap-1 text-xs text-blue-400 font-bold hover:text-blue-300 transition-colors bg-blue-500/10 px-2 py-1 rounded-lg"
                   >
-                    <Plus className="w-3 h-3" /> Add
+                    <Plus className="w-3 h-3" /> Add Question
                   </button>
                 </div>
 
-                <div className="space-y-3 max-h-64 overflow-y-auto">
+                <div className="space-y-3 max-h-[35dvh] overflow-y-auto pb-16 pr-2">
                   {newQuestions.map((q, i) => (
-                    <div key={i} className="bg-white/5 border border-white/10 rounded-xl p-3 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-white/50 text-xs font-bold">Q{i + 1}</span>
+                    <div key={i} className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-3 shadow-sm relative group">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="bg-white/10 text-white/70 text-xs font-black px-2 py-1 rounded-md">Q {i + 1}</span>
                         {newQuestions.length > 1 && (
                           <button onClick={() => setNewQuestions(prev => prev.filter((_, idx) => idx !== i))}
-                            className="text-rose-400">
-                            <Trash2 className="w-3.5 h-3.5" />
+                            className="text-rose-400/70 hover:text-rose-400 transition-colors p-1">
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         )}
                       </div>
                       <input
                         type="text" value={q.question_text}
                         onChange={e => setNewQuestions(prev => prev.map((x, idx) => idx === i ? { ...x, question_text: e.target.value } : x))}
-                        placeholder="Question..."
-                        className="w-full bg-white/10 rounded-lg px-2 py-1.5 text-white text-xs outline-none placeholder:text-white/30"
+                        placeholder="Enter question here..."
+                        className="w-full bg-black/20 border border-white/10 focus:border-blue-500/50 rounded-lg px-3 py-2.5 text-white text-sm outline-none placeholder:text-white/30 transition-colors"
                       />
-                      {['a','b','c','d'].map(opt => (
-                        <div key={opt} className="flex items-center gap-2">
-                          <button
-                            onClick={() => setNewQuestions(prev => prev.map((x, idx) => idx === i ? { ...x, correct_answer: opt.toUpperCase() } : x))}
-                            className={`w-6 h-6 rounded-full text-xs font-black shrink-0 ${
-                              q.correct_answer === opt.toUpperCase() ? 'bg-emerald-500 text-white' : 'bg-white/10 text-white/50'
-                            }`}
-                          >
-                            {opt.toUpperCase()}
-                          </button>
-                          <input
-                            type="text" value={q[`option_${opt}`]}
-                            onChange={e => setNewQuestions(prev => prev.map((x, idx) => idx === i ? { ...x, [`option_${opt}`]: e.target.value } : x))}
-                            placeholder={`Option ${opt.toUpperCase()}...`}
-                            className="flex-1 bg-white/10 rounded-lg px-2 py-1.5 text-white text-xs outline-none placeholder:text-white/30"
-                          />
-                        </div>
-                      ))}
+                      <div className="grid grid-cols-1 gap-2 mt-2">
+                        {['a','b','c','d'].map(opt => (
+                          <div key={opt} className="flex items-center gap-2">
+                            <button
+                              onClick={() => setNewQuestions(prev => prev.map((x, idx) => idx === i ? { ...x, correct_answer: opt.toUpperCase() } : x))}
+                              className={`w-8 h-8 rounded-lg text-xs font-black shrink-0 transition-all border ${
+                                q.correct_answer === opt.toUpperCase() 
+                                  ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.2)]' 
+                                  : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'
+                              }`}
+                            >
+                              {opt.toUpperCase()}
+                            </button>
+                            <input
+                              type="text" value={q[`option_${opt}`]}
+                              onChange={e => setNewQuestions(prev => prev.map((x, idx) => idx === i ? { ...x, [`option_${opt}`]: e.target.value } : x))}
+                              placeholder={`Option ${opt.toUpperCase()}`}
+                              className="flex-1 bg-black/20 border border-white/10 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-white text-sm outline-none placeholder:text-white/30 transition-colors"
+                            />
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
 
               <button onClick={createSession} disabled={creating}
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-500 to-blue-500 text-white font-black text-sm active:scale-95 transition disabled:opacity-50">
-                {creating ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : '🧠 Create Trivia Game'}
+                className="w-full py-4 rounded-xl bg-gradient-to-r from-purple-500 to-blue-500 text-white font-black text-sm active:scale-95 transition-all shadow-lg shadow-purple-500/25 disabled:opacity-50 flex items-center justify-center gap-2 mt-2">
+                {creating ? <Loader2 className="w-5 h-5 animate-spin" /> : <><BrainCircuit className="w-5 h-5"/> Create Trivia Game</>}
               </button>
             </div>
 
           ) : (
-            <div className="text-center text-white/40 py-12">
-              <div className="text-5xl mb-3">🧠</div>
-              <div className="text-base font-bold text-white/60">No active Trivia game</div>
-              <div className="text-xs mt-2">Wait for the host to start one</div>
+            <div className="text-center text-white/40 py-20 px-4">
+              <div className="flex justify-center mb-6">
+                <div className="bg-gradient-to-br from-white/5 to-white/10 p-6 rounded-full border border-white/10 shadow-xl">
+                  <Target className="w-16 h-16 text-white/20" />
+                </div>
+              </div>
+              <div className="text-xl font-black text-white/70 mb-2 tracking-wide">No Active Game</div>
+              <div className="text-sm text-white/40">Wait for the host to start a new trivia session</div>
             </div>
           )}
         </div>
