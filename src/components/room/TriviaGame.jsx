@@ -51,6 +51,7 @@ export default function TriviaGame({
   const [timeExpired, setTimeExpired] = useState(false);
   const [playerAnswerCounts, setPlayerAnswerCounts] = useState({});
   const [isMuted, setIsMuted] = useState(false);
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
   const audioRef = useRef(null);
 
   const timerRef = useRef(null);
@@ -147,6 +148,31 @@ export default function TriviaGame({
       supabase.removeChannel(channel);
     };
   }, [open, roomId, currentSession?.id]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const updateKeyboardOffset = () => {
+      if (!window.visualViewport) {
+        setKeyboardOffset(0);
+        return;
+      }
+      const offset = Math.max(
+        0,
+        window.innerHeight - window.visualViewport.height - window.visualViewport.offsetTop
+      );
+      setKeyboardOffset(offset);
+    };
+
+    updateKeyboardOffset();
+    window.visualViewport?.addEventListener('resize', updateKeyboardOffset);
+    window.visualViewport?.addEventListener('scroll', updateKeyboardOffset);
+
+    return () => {
+      window.visualViewport?.removeEventListener('resize', updateKeyboardOffset);
+      window.visualViewport?.removeEventListener('scroll', updateKeyboardOffset);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -668,6 +694,12 @@ Return ONLY a JSON array, no markdown, no explanation:
     onCoinsUpdated?.();
   };
 
+  const handleInputFocus = (e) => {
+    setTimeout(() => {
+      e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 250);
+  };
+
   const isJoined = players.some(p => String(p.user_id) === String(user?.id));
   const myPlayer = players.find(p => String(p.user_id) === String(user?.id));
   const OPTION_COLORS = {
@@ -681,10 +713,19 @@ Return ONLY a JSON array, no markdown, no explanation:
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[85] flex items-end sm:items-center justify-center sm:p-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-[85] flex items-end sm:items-center justify-center sm:p-4"
+      style={{ paddingBottom: keyboardOffset ? `${keyboardOffset}px` : undefined }}
+      onClick={onClose}
+    >
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div
-        className="relative w-full max-w-md bg-slate-900 sm:bg-slate-900/95 sm:backdrop-blur-xl rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden max-h-[90dvh] sm:max-h-[85dvh] border-t sm:border border-white/10"
+        className="relative w-full max-w-md bg-slate-900 sm:bg-slate-900/95 sm:backdrop-blur-xl rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden border-t sm:border border-white/10"
+        style={{
+          maxHeight: keyboardOffset
+            ? `calc(100dvh - ${keyboardOffset}px - 8px)`
+            : '90dvh',
+        }}
         onClick={e => e.stopPropagation()}
       >
         {/* Handle for mobile */}
@@ -727,7 +768,10 @@ Return ONLY a JSON array, no markdown, no explanation:
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 pb-8 sm:pb-4">
+        <div
+          className="flex-1 overflow-y-auto p-4 sm:pb-4"
+          style={{ paddingBottom: keyboardOffset ? 24 : 32 }}
+        >
           {loading ? (
             <div className="flex items-center justify-center py-20">
               <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
@@ -1021,6 +1065,7 @@ Return ONLY a JSON array, no markdown, no explanation:
                     type="text"
                     value={aiTopic}
                     onChange={e => setAiTopic(e.target.value)}
+                    onFocus={handleInputFocus}
                     placeholder="Topic (e.g. Football, Science...)"
                     className="flex-1 bg-black/20 border border-white/10 focus:border-purple-500/50 rounded-xl px-3 py-2.5 text-white text-sm outline-none placeholder:text-white/30 transition-all"
                   />
@@ -1047,7 +1092,7 @@ Return ONLY a JSON array, no markdown, no explanation:
                   </button>
                 </div>
 
-                <div className="space-y-3 max-h-[35dvh] overflow-y-auto pb-16 pr-2">
+                <div className="space-y-3 pr-2">
                   {newQuestions.map((q, i) => (
                     <div key={i} className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-3 shadow-sm relative group">
                       <div className="flex items-center justify-between mb-1">
@@ -1062,6 +1107,7 @@ Return ONLY a JSON array, no markdown, no explanation:
                       <input
                         type="text" value={q.question_text}
                         onChange={e => setNewQuestions(prev => prev.map((x, idx) => idx === i ? { ...x, question_text: e.target.value } : x))}
+                        onFocus={handleInputFocus}
                         placeholder="Enter question here..."
                         className="w-full bg-black/20 border border-white/10 focus:border-blue-500/50 rounded-lg px-3 py-2.5 text-white text-sm outline-none placeholder:text-white/30 transition-colors"
                       />
@@ -1081,6 +1127,7 @@ Return ONLY a JSON array, no markdown, no explanation:
                             <input
                               type="text" value={q[`option_${opt}`]}
                               onChange={e => setNewQuestions(prev => prev.map((x, idx) => idx === i ? { ...x, [`option_${opt}`]: e.target.value } : x))}
+                              onFocus={handleInputFocus}
                               placeholder={`Option ${opt.toUpperCase()}`}
                               className="flex-1 bg-black/20 border border-white/10 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-white text-sm outline-none placeholder:text-white/30 transition-colors"
                             />
