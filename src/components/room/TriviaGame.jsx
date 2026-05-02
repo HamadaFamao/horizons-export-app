@@ -51,7 +51,11 @@ export default function TriviaGame({
   const [timeExpired, setTimeExpired] = useState(false);
   const [playerAnswerCounts, setPlayerAnswerCounts] = useState({});
   const [isMuted, setIsMuted] = useState(false);
-  const [keyboardOffset, setKeyboardOffset] = useState(0);
+  const [viewport, setViewport] = useState({
+    height: typeof window !== 'undefined' ? window.innerHeight : 0,
+    offsetTop: 0,
+    keyboard: 0,
+  });
   const audioRef = useRef(null);
 
   const timerRef = useRef(null);
@@ -152,25 +156,25 @@ export default function TriviaGame({
   useEffect(() => {
     if (!open) return;
 
-    const updateKeyboardOffset = () => {
-      if (!window.visualViewport) {
-        setKeyboardOffset(0);
+    const updateViewport = () => {
+      const vv = window.visualViewport;
+      if (!vv) {
+        setViewport({ height: window.innerHeight, offsetTop: 0, keyboard: 0 });
         return;
       }
-      const offset = Math.max(
-        0,
-        window.innerHeight - window.visualViewport.height - window.visualViewport.offsetTop
-      );
-      setKeyboardOffset(offset);
+      const keyboard = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      setViewport({ height: vv.height, offsetTop: vv.offsetTop, keyboard });
     };
 
-    updateKeyboardOffset();
-    window.visualViewport?.addEventListener('resize', updateKeyboardOffset);
-    window.visualViewport?.addEventListener('scroll', updateKeyboardOffset);
+    updateViewport();
+    window.visualViewport?.addEventListener('resize', updateViewport);
+    window.visualViewport?.addEventListener('scroll', updateViewport);
+    window.addEventListener('resize', updateViewport);
 
     return () => {
-      window.visualViewport?.removeEventListener('resize', updateKeyboardOffset);
-      window.visualViewport?.removeEventListener('scroll', updateKeyboardOffset);
+      window.visualViewport?.removeEventListener('resize', updateViewport);
+      window.visualViewport?.removeEventListener('scroll', updateViewport);
+      window.removeEventListener('resize', updateViewport);
     };
   }, [open]);
 
@@ -696,8 +700,21 @@ Return ONLY a JSON array, no markdown, no explanation:
 
   const handleInputFocus = (e) => {
     setTimeout(() => {
-      e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 250);
+      const input = e.target;
+      const scrollParent = input.closest('[data-trivia-scroll]');
+      if (!scrollParent) return;
+
+      const parentRect = scrollParent.getBoundingClientRect();
+      const inputRect = input.getBoundingClientRect();
+      const safeBottom = parentRect.bottom - 120;
+
+      if (inputRect.bottom > safeBottom) {
+        scrollParent.scrollBy({ top: inputRect.bottom - safeBottom, behavior: 'smooth' });
+      }
+      if (inputRect.top < parentRect.top + 80) {
+        scrollParent.scrollBy({ top: inputRect.top - parentRect.top - 80, behavior: 'smooth' });
+      }
+    }, 350);
   };
 
   const isJoined = players.some(p => String(p.user_id) === String(user?.id));
@@ -714,16 +731,16 @@ Return ONLY a JSON array, no markdown, no explanation:
 
   return (
     <div
-      className="fixed inset-0 z-[85] flex items-end sm:items-center justify-center sm:p-4"
-      style={{ paddingBottom: keyboardOffset ? `${keyboardOffset}px` : undefined }}
+      className="fixed left-0 right-0 z-[85] flex items-end sm:items-center justify-center sm:p-4"
+      style={{ top: viewport.offsetTop, height: viewport.height }}
       onClick={onClose}
     >
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div
         className="relative w-full max-w-md bg-slate-900 sm:bg-slate-900/95 sm:backdrop-blur-xl rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden border-t sm:border border-white/10"
         style={{
-          maxHeight: keyboardOffset
-            ? `calc(100dvh - ${keyboardOffset}px - 8px)`
+          maxHeight: viewport.keyboard > 0
+            ? `${Math.max(320, viewport.height - 8)}px`
             : '90dvh',
         }}
         onClick={e => e.stopPropagation()}
@@ -769,8 +786,12 @@ Return ONLY a JSON array, no markdown, no explanation:
         </div>
 
         <div
-          className="flex-1 overflow-y-auto p-4 sm:pb-4"
-          style={{ paddingBottom: keyboardOffset ? 24 : 32 }}
+          data-trivia-scroll
+          className="flex-1 overflow-y-auto overscroll-contain p-4 sm:pb-4"
+          style={{
+            paddingBottom: viewport.keyboard > 0 ? 160 : 32,
+            WebkitOverflowScrolling: 'touch',
+          }}
         >
           {loading ? (
             <div className="flex items-center justify-center py-20">
