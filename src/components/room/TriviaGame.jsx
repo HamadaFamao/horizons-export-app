@@ -670,9 +670,13 @@ Return ONLY a JSON array, no markdown, no explanation:
 
   const handleInputFocus = (e) => {
     const target = e.target;
+    // Double timeout ensures smooth scrolling even if keyboard animation is slow
     setTimeout(() => {
-      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 300);
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 150);
+    setTimeout(() => {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 400);
   };
 
   const isJoined = players.some(p => String(p.user_id) === String(user?.id));
@@ -976,7 +980,7 @@ Return ONLY a JSON array, no markdown, no explanation:
 
           ) : canModerate ? (
             // Create session form
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 pb-[50vh] sm:pb-0">
               <div className="text-center text-white/50 text-sm mb-4">Configure your Trivia game</div>
 
               {/* Entry cost */}
@@ -1030,7 +1034,7 @@ Return ONLY a JSON array, no markdown, no explanation:
                     onChange={e => setAiTopic(e.target.value)}
                     onFocus={handleInputFocus}
                     placeholder="Topic (e.g. Football, Science...)"
-                    className="flex-1 bg-black/20 border border-white/10 focus:border-purple-500/50 rounded-xl px-3 py-2.5 text-white text-sm outline-none placeholder:text-white/30 transition-all"
+                    className="flex-1 bg-black/20 border border-white/10 focus:border-purple-500/50 rounded-xl px-3 py-2.5 text-white text-sm outline-none placeholder:text-white/30 transition-all scroll-mt-20"
                   />
                   <button onClick={generateWithAI} disabled={generatingAI || !aiTopic.trim()}
                     className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-400 hover:to-blue-400 text-white font-bold text-sm disabled:opacity-50 active:scale-95 transition-all shadow-lg shadow-purple-500/25 flex items-center gap-2">
@@ -1072,7 +1076,7 @@ Return ONLY a JSON array, no markdown, no explanation:
                         onChange={e => setNewQuestions(prev => prev.map((x, idx) => idx === i ? { ...x, question_text: e.target.value } : x))}
                         onFocus={handleInputFocus}
                         placeholder="Enter question here..."
-                        className="w-full bg-black/20 border border-white/10 focus:border-blue-500/50 rounded-lg px-3 py-2.5 text-white text-sm outline-none placeholder:text-white/30 transition-colors"
+                        className="w-full bg-black/20 border border-white/10 focus:border-blue-500/50 rounded-lg px-3 py-2.5 text-white text-sm outline-none placeholder:text-white/30 transition-colors scroll-mt-20"
                       />
                       <div className="grid grid-cols-1 gap-2 mt-2">
                         {['a','b','c','d'].map(opt => (
@@ -1092,7 +1096,7 @@ Return ONLY a JSON array, no markdown, no explanation:
                               onChange={e => setNewQuestions(prev => prev.map((x, idx) => idx === i ? { ...x, [`option_${opt}`]: e.target.value } : x))}
                               onFocus={handleInputFocus}
                               placeholder={`Option ${opt.toUpperCase()}`}
-                              className="flex-1 bg-black/20 border border-white/10 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-white text-sm outline-none placeholder:text-white/30 transition-colors"
+                              className="flex-1 bg-black/20 border border-white/10 focus:border-emerald-500/50 rounded-lg px-3 py-2 text-white text-sm outline-none placeholder:text-white/30 transition-colors scroll-mt-20"
                             />
                           </div>
                         ))}
