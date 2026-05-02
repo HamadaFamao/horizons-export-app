@@ -48,6 +48,9 @@ export default function TriviaGame({
   const [winner, setWinner] = useState(null);
   const [winnerCoins, setWinnerCoins] = useState(0);
   const [leaderboard, setLeaderboard] = useState([]);
+  const [timeExpired, setTimeExpired] = useState(false);
+  const [playerAnswerCounts, setPlayerAnswerCounts] = useState({});
+  const audioRef = useRef(null);
 
   const timerRef = useRef(null);
   const resultFiredRef = useRef(false);
@@ -108,9 +111,26 @@ export default function TriviaGame({
         setCurrentQuestion(payload.question);
         setSelectedAnswer(null);
         setAnswerResult(null);
+        setTimeExpired(false);
+        setPlayerAnswerCounts({});
         setQuestionStartedAt(Date.now());
         setTimeLeft(payload.time_per_question);
         startTimer(payload.time_per_question);
+      });
+
+      channelRef.current.on?.('broadcast', { event: 'trivia_answer_submitted' }, ({ payload }) => {
+        if (String(payload.room_id) !== String(roomId)) return;
+        setPlayerAnswerCounts(prev => {
+          const key = payload.user_id;
+          const current = prev[key] || { correct: 0, wrong: 0 };
+          return {
+            ...prev,
+            [key]: {
+              correct: current.correct + (payload.is_correct ? 1 : 0),
+              wrong: current.wrong + (!payload.is_correct ? 1 : 0),
+            }
+          };
+        });
       });
 
       channelRef.current.on?.('broadcast', { event: 'trivia_ended' }, ({ payload }) => {
@@ -129,15 +149,67 @@ export default function TriviaGame({
   const startTimer = (seconds) => {
     clearInterval(timerRef.current);
     setTimeLeft(seconds);
+    setTimeExpired(false);
     timerRef.current = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
           clearInterval(timerRef.current);
+          setTimeExpired(true);
+          playSound('timeout');
           return 0;
         }
+        if (prev <= 6) playSound('tick');
         return prev - 1;
       });
     }, 1000);
+  };
+
+  const playSound = (type) => {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      audioRef.current = ctx;
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+
+      if (type === 'tick') {
+        oscillator.frequency.value = 880;
+        gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+        oscillator.start(ctx.currentTime);
+        oscillator.stop(ctx.currentTime + 0.1);
+      } else if (type === 'correct') {
+        oscillator.frequency.value = 523;
+        oscillator.frequency.setValueAtTime(523, ctx.currentTime);
+        oscillator.frequency.setValueAtTime(659, ctx.currentTime + 0.1);
+        oscillator.frequency.setValueAtTime(784, ctx.currentTime + 0.2);
+        gainNode.gain.setValueAtTime(0.2, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+        oscillator.start(ctx.currentTime);
+        oscillator.stop(ctx.currentTime + 0.4);
+      } else if (type === 'wrong') {
+        oscillator.frequency.value = 200;
+        gainNode.gain.setValueAtTime(0.2, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+        oscillator.start(ctx.currentTime);
+        oscillator.stop(ctx.currentTime + 0.3);
+      } else if (type === 'timeout') {
+        oscillator.frequency.value = 300;
+        gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+        oscillator.start(ctx.currentTime);
+        oscillator.stop(ctx.currentTime + 0.5);
+      } else if (type === 'next') {
+        oscillator.frequency.value = 440;
+        oscillator.frequency.setValueAtTime(440, ctx.currentTime);
+        oscillator.frequency.setValueAtTime(550, ctx.currentTime + 0.1);
+        gainNode.gain.setValueAtTime(0.15, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+        oscillator.start(ctx.currentTime);
+        oscillator.stop(ctx.currentTime + 0.2);
+      }
+    } catch {}
   };
 
   const handleSessionFinished = async (sessionData) => {
@@ -463,6 +535,7 @@ Return ONLY a JSON array, no markdown, no explanation:
       },
     };
 
+    playSound('next');
     channelRef?.current?.send({
       type: 'broadcast',
       event: 'trivia_question',
@@ -480,6 +553,7 @@ Return ONLY a JSON array, no markdown, no explanation:
 
   const submitAnswer = async (answer) => {
     if (!currentSession?.id || !user?.id || selectedAnswer) return;
+    if (!isJoined) return; // Viewers can't answer
     setSelectedAnswer(answer);
     const timeTaken = Date.now() - (questionStartedAt || Date.now());
 
@@ -497,7 +571,22 @@ Return ONLY a JSON array, no markdown, no explanation:
         correctAnswer: data.correct_answer,
         points: data.points,
       });
+      playSound(data.is_correct ? 'correct' : 'wrong');
       onCoinsUpdated?.();
+
+      // Broadcast answer count update
+      channelRef?.current?.send({
+        type: 'broadcast',
+        event: 'trivia_answer_submitted',
+        payload: {
+          room_id: roomId,
+          session_id: currentSession.id,
+          user_id: user.id,
+          is_correct: data.is_correct,
+          ts: Date.now(),
+        },
+      });
+
       await loadPlayers(currentSession.id);
     }
   };
@@ -704,23 +793,38 @@ Return ONLY a JSON array, no markdown, no explanation:
               {canModerate && (
                 <button
                   onClick={nextQuestion}
-                  className="w-full py-3 rounded-xl bg-blue-500 text-white font-black text-sm active:scale-95 transition"
+                  disabled={!timeExpired}
+                  className={`w-full py-3 rounded-xl font-black text-sm active:scale-95 transition ${
+                    timeExpired
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-white/10 text-white/30 cursor-not-allowed'
+                  }`}
                 >
-                  {currentQIndex >= currentSession.total_questions ? '🏁 End Game' : '⏭ Next Question'}
+                  {!timeExpired
+                    ? `⏳ Wait ${timeLeft}s...`
+                    : currentQIndex >= currentSession.total_questions
+                    ? '🏁 End Game'
+                    : '⏭ Next Question'
+                  }
                 </button>
               )}
 
               {/* Players scores */}
               <div className="space-y-1.5">
-                {[...players].sort((a,b) => b.score - a.score).map((p, i) => (
-                  <div key={p.id} className="flex items-center gap-2 bg-white/5 rounded-xl px-3 py-1.5">
-                    <span className="text-sm">{['🥇','🥈','🥉'][i] || `${i + 1}`}</span>
-                    <img src={p.avatar_url || FALLBACK_AVATAR} alt={p.name}
-                      className="w-6 h-6 rounded-full object-cover" />
-                    <span className="text-white text-xs font-bold flex-1 truncate">{p.name}</span>
-                    <span className="text-amber-300 font-black text-xs">{p.score}</span>
-                  </div>
-                ))}
+                {[...players].sort((a,b) => b.score - a.score).map((p, i) => {
+                  const counts = playerAnswerCounts[p.user_id] || { correct: 0, wrong: 0 };
+                  return (
+                    <div key={p.id} className="flex items-center gap-2 bg-white/5 rounded-xl px-3 py-1.5">
+                      <span className="text-sm">{['🥇','🥈','🥉'][i] || `${i + 1}`}</span>
+                      <img src={p.avatar_url || FALLBACK_AVATAR} alt={p.name}
+                        className="w-6 h-6 rounded-full object-cover" />
+                      <span className="text-white text-xs font-bold flex-1 truncate">{p.name}</span>
+                      <span className="text-emerald-400 text-xs font-black">✅{counts.correct}</span>
+                      <span className="text-rose-400 text-xs font-black">❌{counts.wrong}</span>
+                      <span className="text-amber-300 font-black text-xs">{p.score}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
