@@ -343,16 +343,48 @@ export default function TriviaGame({
     if (!aiTopic.trim()) return;
     setGeneratingAI(true);
     try {
+      // IMPORTANT: Edge Function name in Supabase is quick-worker
+      console.log('[Trivia AI] invoking quick-worker with topic:', aiTopic.trim());
+
       const { data, error } = await supabase.functions.invoke('quick-worker', {
-  body: { topic: aiTopic.trim() }
-});
+        body: { topic: aiTopic.trim() },
+      });
 
-      if (error) throw new Error(error.message);
-      if (!data?.questions?.length) throw new Error('No questions generated');
+      console.log('[Trivia AI] response data:', data);
+      console.log('[Trivia AI] response error:', error);
 
-      setNewQuestions(data.questions);
+      if (error) {
+        throw new Error(
+          error.context?.error ||
+          error.context?.message ||
+          error.message ||
+          JSON.stringify(error)
+        );
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      if (!Array.isArray(data?.questions) || data.questions.length === 0) {
+        throw new Error('No questions generated');
+      }
+
+      const normalized = data.questions.map((q) => ({
+        question_text: q.question_text || '',
+        option_a: q.option_a || '',
+        option_b: q.option_b || '',
+        option_c: q.option_c || '',
+        option_d: q.option_d || '',
+        correct_answer: ['A', 'B', 'C', 'D'].includes(q.correct_answer)
+          ? q.correct_answer
+          : 'A',
+      }));
+
+      setNewQuestions(normalized);
     } catch (err) {
-      alert('Failed to generate: ' + err.message);
+      console.error('[Trivia AI] failed:', err);
+      alert('Failed to generate: ' + (err?.message || 'Unknown error'));
     } finally {
       setGeneratingAI(false);
     }
