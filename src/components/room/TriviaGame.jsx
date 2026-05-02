@@ -343,9 +343,9 @@ export default function TriviaGame({
     if (!aiTopic.trim()) return;
     setGeneratingAI(true);
     try {
-      const { data, error } = await supabase.functions.invoke('generate-trivia', {
-        body: { topic: aiTopic.trim() }
-      });
+      const { data, error } = await supabase.functions.invoke('quick-worker', {
+  body: { topic: aiTopic.trim() }
+});
 
       if (error) throw new Error(error.message);
       if (!data?.questions?.length) throw new Error('No questions generated');
