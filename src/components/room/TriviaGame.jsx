@@ -9,6 +9,8 @@ const FALLBACK_AVATAR =
 const ENTRY_COST_OPTIONS = [0, 100, 200, 500, 1000, 5000];
 const TIME_OPTIONS = [10, 15, 20, 30];
 const POINTS_OPTIONS = [50, 100, 200, 500, 1000];
+const TRIVIA_BRAND_NAME = 'Krombo';
+const TRIVIA_SUBTITLE = 'Quiz Arena';
 
 export default function TriviaGame({
   open,
@@ -655,7 +657,7 @@ export default function TriviaGame({
 
   const cancelSession = async () => {
     if (!currentSession?.id || !canModerate) return;
-    if (!window.confirm('Cancel trivia? All players will be refunded.')) return;
+    if (!window.confirm(`Cancel ${TRIVIA_BRAND_NAME}? All players will be refunded.`)) return;
 
     await supabase
       .from('room_trivia_sessions')
@@ -735,7 +737,8 @@ export default function TriviaGame({
               <BrainCircuit className="w-5 h-5 text-white" />
             </div>
             <div>
-              <div className="font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-300 via-fuchsia-300 to-blue-300 text-xl tracking-tight leading-none drop-shadow-[0_0_8px_rgba(216,180,254,0.5)]">Trivia Master</div>
+              <h1 className="font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-300 via-fuchsia-300 to-blue-300 text-2xl tracking-tight leading-none drop-shadow-[0_0_8px_rgba(216,180,254,0.5)]">{TRIVIA_BRAND_NAME}</h1>
+              <p className="text-white/70 text-xs font-semibold tracking-wide mt-1">{TRIVIA_SUBTITLE}</p>
               {currentSession?.status === 'active' && currentQuestion && (
                 <div className="text-white/60 text-[10px] font-bold uppercase tracking-wider mt-1">
                   Question {currentQIndex} of {currentSession.total_questions}
@@ -1004,7 +1007,7 @@ export default function TriviaGame({
                 {canModerate && players.length >= 1 && (
                   <button onClick={startGame}
                     className="flex-1 py-4 rounded-xl bg-gradient-to-r from-emerald-400 to-emerald-600 text-white font-black text-base active:scale-95 transition-all shadow-[0_0_20px_rgba(16,185,129,0.4)] hover:shadow-[0_0_25px_rgba(16,185,129,0.6)] hover:brightness-110 flex items-center justify-center gap-2">
-                    <Target className="w-5 h-5"/> Start Trivia
+                    <Target className="w-5 h-5"/> Start {TRIVIA_BRAND_NAME}
                   </button>
                 )}
                 {canModerate && (
@@ -1019,7 +1022,7 @@ export default function TriviaGame({
           ) : canModerate ? (
             // Create session form
             <div className="flex flex-col gap-3 pb-[50vh] sm:pb-0">
-              <div className="text-center text-white/60 text-sm mb-4 font-medium">Configure your Trivia game</div>
+              <div className="text-center text-white/60 text-sm mb-4 font-medium">Configure your {TRIVIA_BRAND_NAME} game</div>
 
               {/* Entry cost */}
               <div className="mb-4">
@@ -1182,7 +1185,7 @@ export default function TriviaGame({
 
               <button onClick={createSession} disabled={creating}
                 className="w-full py-4 rounded-xl bg-gradient-to-r from-purple-500 to-blue-500 text-white font-black text-base active:scale-95 transition-all shadow-[0_0_20px_rgba(168,85,247,0.4)] hover:shadow-[0_0_25px_rgba(168,85,247,0.6)] hover:brightness-110 disabled:opacity-50 flex items-center justify-center gap-2 mt-4">
-                {creating ? <Loader2 className="w-6 h-6 animate-spin" /> : <><BrainCircuit className="w-6 h-6"/> Create Trivia Game</>}
+                {creating ? <Loader2 className="w-6 h-6 animate-spin" /> : <><BrainCircuit className="w-6 h-6"/> Create {TRIVIA_BRAND_NAME} Game</>}
               </button>
             </div>
 
@@ -1194,7 +1197,7 @@ export default function TriviaGame({
                 </div>
               </div>
               <div className="text-2xl font-black text-white/70 mb-2 tracking-wide drop-shadow-sm">No Active Game</div>
-              <div className="text-base text-white/40">Wait for the host to start a new trivia session</div>
+              <div className="text-base text-white/40">Wait for the host to start a new {TRIVIA_BRAND_NAME} session</div>
             </div>
           )}
         </div>

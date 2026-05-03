@@ -1,6 +1,9 @@
 import React from 'react';
 import { X } from 'lucide-react';
 
+const TRIVIA_BRAND_NAME = 'Krombo';
+const TRIVIA_SUBTITLE = 'Quiz Arena';
+
 const GAMES = [
   {
     id: 'pk',
@@ -45,8 +48,9 @@ const GAMES = [
   {
     id: 'trivia',
     emoji: '🧠',
-    name: 'Trivia Quiz',
-    description: 'Answer questions and beat the competition!',
+    name: TRIVIA_BRAND_NAME,
+    subtitle: TRIVIA_SUBTITLE,
+    description: 'Test your knowledge and compete with others',
     color: 'from-purple-500 to-blue-500',
     available: true,
   },
@@ -112,6 +116,11 @@ export default function GamesLobby({ open, onClose, onSelectGame, activeSpinSess
                   leading-tight">
                   {game.name}
                 </span>
+                {game.subtitle && (
+                  <span className="text-white/60 text-[10px] text-center leading-tight">
+                    {game.subtitle}
+                  </span>
+                )}
 
                 {/* Badges */}
                 {game.id === 'spin' && activeSpinSession && (
