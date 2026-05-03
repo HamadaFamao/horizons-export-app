@@ -734,7 +734,7 @@ export default function TriviaGame({
         <div className="px-5 py-4 flex items-center justify-between border-b border-white/10 bg-white/5">
           <div className="flex items-center gap-3">
             <div className="bg-gradient-to-br from-purple-500 to-blue-500 p-2.5 rounded-xl shadow-[0_0_15px_rgba(168,85,247,0.5)]">
-              <BrainCircuit className="w-5 h-5 text-white" />
+              <Trophy className="w-5 h-5 text-white" />
             </div>
             <div>
               <h1 className="font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-300 via-fuchsia-300 to-blue-300 text-2xl tracking-tight leading-none drop-shadow-[0_0_8px_rgba(216,180,254,0.5)]">{TRIVIA_BRAND_NAME}</h1>
