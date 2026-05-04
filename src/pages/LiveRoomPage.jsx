@@ -572,6 +572,7 @@ export default function LiveRoomPage() {
     };
   }, [addToGlobalMsgQueue]);
 
+  const globalGiftChannelRef = useRef(null);
   useEffect(() => {
     const globalGiftChannel = supabase
       .channel('global_large_gifts')
@@ -673,7 +674,9 @@ export default function LiveRoomPage() {
       )
       .subscribe();
 
+    globalGiftChannelRef.current = globalGiftChannel;
     return () => {
+      globalGiftChannelRef.current = null;
       supabase.removeChannel(globalGiftChannel);
     };
   }, [roomId]);
@@ -10825,18 +10828,14 @@ useEffect(() => {
             ts: Date.now(),
           };
 
-          // Send to ALL rooms via global channel
-          const crackGlobalCh = supabase.channel(`global_crack_sender_${Date.now()}`);
-          crackGlobalCh.subscribe((status) => {
-            if (status === 'SUBSCRIBED') {
-              crackGlobalCh.send({
-                type: 'broadcast',
-                event: 'large_gift_banner',
-                payload: bannerPayload,
-              });
-              setTimeout(() => supabase.removeChannel(crackGlobalCh), 3000);
-            }
-          });
+          // Send via the already-subscribed global channel
+          if (globalGiftChannelRef.current) {
+            globalGiftChannelRef.current.send({
+              type: 'broadcast',
+              event: 'large_gift_banner',
+              payload: bannerPayload,
+            });
+          }
 
           // Show locally for sender immediately (listener filters out same room)
           if (largeGiftBannerTimerRef.current) clearTimeout(largeGiftBannerTimerRef.current);
