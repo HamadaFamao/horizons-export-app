@@ -46,6 +46,7 @@ import GamesLobby from "@/components/room/GamesLobby";
 import SpinGame from "@/components/room/SpinGame";
 import RaceGame from "@/components/room/RaceGame";
 import LudoGame from "@/components/room/LudoGame";
+import CrackGame from "@/components/room/CrackGame";
 import TriviaGame from "@/components/room/TriviaGame";
 
 import { FALLBACK_AVATAR } from "@/components/room/ludoUtils";
@@ -1126,6 +1127,7 @@ useEffect(() => {
   const [showGamesLobby, setShowGamesLobby] = useState(false);
   const [showSpinGame, setShowSpinGame] = useState(false);
   const [showRaceGame, setShowRaceGame] = useState(false);
+  const [showCrackGame, setShowCrackGame] = useState(false);
   const [activeSpinSession, setActiveSpinSession] = useState(null);
   const [pkSeatA, setPkSeatA] = useState("");
   const [pkSeatB, setPkSeatB] = useState("");
@@ -10440,6 +10442,7 @@ useEffect(() => {
           if (gameId === 'spin') setShowSpinGame(true);
           if (gameId === 'race') setShowRaceGame(true);
           if (gameId === 'ludo') setShowLudoGame(true);
+          if (gameId === 'crack') setShowCrackGame(true);
           if (gameId === 'trivia') setShowTriviaGame(true);
           if (gameId === 'pk') setShowPkModal(true);
         }}
@@ -10780,6 +10783,65 @@ useEffect(() => {
                   animation_url: null,
                   is_to_all: false,
                   is_global: isGlobalBanner,
+                  ts: Date.now(),
+                },
+              });
+            }, 500);
+          }
+        }}
+      />
+
+      <CrackGame
+        open={showCrackGame}
+        onClose={() => setShowCrackGame(false)}
+        user={user}
+        userCoins={userWalletCoins}
+        onCoinsUpdated={() => {
+          if (user?.id) {
+            fetchUserWallet(user.id)
+              .then(({ data }) => {
+                if (data) setUserWalletCoins(data.coins || 0);
+              })
+              .catch(console.error);
+          }
+        }}
+        onCrackResult={({ winAmount, eggGroup, eggOrder, isGlobal }) => {
+          if (winAmount < 5000) return;
+
+          if (largeGiftBannerTimerRef.current) clearTimeout(largeGiftBannerTimerRef.current);
+
+          const bannerEmoji = eggGroup === 'gold' ? '🥇' : eggGroup === 'silver' ? '⚪' : '🟫';
+
+          setLargeGiftBanner({
+            senderName: user?.user_metadata?.name || 'Player',
+            senderAvatar: user?.user_metadata?.avatar_url || null,
+            receiverName: `🪙 ${winAmount.toLocaleString()}`,
+            receiverAvatar: null,
+            giftName: `${bannerEmoji} Crack! Egg #${eggOrder}`,
+            giftIcon: null,
+            isToAll: false,
+            roomId: roomId,
+            isGlobal,
+          });
+
+          largeGiftBannerTimerRef.current = setTimeout(() => setLargeGiftBanner(null), 10000);
+
+          if (isGlobal) {
+            const globalCh = supabase.channel('global_large_gifts').subscribe();
+            setTimeout(() => {
+              globalCh.send({
+                type: 'broadcast',
+                event: 'large_gift_banner',
+                payload: {
+                  room_id: roomId,
+                  sender_name: user?.user_metadata?.name || 'Player',
+                  sender_avatar: user?.user_metadata?.avatar_url || null,
+                  receiver_name: `🪙 ${winAmount.toLocaleString()}`,
+                  gift_name: `🥇 Crack! Gold Egg`,
+                  gift_icon: null,
+                  animation_url: null,
+                  is_to_all: false,
+                  is_global: true,
                   ts: Date.now(),
                 },
               });
