@@ -38,6 +38,14 @@ const GAMES = [
     available: true,
   },
   {
+    id: 'crack',
+    emoji: '🥚',
+    name: 'Crack!',
+    description: 'Break eggs and win big coins!',
+    color: 'from-amber-400 to-yellow-500',
+    available: true,
+  },
+  {
     id: 'slots',
     emoji: '🎰✨',
     name: 'Slot Machine',
