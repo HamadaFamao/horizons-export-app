@@ -10,7 +10,7 @@ const FALLBACK_AVATAR =
 const ENTRY_COST_OPTIONS = [0, 100, 200, 500, 1000, 5000];
 const TIME_OPTIONS = [10, 15, 20, 30];
 const POINTS_OPTIONS = [50, 100, 200, 500, 1000];
-const TRIVIA_BRAND_NAME = 'Krombo';
+const TRIVIA_BRAND_NAME = 'Dash';
 const TRIVIA_SUBTITLE = 'Quiz Arena';
 
 export default function TriviaGame({
@@ -42,6 +42,7 @@ export default function TriviaGame({
   ]);
   const [generatingAI, setGeneratingAI] = useState(false);
   const [aiTopic, setAiTopic] = useState('');
+  const [aiCount, setAiCount] = useState(5);
 
   // Game state
   const [currentQuestion, setCurrentQuestion] = useState(null);
@@ -408,7 +409,7 @@ export default function TriviaGame({
       console.log('[Trivia AI] invoking quick-worker with topic:', aiTopic.trim());
 
       const { data, error } = await supabase.functions.invoke('quick-worker', {
-        body: { topic: aiTopic.trim() },
+        body: { topic: aiTopic.trim(), count: aiCount },
       });
 
       console.log('[Trivia AI] response data:', data);
@@ -1412,7 +1413,7 @@ export default function TriviaGame({
                   <Sparkles className="w-4 h-4 text-purple-400 drop-shadow-[0_0_5px_rgba(192,132,252,0.5)]" />
                   <div className="text-purple-300 text-xs font-bold uppercase tracking-wider">Generate with AI</div>
                 </div>
-                <div className="flex gap-2.5">
+                <div className="flex gap-2.5 mb-2.5">
                   <input
                     type="text"
                     value={aiTopic}
@@ -1421,6 +1422,21 @@ export default function TriviaGame({
                     placeholder="Topic (e.g. Football, Science...)"
                     className="flex-1 bg-black/30 border border-white/10 focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/20 rounded-xl px-4 py-3 text-white text-sm outline-none placeholder:text-white/30 transition-all scroll-mt-20 shadow-inner"
                   />
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <div className="flex items-center gap-2 bg-black/20 border border-white/10 rounded-xl px-3 py-2">
+                    <span className="text-white/50 text-xs font-bold">Questions:</span>
+                    {[3,5,7,10].map(n => (
+                      <button key={n} onClick={() => setAiCount(n)}
+                        className={`w-7 h-7 rounded-lg text-xs font-black transition-all ${
+                          aiCount === n
+                            ? 'bg-purple-500 text-white'
+                            : 'text-white/50 hover:text-white'
+                        }`}>
+                        {n}
+                      </button>
+                    ))}
+                  </div>
                   <button
                     onClick={isVIP ? generateWithAI : () => alert('👑 VIP only feature')}
                     disabled={generatingAI || !aiTopic.trim()}

@@ -48,7 +48,7 @@ const GAMES = [
   {
     id: 'trivia',
     emoji: '🧠',
-    name: TRIVIA_BRAND_NAME,
+    name: 'Dash Quiz',
     subtitle: TRIVIA_SUBTITLE,
     description: 'Test your knowledge and compete with others',
     color: 'from-purple-500 to-blue-500',
