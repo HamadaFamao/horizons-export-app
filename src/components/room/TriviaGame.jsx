@@ -817,10 +817,10 @@ export default function TriviaGame({
   const myPlayer = players.find(p => String(p.user_id) === String(user?.id));
   
   const OPTION_COLORS = {
-    A: 'from-blue-500 to-cyan-500 shadow-blue-500/25',
-    B: 'from-emerald-500 to-teal-500 shadow-emerald-500/25',
-    C: 'from-amber-500 to-orange-500 shadow-amber-500/25',
-    D: 'from-rose-500 to-pink-500 shadow-rose-500/25',
+    A: 'from-blue-600 to-cyan-500 shadow-blue-500/30',
+    B: 'from-emerald-600 to-teal-500 shadow-emerald-500/30',
+    C: 'from-amber-500 to-orange-500 shadow-amber-500/30',
+    D: 'from-rose-600 to-pink-500 shadow-rose-500/30',
   };
   const OPTION_LABELS = { A: 'A', B: 'B', C: 'C', D: 'D' };
 
@@ -828,9 +828,9 @@ export default function TriviaGame({
 
   return (
     <div className="fixed inset-0 z-[85] flex items-end sm:items-center justify-center sm:p-4" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-md" />
+      <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-xl transition-opacity duration-500" />
       <div
-        className="relative w-full max-w-md bg-slate-900 sm:bg-slate-900/95 sm:backdrop-blur-2xl rounded-t-3xl sm:rounded-3xl shadow-[0_0_40px_rgba(0,0,0,0.5)] flex flex-col overflow-hidden max-h-[90dvh] sm:max-h-[85dvh] border-t sm:border border-white/10"
+        className="relative w-full max-w-md bg-slate-900/95 sm:backdrop-blur-3xl rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-[0_0_50px_rgba(0,0,0,0.7)] flex flex-col overflow-hidden max-h-[90dvh] sm:max-h-[85dvh] border-t sm:border border-white/10 ring-1 ring-white/5"
         onClick={e => e.stopPropagation()}
       >
         {/* Handle for mobile */}
@@ -839,22 +839,24 @@ export default function TriviaGame({
         </div>
 
         {/* Header */}
-        <div className="px-5 py-4 flex items-center justify-between border-b border-white/10 bg-white/5">
-          <div className="flex items-center gap-3">
-            
-              
-  <img 
-    src={kromboLogo} 
-    alt="Krombo Logo" 
-    className="w-16 h-16 object-contain drop-shadow-lg"
-  />
-            
+        <div className="px-5 py-4 flex items-center justify-between border-b border-white/10 bg-gradient-to-b from-white/10 to-transparent backdrop-blur-md">
+          <div className="flex items-center gap-4">
+            <div className="relative group">
+              <div className="absolute -inset-2 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full blur-md opacity-40 group-hover:opacity-70 transition duration-500 animate-pulse"></div>
+              <img 
+                src={kromboLogo} 
+                alt="Krombo Logo" 
+                className="relative w-16 h-16 object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] transform group-hover:rotate-12 transition-transform duration-300"
+              />
+            </div>
             <div>
-              <h1 className="font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-300 via-fuchsia-300 to-blue-300 text-2xl tracking-tight leading-none drop-shadow-[0_0_8px_rgba(216,180,254,0.5)]">{TRIVIA_BRAND_NAME}</h1>
-              <p className="text-white/70 text-sm font-semibold tracking-wide mt-1">{TRIVIA_SUBTITLE}</p>
+              <h1 className="font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-300 via-fuchsia-300 to-blue-300 text-3xl tracking-tight leading-none drop-shadow-[0_0_10px_rgba(216,180,254,0.6)]">{TRIVIA_BRAND_NAME}</h1>
+              <p className="text-white/80 text-sm font-bold tracking-widest mt-1 uppercase flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-fuchsia-300" /> {TRIVIA_SUBTITLE}
+              </p>
               {currentSession?.status === 'active' && currentQuestion && (
-                <div className="text-white/60 text-[10px] font-bold uppercase tracking-wider mt-1">
-                  Question {currentQIndex} of {currentSession.total_questions}
+                <div className="inline-block bg-white/10 px-2 py-0.5 rounded-md text-white/80 text-[10px] font-black uppercase tracking-widest mt-1.5 border border-white/10 shadow-sm">
+                  Question {currentQIndex} / {currentSession.total_questions}
                 </div>
               )}
             </div>
@@ -888,56 +890,75 @@ export default function TriviaGame({
           ) : showResult ? (
             // Results screen
             <div className="flex flex-col items-center gap-5 py-8">
-              <div className="relative">
-                <div className="absolute inset-0 bg-amber-500 blur-3xl opacity-40 rounded-full animate-pulse" />
-                <Trophy className="w-24 h-24 text-amber-400 drop-shadow-[0_0_25px_rgba(251,191,36,0.8)] animate-bounce" />
-              </div>
-
               {winnerTeam ? (
                 <>
-                  <div className="font-black text-4xl tracking-widest uppercase"
-                    style={{ color: winnerTeam.color }}>
-                    🏆 {winnerTeam.name}
-                  </div>
-                  <div className="text-white/60 text-lg font-bold">Wins!</div>
-                  <div className="bg-white/5 border border-white/10 rounded-2xl px-6 py-3 text-center">
-                    <div className="text-white/40 text-xs mb-1">Team Score</div>
-                    <div className="font-black text-3xl" style={{ color: winnerTeam.color }}>
-                      {winnerTeam.total_score || 0} pts
+                  <div className="relative mt-4 mb-6">
+                    <div className="absolute -inset-4 bg-gradient-to-r from-white/20 to-white/0 rounded-full blur-2xl opacity-60 animate-[spin_4s_linear_infinite]" style={{ backgroundColor: winnerTeam.color }}></div>
+                    <div className="relative bg-slate-900/90 border-4 rounded-3xl px-10 py-8 text-center shadow-2xl backdrop-blur-xl transform hover:scale-105 transition-transform duration-500" style={{ borderColor: winnerTeam.color, boxShadow: `0 0 40px ${winnerTeam.color}80` }}>
+                      <Trophy className="absolute -top-8 left-1/2 -translate-x-1/2 w-16 h-16 drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] animate-bounce" style={{ color: winnerTeam.color }} />
+                      <div className="font-black text-5xl tracking-widest uppercase mt-4 drop-shadow-lg"
+                        style={{ color: winnerTeam.color }}>
+                        {winnerTeam.name}
+                      </div>
+                      <div className="text-white/80 text-xl font-bold mt-2 tracking-widest uppercase">Champions!</div>
+                      <div className="mt-6 bg-black/40 border border-white/10 rounded-2xl px-8 py-4 text-center inline-block">
+                        <div className="text-white/50 text-sm font-bold uppercase tracking-widest mb-1">Team Score</div>
+                        <div className="font-black text-5xl drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]" style={{ color: winnerTeam.color }}>
+                          {winnerTeam.total_score || 0} <span className="text-2xl text-white/40">pts</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                   {/* Team members */}
-                  <div className="w-full space-y-2">
-                    {players.filter(p => p.team_id === winnerTeam.id).map(p => (
-                      <div key={p.id} className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5">
+                  <div className="w-full space-y-3 px-2">
+                    <div className="text-center mb-2">
+                      <span className="text-white/60 font-black text-sm uppercase tracking-widest">Winning Roster</span>
+                    </div>
+                    {players.filter(p => p.team_id === winnerTeam.id).map((p, i) => (
+                      <div key={p.id} className="flex items-center gap-4 bg-gradient-to-r from-white/10 to-white/5 border border-white/20 rounded-2xl px-5 py-3 shadow-lg transform hover:-translate-y-1 transition-all duration-300" style={{ borderLeftColor: winnerTeam.color, borderLeftWidth: '4px' }}>
+                        <span className="text-xl w-6 text-center drop-shadow-md">{['🥇','🥈','🥉'][i] || '🏅'}</span>
                         <img src={p.avatar_url || FALLBACK_AVATAR} alt={p.name}
-                          className="w-8 h-8 rounded-full object-cover" />
-                        <span className="text-white font-bold flex-1">{p.name}</span>
-                        <span className="text-amber-400 font-black text-sm">{p.score} pts</span>
+                          className="w-10 h-10 rounded-full object-cover border-2 border-white/20 shadow-md" />
+                        <span className="text-white font-black text-lg flex-1">{p.name}</span>
+                        <span className="font-black text-lg px-3 py-1 rounded-xl bg-black/30 border border-white/10" style={{ color: winnerTeam.color }}>{p.score} pts</span>
                       </div>
                     ))}
                   </div>
                 </>
               ) : (
-                <div className="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-500 font-black text-4xl tracking-widest uppercase drop-shadow-[0_0_10px_rgba(251,191,36,0.5)]">Winner!</div>
-              )}
-              
-              {!winnerTeam && (
                 <>
-                  <div className="relative mt-2">
-                    <div className="absolute -inset-2 bg-gradient-to-r from-amber-400 to-yellow-500 rounded-full blur-md opacity-60 animate-pulse" />
+                  <div className="relative">
+                    <div className="absolute -inset-2 bg-gradient-to-r from-amber-400 via-yellow-200 to-amber-400 blur-xl opacity-50 animate-pulse rounded-full"></div>
+                    <div className="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-100 to-amber-500 font-black text-5xl tracking-widest uppercase drop-shadow-[0_0_15px_rgba(251,191,36,0.8)] relative z-10 animate-bounce">
+                      Winner!
+                    </div>
+                  </div>
+                  
+                  <div className="relative mt-4 mb-2">
+                    <div className="absolute -inset-4 bg-gradient-to-r from-amber-400 via-yellow-500 to-orange-500 rounded-full blur-xl opacity-70 animate-[spin_4s_linear_infinite]" />
+                    <div className="absolute -inset-2 bg-gradient-to-r from-yellow-300 to-amber-400 rounded-full blur-md opacity-80 animate-pulse" />
                     <img
                       src={winner?.avatar_url || FALLBACK_AVATAR}
                       alt={winner?.name}
-                      className="relative w-28 h-28 rounded-full border-4 border-slate-900 object-cover shadow-[0_0_20px_rgba(251,191,36,0.5)]"
+                      className="relative w-32 h-32 rounded-full border-4 border-amber-300 object-cover shadow-[0_0_30px_rgba(251,191,36,0.8)] transform hover:scale-110 transition-transform duration-500"
                     />
+                    <Trophy className="absolute -bottom-2 -right-2 w-10 h-10 text-amber-300 drop-shadow-[0_0_15px_rgba(251,191,36,1)] animate-bounce" />
                   </div>
-                  <div className="text-white font-black text-3xl drop-shadow-md">{winner?.name}</div>
+                  <div className="text-white font-black text-4xl drop-shadow-lg mt-2">{winner?.name}</div>
                   
                   {winnerCoins > 0 && (
-                    <div className="bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border border-amber-500/50 rounded-2xl px-8 py-4 text-center shadow-[0_0_30px_rgba(245,158,11,0.25)]">
-                      <div className="text-amber-300 text-5xl font-black drop-shadow-[0_0_15px_rgba(251,191,36,0.6)]">
-                        🪙 {winnerCoins.toLocaleString()}
+                    <div className="relative group mt-4">
+                      <div className="absolute -inset-1 bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 rounded-2xl blur-lg opacity-70 group-hover:opacity-100 transition duration-1000 group-hover:duration-200 animate-pulse"></div>
+                      <div className="relative bg-slate-900/80 ring-1 ring-amber-400/50 rounded-2xl px-10 py-6 text-center shadow-[0_0_40px_rgba(251,191,36,0.4)] backdrop-blur-sm transform hover:scale-105 transition-transform duration-300">
+                        <div className="absolute top-0 left-0 w-full h-full overflow-hidden rounded-2xl pointer-events-none">
+                          <Sparkles className="absolute top-2 left-2 w-4 h-4 text-amber-300 animate-ping opacity-75" />
+                          <Sparkles className="absolute bottom-2 right-2 w-5 h-5 text-yellow-200 animate-pulse opacity-75" />
+                        </div>
+                        <div className="text-transparent bg-clip-text bg-gradient-to-b from-amber-200 to-amber-500 text-6xl font-black drop-shadow-[0_0_20px_rgba(251,191,36,0.8)] flex items-center justify-center gap-3">
+                          <span className="animate-bounce">🪙</span> 
+                          <span>{winnerCoins.toLocaleString()}</span>
+                        </div>
+                        <div className="text-amber-400/80 text-sm font-bold uppercase tracking-widest mt-2">Total Winnings</div>
                       </div>
                     </div>
                   )}
@@ -945,21 +966,45 @@ export default function TriviaGame({
               )}
               
               {/* Leaderboard */}
-              <div className="w-full space-y-2 mt-6 px-2">
+              <div className="w-full space-y-3 mt-8 px-2">
+                <div className="text-center mb-4">
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-yellow-500 font-black text-2xl uppercase tracking-widest drop-shadow-md">
+                    Final Standings
+                  </span>
+                </div>
                 {leaderboard.slice(0, 5).map((p, i) => {
                   const totalSec = p.total_time_ms ? (p.total_time_ms / 1000).toFixed(1) : null;
+                  const isFirst = i === 0;
                   return (
-                    <div key={p.id} className="flex items-center gap-3 bg-white/5 hover:bg-white/10 transition-colors border border-white/10 rounded-xl px-4 py-3 shadow-sm">
-                      <span className="text-2xl w-8 text-center drop-shadow-md">{['🥇','🥈','🥉','4️⃣','5️⃣'][i]}</span>
-                      <img src={p.avatar_url || FALLBACK_AVATAR} alt={p.name}
-                        className="w-10 h-10 rounded-full object-cover border-2 border-white/20 shadow-sm" />
+                    <div key={p.id} className={`flex items-center gap-4 transition-all duration-300 border rounded-2xl px-5 py-4 shadow-lg transform hover:-translate-y-1 ${
+                      isFirst 
+                        ? 'bg-gradient-to-r from-amber-500/20 to-yellow-500/10 border-amber-400/50 shadow-[0_0_20px_rgba(251,191,36,0.3)] scale-105 z-10' 
+                        : 'bg-white/5 hover:bg-white/10 border-white/10'
+                    }`}>
+                      <div className="relative flex items-center justify-center w-10 h-10">
+                        {isFirst && <div className="absolute inset-0 bg-amber-400 blur-md opacity-50 rounded-full animate-pulse"></div>}
+                        <span className="relative text-3xl drop-shadow-lg z-10">{['👑','🥈','🥉','4️⃣','5️⃣'][i]}</span>
+                      </div>
+                      <div className="relative">
+                        {isFirst && <div className="absolute -inset-1 bg-amber-400 rounded-full blur-sm opacity-50"></div>}
+                        <img src={p.avatar_url || FALLBACK_AVATAR} alt={p.name}
+                          className={`relative w-12 h-12 rounded-full object-cover border-2 shadow-md ${isFirst ? 'border-amber-300' : 'border-white/20'}`} />
+                      </div>
                       <div className="flex-1 min-w-0">
-                        <div className="text-white font-bold truncate">{p.name}</div>
+                        <div className={`font-black truncate text-lg ${isFirst ? 'text-amber-300 drop-shadow-md' : 'text-white'}`}>{p.name}</div>
                         {totalSec && (
-                          <div className="text-blue-300 text-xs font-bold">⚡ {totalSec}s total</div>
+                          <div className="text-blue-300/80 text-xs font-bold flex items-center gap-1">
+                            <Timer className="w-3 h-3" /> {totalSec}s total
+                          </div>
                         )}
                       </div>
-                      <span className="text-amber-400 font-black bg-amber-400/10 border border-amber-400/20 px-3 py-1.5 rounded-lg shadow-[0_0_10px_rgba(251,191,36,0.2)]">{p.score} pts</span>
+                      <div className={`font-black px-4 py-2 rounded-xl shadow-inner border ${
+                        isFirst 
+                          ? 'bg-amber-400/20 border-amber-400/40 text-amber-300 shadow-[0_0_15px_rgba(251,191,36,0.4)] text-xl' 
+                          : 'bg-white/5 border-white/10 text-amber-400/80 text-lg'
+                      }`}>
+                        {p.score} <span className="text-xs opacity-70">pts</span>
+                      </div>
                     </div>
                   );
                 })}
@@ -970,41 +1015,42 @@ export default function TriviaGame({
             // Active game - question screen
             <div className="flex flex-col gap-4">
               {/* Timer */}
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2 bg-white/10 border border-white/5 px-3 py-1.5 rounded-lg shadow-inner">
-                  <BrainCircuit className="w-4 h-4 text-purple-400 drop-shadow-[0_0_5px_rgba(192,132,252,0.5)]" />
-                  <span className="text-white/90 text-sm font-bold">Q {currentQIndex} <span className="text-white/40">/ {currentSession.total_questions}</span></span>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2 bg-white/10 border border-white/5 px-4 py-2 rounded-xl shadow-inner backdrop-blur-sm">
+                  <BrainCircuit className="w-5 h-5 text-purple-400 drop-shadow-[0_0_5px_rgba(192,132,252,0.5)]" />
+                  <span className="text-white/90 text-sm font-black">Q {currentQIndex} <span className="text-white/40">/ {currentSession.total_questions}</span></span>
                 </div>
-                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-black text-lg shadow-lg border ${timeLeft <= 5 ? 'bg-rose-500/20 text-rose-400 border-rose-500/30 animate-pulse shadow-[0_0_15px_rgba(225,29,72,0.4)]' : 'bg-white/10 text-white border-white/5'}`}>
-                  <Timer className="w-5 h-5" />
+                <div className={`flex items-center gap-2 px-4 py-2 rounded-xl font-black text-xl shadow-2xl border backdrop-blur-md transition-colors duration-300 ${timeLeft <= 5 ? 'bg-rose-500/20 text-rose-400 border-rose-500/50 animate-pulse shadow-[0_0_25px_rgba(225,29,72,0.6)]' : 'bg-white/10 text-white border-white/20 shadow-[0_0_15px_rgba(255,255,255,0.1)]'}`}>
+                  <Timer className={`w-6 h-6 ${timeLeft <= 5 ? 'animate-ping' : ''}`} />
                   {timeLeft}s
                 </div>
               </div>
 
               {/* Progress bar */}
-              <div className="h-2.5 bg-slate-800/50 rounded-full overflow-hidden mb-2 border border-white/5 shadow-inner">
+              <div className="h-3 sm:h-4 bg-slate-900/80 rounded-full overflow-hidden mb-4 border border-white/10 shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)] relative">
                 <div
-                  className={`h-full rounded-full transition-all duration-1000 ease-linear relative ${timeLeft <= 5 ? 'bg-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.8)]' : 'bg-gradient-to-r from-emerald-400 to-cyan-400 shadow-[0_0_15px_rgba(52,211,153,0.6)]'}`}
+                  className={`h-full rounded-full transition-all duration-1000 ease-linear relative ${timeLeft <= 5 ? 'bg-gradient-to-r from-rose-600 to-rose-400 shadow-[0_0_20px_rgba(244,63,94,0.8)]' : 'bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-400 shadow-[0_0_20px_rgba(52,211,153,0.8)]'}`}
                   style={{ width: `${(timeLeft / (currentSession.time_per_question || 15)) * 100}%` }}
                 >
-                  <div className="absolute inset-0 bg-white/20 w-full animate-[shimmer_2s_infinite]" />
+                  <div className="absolute inset-0 bg-gradient-to-b from-white/30 to-transparent rounded-full" />
+                  <div className="absolute inset-0 bg-white/20 w-full animate-pulse" />
                 </div>
               </div>
 
               {/* Question - Enhanced Visuals */}
-              <div className="relative mt-2 mb-4">
-                <div className="absolute -inset-1 bg-gradient-to-r from-purple-500 via-fuchsia-500 to-blue-500 rounded-2xl blur-md opacity-40 animate-pulse" />
-                <div className="relative bg-slate-900/90 border border-white/10 rounded-2xl p-8 text-center shadow-2xl backdrop-blur-xl">
-                  <Sparkles className="absolute top-3 right-3 w-5 h-5 text-purple-400/50 animate-pulse" />
-                  <BrainCircuit className="absolute bottom-3 left-3 w-5 h-5 text-blue-400/50 animate-pulse" />
-                  <p className="text-white font-black text-2xl leading-snug drop-shadow-[0_2px_10px_rgba(255,255,255,0.2)]">
+              <div className="relative mt-4 mb-6 group">
+                <div className="absolute -inset-1.5 bg-gradient-to-r from-purple-600 via-fuchsia-500 to-blue-600 rounded-3xl blur-lg opacity-60 group-hover:opacity-100 transition duration-500 animate-pulse" />
+                <div className="relative bg-slate-900/95 border border-white/20 rounded-3xl p-8 sm:p-10 text-center shadow-[0_0_40px_rgba(168,85,247,0.3)] backdrop-blur-2xl">
+                  <Sparkles className="absolute top-4 right-4 w-6 h-6 text-purple-300/70 animate-ping" />
+                  <BrainCircuit className="absolute bottom-4 left-4 w-6 h-6 text-blue-300/70 animate-pulse" />
+                  <p className="text-transparent bg-clip-text bg-gradient-to-br from-white via-blue-100 to-purple-200 font-black text-2xl sm:text-3xl leading-snug drop-shadow-[0_2px_10px_rgba(255,255,255,0.3)]">
                     {currentQuestion.question_text}
                   </p>
                 </div>
               </div>
 
               {/* Options */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 {['A','B','C','D'].map(opt => {
                   const optText = currentQuestion[`option_${opt.toLowerCase()}`];
                   const isSelected = selectedAnswer === opt;
@@ -1013,11 +1059,11 @@ export default function TriviaGame({
 
                   let bg = `bg-gradient-to-br ${OPTION_COLORS[opt]} shadow-lg`;
                   if (answerResult) {
-                    if (isCorrect) bg = 'bg-gradient-to-br from-emerald-400 to-emerald-600 border-emerald-300 shadow-[0_0_30px_rgba(16,185,129,0.6)] scale-[1.02] z-10';
-                    else if (isWrong) bg = 'bg-gradient-to-br from-rose-500 to-rose-700 border-rose-400 shadow-[0_0_20px_rgba(225,29,72,0.5)] opacity-90';
-                    else bg = 'bg-white/5 border-white/10 opacity-30 grayscale-[50%]';
+                    if (isCorrect) bg = 'bg-gradient-to-br from-emerald-400 to-emerald-600 border-emerald-300 shadow-[0_0_40px_rgba(16,185,129,0.8)] scale-[1.05] z-10 ring-4 ring-emerald-400/50';
+                    else if (isWrong) bg = 'bg-gradient-to-br from-rose-500 to-rose-700 border-rose-400 shadow-[0_0_20px_rgba(225,29,72,0.5)] opacity-90 scale-95';
+                    else bg = 'bg-white/5 border-white/10 opacity-30 grayscale-[70%] scale-95';
                   } else {
-                    bg += ' hover:shadow-[0_0_20px_rgba(255,255,255,0.15)] hover:-translate-y-1 hover:brightness-110';
+                    bg += ' hover:shadow-[0_0_30px_rgba(255,255,255,0.25)] hover:-translate-y-1.5 hover:scale-[1.02] hover:brightness-125';
                   }
 
                   return (
@@ -1025,13 +1071,17 @@ export default function TriviaGame({
                       key={opt}
                       onClick={() => submitAnswer(opt)}
                       disabled={!!selectedAnswer}
-                      className={`${bg} rounded-2xl p-5 text-left transition-all duration-300 active:scale-95 disabled:cursor-default border ${!answerResult ? 'border-white/10' : ''} relative overflow-hidden group`}
+                      className={`${bg} rounded-2xl p-5 sm:p-6 text-left transition-all duration-300 active:scale-95 disabled:cursor-default border ${!answerResult ? 'border-white/20' : ''} relative overflow-hidden group`}
                     >
-                      <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <Target className="w-10 h-10" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                      <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-2xl group-hover:bg-white/20 transition-colors duration-300" />
+                      <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-30 transition-opacity duration-300 transform group-hover:rotate-12 group-hover:scale-110">
+                        <Target className="w-12 h-12" />
                       </div>
-                      <div className="text-white/80 text-xs font-black mb-2 drop-shadow-md">{OPTION_LABELS[opt]}</div>
-                      <div className="text-white font-bold text-lg leading-tight relative z-10 drop-shadow-md">{optText}</div>
+                      <div className="text-white/90 text-sm font-black mb-2 drop-shadow-md flex items-center gap-2">
+                        <span className="bg-white/20 px-2 py-0.5 rounded-md shadow-sm">{OPTION_LABELS[opt]}</span>
+                      </div>
+                      <div className="text-white font-bold text-lg sm:text-xl leading-tight relative z-10 drop-shadow-lg">{optText}</div>
                     </button>
                   );
                 })}
@@ -1039,21 +1089,32 @@ export default function TriviaGame({
 
               {/* Answer feedback */}
               {answerResult && (
-                <div className={`text-center py-4 rounded-xl font-black text-xl shadow-2xl border mt-2 ${
+                <div className={`text-center py-5 rounded-2xl font-black text-2xl shadow-2xl border mt-4 transform transition-all duration-500 animate-[bounce_0.5s_ease-in-out] ${
                   answerResult.isCorrect 
-                    ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.3)]' 
-                    : 'bg-rose-500/20 text-rose-400 border-rose-500/50 shadow-[0_0_20px_rgba(225,29,72,0.3)]'
+                    ? 'bg-gradient-to-r from-emerald-500/20 to-teal-500/20 text-emerald-400 border-emerald-500/50 shadow-[0_0_30px_rgba(16,185,129,0.4)]' 
+                    : 'bg-gradient-to-r from-rose-500/20 to-pink-500/20 text-rose-400 border-rose-500/50 shadow-[0_0_30px_rgba(225,29,72,0.4)]'
                 }`}>
-                  {answerResult.isCorrect ? `✅ Correct! +${answerResult.points} pts` : `❌ Wrong! Correct was ${answerResult.correctAnswer}`}
+                  {answerResult.isCorrect ? (
+                    <div className="flex items-center justify-center gap-3">
+                      <Sparkles className="w-8 h-8 text-emerald-300 animate-spin" />
+                      <span>Correct! +{answerResult.points} pts</span>
+                      <Sparkles className="w-8 h-8 text-emerald-300 animate-spin" />
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center gap-3">
+                      <X className="w-8 h-8 text-rose-400 animate-ping" />
+                      <span>Wrong! Correct was {answerResult.correctAnswer}</span>
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* My score */}
               {myPlayer && (
-                <div className="flex items-center justify-center gap-2 mt-3">
-                  <div className="bg-white/5 border border-white/10 rounded-full px-5 py-2 flex items-center gap-3 shadow-inner">
-                    <span className="text-white/60 text-xs font-bold uppercase tracking-wider">My Score</span>
-                    <span className="text-amber-400 font-black text-base drop-shadow-[0_0_5px_rgba(251,191,36,0.5)]">{myPlayer.score} pts</span>
+                <div className="flex items-center justify-center gap-2 mt-5">
+                  <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30 rounded-full px-6 py-2.5 flex items-center gap-3 shadow-[0_0_15px_rgba(245,158,11,0.15)] backdrop-blur-sm transform hover:scale-105 transition-transform">
+                    <span className="text-amber-200/70 text-xs font-black uppercase tracking-widest">My Score</span>
+                    <span className="text-amber-400 font-black text-xl drop-shadow-[0_0_8px_rgba(251,191,36,0.6)]">{myPlayer.score} <span className="text-sm opacity-70">pts</span></span>
                   </div>
                 </div>
               )}
@@ -1063,38 +1124,41 @@ export default function TriviaGame({
                 <button
                   onClick={nextQuestion}
                   disabled={!timeExpired}
-                  className={`w-full py-4 rounded-xl font-black text-base active:scale-95 transition-all shadow-xl mt-3 ${
+                  className={`relative w-full py-5 rounded-2xl font-black text-lg active:scale-95 transition-all shadow-xl mt-5 overflow-hidden group ${
                     timeExpired
-                      ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-[0_0_20px_rgba(59,130,246,0.5)] hover:brightness-110'
+                      ? 'bg-gradient-to-r from-blue-500 via-indigo-500 to-blue-500 text-white shadow-[0_0_30px_rgba(59,130,246,0.5)] hover:shadow-[0_0_40px_rgba(59,130,246,0.7)] bg-[length:200%_auto] hover:bg-right duration-500'
                       : 'bg-white/5 text-white/30 cursor-not-allowed border border-white/10'
                   }`}
                 >
-                  {!timeExpired
-                    ? `⏳ Wait ${timeLeft}s...`
-                    : currentQIndex >= (currentSession.total_questions ?? 0)
-                    ? '🏁 End Game'
-                    : `⏭ Next Question (${currentQIndex}/${currentSession.total_questions})`
-                  }
+                  {timeExpired && <div className="absolute inset-0 bg-white/20 w-full translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out" />}
+                  <span className="relative flex items-center justify-center gap-2">
+                    {!timeExpired
+                      ? <><Loader2 className="w-5 h-5 animate-spin"/> Wait {timeLeft}s...</>
+                      : currentQIndex >= (currentSession.total_questions ?? 0)
+                      ? <><Trophy className="w-6 h-6 group-hover:animate-bounce"/> End Game</>
+                      : <><Sparkles className="w-6 h-6 group-hover:animate-pulse"/> Next Question ({currentQIndex}/{currentSession.total_questions})</>
+                    }
+                  </span>
                 </button>
               )}
 
               {/* Players scores */}
-              <div className="space-y-2 mt-5">
-                <div className="text-white/50 text-xs font-bold uppercase tracking-wider mb-3 px-1 flex items-center gap-2">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Live Scores
+              <div className="space-y-2.5 mt-6">
+                <div className="text-white/70 text-sm font-black uppercase tracking-widest mb-4 px-1 flex items-center gap-2 border-b border-white/10 pb-2">
+                  <Sparkles className="w-4 h-4 text-amber-400 animate-pulse" /> Live Leaderboard
                 </div>
 
                 {/* Team scores */}
                 {currentSession.mode === 'team' && teams.length > 0 && (
-                  <div className="grid grid-cols-2 gap-2 mb-3">
+                  <div className="grid grid-cols-2 gap-3 mb-4">
                     {[...teams].sort((a,b) => (b.total_score||0) - (a.total_score||0)).map(team => (
-                      <div key={team.id} className="rounded-xl p-3 text-center border"
-                        style={{ borderColor: team.color + '40', background: team.color + '15' }}>
-                        <div className="flex items-center justify-center gap-1 mb-1">
-                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: team.color }} />
-                          <span className="text-white text-xs font-black">{team.name}</span>
+                      <div key={team.id} className="rounded-2xl p-4 text-center border-2 shadow-lg transform hover:-translate-y-1 transition-transform"
+                        style={{ borderColor: team.color + '50', background: `linear-gradient(135deg, ${team.color}20, transparent)` }}>
+                        <div className="flex items-center justify-center gap-2 mb-2">
+                          <div className="w-3 h-3 rounded-full shadow-[0_0_10px_currentColor]" style={{ backgroundColor: team.color, color: team.color }} />
+                          <span className="text-white text-sm font-black drop-shadow-md">{team.name}</span>
                         </div>
-                        <div className="font-black text-xl" style={{ color: team.color }}>
+                        <div className="font-black text-3xl drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]" style={{ color: team.color }}>
                           {team.total_score || 0}
                         </div>
                       </div>
@@ -1108,20 +1172,23 @@ export default function TriviaGame({
                 }).map((p, i) => {
                   const counts = playerAnswerCounts[p.user_id] || { correct: 0, wrong: 0 };
                   const totalSec = p.total_time_ms ? (p.total_time_ms / 1000).toFixed(1) : null;
+                  const isTop = i === 0 && p.score > 0;
                   return (
-                    <div key={p.id} className="flex items-center gap-3 bg-white/5 hover:bg-white/10 transition-colors border border-white/10 rounded-xl px-3 py-2.5 shadow-sm">
-                      <span className="text-base w-6 text-center drop-shadow-md">{['🥇','🥈','🥉'][i] || `${i + 1}`}</span>
+                    <div key={p.id} className={`flex items-center gap-3 transition-all duration-300 border rounded-xl px-3 py-3 shadow-sm ${
+                      isTop ? 'bg-gradient-to-r from-amber-500/10 to-transparent border-amber-500/30 shadow-[0_0_10px_rgba(251,191,36,0.1)]' : 'bg-white/5 hover:bg-white/10 border-white/10'
+                    }`}>
+                      <span className="text-xl w-8 text-center drop-shadow-md">{['🥇','🥈','🥉'][i] || <span className="text-sm text-white/40 font-black">{i + 1}</span>}</span>
                       <img src={p.avatar_url || FALLBACK_AVATAR} alt={p.name}
-                        className="w-8 h-8 rounded-full object-cover border border-white/20 shadow-sm" />
-                      <span className="text-white text-sm font-bold flex-1 truncate">{p.name}</span>
-                      <div className="flex items-center gap-1.5 bg-black/30 border border-white/5 px-2 py-1 rounded-lg shadow-inner">
-                        <span className="text-emerald-400 text-xs font-black">✅{counts.correct}</span>
-                        <span className="text-rose-400 text-xs font-black">❌{counts.wrong}</span>
+                        className={`w-9 h-9 rounded-full object-cover border shadow-sm ${isTop ? 'border-amber-400/50' : 'border-white/20'}`} />
+                      <span className={`text-sm font-bold flex-1 truncate ${isTop ? 'text-amber-100' : 'text-white'}`}>{p.name}</span>
+                      <div className="flex items-center gap-2 bg-black/40 border border-white/5 px-2.5 py-1.5 rounded-lg shadow-inner">
+                        <span className="text-emerald-400 text-xs font-black flex items-center gap-0.5"><Target className="w-3 h-3"/>{counts.correct}</span>
+                        <span className="text-rose-400 text-xs font-black flex items-center gap-0.5"><X className="w-3 h-3"/>{counts.wrong}</span>
                         {totalSec && (
-                          <span className="text-blue-300 text-xs font-black ml-1">⚡{totalSec}s</span>
+                          <span className="text-blue-300 text-xs font-black ml-1 border-l border-white/10 pl-2 flex items-center gap-0.5"><Timer className="w-3 h-3"/>{totalSec}s</span>
                         )}
                       </div>
-                      <span className="text-amber-400 font-black text-sm w-10 text-right">{p.score}</span>
+                      <span className={`font-black text-base w-12 text-right ${isTop ? 'text-amber-400 drop-shadow-[0_0_5px_rgba(251,191,36,0.5)]' : 'text-amber-400/70'}`}>{p.score}</span>
                     </div>
                   );
                 })}
@@ -1131,32 +1198,44 @@ export default function TriviaGame({
           ) : currentSession ? (
             // Waiting room
             <div className="flex flex-col gap-4">
-              <div className="grid grid-cols-4 gap-2 mb-3">
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-3 text-center flex flex-col items-center justify-center shadow-sm">
-                  <div className="text-white/50 text-[10px] uppercase font-black tracking-wider mb-1">Entry</div>
-                  <div className="text-amber-400 font-black text-sm">
-                    {currentSession.entry_cost > 0 ? `🪙 ${currentSession.entry_cost}` : 'Free'}
+              <div className="grid grid-cols-4 gap-3 mb-6">
+                <div className="relative group">
+                  <div className="absolute inset-0 bg-amber-500/20 blur-md rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <div className="relative bg-gradient-to-b from-white/10 to-white/5 border border-white/10 rounded-2xl p-4 text-center flex flex-col items-center justify-center shadow-lg backdrop-blur-sm transform group-hover:-translate-y-1 transition-all duration-300">
+                    <div className="text-white/50 text-[10px] uppercase font-black tracking-widest mb-1.5">Entry</div>
+                    <div className="text-amber-400 font-black text-base drop-shadow-[0_0_8px_rgba(251,191,36,0.5)]">
+                      {currentSession.entry_cost > 0 ? `🪙 ${currentSession.entry_cost}` : 'Free'}
+                    </div>
                   </div>
                 </div>
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-3 text-center flex flex-col items-center justify-center shadow-sm">
-                  <div className="text-white/50 text-[10px] uppercase font-black tracking-wider mb-1">Questions</div>
-                  <div className="text-white font-black text-sm">{currentSession.total_questions}</div>
+                <div className="relative group">
+                  <div className="absolute inset-0 bg-blue-500/20 blur-md rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <div className="relative bg-gradient-to-b from-white/10 to-white/5 border border-white/10 rounded-2xl p-4 text-center flex flex-col items-center justify-center shadow-lg backdrop-blur-sm transform group-hover:-translate-y-1 transition-all duration-300">
+                    <div className="text-white/50 text-[10px] uppercase font-black tracking-widest mb-1.5">Questions</div>
+                    <div className="text-white font-black text-base drop-shadow-md">{currentSession.total_questions}</div>
+                  </div>
                 </div>
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-3 text-center flex flex-col items-center justify-center shadow-sm">
-                  <div className="text-white/50 text-[10px] uppercase font-black tracking-wider mb-1">Time/Q</div>
-                  <div className="text-white font-black text-sm">{currentSession.time_per_question}s</div>
+                <div className="relative group">
+                  <div className="absolute inset-0 bg-emerald-500/20 blur-md rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <div className="relative bg-gradient-to-b from-white/10 to-white/5 border border-white/10 rounded-2xl p-4 text-center flex flex-col items-center justify-center shadow-lg backdrop-blur-sm transform group-hover:-translate-y-1 transition-all duration-300">
+                    <div className="text-white/50 text-[10px] uppercase font-black tracking-widest mb-1.5">Time/Q</div>
+                    <div className="text-white font-black text-base drop-shadow-md">{currentSession.time_per_question}s</div>
+                  </div>
                 </div>
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-3 text-center flex flex-col items-center justify-center shadow-sm">
-                  <div className="text-white/50 text-[10px] uppercase font-black tracking-wider mb-1">Mode</div>
-                  <div className="text-white font-black text-sm">{currentSession.mode === 'team' ? '👥' : '🎯'}</div>
+                <div className="relative group">
+                  <div className="absolute inset-0 bg-purple-500/20 blur-md rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <div className="relative bg-gradient-to-b from-white/10 to-white/5 border border-white/10 rounded-2xl p-4 text-center flex flex-col items-center justify-center shadow-lg backdrop-blur-sm transform group-hover:-translate-y-1 transition-all duration-300">
+                    <div className="text-white/50 text-[10px] uppercase font-black tracking-widest mb-1.5">Mode</div>
+                    <div className="text-white font-black text-base drop-shadow-md">{currentSession.mode === 'team' ? '👥' : '🎯'}</div>
+                  </div>
                 </div>
               </div>
 
               {/* TEAM MODE - Show teams */}
               {currentSession.mode === 'team' ? (
-                <div className="space-y-3">
-                  <div className="text-white/50 text-xs font-bold uppercase tracking-wider px-1 flex items-center gap-2">
-                    <Target className="w-3.5 h-3.5 text-blue-400" /> Choose Your Team
+                <div className="space-y-4">
+                  <div className="text-white/70 text-sm font-black uppercase tracking-widest px-1 flex items-center gap-2 border-b border-white/10 pb-2">
+                    <Target className="w-4 h-4 text-blue-400 animate-pulse" /> Choose Your Team
                   </div>
                   {teams.map(team => {
                     const teamPlayers = players.filter(p => p.team_id === team.id);
@@ -1165,47 +1244,48 @@ export default function TriviaGame({
 
                     return (
                       <div key={team.id}
-                        className="border rounded-2xl p-4 space-y-3"
-                        style={{ borderColor: team.color + '40', background: team.color + '10' }}
+                        className="relative border-2 rounded-2xl p-5 space-y-4 overflow-hidden group transition-all duration-300 hover:shadow-lg"
+                        style={{ borderColor: team.color + '50', background: `linear-gradient(135deg, ${team.color}15, transparent)` }}
                       >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: team.color }} />
-                            <span className="text-white font-black text-base">{team.name}</span>
-                            <span className="text-white/40 text-xs">{teamPlayers.length}/{team.max_members}</span>
+                        <div className="absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl opacity-20 group-hover:opacity-40 transition-opacity duration-500" style={{ backgroundColor: team.color }}></div>
+                        <div className="relative flex items-center justify-between z-10">
+                          <div className="flex items-center gap-3">
+                            <div className="w-4 h-4 rounded-full shadow-[0_0_10px_currentColor]" style={{ backgroundColor: team.color, color: team.color }} />
+                            <span className="text-white font-black text-xl drop-shadow-md">{team.name}</span>
+                            <span className="bg-black/40 px-2 py-1 rounded-lg text-white/60 text-xs font-bold border border-white/5">{teamPlayers.length}/{team.max_members}</span>
                           </div>
                           {!myTeam && !isFull && (
                             <button
                               onClick={() => joinTeam(team.id)}
                               disabled={joining}
-                              className="px-4 py-1.5 rounded-xl text-white font-black text-xs active:scale-95 transition-all"
-                              style={{ backgroundColor: team.color }}
+                              className="px-5 py-2 rounded-xl text-white font-black text-sm active:scale-95 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5"
+                              style={{ backgroundColor: team.color, boxShadow: `0 0 15px ${team.color}40` }}
                             >
-                              {joining ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Join'}
+                              {joining ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Join Team'}
                             </button>
                           )}
                           {myTeam && (
-                            <span className="px-3 py-1 rounded-xl text-xs font-black text-white"
+                            <span className="px-4 py-2 rounded-xl text-sm font-black text-white shadow-inner border border-white/20"
                               style={{ backgroundColor: team.color }}>
-                              ✓ You
+                              ✓ Your Team
                             </span>
                           )}
                           {isFull && !myTeam && (
-                            <span className="text-white/30 text-xs font-bold">Full</span>
+                            <span className="bg-black/50 px-4 py-2 rounded-xl text-white/40 text-sm font-bold border border-white/10">Full</span>
                           )}
                         </div>
 
                         {/* Team members */}
-                        <div className="flex flex-wrap gap-2">
+                        <div className="relative flex flex-wrap gap-2.5 z-10">
                           {teamPlayers.map(p => (
-                            <div key={p.id} className="flex items-center gap-1.5 bg-black/20 rounded-full px-2 py-1">
+                            <div key={p.id} className="flex items-center gap-2 bg-black/40 border border-white/10 rounded-full px-3 py-1.5 shadow-sm hover:bg-black/60 transition-colors">
                               <img src={p.avatar_url || FALLBACK_AVATAR} alt={p.name}
-                                className="w-5 h-5 rounded-full object-cover" />
-                              <span className="text-white text-xs font-bold">{p.name}</span>
+                                className="w-6 h-6 rounded-full object-cover border border-white/20" />
+                              <span className="text-white/90 text-sm font-bold">{p.name}</span>
                             </div>
                           ))}
                           {teamPlayers.length === 0 && (
-                            <span className="text-white/30 text-xs">No members yet</span>
+                            <span className="text-white/30 text-sm italic">No members yet</span>
                           )}
                         </div>
                       </div>
@@ -1214,17 +1294,17 @@ export default function TriviaGame({
                 </div>
               ) : (
                 <>
-                  <div className="text-white/50 text-xs font-bold uppercase tracking-wider mb-2 px-1 flex items-center gap-2">
-                    <Target className="w-3.5 h-3.5 text-blue-400" /> Players Joined
+                  <div className="text-white/70 text-sm font-black uppercase tracking-widest mb-3 px-1 flex items-center gap-2 border-b border-white/10 pb-2">
+                    <Target className="w-4 h-4 text-blue-400 animate-pulse" /> Players Joined ({players.length})
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-3">
                     {players.map(p => (
-                      <div key={p.id} className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl p-2.5 shadow-sm">
+                      <div key={p.id} className="flex items-center gap-3 bg-gradient-to-r from-white/10 to-white/5 border border-white/10 rounded-xl p-3 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
                         <img src={p.avatar_url || FALLBACK_AVATAR} alt={p.name}
-                          className="w-8 h-8 rounded-full object-cover border border-white/20 shadow-sm" />
-                        <span className="text-white text-sm font-bold truncate flex-1">{p.name}</span>
+                          className="w-10 h-10 rounded-full object-cover border-2 border-white/20 shadow-sm" />
+                        <span className="text-white text-sm font-bold truncate flex-1 drop-shadow-sm">{p.name}</span>
                         {String(p.user_id) === String(user?.id) && (
-                          <span className="bg-amber-500/20 border border-amber-500/30 text-amber-300 text-[10px] font-black px-2 py-0.5 rounded-full">You</span>
+                          <span className="bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] font-black px-2.5 py-1 rounded-lg shadow-[0_0_10px_rgba(251,191,36,0.2)]">You</span>
                         )}
                       </div>
                     ))}
@@ -1233,28 +1313,33 @@ export default function TriviaGame({
               )}
 
               {/* Actions */}
-              <div className="flex flex-wrap gap-3 mt-4">
+              <div className="flex flex-wrap gap-3 mt-6">
                 {currentSession.mode === 'solo' && !isJoined && (
                   <button onClick={joinSession} disabled={joining}
-                    className="flex-1 py-4 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black text-base disabled:opacity-50 active:scale-95 transition-all shadow-[0_0_20px_rgba(245,158,11,0.4)] flex items-center justify-center gap-2">
-                    {joining ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Join {currentSession.entry_cost > 0 ? `🪙 ${currentSession.entry_cost}` : 'Free'}</>}
+                    className="relative flex-1 py-4 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 text-white font-black text-lg disabled:opacity-50 active:scale-95 transition-all shadow-[0_0_30px_rgba(245,158,11,0.5)] hover:shadow-[0_0_40px_rgba(245,158,11,0.7)] flex items-center justify-center gap-3 overflow-hidden group bg-[length:200%_auto] hover:bg-right duration-500">
+                    <div className="absolute inset-0 bg-white/20 w-full translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out" />
+                    {joining ? <Loader2 className="w-6 h-6 animate-spin" /> : <>
+                      <Sparkles className="w-5 h-5 animate-pulse" />
+                      Join {currentSession.entry_cost > 0 ? `🪙 ${currentSession.entry_cost}` : 'Free'}
+                    </>}
                   </button>
                 )}
                 {isJoined && (
                   <button onClick={leaveSession} disabled={leaving}
-                    className="flex-1 py-4 rounded-xl border border-white/20 text-white/80 font-bold text-base bg-white/5 hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center gap-2">
-                    {leaving ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Leave Game'}
+                    className="flex-1 py-4 rounded-2xl border border-white/20 text-white/80 font-bold text-lg bg-white/5 hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center gap-2">
+                    {leaving ? <Loader2 className="w-6 h-6 animate-spin" /> : 'Leave Game'}
                   </button>
                 )}
                 {canModerate && players.length >= 1 && (
                   <button onClick={startGame}
-                    className="flex-1 py-4 rounded-xl bg-gradient-to-r from-emerald-400 to-emerald-600 text-white font-black text-base active:scale-95 transition-all shadow-[0_0_20px_rgba(16,185,129,0.4)] flex items-center justify-center gap-2">
-                    <Target className="w-5 h-5"/> Start {TRIVIA_BRAND_NAME}
+                    className="relative flex-1 py-4 rounded-2xl bg-gradient-to-r from-emerald-400 via-teal-500 to-emerald-500 text-white font-black text-lg active:scale-95 transition-all shadow-[0_0_30px_rgba(16,185,129,0.5)] hover:shadow-[0_0_40px_rgba(16,185,129,0.7)] flex items-center justify-center gap-3 overflow-hidden group bg-[length:200%_auto] hover:bg-right duration-500">
+                    <div className="absolute inset-0 bg-white/20 w-full translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out" />
+                    <Target className="w-6 h-6 group-hover:animate-ping"/> Start {TRIVIA_BRAND_NAME}
                   </button>
                 )}
                 {canModerate && (
                   <button onClick={cancelSession}
-                    className="px-5 py-4 rounded-xl border border-rose-500/40 text-rose-400 font-bold text-base bg-rose-500/10 hover:bg-rose-500/20 active:scale-95 transition-all">
+                    className="px-6 py-4 rounded-2xl border border-rose-500/40 text-rose-400 font-bold text-lg bg-rose-500/10 hover:bg-rose-500/20 active:scale-95 transition-all shadow-[0_0_15px_rgba(225,29,72,0.2)] hover:shadow-[0_0_25px_rgba(225,29,72,0.4)]">
                     Cancel
                   </button>
                 )}
@@ -1263,44 +1348,50 @@ export default function TriviaGame({
 
           ) : canModerate ? (
             // Create session form
-            <div className="flex flex-col gap-3 pb-[50vh] sm:pb-0">
+            <div className="flex flex-col gap-4 pb-[50vh] sm:pb-0">
               <div className="text-center text-white/60 text-sm mb-4 font-medium">Configure your {TRIVIA_BRAND_NAME} game</div>
 
               {/* Game Mode */}
               <div className="mb-5">
-                <div className="text-white/60 text-xs font-bold mb-2.5 uppercase tracking-wider flex items-center gap-1.5">
+                <div className="text-white/60 text-xs font-bold mb-3 uppercase tracking-widest flex items-center gap-2">
                   <Target className="w-4 h-4 text-purple-400" /> Game Mode
                 </div>
-                <div className="grid grid-cols-2 gap-2.5">
+                <div className="grid grid-cols-2 gap-3">
                   <button
                     onClick={() => setGameMode('solo')}
-                    className={`py-3 rounded-xl font-bold text-sm active:scale-95 transition-all border flex items-center justify-center gap-2 ${
+                    className={`relative py-4 rounded-2xl font-black text-base active:scale-95 transition-all border-2 overflow-hidden group ${
                       gameMode === 'solo'
-                        ? 'bg-purple-500/20 border-purple-500/50 text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.3)]'
-                        : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
+                        ? 'bg-purple-500/20 border-purple-500/50 text-purple-300 shadow-[0_0_20px_rgba(168,85,247,0.3)]'
+                        : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:text-white/80'
                     }`}
                   >
-                    🎯 Solo
+                    {gameMode === 'solo' && <div className="absolute inset-0 bg-purple-500/10 blur-xl animate-pulse"></div>}
+                    <span className="relative flex items-center justify-center gap-2">
+                      <span className="text-xl">🎯</span> Solo
+                    </span>
                   </button>
                   <button
                     onClick={() => setGameMode('team')}
-                    className={`py-3 rounded-xl font-bold text-sm active:scale-95 transition-all border flex items-center justify-center gap-2 ${
+                    className={`relative py-4 rounded-2xl font-black text-base active:scale-95 transition-all border-2 overflow-hidden group ${
                       gameMode === 'team'
-                        ? 'bg-blue-500/20 border-blue-500/50 text-blue-300 shadow-[0_0_15px_rgba(59,130,246,0.3)]'
-                        : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
+                        ? 'bg-blue-500/20 border-blue-500/50 text-blue-300 shadow-[0_0_20px_rgba(59,130,246,0.3)]'
+                        : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:text-white/80'
                     }`}
                   >
-                    👥 Teams
+                    {gameMode === 'team' && <div className="absolute inset-0 bg-blue-500/10 blur-xl animate-pulse"></div>}
+                    <span className="relative flex items-center justify-center gap-2">
+                      <span className="text-xl">👥</span> Teams
+                    </span>
                   </button>
                 </div>
               </div>
 
               {/* Teams setup - only in team mode */}
               {gameMode === 'team' && (
-                <div className="mb-5 bg-blue-500/5 border border-blue-500/20 rounded-2xl p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="text-blue-300 text-xs font-bold uppercase tracking-wider">
-                      👥 Teams Setup
+                <div className="mb-5 bg-blue-500/5 border border-blue-500/20 rounded-2xl p-5 shadow-inner">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="text-blue-300 text-xs font-bold uppercase tracking-widest flex items-center gap-2">
+                      <span className="text-base">👥</span> Teams Setup
                     </div>
                     <button
                       onClick={() => setNewTeams(prev => [...prev, {
@@ -1308,38 +1399,38 @@ export default function TriviaGame({
                         color: ['#6366f1','#ec4899','#f59e0b','#10b981','#ef4444'][prev.length] || '#6366f1',
                         max_members: 5,
                       }])}
-                      className="flex items-center gap-1 text-xs text-blue-400 font-bold bg-blue-500/10 px-2 py-1 rounded-lg"
+                      className="flex items-center gap-1.5 text-xs text-blue-400 font-black bg-blue-500/10 hover:bg-blue-500/20 px-3 py-1.5 rounded-lg transition-colors border border-blue-500/20"
                     >
                       <Plus className="w-3 h-3" /> Add Team
                     </button>
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {newTeams.map((team, i) => (
-                      <div key={i} className="flex items-center gap-2">
+                      <div key={i} className="flex items-center gap-3">
                         <input
                           type="color"
                           value={team.color}
                           onChange={e => setNewTeams(prev => prev.map((t, idx) => idx === i ? {...t, color: e.target.value} : t))}
-                          className="w-8 h-8 rounded-lg border-0 cursor-pointer bg-transparent"
+                          className="w-10 h-10 rounded-xl border-0 cursor-pointer bg-transparent shadow-sm"
                         />
                         <input
                           type="text"
                           value={team.name}
                           onChange={e => setNewTeams(prev => prev.map((t, idx) => idx === i ? {...t, name: e.target.value} : t))}
                           placeholder="Team name..."
-                          className="flex-1 bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none"
+                          className="flex-1 bg-black/40 border border-white/10 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/30 rounded-xl px-4 py-2.5 text-white text-sm font-medium outline-none transition-all"
                         />
                         <input
                           type="number"
                           value={team.max_members}
                           onChange={e => setNewTeams(prev => prev.map((t, idx) => idx === i ? {...t, max_members: Number(e.target.value)} : t))}
                           min="2" max="20"
-                          className="w-14 bg-black/30 border border-white/10 rounded-lg px-2 py-2 text-white text-sm outline-none text-center"
+                          className="w-16 bg-black/40 border border-white/10 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/30 rounded-xl px-2 py-2.5 text-white text-sm font-medium outline-none text-center transition-all"
                         />
                         {newTeams.length > 2 && (
                           <button
                             onClick={() => setNewTeams(prev => prev.filter((_, idx) => idx !== i))}
-                            className="text-rose-400 p-1"
+                            className="text-rose-400/70 hover:text-rose-400 p-2 bg-rose-500/10 hover:bg-rose-500/20 rounded-xl transition-colors"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -1351,19 +1442,20 @@ export default function TriviaGame({
               )}
 
               {/* Entry cost */}
-              <div className="mb-4">
-                <div className="text-white/60 text-xs font-bold mb-2.5 uppercase tracking-wider flex items-center gap-1.5">
+              <div className="mb-5">
+                <div className="text-white/60 text-xs font-bold mb-3 uppercase tracking-widest flex items-center gap-2">
                   <span className="text-amber-400 drop-shadow-md">🪙</span> Entry Cost
                 </div>
-                <div className="grid grid-cols-3 gap-2.5">
+                <div className="grid grid-cols-3 gap-3">
                   {ENTRY_COST_OPTIONS.map(c => (
                     <button key={c} onClick={() => setEntryCost(c)}
-                      className={`py-3 rounded-xl font-bold text-sm active:scale-95 transition-all border ${
+                      className={`relative py-3.5 rounded-xl font-black text-sm active:scale-95 transition-all border-2 overflow-hidden ${
                         entryCost === c 
-                          ? 'bg-amber-500/20 border-amber-500/50 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.3)]' 
-                          : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:border-white/20'
+                          ? 'bg-amber-500/20 border-amber-500/50 text-amber-300 shadow-[0_0_20px_rgba(245,158,11,0.3)]' 
+                          : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:border-white/20 hover:text-white/80'
                       }`}>
-                      {c === 0 ? 'Free' : c >= 1000 ? `${c / 1000}k` : c}
+                      {entryCost === c && <div className="absolute inset-0 bg-amber-500/10 blur-md animate-pulse"></div>}
+                      <span className="relative">{c === 0 ? 'Free' : c >= 1000 ? `${c / 1000}k` : c}</span>
                     </button>
                   ))}
                 </div>
@@ -1371,67 +1463,70 @@ export default function TriviaGame({
 
               {/* Time per question */}
               <div className="mb-5">
-                <div className="text-white/60 text-xs font-bold mb-2.5 uppercase tracking-wider flex items-center gap-1.5">
+                <div className="text-white/60 text-xs font-bold mb-3 uppercase tracking-widest flex items-center gap-2">
                   <Timer className="w-4 h-4 text-blue-400 drop-shadow-md" /> Seconds per Question
                 </div>
-                <div className="grid grid-cols-4 gap-2.5">
+                <div className="grid grid-cols-4 gap-3">
                   {TIME_OPTIONS.map(t => (
                     <button key={t} onClick={() => setTimePerQ(t)}
-                      className={`py-3 rounded-xl font-bold text-sm active:scale-95 transition-all border ${
+                      className={`relative py-3.5 rounded-xl font-black text-sm active:scale-95 transition-all border-2 overflow-hidden ${
                         timePerQ === t 
-                          ? 'bg-blue-500/20 border-blue-500/50 text-blue-300 shadow-[0_0_15px_rgba(59,130,246,0.3)]' 
-                          : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:border-white/20'
+                          ? 'bg-blue-500/20 border-blue-500/50 text-blue-300 shadow-[0_0_20px_rgba(59,130,246,0.3)]' 
+                          : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:border-white/20 hover:text-white/80'
                       }`}>
-                      {t}s
+                      {timePerQ === t && <div className="absolute inset-0 bg-blue-500/10 blur-md animate-pulse"></div>}
+                      <span className="relative">{t}s</span>
                     </button>
                   ))}
                 </div>
               </div>
 
               {/* Points per question */}
-              <div className="mb-5">
-                <div className="text-white/60 text-xs font-bold mb-2.5 uppercase tracking-wider flex items-center gap-1.5">
+              <div className="mb-6">
+                <div className="text-white/60 text-xs font-bold mb-3 uppercase tracking-widest flex items-center gap-2">
                   <span className="text-emerald-400 drop-shadow-md">⭐</span> Points per Question
                 </div>
                 <div className="grid grid-cols-5 gap-2.5">
                   {POINTS_OPTIONS.map(p => (
                     <button key={p} onClick={() => setPointsPerQ(p)}
-                      className={`py-3 rounded-xl font-bold text-sm active:scale-95 transition-all border ${
+                      className={`relative py-3.5 rounded-xl font-black text-sm active:scale-95 transition-all border-2 overflow-hidden ${
                         pointsPerQ === p
-                          ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.3)]'
-                          : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:border-white/20'
+                          ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300 shadow-[0_0_20px_rgba(16,185,129,0.3)]'
+                          : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:border-white/20 hover:text-white/80'
                       }`}>
-                      {p}
+                      {pointsPerQ === p && <div className="absolute inset-0 bg-emerald-500/10 blur-md animate-pulse"></div>}
+                      <span className="relative">{p}</span>
                     </button>
                   ))}
                 </div>
               </div>
 
               {/* AI Generate */}
-              <div className="bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/30 rounded-2xl p-5 mb-5 shadow-[0_0_20px_rgba(168,85,247,0.1)]">
-                <div className="flex items-center gap-2 mb-3.5">
-                  <Sparkles className="w-4 h-4 text-purple-400 drop-shadow-[0_0_5px_rgba(192,132,252,0.5)]" />
-                  <div className="text-purple-300 text-xs font-bold uppercase tracking-wider">Generate with AI</div>
+              <div className="bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/30 rounded-3xl p-6 mb-6 shadow-[0_0_30px_rgba(168,85,247,0.1)] relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/20 blur-3xl rounded-full pointer-events-none"></div>
+                <div className="flex items-center gap-2 mb-4 relative z-10">
+                  <Sparkles className="w-5 h-5 text-purple-400 drop-shadow-[0_0_5px_rgba(192,132,252,0.5)] animate-pulse" />
+                  <div className="text-purple-300 text-sm font-black uppercase tracking-widest">Generate with AI</div>
                 </div>
-                <div className="flex gap-2.5 mb-2.5">
+                <div className="flex gap-3 mb-4 relative z-10">
                   <input
                     type="text"
                     value={aiTopic}
                     onChange={e => setAiTopic(e.target.value)}
                     onFocus={handleInputFocus}
                     placeholder="Topic (e.g. Football, Science...)"
-                    className="flex-1 bg-black/30 border border-white/10 focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/20 rounded-xl px-4 py-3 text-white text-sm outline-none placeholder:text-white/30 transition-all scroll-mt-20 shadow-inner"
+                    className="flex-1 bg-black/40 border border-white/10 focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/30 rounded-xl px-5 py-3.5 text-white text-sm font-medium outline-none placeholder:text-white/30 transition-all scroll-mt-20 shadow-inner"
                   />
                 </div>
-                <div className="flex items-center gap-2.5">
-                  <div className="flex items-center gap-2 bg-black/20 border border-white/10 rounded-xl px-3 py-2">
-                    <span className="text-white/50 text-xs font-bold">Questions:</span>
+                <div className="flex items-center gap-3 relative z-10">
+                  <div className="flex items-center gap-2 bg-black/30 border border-white/10 rounded-xl px-4 py-2.5 shadow-inner">
+                    <span className="text-white/50 text-xs font-bold uppercase tracking-wider">Questions:</span>
                     {[3,5,7,10].map(n => (
                       <button key={n} onClick={() => setAiCount(n)}
-                        className={`w-7 h-7 rounded-lg text-xs font-black transition-all ${
+                        className={`w-8 h-8 rounded-lg text-sm font-black transition-all ${
                           aiCount === n
-                            ? 'bg-purple-500 text-white'
-                            : 'text-white/50 hover:text-white'
+                            ? 'bg-purple-500 text-white shadow-[0_0_10px_rgba(168,85,247,0.5)]'
+                            : 'text-white/50 hover:text-white hover:bg-white/10'
                         }`}>
                         {n}
                       </button>
@@ -1440,15 +1535,16 @@ export default function TriviaGame({
                   <button
                     onClick={isVIP ? generateWithAI : () => alert('👑 VIP only feature')}
                     disabled={generatingAI || !aiTopic.trim()}
-                    className={`px-5 py-3 rounded-xl text-white font-bold text-sm active:scale-95 transition-all flex items-center gap-2 ${
+                    className={`relative px-6 py-3 rounded-xl text-white font-black text-sm active:scale-95 transition-all flex items-center gap-2 overflow-hidden group ${
                       isVIP
-                        ? 'bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-400 hover:to-blue-400 disabled:opacity-50 shadow-[0_0_15px_rgba(168,85,247,0.4)] hover:shadow-[0_0_20px_rgba(168,85,247,0.6)]'
+                        ? 'bg-gradient-to-r from-purple-500 via-fuchsia-500 to-blue-500 disabled:opacity-50 shadow-[0_0_20px_rgba(168,85,247,0.5)] hover:shadow-[0_0_30px_rgba(168,85,247,0.7)] bg-[length:200%_auto] hover:bg-right duration-500'
                         : 'bg-white/10 border border-white/20 cursor-pointer'
                     }`}
                   >
+                    {isVIP && <div className="absolute inset-0 bg-white/20 w-full translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out" />}
                     {generatingAI
-                      ? <Loader2 className="w-4 h-4 animate-spin" />
-                      : isVIP ? 'Go' : 'VIP👑'
+                      ? <Loader2 className="w-5 h-5 animate-spin" />
+                      : isVIP ? <><Sparkles className="w-4 h-4"/> Go</> : 'VIP👑'
                     }
                   </button>
                 </div>
@@ -1456,29 +1552,29 @@ export default function TriviaGame({
 
               {/* Questions */}
               <div>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="text-white/60 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
+                <div className="flex items-center justify-between mb-5">
+                  <div className="text-white/60 text-xs font-bold uppercase tracking-widest flex items-center gap-2">
                     <BrainCircuit className="w-4 h-4 text-emerald-400 drop-shadow-md" /> Questions ({newQuestions.length})
                   </div>
                   <button
                     onClick={() => setNewQuestions(prev => [...prev, {
                       question_text: '', option_a: '', option_b: '', option_c: '', option_d: '', correct_answer: 'A'
                     }])}
-                    className="flex items-center gap-1.5 text-xs text-blue-400 font-bold hover:text-blue-300 transition-colors bg-blue-500/10 hover:bg-blue-500/20 px-3 py-1.5 rounded-lg border border-blue-500/20"
+                    className="flex items-center gap-2 text-sm text-blue-400 font-black hover:text-blue-300 transition-all bg-blue-500/10 hover:bg-blue-500/20 px-4 py-2 rounded-xl border border-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.15)] hover:shadow-[0_0_20px_rgba(59,130,246,0.25)] hover:-translate-y-0.5"
                   >
-                    <Plus className="w-3.5 h-3.5" /> Add Question
+                    <Plus className="w-4 h-4" /> Add Question
                   </button>
                 </div>
 
-                <div className="space-y-4 pb-2 pr-2">
+                <div className="space-y-5 pb-2 pr-2">
                   {newQuestions.map((q, i) => (
                     <React.Fragment key={i}>
-                      <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-3.5 shadow-sm relative group hover:border-white/20 transition-colors">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="bg-white/10 text-white/80 text-xs font-black px-2.5 py-1 rounded-md shadow-inner">Q {i + 1}</span>
+                      <div className="bg-gradient-to-br from-white/5 to-white/10 border border-white/10 rounded-2xl p-6 space-y-4 shadow-lg relative group hover:border-white/20 transition-all duration-300 hover:shadow-[0_0_20px_rgba(255,255,255,0.05)]">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="bg-white/10 text-white/90 text-sm font-black px-3 py-1.5 rounded-lg shadow-inner border border-white/5">Q {i + 1}</span>
                           {newQuestions.length > 1 && (
                             <button onClick={() => setNewQuestions(prev => prev.filter((_, idx) => idx !== i))}
-                              className="text-rose-400/70 hover:text-rose-400 transition-colors p-1.5 bg-rose-500/10 hover:bg-rose-500/20 rounded-lg">
+                              className="text-rose-400/70 hover:text-rose-400 transition-all p-2 bg-rose-500/10 hover:bg-rose-500/20 rounded-xl border border-rose-500/20 hover:shadow-[0_0_10px_rgba(225,29,72,0.2)]">
                               <Trash2 className="w-4 h-4" />
                             </button>
                           )}
@@ -1488,27 +1584,28 @@ export default function TriviaGame({
                           onChange={e => setNewQuestions(prev => prev.map((x, idx) => idx === i ? { ...x, question_text: e.target.value } : x))}
                           onFocus={handleInputFocus}
                           placeholder="Enter question here..."
-                          className="w-full bg-black/30 border border-white/10 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 rounded-lg px-4 py-3 text-white text-sm outline-none placeholder:text-white/30 transition-all scroll-mt-20 shadow-inner"
+                          className="w-full bg-black/40 border border-white/10 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/30 rounded-xl px-5 py-3.5 text-white text-sm font-medium outline-none placeholder:text-white/30 transition-all scroll-mt-20 shadow-inner"
                         />
-                        <div className="grid grid-cols-1 gap-2.5 mt-3">
+                        <div className="grid grid-cols-1 gap-3 mt-4">
                           {['a','b','c','d'].map(opt => (
-                            <div key={opt} className="flex items-center gap-2.5">
+                            <div key={opt} className="flex items-center gap-3">
                               <button
                                 onClick={() => setNewQuestions(prev => prev.map((x, idx) => idx === i ? { ...x, correct_answer: opt.toUpperCase() } : x))}
-                                className={`w-10 h-10 rounded-lg text-sm font-black shrink-0 transition-all border ${
+                                className={`relative w-12 h-12 rounded-xl text-base font-black shrink-0 transition-all border-2 overflow-hidden ${
                                   q.correct_answer === opt.toUpperCase() 
-                                    ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.3)]' 
-                                    : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10 hover:border-white/20'
+                                    ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.4)] scale-105' 
+                                    : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10 hover:border-white/20 hover:text-white/80'
                                 }`}
                               >
-                                {opt.toUpperCase()}
+                                {q.correct_answer === opt.toUpperCase() && <div className="absolute inset-0 bg-emerald-500/10 blur-md animate-pulse"></div>}
+                                <span className="relative">{opt.toUpperCase()}</span>
                               </button>
                               <input
                                 type="text" value={q[`option_${opt}`]}
                                 onChange={e => setNewQuestions(prev => prev.map((x, idx) => idx === i ? { ...x, [`option_${opt}`]: e.target.value } : x))}
                                 onFocus={handleInputFocus}
                                 placeholder={`Option ${opt.toUpperCase()}`}
-                                className="flex-1 bg-black/30 border border-white/10 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20 rounded-lg px-4 py-2.5 text-white text-sm outline-none placeholder:text-white/30 transition-all scroll-mt-20 shadow-inner"
+                                className="flex-1 bg-black/40 border border-white/10 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/30 rounded-xl px-5 py-3 text-white text-sm font-medium outline-none placeholder:text-white/30 transition-all scroll-mt-20 shadow-inner"
                               />
                             </div>
                           ))}
@@ -1525,9 +1622,9 @@ export default function TriviaGame({
                           });
                           setTimeout(() => handleInputFocus({ target: document.querySelector(`[data-q="${i+1}"]`) }), 200);
                         }}
-                        className="w-full py-3 rounded-xl border border-dashed border-blue-500/30 text-blue-400/70 hover:border-blue-500/60 hover:text-blue-400 hover:bg-blue-500/5 transition-all text-xs font-bold flex items-center justify-center gap-1.5"
+                        className="w-full py-4 rounded-2xl border-2 border-dashed border-blue-500/30 text-blue-400/70 hover:border-blue-500/60 hover:text-blue-400 hover:bg-blue-500/10 transition-all text-sm font-black flex items-center justify-center gap-2 hover:shadow-[0_0_15px_rgba(59,130,246,0.1)]"
                       >
-                        <Plus className="w-4 h-4" /> Add Question Here
+                        <Plus className="w-5 h-5" /> Add Question Here
                       </button>
                     </React.Fragment>
                   ))}
@@ -1535,20 +1632,23 @@ export default function TriviaGame({
               </div>
 
               <button onClick={createSession} disabled={creating}
-                className="w-full py-4 rounded-xl bg-gradient-to-r from-purple-500 to-blue-500 text-white font-black text-base active:scale-95 transition-all shadow-[0_0_20px_rgba(168,85,247,0.4)] hover:shadow-[0_0_25px_rgba(168,85,247,0.6)] hover:brightness-110 disabled:opacity-50 flex items-center justify-center gap-2 mt-4">
-                {creating ? <Loader2 className="w-6 h-6 animate-spin" /> : <><BrainCircuit className="w-6 h-6"/> Create {TRIVIA_BRAND_NAME} Game</>}
+                className="relative w-full py-5 rounded-2xl bg-gradient-to-r from-purple-500 via-fuchsia-500 to-blue-500 text-white font-black text-lg active:scale-95 transition-all shadow-[0_0_30px_rgba(168,85,247,0.5)] hover:shadow-[0_0_40px_rgba(168,85,247,0.7)] disabled:opacity-50 flex items-center justify-center gap-3 mt-6 overflow-hidden group bg-[length:200%_auto] hover:bg-right duration-500">
+                <div className="absolute inset-0 bg-white/20 w-full translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out" />
+                {creating ? <Loader2 className="w-7 h-7 animate-spin" /> : <><BrainCircuit className="w-7 h-7 group-hover:animate-pulse"/> Create {TRIVIA_BRAND_NAME} Game</>}
               </button>
             </div>
 
           ) : (
-            <div className="text-center text-white/40 py-24 px-4">
-              <div className="flex justify-center mb-6">
-                <div className="bg-gradient-to-br from-white/5 to-white/10 p-6 rounded-full border border-white/10 shadow-[0_0_30px_rgba(255,255,255,0.05)]">
-                  <Target className="w-16 h-16 text-white/20 drop-shadow-md" />
+            <div className="text-center text-white/40 py-32 px-4 relative">
+              <div className="absolute inset-0 bg-gradient-to-b from-purple-500/5 to-blue-500/5 rounded-3xl blur-3xl pointer-events-none"></div>
+              <div className="flex justify-center mb-8 relative">
+                <div className="absolute inset-0 bg-blue-500/20 blur-2xl rounded-full animate-pulse"></div>
+                <div className="relative bg-gradient-to-br from-white/10 to-white/5 p-8 rounded-full border border-white/10 shadow-[0_0_40px_rgba(255,255,255,0.05)] transform hover:scale-110 transition-transform duration-500">
+                  <Target className="w-20 h-20 text-white/30 drop-shadow-lg animate-[spin_10s_linear_infinite]" />
                 </div>
               </div>
-              <div className="text-2xl font-black text-white/70 mb-2 tracking-wide drop-shadow-sm">No Active Game</div>
-              <div className="text-base text-white/40">Wait for the host to start a new {TRIVIA_BRAND_NAME} session</div>
+              <div className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white/80 to-white/50 mb-3 tracking-widest drop-shadow-sm uppercase">No Active Game</div>
+              <div className="text-lg text-white/40 font-medium">Wait for the host to start a new <span className="text-purple-300/70 font-bold">{TRIVIA_BRAND_NAME}</span> session</div>
             </div>
           )}
         </div>
