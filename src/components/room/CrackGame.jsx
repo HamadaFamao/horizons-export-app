@@ -53,6 +53,7 @@ export default function CrackGame({
   const [showFail, setShowFail] = useState(false);
   const [showComplete, setShowComplete] = useState(false);
   const [crackedEggs, setCrackedEggs] = useState(new Set());
+  const [winEffect, setWinEffect] = useState(null);
   const audioCtxRef = useRef(null);
 
   useEffect(() => {
@@ -200,6 +201,8 @@ export default function CrackGame({
         if (data.cracked) {
           playSound(data.completed_all ? 'complete' : 'win');
           setShowSuccess(true);
+          setWinEffect(data.win_amount);
+          setTimeout(() => setWinEffect(null), 2500);
 
           // Mark current egg as cracked
           setCrackedEggs(prev => new Set([...prev, session.current_egg_id]));
@@ -455,6 +458,12 @@ export default function CrackGame({
                           60%  { transform: scale(0.95); filter: brightness(0.8); }
                           100% { transform: scale(1); filter: brightness(1); }
                         }
+                        @keyframes winFloat {
+                          0%   { transform: translateY(0) scale(0.5); opacity: 0; }
+                          20%  { transform: translateY(-20px) scale(1.2); opacity: 1; }
+                          70%  { transform: translateY(-60px) scale(1); opacity: 1; }
+                          100% { transform: translateY(-100px) scale(0.8); opacity: 0; }
+                        }
                       `}</style>
 
                       <button
@@ -490,6 +499,30 @@ export default function CrackGame({
                         {!cracking && !animating && userCoins >= currentEgg.base_cost * session.multiplier && (
                           <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-white/40 text-xs font-bold whitespace-nowrap animate-pulse">
                             Tap to crack!
+                          </div>
+                        )}
+
+                        {/* Win effect overlay */}
+                        {winEffect && (
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+                            <div
+                              className="flex flex-col items-center gap-1"
+                              style={{ animation: 'winFloat 2.5s ease-out forwards' }}
+                            >
+                              <div className="text-5xl">🎉</div>
+                              <div
+                                className="font-black text-2xl px-4 py-2 rounded-2xl border-2"
+                                style={{
+                                  color: '#fbbf24',
+                                  background: 'rgba(0,0,0,0.85)',
+                                  borderColor: '#f59e0b',
+                                  textShadow: '0 0 20px rgba(251,191,36,0.8)',
+                                  boxShadow: '0 0 30px rgba(245,158,11,0.6)',
+                                }}
+                              >
+                                +🪙{winEffect.toLocaleString()}
+                              </div>
+                            </div>
                           </div>
                         )}
                       </button>

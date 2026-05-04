@@ -10808,13 +10808,16 @@ useEffect(() => {
         onCrackResult={({ winAmount, eggGroup, eggOrder, isGlobal }) => {
           if (winAmount < 5000) return;
 
-          if (largeGiftBannerTimerRef.current) clearTimeout(largeGiftBannerTimerRef.current);
-
+          const myProfile = participantsMap?.[user?.id];
+          const myName = myProfile?.name || myProfile?.display_name || 'Player';
+          const myAvatar = myProfile?.avatar_url || null;
           const bannerEmoji = eggGroup === 'gold' ? '🥇' : eggGroup === 'silver' ? '⚪' : '🟫';
 
+          if (largeGiftBannerTimerRef.current) clearTimeout(largeGiftBannerTimerRef.current);
+
           setLargeGiftBanner({
-            senderName: user?.user_metadata?.name || 'Player',
-            senderAvatar: user?.user_metadata?.avatar_url || null,
+            senderName: myName,
+            senderAvatar: myAvatar,
             receiverName: `🪙 ${winAmount.toLocaleString()}`,
             receiverAvatar: null,
             giftName: `${bannerEmoji} Crack! Egg #${eggOrder}`,
@@ -10826,7 +10829,7 @@ useEffect(() => {
 
           largeGiftBannerTimerRef.current = setTimeout(() => setLargeGiftBanner(null), 10000);
 
-          if (isGlobal) {
+          if (channelRef.current) {
             const globalCh = supabase.channel('global_large_gifts').subscribe();
             setTimeout(() => {
               globalCh.send({
@@ -10834,14 +10837,14 @@ useEffect(() => {
                 event: 'large_gift_banner',
                 payload: {
                   room_id: roomId,
-                  sender_name: user?.user_metadata?.name || 'Player',
-                  sender_avatar: user?.user_metadata?.avatar_url || null,
+                  sender_name: myName,
+                  sender_avatar: myAvatar,
                   receiver_name: `🪙 ${winAmount.toLocaleString()}`,
-                  gift_name: `🥇 Crack! Gold Egg`,
+                  gift_name: `${bannerEmoji} Crack! Egg #${eggOrder}`,
                   gift_icon: null,
                   animation_url: null,
                   is_to_all: false,
-                  is_global: true,
+                  is_global: isGlobal,
                   ts: Date.now(),
                 },
               });
