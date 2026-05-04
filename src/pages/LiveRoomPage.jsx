@@ -10829,10 +10829,10 @@ useEffect(() => {
 
           largeGiftBannerTimerRef.current = setTimeout(() => setLargeGiftBanner(null), 10000);
 
-          if (channelRef.current) {
-            const globalCh = supabase.channel('global_large_gifts').subscribe();
-            setTimeout(() => {
-              globalCh.send({
+          const crackGlobalCh = supabase.channel('global_large_gifts');
+          crackGlobalCh.subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+              crackGlobalCh.send({
                 type: 'broadcast',
                 event: 'large_gift_banner',
                 payload: {
@@ -10848,8 +10848,9 @@ useEffect(() => {
                   ts: Date.now(),
                 },
               });
-            }, 500);
-          }
+              setTimeout(() => supabase.removeChannel(crackGlobalCh), 3000);
+            }
+          });
         }}
       />
 
