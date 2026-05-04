@@ -1114,7 +1114,7 @@ export default function TriviaGame({
                   >
                     {generatingAI
                       ? <Loader2 className="w-4 h-4 animate-spin" />
-                      : isVIP ? 'Go' : '👑'
+                      : isVIP ? 'Go' : 'VIP👑'
                     }
                   </button>
                 </div>
