@@ -580,8 +580,6 @@ export default function LiveRoomPage() {
         { event: 'large_gift_banner' },
         ({ payload }) => {
           if (!payload) return;
-          // Show in ALL rooms including the sender's own room
-          // (sender's room shows it locally, other rooms show via broadcast)
 
           const isGlobal = payload.is_global || false;
           const animUrl = payload.animation_url || payload.gift_icon || '';
@@ -10828,7 +10826,7 @@ useEffect(() => {
           };
 
           // Send to ALL rooms via global channel
-          const crackGlobalCh = supabase.channel('global_large_gifts');
+          const crackGlobalCh = supabase.channel(`global_crack_sender_${Date.now()}`);
           crackGlobalCh.subscribe((status) => {
             if (status === 'SUBSCRIBED') {
               crackGlobalCh.send({
