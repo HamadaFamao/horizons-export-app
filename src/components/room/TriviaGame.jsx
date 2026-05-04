@@ -57,6 +57,13 @@ export default function TriviaGame({
   const [timeExpired, setTimeExpired] = useState(false);
   const [playerAnswerCounts, setPlayerAnswerCounts] = useState({});
   const [isMuted, setIsMuted] = useState(false);
+  const [gameMode, setGameMode] = useState('solo');
+  const [teams, setTeams] = useState([]);
+  const [newTeams, setNewTeams] = useState([
+    { name: 'Team A', color: '#6366f1', max_members: 5 },
+    { name: 'Team B', color: '#ec4899', max_members: 5 },
+  ]);
+  const [winnerTeam, setWinnerTeam] = useState(null);
   const audioRef = useRef(null);
 
   const timerRef = useRef(null);
@@ -104,7 +111,9 @@ export default function TriviaGame({
         setCurrentSession(payload.session);
         setPlayers([]);
         setCurrentQuestion(null);
+        setTeams([]);
         loadPlayers(payload.session.id);
+        if (payload.session.mode === 'team') loadTeams(payload.session.id);
       });
 
       channelRef.current.on?.('broadcast', { event: 'trivia_player_joined' }, ({ payload }) => {
@@ -139,6 +148,12 @@ export default function TriviaGame({
             }
           };
         });
+      });
+
+      channelRef.current.on?.('broadcast', { event: 'trivia_team_updated' }, ({ payload }) => {
+        if (String(payload.room_id) !== String(roomId)) return;
+        loadTeams(payload.session_id);
+        loadPlayers(payload.session_id);
       });
 
       channelRef.current.on?.('broadcast', { event: 'trivia_ended' }, ({ payload }) => {
@@ -257,6 +272,16 @@ export default function TriviaGame({
       setWinnerCoins(sessionData.winner_coins || 0);
       setShowResult(true);
 
+      // Team mode winner
+      if (sessionData.winner_team_id) {
+        const wTeam = teams.find(t => t.id === sessionData.winner_team_id) || {
+          name: sessionData.winner_team_name || 'Winner Team',
+          color: '#6366f1',
+          total_score: sessionData.winner_team_score || 0,
+        };
+        setWinnerTeam(wTeam);
+      }
+
       if (String(w.user_id) === String(user?.id)) {
         onTriviaResult?.({
           winnerName: w.name,
@@ -295,6 +320,7 @@ export default function TriviaGame({
       if (data?.id) {
         await loadPlayers(data.id);
         await loadQuestions(data.id);
+        if (data.mode === 'team') await loadTeams(data.id);
       }
     } finally {
       setLoading(false);
@@ -341,6 +367,37 @@ export default function TriviaGame({
     setQuestions(qs);
     questionsRef.current = qs;
     return qs;
+  };
+
+  const loadTeams = async (sessionId) => {
+    if (!sessionId) return [];
+    const { data } = await supabase
+      .from('room_trivia_teams')
+      .select('*')
+      .eq('session_id', sessionId)
+      .order('created_at', { ascending: true });
+
+    const teamsData = data || [];
+
+    // Load captain profiles
+    const captainIds = teamsData.map(t => t.captain_user_id).filter(Boolean);
+    let profilesMap = new Map();
+    if (captainIds.length) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, name, avatar_url')
+        .in('id', captainIds);
+      profilesMap = new Map((profiles || []).map(p => [p.id, p]));
+    }
+
+    const merged = teamsData.map(t => ({
+      ...t,
+      captain_name: profilesMap.get(t.captain_user_id)?.name || 'User',
+      captain_avatar: profilesMap.get(t.captain_user_id)?.avatar_url || null,
+    }));
+
+    setTeams(merged);
+    return merged;
   };
 
   const generateWithAI = async () => {
@@ -415,13 +472,13 @@ export default function TriviaGame({
           time_per_question: timePerQ,
           points_per_question: pointsPerQ,
           total_questions: validQs.length,
+          mode: gameMode,
           status: 'waiting',
         })
         .select()
         .single();
       if (error) throw error;
 
-      // Insert questions
       await supabase.from('room_trivia_questions').insert(
         validQs.map((q, i) => ({
           session_id: session.id,
@@ -429,6 +486,22 @@ export default function TriviaGame({
           ...q,
         }))
       );
+
+      // Create teams if team mode
+      let createdTeams = [];
+      if (gameMode === 'team') {
+        const { data: teamsData } = await supabase
+          .from('room_trivia_teams')
+          .insert(newTeams.filter(t => t.name.trim()).map(t => ({
+            session_id: session.id,
+            name: t.name,
+            color: t.color,
+            max_members: t.max_members,
+          })))
+          .select();
+        createdTeams = teamsData || [];
+        setTeams(createdTeams);
+      }
 
       setCurrentSession(session);
       setPlayers([]);
@@ -448,6 +521,37 @@ export default function TriviaGame({
       alert(err.message);
     } finally {
       setCreating(false);
+    }
+  };
+
+  const joinTeam = async (teamId) => {
+    if (!currentSession?.id || !user?.id) return;
+    setJoining(true);
+    try {
+      const { data, error } = await supabase.rpc('join_trivia_team', {
+        p_session_id: currentSession.id,
+        p_user_id: user.id,
+        p_team_id: teamId,
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error);
+      onCoinsUpdated?.();
+      await loadPlayers(currentSession.id);
+      await loadTeams(currentSession.id);
+
+      channelRef?.current?.send({
+        type: 'broadcast',
+        event: 'trivia_team_updated',
+        payload: {
+          room_id: roomId,
+          session_id: currentSession.id,
+          ts: Date.now(),
+        },
+      });
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setJoining(false);
     }
   };
 
@@ -787,24 +891,56 @@ export default function TriviaGame({
                 <div className="absolute inset-0 bg-amber-500 blur-3xl opacity-40 rounded-full animate-pulse" />
                 <Trophy className="w-24 h-24 text-amber-400 drop-shadow-[0_0_25px_rgba(251,191,36,0.8)] animate-bounce" />
               </div>
-              <div className="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-500 font-black text-4xl tracking-widest uppercase drop-shadow-[0_0_10px_rgba(251,191,36,0.5)]">Winner!</div>
-              
-              <div className="relative mt-2">
-                <div className="absolute -inset-2 bg-gradient-to-r from-amber-400 to-yellow-500 rounded-full blur-md opacity-60 animate-pulse" />
-                <img
-                  src={winner?.avatar_url || FALLBACK_AVATAR}
-                  alt={winner?.name}
-                  className="relative w-28 h-28 rounded-full border-4 border-slate-900 object-cover shadow-[0_0_20px_rgba(251,191,36,0.5)]"
-                />
-              </div>
-              <div className="text-white font-black text-3xl drop-shadow-md">{winner?.name}</div>
-              
-              {winnerCoins > 0 && (
-                <div className="bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border border-amber-500/50 rounded-2xl px-8 py-4 text-center shadow-[0_0_30px_rgba(245,158,11,0.25)]">
-                  <div className="text-amber-300 text-5xl font-black drop-shadow-[0_0_15px_rgba(251,191,36,0.6)]">
-                    🪙 {winnerCoins.toLocaleString()}
+
+              {winnerTeam ? (
+                <>
+                  <div className="font-black text-4xl tracking-widest uppercase"
+                    style={{ color: winnerTeam.color }}>
+                    🏆 {winnerTeam.name}
                   </div>
-                </div>
+                  <div className="text-white/60 text-lg font-bold">Wins!</div>
+                  <div className="bg-white/5 border border-white/10 rounded-2xl px-6 py-3 text-center">
+                    <div className="text-white/40 text-xs mb-1">Team Score</div>
+                    <div className="font-black text-3xl" style={{ color: winnerTeam.color }}>
+                      {winnerTeam.total_score || 0} pts
+                    </div>
+                  </div>
+                  {/* Team members */}
+                  <div className="w-full space-y-2">
+                    {players.filter(p => p.team_id === winnerTeam.id).map(p => (
+                      <div key={p.id} className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5">
+                        <img src={p.avatar_url || FALLBACK_AVATAR} alt={p.name}
+                          className="w-8 h-8 rounded-full object-cover" />
+                        <span className="text-white font-bold flex-1">{p.name}</span>
+                        <span className="text-amber-400 font-black text-sm">{p.score} pts</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-500 font-black text-4xl tracking-widest uppercase drop-shadow-[0_0_10px_rgba(251,191,36,0.5)]">Winner!</div>
+              )}
+              
+              {!winnerTeam && (
+                <>
+                  <div className="relative mt-2">
+                    <div className="absolute -inset-2 bg-gradient-to-r from-amber-400 to-yellow-500 rounded-full blur-md opacity-60 animate-pulse" />
+                    <img
+                      src={winner?.avatar_url || FALLBACK_AVATAR}
+                      alt={winner?.name}
+                      className="relative w-28 h-28 rounded-full border-4 border-slate-900 object-cover shadow-[0_0_20px_rgba(251,191,36,0.5)]"
+                    />
+                  </div>
+                  <div className="text-white font-black text-3xl drop-shadow-md">{winner?.name}</div>
+                  
+                  {winnerCoins > 0 && (
+                    <div className="bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border border-amber-500/50 rounded-2xl px-8 py-4 text-center shadow-[0_0_30px_rgba(245,158,11,0.25)]">
+                      <div className="text-amber-300 text-5xl font-black drop-shadow-[0_0_15px_rgba(251,191,36,0.6)]">
+                        🪙 {winnerCoins.toLocaleString()}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
               
               {/* Leaderboard */}
@@ -946,6 +1082,25 @@ export default function TriviaGame({
                 <div className="text-white/50 text-xs font-bold uppercase tracking-wider mb-3 px-1 flex items-center gap-2">
                   <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Live Scores
                 </div>
+
+                {/* Team scores */}
+                {currentSession.mode === 'team' && teams.length > 0 && (
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    {[...teams].sort((a,b) => (b.total_score||0) - (a.total_score||0)).map(team => (
+                      <div key={team.id} className="rounded-xl p-3 text-center border"
+                        style={{ borderColor: team.color + '40', background: team.color + '15' }}>
+                        <div className="flex items-center justify-center gap-1 mb-1">
+                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: team.color }} />
+                          <span className="text-white text-xs font-black">{team.name}</span>
+                        </div>
+                        <div className="font-black text-xl" style={{ color: team.color }}>
+                          {team.total_score || 0}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {[...players].sort((a,b) => {
                   if (b.score !== a.score) return b.score - a.score;
                   return (a.total_time_ms || 0) - (b.total_time_ms || 0);
@@ -976,48 +1131,111 @@ export default function TriviaGame({
             // Waiting room
             <div className="flex flex-col gap-4">
               <div className="grid grid-cols-4 gap-2 mb-3">
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-3 text-center flex flex-col items-center justify-center shadow-sm hover:bg-white/10 transition-colors">
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-3 text-center flex flex-col items-center justify-center shadow-sm">
                   <div className="text-white/50 text-[10px] uppercase font-black tracking-wider mb-1">Entry</div>
-                  <div className="text-amber-400 font-black text-sm drop-shadow-[0_0_5px_rgba(251,191,36,0.5)]">
+                  <div className="text-amber-400 font-black text-sm">
                     {currentSession.entry_cost > 0 ? `🪙 ${currentSession.entry_cost}` : 'Free'}
                   </div>
                 </div>
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-3 text-center flex flex-col items-center justify-center shadow-sm hover:bg-white/10 transition-colors">
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-3 text-center flex flex-col items-center justify-center shadow-sm">
                   <div className="text-white/50 text-[10px] uppercase font-black tracking-wider mb-1">Questions</div>
-                  <div className="text-white font-black text-sm drop-shadow-md">{currentSession.total_questions}</div>
+                  <div className="text-white font-black text-sm">{currentSession.total_questions}</div>
                 </div>
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-3 text-center flex flex-col items-center justify-center shadow-sm hover:bg-white/10 transition-colors">
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-3 text-center flex flex-col items-center justify-center shadow-sm">
                   <div className="text-white/50 text-[10px] uppercase font-black tracking-wider mb-1">Time/Q</div>
-                  <div className="text-white font-black text-sm drop-shadow-md">{currentSession.time_per_question}s</div>
+                  <div className="text-white font-black text-sm">{currentSession.time_per_question}s</div>
                 </div>
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-3 text-center flex flex-col items-center justify-center shadow-sm hover:bg-white/10 transition-colors">
-                  <div className="text-white/50 text-[10px] uppercase font-black tracking-wider mb-1">Players</div>
-                  <div className="text-white font-black text-sm drop-shadow-md">{players.length}</div>
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-3 text-center flex flex-col items-center justify-center shadow-sm">
+                  <div className="text-white/50 text-[10px] uppercase font-black tracking-wider mb-1">Mode</div>
+                  <div className="text-white font-black text-sm">{currentSession.mode === 'team' ? '👥' : '🎯'}</div>
                 </div>
               </div>
 
-              {/* Players list */}
-              <div className="text-white/50 text-xs font-bold uppercase tracking-wider mb-2 px-1 flex items-center gap-2">
-                <Target className="w-3.5 h-3.5 text-blue-400" /> Players Joined
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                {players.map(p => (
-                  <div key={p.id} className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl p-2.5 shadow-sm hover:bg-white/10 transition-colors">
-                    <img src={p.avatar_url || FALLBACK_AVATAR} alt={p.name}
-                      className="w-8 h-8 rounded-full object-cover border border-white/20 shadow-sm" />
-                    <span className="text-white text-sm font-bold truncate flex-1">{p.name}</span>
-                    {String(p.user_id) === String(user?.id) && (
-                      <span className="bg-amber-500/20 border border-amber-500/30 text-amber-300 text-[10px] font-black px-2 py-0.5 rounded-full shadow-[0_0_5px_rgba(245,158,11,0.3)]">You</span>
-                    )}
+              {/* TEAM MODE - Show teams */}
+              {currentSession.mode === 'team' ? (
+                <div className="space-y-3">
+                  <div className="text-white/50 text-xs font-bold uppercase tracking-wider px-1 flex items-center gap-2">
+                    <Target className="w-3.5 h-3.5 text-blue-400" /> Choose Your Team
                   </div>
-                ))}
-              </div>
+                  {teams.map(team => {
+                    const teamPlayers = players.filter(p => p.team_id === team.id);
+                    const myTeam = players.find(p => String(p.user_id) === String(user?.id) && p.team_id === team.id);
+                    const isFull = teamPlayers.length >= team.max_members;
+
+                    return (
+                      <div key={team.id}
+                        className="border rounded-2xl p-4 space-y-3"
+                        style={{ borderColor: team.color + '40', background: team.color + '10' }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: team.color }} />
+                            <span className="text-white font-black text-base">{team.name}</span>
+                            <span className="text-white/40 text-xs">{teamPlayers.length}/{team.max_members}</span>
+                          </div>
+                          {!myTeam && !isFull && (
+                            <button
+                              onClick={() => joinTeam(team.id)}
+                              disabled={joining}
+                              className="px-4 py-1.5 rounded-xl text-white font-black text-xs active:scale-95 transition-all"
+                              style={{ backgroundColor: team.color }}
+                            >
+                              {joining ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Join'}
+                            </button>
+                          )}
+                          {myTeam && (
+                            <span className="px-3 py-1 rounded-xl text-xs font-black text-white"
+                              style={{ backgroundColor: team.color }}>
+                              ✓ You
+                            </span>
+                          )}
+                          {isFull && !myTeam && (
+                            <span className="text-white/30 text-xs font-bold">Full</span>
+                          )}
+                        </div>
+
+                        {/* Team members */}
+                        <div className="flex flex-wrap gap-2">
+                          {teamPlayers.map(p => (
+                            <div key={p.id} className="flex items-center gap-1.5 bg-black/20 rounded-full px-2 py-1">
+                              <img src={p.avatar_url || FALLBACK_AVATAR} alt={p.name}
+                                className="w-5 h-5 rounded-full object-cover" />
+                              <span className="text-white text-xs font-bold">{p.name}</span>
+                            </div>
+                          ))}
+                          {teamPlayers.length === 0 && (
+                            <span className="text-white/30 text-xs">No members yet</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <>
+                  <div className="text-white/50 text-xs font-bold uppercase tracking-wider mb-2 px-1 flex items-center gap-2">
+                    <Target className="w-3.5 h-3.5 text-blue-400" /> Players Joined
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {players.map(p => (
+                      <div key={p.id} className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl p-2.5 shadow-sm">
+                        <img src={p.avatar_url || FALLBACK_AVATAR} alt={p.name}
+                          className="w-8 h-8 rounded-full object-cover border border-white/20 shadow-sm" />
+                        <span className="text-white text-sm font-bold truncate flex-1">{p.name}</span>
+                        {String(p.user_id) === String(user?.id) && (
+                          <span className="bg-amber-500/20 border border-amber-500/30 text-amber-300 text-[10px] font-black px-2 py-0.5 rounded-full">You</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
 
               {/* Actions */}
-              <div className="flex flex-wrap gap-3 mt-5">
-                {!isJoined && (
+              <div className="flex flex-wrap gap-3 mt-4">
+                {currentSession.mode === 'solo' && !isJoined && (
                   <button onClick={joinSession} disabled={joining}
-                    className="flex-1 py-4 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black text-base disabled:opacity-50 active:scale-95 transition-all shadow-[0_0_20px_rgba(245,158,11,0.4)] hover:shadow-[0_0_25px_rgba(245,158,11,0.6)] hover:brightness-110 flex items-center justify-center gap-2">
+                    className="flex-1 py-4 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black text-base disabled:opacity-50 active:scale-95 transition-all shadow-[0_0_20px_rgba(245,158,11,0.4)] flex items-center justify-center gap-2">
                     {joining ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Join {currentSession.entry_cost > 0 ? `🪙 ${currentSession.entry_cost}` : 'Free'}</>}
                   </button>
                 )}
@@ -1029,13 +1247,13 @@ export default function TriviaGame({
                 )}
                 {canModerate && players.length >= 1 && (
                   <button onClick={startGame}
-                    className="flex-1 py-4 rounded-xl bg-gradient-to-r from-emerald-400 to-emerald-600 text-white font-black text-base active:scale-95 transition-all shadow-[0_0_20px_rgba(16,185,129,0.4)] hover:shadow-[0_0_25px_rgba(16,185,129,0.6)] hover:brightness-110 flex items-center justify-center gap-2">
+                    className="flex-1 py-4 rounded-xl bg-gradient-to-r from-emerald-400 to-emerald-600 text-white font-black text-base active:scale-95 transition-all shadow-[0_0_20px_rgba(16,185,129,0.4)] flex items-center justify-center gap-2">
                     <Target className="w-5 h-5"/> Start {TRIVIA_BRAND_NAME}
                   </button>
                 )}
                 {canModerate && (
                   <button onClick={cancelSession}
-                    className="px-5 py-4 rounded-xl border border-rose-500/40 text-rose-400 font-bold text-base bg-rose-500/10 hover:bg-rose-500/20 active:scale-95 transition-all shadow-[0_0_15px_rgba(225,29,72,0.2)]">
+                    className="px-5 py-4 rounded-xl border border-rose-500/40 text-rose-400 font-bold text-base bg-rose-500/10 hover:bg-rose-500/20 active:scale-95 transition-all">
                     Cancel
                   </button>
                 )}
@@ -1046,6 +1264,90 @@ export default function TriviaGame({
             // Create session form
             <div className="flex flex-col gap-3 pb-[50vh] sm:pb-0">
               <div className="text-center text-white/60 text-sm mb-4 font-medium">Configure your {TRIVIA_BRAND_NAME} game</div>
+
+              {/* Game Mode */}
+              <div className="mb-5">
+                <div className="text-white/60 text-xs font-bold mb-2.5 uppercase tracking-wider flex items-center gap-1.5">
+                  <Target className="w-4 h-4 text-purple-400" /> Game Mode
+                </div>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <button
+                    onClick={() => setGameMode('solo')}
+                    className={`py-3 rounded-xl font-bold text-sm active:scale-95 transition-all border flex items-center justify-center gap-2 ${
+                      gameMode === 'solo'
+                        ? 'bg-purple-500/20 border-purple-500/50 text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.3)]'
+                        : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
+                    }`}
+                  >
+                    🎯 Solo
+                  </button>
+                  <button
+                    onClick={() => setGameMode('team')}
+                    className={`py-3 rounded-xl font-bold text-sm active:scale-95 transition-all border flex items-center justify-center gap-2 ${
+                      gameMode === 'team'
+                        ? 'bg-blue-500/20 border-blue-500/50 text-blue-300 shadow-[0_0_15px_rgba(59,130,246,0.3)]'
+                        : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
+                    }`}
+                  >
+                    👥 Teams
+                  </button>
+                </div>
+              </div>
+
+              {/* Teams setup - only in team mode */}
+              {gameMode === 'team' && (
+                <div className="mb-5 bg-blue-500/5 border border-blue-500/20 rounded-2xl p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="text-blue-300 text-xs font-bold uppercase tracking-wider">
+                      👥 Teams Setup
+                    </div>
+                    <button
+                      onClick={() => setNewTeams(prev => [...prev, {
+                        name: `Team ${String.fromCharCode(65 + prev.length)}`,
+                        color: ['#6366f1','#ec4899','#f59e0b','#10b981','#ef4444'][prev.length] || '#6366f1',
+                        max_members: 5,
+                      }])}
+                      className="flex items-center gap-1 text-xs text-blue-400 font-bold bg-blue-500/10 px-2 py-1 rounded-lg"
+                    >
+                      <Plus className="w-3 h-3" /> Add Team
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {newTeams.map((team, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={team.color}
+                          onChange={e => setNewTeams(prev => prev.map((t, idx) => idx === i ? {...t, color: e.target.value} : t))}
+                          className="w-8 h-8 rounded-lg border-0 cursor-pointer bg-transparent"
+                        />
+                        <input
+                          type="text"
+                          value={team.name}
+                          onChange={e => setNewTeams(prev => prev.map((t, idx) => idx === i ? {...t, name: e.target.value} : t))}
+                          placeholder="Team name..."
+                          className="flex-1 bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none"
+                        />
+                        <input
+                          type="number"
+                          value={team.max_members}
+                          onChange={e => setNewTeams(prev => prev.map((t, idx) => idx === i ? {...t, max_members: Number(e.target.value)} : t))}
+                          min="2" max="20"
+                          className="w-14 bg-black/30 border border-white/10 rounded-lg px-2 py-2 text-white text-sm outline-none text-center"
+                        />
+                        {newTeams.length > 2 && (
+                          <button
+                            onClick={() => setNewTeams(prev => prev.filter((_, idx) => idx !== i))}
+                            className="text-rose-400 p-1"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Entry cost */}
               <div className="mb-4">
