@@ -852,7 +852,7 @@ export default function TriviaGame({
             <div>
               <h1 className="font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-300 via-fuchsia-300 to-blue-300 text-3xl tracking-tight leading-none drop-shadow-[0_0_10px_rgba(216,180,254,0.6)]">{TRIVIA_BRAND_NAME}</h1>
               <p className="text-white/80 text-sm font-bold tracking-widest mt-1 uppercase flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-fuchsia-300" /> {TRIVIA_SUBTITLE}
+                <Sparkles className="w-3 h-3 text-fuchsia-300 animate-pulse" /> {TRIVIA_SUBTITLE}
               </p>
               {currentSession?.status === 'active' && currentQuestion && (
                 <div className="inline-block bg-white/10 px-2 py-0.5 rounded-md text-white/80 text-[10px] font-black uppercase tracking-widest mt-1.5 border border-white/10 shadow-sm">
@@ -863,7 +863,7 @@ export default function TriviaGame({
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/30 rounded-full px-3 py-1.5 shadow-[0_0_10px_rgba(245,158,11,0.2)]">
-              <span className="text-sm drop-shadow-md">🪙</span>
+              <span className="text-sm drop-shadow-md animate-pulse">🪙</span>
               <span className="text-amber-400 font-black text-sm drop-shadow-[0_0_5px_rgba(251,191,36,0.5)]">
                 {(userCoins || 0).toLocaleString()}
               </span>
@@ -935,30 +935,30 @@ export default function TriviaGame({
                   </div>
                   
                   <div className="relative mt-4 mb-2">
-                    <div className="absolute -inset-4 bg-gradient-to-r from-amber-400 via-yellow-500 to-orange-500 rounded-full blur-xl opacity-70 animate-[spin_4s_linear_infinite]" />
-                    <div className="absolute -inset-2 bg-gradient-to-r from-yellow-300 to-amber-400 rounded-full blur-md opacity-80 animate-pulse" />
+                    <div className="absolute -inset-6 bg-gradient-to-r from-amber-400 via-yellow-500 to-orange-500 rounded-full blur-2xl opacity-80 animate-[spin_3s_linear_infinite]" />
+                    <div className="absolute -inset-4 bg-gradient-to-r from-yellow-300 to-amber-400 rounded-full blur-lg opacity-90 animate-pulse" />
                     <img
                       src={winner?.avatar_url || FALLBACK_AVATAR}
                       alt={winner?.name}
-                      className="relative w-32 h-32 rounded-full border-4 border-amber-300 object-cover shadow-[0_0_30px_rgba(251,191,36,0.8)] transform hover:scale-110 transition-transform duration-500"
+                      className="relative w-36 h-36 rounded-full border-4 border-amber-300 object-cover shadow-[0_0_40px_rgba(251,191,36,1)] transform hover:scale-110 transition-transform duration-500"
                     />
-                    <Trophy className="absolute -bottom-2 -right-2 w-10 h-10 text-amber-300 drop-shadow-[0_0_15px_rgba(251,191,36,1)] animate-bounce" />
+                    <Trophy className="absolute -bottom-4 -right-4 w-14 h-14 text-amber-300 drop-shadow-[0_0_20px_rgba(251,191,36,1)] animate-bounce" />
                   </div>
                   <div className="text-white font-black text-4xl drop-shadow-lg mt-2">{winner?.name}</div>
                   
                   {winnerCoins > 0 && (
-                    <div className="relative group mt-4">
-                      <div className="absolute -inset-1 bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 rounded-2xl blur-lg opacity-70 group-hover:opacity-100 transition duration-1000 group-hover:duration-200 animate-pulse"></div>
-                      <div className="relative bg-slate-900/80 ring-1 ring-amber-400/50 rounded-2xl px-10 py-6 text-center shadow-[0_0_40px_rgba(251,191,36,0.4)] backdrop-blur-sm transform hover:scale-105 transition-transform duration-300">
-                        <div className="absolute top-0 left-0 w-full h-full overflow-hidden rounded-2xl pointer-events-none">
-                          <Sparkles className="absolute top-2 left-2 w-4 h-4 text-amber-300 animate-ping opacity-75" />
-                          <Sparkles className="absolute bottom-2 right-2 w-5 h-5 text-yellow-200 animate-pulse opacity-75" />
+                    <div className="relative group mt-6 animate-[bounce_1s_ease-in-out_infinite]">
+                      <div className="absolute -inset-2 bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-300 rounded-3xl blur-xl opacity-80 group-hover:opacity-100 transition duration-500 animate-pulse"></div>
+                      <div className="relative bg-gradient-to-b from-yellow-400 to-amber-600 ring-2 ring-yellow-200 rounded-3xl px-12 py-8 text-center shadow-[0_0_50px_rgba(251,191,36,0.8)] transform hover:scale-110 transition-transform duration-300">
+                        <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
+                          <Sparkles className="absolute top-3 left-3 w-6 h-6 text-yellow-100 animate-ping opacity-90" />
+                          <Sparkles className="absolute bottom-3 right-3 w-8 h-8 text-yellow-200 animate-pulse opacity-90" />
                         </div>
-                        <div className="text-transparent bg-clip-text bg-gradient-to-b from-amber-200 to-amber-500 text-6xl font-black drop-shadow-[0_0_20px_rgba(251,191,36,0.8)] flex items-center justify-center gap-3">
-                          <span className="animate-bounce">🪙</span> 
+                        <div className="text-white text-7xl font-black drop-shadow-[0_5px_15px_rgba(0,0,0,0.4)] flex items-center justify-center gap-4">
+                          <span className="animate-[spin_3s_linear_infinite] drop-shadow-[0_0_15px_rgba(255,255,255,0.8)]">🪙</span> 
                           <span>{winnerCoins.toLocaleString()}</span>
                         </div>
-                        <div className="text-amber-400/80 text-sm font-bold uppercase tracking-widest mt-2">Total Winnings</div>
+                        <div className="text-yellow-100 text-lg font-black uppercase tracking-widest mt-3 drop-shadow-md">Total Winnings!</div>
                       </div>
                     </div>
                   )}
@@ -1059,11 +1059,11 @@ export default function TriviaGame({
 
                   let bg = `bg-gradient-to-br ${OPTION_COLORS[opt]} shadow-lg`;
                   if (answerResult) {
-                    if (isCorrect) bg = 'bg-gradient-to-br from-emerald-400 to-emerald-600 border-emerald-300 shadow-[0_0_40px_rgba(16,185,129,0.8)] scale-[1.05] z-10 ring-4 ring-emerald-400/50';
+                    if (isCorrect) bg = 'bg-gradient-to-br from-emerald-400 to-emerald-600 border-emerald-300 shadow-[0_0_50px_rgba(16,185,129,1)] scale-[1.05] z-10 ring-4 ring-emerald-400/80 animate-[pulse_1s_ease-in-out_infinite]';
                     else if (isWrong) bg = 'bg-gradient-to-br from-rose-500 to-rose-700 border-rose-400 shadow-[0_0_20px_rgba(225,29,72,0.5)] opacity-90 scale-95';
                     else bg = 'bg-white/5 border-white/10 opacity-30 grayscale-[70%] scale-95';
                   } else {
-                    bg += ' hover:shadow-[0_0_30px_rgba(255,255,255,0.25)] hover:-translate-y-1.5 hover:scale-[1.02] hover:brightness-125';
+                    bg += ' hover:shadow-[0_0_40px_rgba(255,255,255,0.4)] hover:-translate-y-2 hover:scale-[1.03] hover:brightness-125';
                   }
 
                   return (
@@ -1095,10 +1095,10 @@ export default function TriviaGame({
                     : 'bg-gradient-to-r from-rose-500/20 to-pink-500/20 text-rose-400 border-rose-500/50 shadow-[0_0_30px_rgba(225,29,72,0.4)]'
                 }`}>
                   {answerResult.isCorrect ? (
-                    <div className="flex items-center justify-center gap-3">
-                      <Sparkles className="w-8 h-8 text-emerald-300 animate-spin" />
-                      <span>Correct! +{answerResult.points} pts</span>
-                      <Sparkles className="w-8 h-8 text-emerald-300 animate-spin" />
+                    <div className="flex items-center justify-center gap-3 scale-110 transition-transform">
+                      <Sparkles className="w-10 h-10 text-emerald-300 animate-[spin_2s_linear_infinite]" />
+                      <span className="drop-shadow-[0_0_10px_rgba(16,185,129,0.8)]">Correct! +{answerResult.points} pts</span>
+                      <Sparkles className="w-10 h-10 text-emerald-300 animate-[spin_2s_linear_infinite]" />
                     </div>
                   ) : (
                     <div className="flex items-center justify-center gap-3">
