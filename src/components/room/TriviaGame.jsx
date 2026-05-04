@@ -735,11 +735,11 @@ export default function TriviaGame({
         <div className="px-5 py-4 flex items-center justify-between border-b border-white/10 bg-white/5">
           <div className="flex items-center gap-3">
             <div className="bg-gradient-to-br from-purple-500 to-blue-500 p-2.5 rounded-xl shadow-[0_0_15px_rgba(168,85,247,0.5)]">
-              <div className="bg-gradient-to-br from-purple-500 to-blue-500 p-2 rounded-xl shadow-[0_0_15px_rgba(168,85,247,0.5)]">
+              <div className="bg-gradient-to-br from-purple-500 to-blue-500 p-3 rounded-xl shadow-[0_0_20px_rgba(168,85,247,0.6)]">
   <img 
     src={kromboLogo} 
     alt="Krombo Logo" 
-    className="w-8 h-8 object-contain hover:scale-110 transition"
+    className="w-10 h-10 object-contain drop-shadow-lg"
   />
 </div>
             </div>
