@@ -10796,6 +10796,7 @@ useEffect(() => {
         canModerate={canModerate}
         userCoins={userWalletCoins}
         channelRef={channelRef}
+        isVIP={isVipActive(currentUserProfile)}
         onCoinsUpdated={() => {
           if (user?.id) {
             fetchUserWallet(user.id)

@@ -23,6 +23,7 @@ export default function TriviaGame({
   onCoinsUpdated,
   onTriviaResult,
   channelRef,
+  isVIP,
 }) {
   const [currentSession, setCurrentSession] = useState(null);
   const [players, setPlayers] = useState([]);
@@ -1102,9 +1103,19 @@ export default function TriviaGame({
                     placeholder="Topic (e.g. Football, Science...)"
                     className="flex-1 bg-black/30 border border-white/10 focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/20 rounded-xl px-4 py-3 text-white text-sm outline-none placeholder:text-white/30 transition-all scroll-mt-20 shadow-inner"
                   />
-                  <button onClick={generateWithAI} disabled={generatingAI || !aiTopic.trim()}
-                    className="px-5 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-400 hover:to-blue-400 text-white font-bold text-sm disabled:opacity-50 active:scale-95 transition-all shadow-[0_0_15px_rgba(168,85,247,0.4)] hover:shadow-[0_0_20px_rgba(168,85,247,0.6)] flex items-center gap-2">
-                    {generatingAI ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Go'}
+                  <button
+                    onClick={isVIP ? generateWithAI : () => alert('👑 VIP only feature')}
+                    disabled={generatingAI || !aiTopic.trim()}
+                    className={`px-5 py-3 rounded-xl text-white font-bold text-sm active:scale-95 transition-all flex items-center gap-2 ${
+                      isVIP
+                        ? 'bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-400 hover:to-blue-400 disabled:opacity-50 shadow-[0_0_15px_rgba(168,85,247,0.4)] hover:shadow-[0_0_20px_rgba(168,85,247,0.6)]'
+                        : 'bg-white/10 border border-white/20 cursor-pointer'
+                    }`}
+                  >
+                    {generatingAI
+                      ? <Loader2 className="w-4 h-4 animate-spin" />
+                      : isVIP ? 'Go' : '👑'
+                    }
                   </button>
                 </div>
               </div>
