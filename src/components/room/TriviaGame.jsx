@@ -649,6 +649,7 @@ export default function TriviaGame({
           session_id: currentSession.id,
           user_id: user.id,
           is_correct: data.is_correct,
+          time_ms: timeTaken,
           ts: Date.now(),
         },
       });
@@ -808,15 +809,23 @@ export default function TriviaGame({
               
               {/* Leaderboard */}
               <div className="w-full space-y-2 mt-6 px-2">
-                {leaderboard.slice(0, 5).map((p, i) => (
-                  <div key={p.id} className="flex items-center gap-3 bg-white/5 hover:bg-white/10 transition-colors border border-white/10 rounded-xl px-4 py-3 shadow-sm">
-                    <span className="text-2xl w-8 text-center drop-shadow-md">{['🥇','🥈','🥉','4️⃣','5️⃣'][i]}</span>
-                    <img src={p.avatar_url || FALLBACK_AVATAR} alt={p.name}
-                      className="w-10 h-10 rounded-full object-cover border-2 border-white/20 shadow-sm" />
-                    <span className="text-white font-bold text-lg flex-1 truncate">{p.name}</span>
-                    <span className="text-amber-400 font-black bg-amber-400/10 border border-amber-400/20 px-3 py-1.5 rounded-lg shadow-[0_0_10px_rgba(251,191,36,0.2)]">{p.score} pts</span>
-                  </div>
-                ))}
+                {leaderboard.slice(0, 5).map((p, i) => {
+                  const totalSec = p.total_time_ms ? (p.total_time_ms / 1000).toFixed(1) : null;
+                  return (
+                    <div key={p.id} className="flex items-center gap-3 bg-white/5 hover:bg-white/10 transition-colors border border-white/10 rounded-xl px-4 py-3 shadow-sm">
+                      <span className="text-2xl w-8 text-center drop-shadow-md">{['🥇','🥈','🥉','4️⃣','5️⃣'][i]}</span>
+                      <img src={p.avatar_url || FALLBACK_AVATAR} alt={p.name}
+                        className="w-10 h-10 rounded-full object-cover border-2 border-white/20 shadow-sm" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-white font-bold truncate">{p.name}</div>
+                        {totalSec && (
+                          <div className="text-blue-300 text-xs font-bold">⚡ {totalSec}s total</div>
+                        )}
+                      </div>
+                      <span className="text-amber-400 font-black bg-amber-400/10 border border-amber-400/20 px-3 py-1.5 rounded-lg shadow-[0_0_10px_rgba(251,191,36,0.2)]">{p.score} pts</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -937,19 +946,26 @@ export default function TriviaGame({
                 <div className="text-white/50 text-xs font-bold uppercase tracking-wider mb-3 px-1 flex items-center gap-2">
                   <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Live Scores
                 </div>
-                {[...players].sort((a,b) => b.score - a.score).map((p, i) => {
+                {[...players].sort((a,b) => {
+                  if (b.score !== a.score) return b.score - a.score;
+                  return (a.total_time_ms || 0) - (b.total_time_ms || 0);
+                }).map((p, i) => {
                   const counts = playerAnswerCounts[p.user_id] || { correct: 0, wrong: 0 };
+                  const totalSec = p.total_time_ms ? (p.total_time_ms / 1000).toFixed(1) : null;
                   return (
                     <div key={p.id} className="flex items-center gap-3 bg-white/5 hover:bg-white/10 transition-colors border border-white/10 rounded-xl px-3 py-2.5 shadow-sm">
                       <span className="text-base w-6 text-center drop-shadow-md">{['🥇','🥈','🥉'][i] || `${i + 1}`}</span>
                       <img src={p.avatar_url || FALLBACK_AVATAR} alt={p.name}
                         className="w-8 h-8 rounded-full object-cover border border-white/20 shadow-sm" />
                       <span className="text-white text-sm font-bold flex-1 truncate">{p.name}</span>
-                      <div className="flex items-center gap-2 bg-black/30 border border-white/5 px-2.5 py-1 rounded-lg shadow-inner">
-                        <span className="text-emerald-400 text-xs font-black drop-shadow-[0_0_3px_rgba(16,185,129,0.5)]">✅ {counts.correct}</span>
-                        <span className="text-rose-400 text-xs font-black drop-shadow-[0_0_3px_rgba(225,29,72,0.5)]">❌ {counts.wrong}</span>
+                      <div className="flex items-center gap-1.5 bg-black/30 border border-white/5 px-2 py-1 rounded-lg shadow-inner">
+                        <span className="text-emerald-400 text-xs font-black">✅{counts.correct}</span>
+                        <span className="text-rose-400 text-xs font-black">❌{counts.wrong}</span>
+                        {totalSec && (
+                          <span className="text-blue-300 text-xs font-black ml-1">⚡{totalSec}s</span>
+                        )}
                       </div>
-                      <span className="text-amber-400 font-black text-base w-10 text-right drop-shadow-[0_0_5px_rgba(251,191,36,0.5)]">{p.score}</span>
+                      <span className="text-amber-400 font-black text-sm w-10 text-right">{p.score}</span>
                     </div>
                   );
                 })}
