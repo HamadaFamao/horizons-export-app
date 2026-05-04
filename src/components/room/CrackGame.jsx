@@ -225,13 +225,13 @@ export default function CrackGame({
           }
 
           // Global banner for silver/gold
-          const currentEgg = EGGS.find(e => e.id === session.current_egg_id);
-          if (currentEgg && ['silver', 'gold'].includes(currentEgg.group)) {
+          const currentEggForBanner = EGGS.find(e => e.id === session.current_egg_id);
+          if (currentEggForBanner && data.win_amount >= 5000) {
             onCrackResult?.({
               winAmount: data.win_amount,
-              eggGroup: currentEgg.group,
-              eggOrder: currentEgg.order,
-              isGlobal: currentEgg.group === 'gold',
+              eggGroup: currentEggForBanner.group,
+              eggOrder: currentEggForBanner.order,
+              isGlobal: currentEggForBanner.group === 'gold',
             });
           }
 
@@ -395,6 +395,117 @@ export default function CrackGame({
           ) : (
             // Active game
             <div className="p-4 flex flex-col gap-4">
+              {/* Current egg card FIRST */}
+              {currentEgg && (
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <div className="text-white font-black text-base">
+                        Egg #{currentEgg.order}
+                        <span className="ml-2 text-sm font-bold opacity-60">
+                          {GROUP_CONFIG[currentEgg.group].label}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-white/50 text-xs">Cost:</span>
+                        <span className="text-amber-400 font-black text-xs">
+                          🪙{(currentEgg.base_cost * session.multiplier).toLocaleString()}
+                        </span>
+                        <span className="text-white/30 text-xs">→</span>
+                        <span className="text-emerald-400 font-black text-xs">
+                          🪙{(currentEgg.base_win * session.multiplier).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex">
+                      {Array.from({ length: currentEgg.attempts }, (_, i) => (
+                        <span key={i} className="text-lg">
+                          {i < session.attempts_left ? '❤️' : '🖤'}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="relative">
+                      {animating && (
+                        <div className="absolute -top-10 left-1/2 -translate-x-1/2 text-5xl z-10"
+                          style={{ animation: 'hammerSwing 0.4s ease-in-out forwards' }}>
+                          🔨
+                        </div>
+                      )}
+
+                      <style>{`
+                        @keyframes hammerSwing {
+                          0%   { transform: translateX(-50%) rotate(-60deg) translateY(-20px); opacity: 1; }
+                          60%  { transform: translateX(-50%) rotate(10deg) translateY(10px); opacity: 1; }
+                          80%  { transform: translateX(-50%) rotate(-5deg) translateY(5px); opacity: 1; }
+                          100% { transform: translateX(-50%) rotate(0deg) translateY(0px); opacity: 0; }
+                        }
+                        @keyframes eggShake {
+                          0%,100% { transform: rotate(0deg) scale(1); }
+                          20% { transform: rotate(-8deg) scale(1.05); }
+                          40% { transform: rotate(8deg) scale(1.05); }
+                          60% { transform: rotate(-5deg) scale(1.02); }
+                          80% { transform: rotate(5deg) scale(1.02); }
+                        }
+                        @keyframes eggCrack {
+                          0%   { transform: scale(1); filter: brightness(1); }
+                          30%  { transform: scale(1.15); filter: brightness(1.5); }
+                          60%  { transform: scale(0.95); filter: brightness(0.8); }
+                          100% { transform: scale(1); filter: brightness(1); }
+                        }
+                      `}</style>
+
+                      <button
+                        onClick={crackEgg}
+                        disabled={cracking || animating || userCoins < currentEgg.base_cost * session.multiplier}
+                        className="relative flex items-center justify-center disabled:cursor-not-allowed transition-all active:scale-90"
+                        style={{ animation: animating ? 'eggShake 0.4s ease-in-out' : 'none' }}
+                      >
+                        <div className="absolute inset-0 rounded-full blur-2xl opacity-60"
+                          style={{ background: currentEgg.glow }} />
+                        <div
+                          className="relative w-36 h-44 rounded-[50%] flex items-center justify-center cursor-pointer border-4 transition-all"
+                          style={{
+                            background: `radial-gradient(circle at 35% 28%, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.4) 25%, ${currentEgg.color} 60%, ${currentEgg.color}88 100%)`,
+                            borderColor: `${currentEgg.color}80`,
+                            boxShadow: `0 0 30px ${currentEgg.glow}, inset 0 -10px 30px rgba(0,0,0,0.2)`,
+                            animation: animating ? 'eggCrack 0.5s ease-in-out' : 'none',
+                          }}
+                        >
+                          {animating && (
+                            <svg className="absolute inset-0 w-full h-full" viewBox="0 0 144 176">
+                              <path d="M72 20 L65 60 L78 90 L60 130" stroke="rgba(0,0,0,0.3)" strokeWidth="2" fill="none" strokeDasharray="4,2"/>
+                              <path d="M72 20 L80 70 L68 100 L85 140" stroke="rgba(0,0,0,0.2)" strokeWidth="1.5" fill="none" strokeDasharray="3,3"/>
+                            </svg>
+                          )}
+                          {cracking
+                            ? <Loader2 className="w-10 h-10 text-white/70 animate-spin" />
+                            : <span className="text-4xl select-none drop-shadow-lg">
+                                {userCoins < currentEgg.base_cost * session.multiplier ? '🔒' : '🥚'}
+                              </span>
+                          }
+                        </div>
+                        {!cracking && !animating && userCoins >= currentEgg.base_cost * session.multiplier && (
+                          <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-white/40 text-xs font-bold whitespace-nowrap animate-pulse">
+                            Tap to crack!
+                          </div>
+                        )}
+                      </button>
+                    </div>
+                    <div className="mt-8 text-center">
+                      <div className={`text-sm font-bold ${userCoins < currentEgg.base_cost * session.multiplier ? 'text-rose-400' : 'text-white/50'}`}>
+                        {userCoins < currentEgg.base_cost * session.multiplier
+                          ? '❌ Not enough coins'
+                          : `🪙 ${(currentEgg.base_cost * session.multiplier).toLocaleString()} per attempt`
+                        }
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Stats bar */}
               <div className="grid grid-cols-3 gap-2">
                 <div className="bg-white/5 border border-white/10 rounded-xl p-2.5 text-center">
@@ -527,140 +638,6 @@ export default function CrackGame({
                 </div>
               )}
 
-              {/* Current egg card - tap to crack */}
-              {currentEgg && (
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <div className="text-white font-black text-base">
-                        Egg #{currentEgg.order}
-                        <span className="ml-2 text-sm font-bold opacity-60">
-                          {GROUP_CONFIG[currentEgg.group].label}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-white/50 text-xs">Cost:</span>
-                        <span className="text-amber-400 font-black text-xs">
-                          🪙{(currentEgg.base_cost * session.multiplier).toLocaleString()}
-                        </span>
-                        <span className="text-white/30 text-xs">→</span>
-                        <span className="text-emerald-400 font-black text-xs">
-                          🪙{(currentEgg.base_win * session.multiplier).toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex">
-                      {Array.from({ length: currentEgg.attempts }, (_, i) => (
-                        <span key={i} className="text-lg">
-                          {i < session.attempts_left ? '❤️' : '🖤'}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Big egg - tap to crack */}
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="relative">
-                      {/* Hammer animation */}
-                      {animating && (
-                        <div
-                          className="absolute -top-10 left-1/2 -translate-x-1/2 text-5xl z-10"
-                          style={{
-                            animation: 'hammerSwing 0.4s ease-in-out forwards',
-                          }}
-                        >
-                          🔨
-                        </div>
-                      )}
-
-                      <style>{`
-                        @keyframes hammerSwing {
-                          0%   { transform: translateX(-50%) rotate(-60deg) translateY(-20px); opacity: 1; }
-                          60%  { transform: translateX(-50%) rotate(10deg) translateY(10px); opacity: 1; }
-                          80%  { transform: translateX(-50%) rotate(-5deg) translateY(5px); opacity: 1; }
-                          100% { transform: translateX(-50%) rotate(0deg) translateY(0px); opacity: 0; }
-                        }
-                        @keyframes eggShake {
-                          0%,100% { transform: rotate(0deg) scale(1); }
-                          20%     { transform: rotate(-8deg) scale(1.05); }
-                          40%     { transform: rotate(8deg) scale(1.05); }
-                          60%     { transform: rotate(-5deg) scale(1.02); }
-                          80%     { transform: rotate(5deg) scale(1.02); }
-                        }
-                        @keyframes eggCrack {
-                          0%   { transform: scale(1); filter: brightness(1); }
-                          30%  { transform: scale(1.15); filter: brightness(1.5); }
-                          60%  { transform: scale(0.95); filter: brightness(0.8); }
-                          100% { transform: scale(1); filter: brightness(1); }
-                        }
-                      `}</style>
-
-                      <button
-                        onClick={crackEgg}
-                        disabled={cracking || animating || userCoins < currentEgg.base_cost * session.multiplier}
-                        className="relative flex items-center justify-center disabled:cursor-not-allowed transition-all active:scale-90"
-                        style={{
-                          animation: animating ? 'eggShake 0.4s ease-in-out' : 'none',
-                        }}
-                      >
-                        {/* Egg glow */}
-                        <div
-                          className="absolute inset-0 rounded-full blur-2xl opacity-60"
-                          style={{ background: currentEgg.glow }}
-                        />
-
-                        {/* Egg shape */}
-                        <div
-                          className="relative w-36 h-44 rounded-[50%] flex items-center justify-center cursor-pointer border-4 transition-all"
-                          style={{
-                            background: `radial-gradient(circle at 35% 28%, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.4) 25%, ${currentEgg.color} 60%, ${currentEgg.color}88 100%)`,
-                            borderColor: `${currentEgg.color}80`,
-                            boxShadow: `0 0 30px ${currentEgg.glow}, inset 0 -10px 30px rgba(0,0,0,0.2)`,
-                            animation: animating ? 'eggCrack 0.5s ease-in-out' : 'none',
-                          }}
-                        >
-                          {/* Crack lines when animating */}
-                          {animating && (
-                            <svg className="absolute inset-0 w-full h-full" viewBox="0 0 144 176">
-                              <path d="M72 20 L65 60 L78 90 L60 130" stroke="rgba(0,0,0,0.3)" strokeWidth="2" fill="none" strokeDasharray="4,2"/>
-                              <path d="M72 20 L80 70 L68 100 L85 140" stroke="rgba(0,0,0,0.2)" strokeWidth="1.5" fill="none" strokeDasharray="3,3"/>
-                            </svg>
-                          )}
-
-                          {cracking ? (
-                            <Loader2 className="w-10 h-10 text-white/70 animate-spin" />
-                          ) : (
-                            <span className="text-4xl select-none drop-shadow-lg">
-                              {userCoins < currentEgg.base_cost * session.multiplier ? '🔒' : '🥚'}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Tap hint */}
-                        {!cracking && !animating && userCoins >= currentEgg.base_cost * session.multiplier && (
-                          <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-white/40 text-xs font-bold whitespace-nowrap animate-pulse">
-                            Tap to crack!
-                          </div>
-                        )}
-                      </button>
-                    </div>
-
-                    {/* Cost reminder */}
-                    <div className="mt-8 text-center">
-                      <div className={`text-sm font-bold ${
-                        userCoins < currentEgg.base_cost * session.multiplier
-                          ? 'text-rose-400'
-                          : 'text-white/50'
-                      }`}>
-                        {userCoins < currentEgg.base_cost * session.multiplier
-                          ? '❌ Not enough coins'
-                          : `🪙 ${(currentEgg.base_cost * session.multiplier).toLocaleString()} per attempt`
-                        }
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           )}
         </div>
