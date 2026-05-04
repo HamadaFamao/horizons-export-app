@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { Loader2, X, Plus, Trash2, BrainCircuit, Target, Trophy, Sparkles, Timer } from 'lucide-react';
+import kromboLogo from '../../assets/krombo-logo.svg';
 
 const FALLBACK_AVATAR =
   "data:image/svg+xml;utf8," +
@@ -733,11 +734,15 @@ export default function TriviaGame({
         {/* Header */}
         <div className="px-5 py-4 flex items-center justify-between border-b border-white/10 bg-white/5">
           <div className="flex items-center gap-3">
-            <img 
-              src="/logo.png" 
-              alt="Krombo Quiz Arena" 
-              className="w-12 h-12 object-contain drop-shadow-[0_0_15px_rgba(168,85,247,0.5)]" 
-            />
+            <div className="bg-gradient-to-br from-purple-500 to-blue-500 p-2.5 rounded-xl shadow-[0_0_15px_rgba(168,85,247,0.5)]">
+              <div className="bg-gradient-to-br from-purple-500 to-blue-500 p-2 rounded-xl shadow-[0_0_15px_rgba(168,85,247,0.5)]">
+  <img 
+    src={kromboLogo} 
+    alt="Krombo Logo" 
+    className="w-8 h-8 object-contain hover:scale-110 transition"
+  />
+</div>
+            </div>
             <div>
               <h1 className="font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-300 via-fuchsia-300 to-blue-300 text-2xl tracking-tight leading-none drop-shadow-[0_0_8px_rgba(216,180,254,0.5)]">{TRIVIA_BRAND_NAME}</h1>
               <p className="text-white/70 text-xs font-semibold tracking-wide mt-1">{TRIVIA_SUBTITLE}</p>
