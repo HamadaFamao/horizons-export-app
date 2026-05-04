@@ -580,7 +580,8 @@ export default function LiveRoomPage() {
         { event: 'large_gift_banner' },
         ({ payload }) => {
           if (!payload) return;
-          if (String(payload.room_id) === String(roomId)) return;
+          // Show in ALL rooms including the sender's own room
+          // (sender's room shows it locally, other rooms show via broadcast)
 
           const isGlobal = payload.is_global || false;
           const animUrl = payload.animation_url || payload.gift_icon || '';
@@ -10813,8 +10814,34 @@ useEffect(() => {
           const myAvatar = myProfile?.avatar_url || null;
           const bannerEmoji = eggGroup === 'gold' ? '🥇' : eggGroup === 'silver' ? '⚪' : '🟫';
 
-          if (largeGiftBannerTimerRef.current) clearTimeout(largeGiftBannerTimerRef.current);
+          const bannerPayload = {
+            room_id: roomId,
+            sender_name: myName,
+            sender_avatar: myAvatar,
+            receiver_name: `🪙 ${winAmount.toLocaleString()}`,
+            gift_name: `${bannerEmoji} Crack! Egg #${eggOrder}`,
+            gift_icon: null,
+            animation_url: null,
+            is_to_all: false,
+            is_global: isGlobal,
+            ts: Date.now(),
+          };
 
+          // Send to ALL rooms via global channel
+          const crackGlobalCh = supabase.channel('global_large_gifts');
+          crackGlobalCh.subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+              crackGlobalCh.send({
+                type: 'broadcast',
+                event: 'large_gift_banner',
+                payload: bannerPayload,
+              });
+              setTimeout(() => supabase.removeChannel(crackGlobalCh), 3000);
+            }
+          });
+
+          // Show locally for sender immediately (listener filters out same room)
+          if (largeGiftBannerTimerRef.current) clearTimeout(largeGiftBannerTimerRef.current);
           setLargeGiftBanner({
             senderName: myName,
             senderAvatar: myAvatar,
@@ -10826,31 +10853,7 @@ useEffect(() => {
             roomId: roomId,
             isGlobal,
           });
-
           largeGiftBannerTimerRef.current = setTimeout(() => setLargeGiftBanner(null), 10000);
-
-          const crackGlobalCh = supabase.channel('global_large_gifts');
-          crackGlobalCh.subscribe((status) => {
-            if (status === 'SUBSCRIBED') {
-              crackGlobalCh.send({
-                type: 'broadcast',
-                event: 'large_gift_banner',
-                payload: {
-                  room_id: roomId,
-                  sender_name: myName,
-                  sender_avatar: myAvatar,
-                  receiver_name: `🪙 ${winAmount.toLocaleString()}`,
-                  gift_name: `${bannerEmoji} Crack! Egg #${eggOrder}`,
-                  gift_icon: null,
-                  animation_url: null,
-                  is_to_all: false,
-                  is_global: isGlobal,
-                  ts: Date.now(),
-                },
-              });
-              setTimeout(() => supabase.removeChannel(crackGlobalCh), 3000);
-            }
-          });
         }}
       />
 
