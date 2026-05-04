@@ -743,7 +743,7 @@ export default function TriviaGame({
   />
             
             <div>
-              <h1 className="font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-300 via-fuchsia-300 to-blue-300 text-3xl tracking-tight leading-none drop-shadow-[0_0_8px_rgba(216,180,254,0.5)]">{TRIVIA_BRAND_NAME}</h1>
+              <h1 className="font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-300 via-fuchsia-300 to-blue-300 text-2xl tracking-tight leading-none drop-shadow-[0_0_8px_rgba(216,180,254,0.5)]">{TRIVIA_BRAND_NAME}</h1>
               <p className="text-white/70 text-sm font-semibold tracking-wide mt-1">{TRIVIA_SUBTITLE}</p>
               {currentSession?.status === 'active' && currentQuestion && (
                 <div className="text-white/60 text-[10px] font-bold uppercase tracking-wider mt-1">
