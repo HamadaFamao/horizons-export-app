@@ -47,6 +47,7 @@ import SpinGame from "@/components/room/SpinGame";
 import RaceGame from "@/components/room/RaceGame";
 import LudoGame from "@/components/room/LudoGame";
 import CrackGame from "@/components/room/CrackGame";
+import SlotGame from "@/components/room/SlotGame";
 import TriviaGame from "@/components/room/TriviaGame";
 
 import { FALLBACK_AVATAR } from "@/components/room/ludoUtils";
@@ -1137,6 +1138,7 @@ useEffect(() => {
   const [showSpinGame, setShowSpinGame] = useState(false);
   const [showRaceGame, setShowRaceGame] = useState(false);
   const [showCrackGame, setShowCrackGame] = useState(false);
+  const [showSlotGame, setShowSlotGame] = useState(false);
   const [activeSpinSession, setActiveSpinSession] = useState(null);
   const [pkSeatA, setPkSeatA] = useState("");
   const [pkSeatB, setPkSeatB] = useState("");
@@ -10452,6 +10454,8 @@ useEffect(() => {
           if (gameId === 'race') setShowRaceGame(true);
           if (gameId === 'ludo') setShowLudoGame(true);
           if (gameId === 'crack') setShowCrackGame(true);
+          if (gameId === 'slot') setShowSlotGame(true);
+          if (gameId === 'slots') setShowSlotGame(true);
           if (gameId === 'trivia') setShowTriviaGame(true);
           if (gameId === 'pk') setShowPkModal(true);
         }}
@@ -10845,6 +10849,41 @@ useEffect(() => {
             isGlobal,
           });
           largeGiftBannerTimerRef.current = setTimeout(() => setLargeGiftBanner(null), 10000);
+        }}
+      />
+
+      <SlotGame
+        open={showSlotGame}
+        onClose={() => setShowSlotGame(false)}
+        roomId={roomId}
+        user={user}
+        userCoins={userWalletCoins}
+        onCoinsUpdated={() => {
+          if (user?.id) {
+            fetchUserWallet(user.id)
+              .then(({ data }) => {
+                if (data) setUserWalletCoins(data.coins || 0);
+              })
+              .catch(console.error);
+          }
+        }}
+        onSlotResult={({ resultType, giftName, giftIcon, coinsWon }) => {
+          if (resultType === 'jackpot' || resultType === 'gift_win') {
+            const myProfile = participantsMap?.[user?.id];
+            if (largeGiftBannerTimerRef.current) {
+              clearTimeout(largeGiftBannerTimerRef.current);
+            }
+            setLargeGiftBanner({
+              senderName: myProfile?.name || myProfile?.display_name || currentUserProfile?.name || 'Player',
+              senderAvatar: myProfile?.avatar_url || null,
+              receiverName: giftName || `🪙 ${coinsWon?.toLocaleString()}`,
+              giftName: '🎰 Slot Machine',
+              giftIcon,
+              isGlobal: resultType === 'jackpot',
+              roomId,
+            });
+            largeGiftBannerTimerRef.current = setTimeout(() => setLargeGiftBanner(null), 8000);
+          }
         }}
       />
 

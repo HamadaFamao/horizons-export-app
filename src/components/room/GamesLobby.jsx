@@ -51,7 +51,7 @@ const GAMES = [
     name: 'Slot Machine',
     description: 'Spin the slots and win big!',
     color: 'from-rose-500 to-orange-400',
-    available: false,
+    available: true,
   },
   {
     id: 'trivia',
