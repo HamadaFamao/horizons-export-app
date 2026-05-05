@@ -2357,8 +2357,11 @@ useEffect(() => {
   const activePlayers = getActivePlayersList(players);
   const isJoined = activePlayers.some(p => String(p.user_id) === String(user?.id));
   const isFull = activePlayers.length >= (currentSession?.max_players || 0);
+  const myPlayer = players.find(p => String(p.user_id) === String(user?.id));
   const isMyTurn =
-    String(currentSession?.current_turn_user_id) === String(user?.id) && isJoined;
+    String(currentSession?.current_turn_user_id) === String(user?.id) &&
+    isJoined &&
+    !myPlayer?.left_at;
   const netPrize = Math.floor((currentSession?.entry_cost || 0) * players.length * 0.9);
 
   // Current turn player — used in both JSX and drawBoard
@@ -2548,7 +2551,8 @@ useEffect(() => {
     const isTurnMine = pid === String(user?.id) && isMyTurn;
 
     // FIX (renderDiceSlot): Use !sessionRoll instead of sessionRoll === 0 to handle null
-    const canRoll = isTurnMine && !rolling && !sessionRoll && movablePieces.length === 0;
+    const sessionLastRoll = Number(currentSession?.last_roll || 0);
+    const canRoll = isTurnMine && !rolling && !sessionLastRoll && movablePieces.length === 0;
 
     const faceValue = getVisibleDiceValueForPlayer(player);
     const hasValue = faceValue >= 1 && faceValue <= 6;

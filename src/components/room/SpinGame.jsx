@@ -329,7 +329,9 @@ export default function SpinGame({
       setPlayers([]);
       setShowResult(false);
       setWinner(null);
+      setWinnerCoins(0);
       setRotation(0);
+      setSpinning(false);
       handledFinishRef.current = null;
       finishTimeoutRef.current = null;
       loadSession();
@@ -522,6 +524,13 @@ export default function SpinGame({
       clearTimeout(finishTimeoutRef.current);
       finishTimeoutRef.current = null;
     }
+    // Reset all game state when closed so it doesn't freeze next time
+    setSpinning(false);
+    setShowResult(false);
+    setWinner(null);
+    setWinnerCoins(0);
+    setRotation(0);
+    handledFinishRef.current = null;
   }, [open]);
 
   useEffect(() => {
