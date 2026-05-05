@@ -199,6 +199,13 @@ const KICK_OPTIONS = [
 ];
 
 const SPARKLE_CSS = `
+@keyframes giftPop {
+  0% { opacity: 0; transform: translateY(20px) scale(0.8); }
+  15% { opacity: 1; transform: translateY(-5px) scale(1.05); }
+  25% { transform: translateY(0) scale(1); }
+  75% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-20px) scale(0.95); }
+}
 @keyframes slideArrow {
   0% { transform: translateX(0); opacity: 0.6; }
   50% { transform: translateX(6px); opacity: 1; }
@@ -10062,7 +10069,7 @@ useEffect(() => {
           flex items-center justify-center z-[70]
           pointer-events-none px-4">
           <div className="flex flex-col items-center gap-3
-            animate-[giftPop_0.4s_ease-out_forwards]">
+            animate-[giftPop_4s_ease-in-out_forwards]">
 
             {/* Sender → Gift → Receiver */}
             <div className="flex items-center gap-3">
@@ -10516,13 +10523,8 @@ useEffect(() => {
               setLargeGiftBanner(null);
             }, 10000);
 
-            // Use existing global channel subscription
-            const globalCh = supabase
-              .channel('global_large_gifts')
-              .subscribe();
-            
-            setTimeout(() => {
-              globalCh.send({
+            if (globalGiftChannelRef.current) {
+              globalGiftChannelRef.current.send({
                 type: 'broadcast',
                 event: 'large_gift_banner',
                 payload: {
@@ -10539,7 +10541,7 @@ useEffect(() => {
                   ts: Date.now(),
                 },
               });
-            }, 500);
+            }
           }
         }}
         onCoinsUpdated={() => {
@@ -10625,13 +10627,8 @@ useEffect(() => {
               setLargeGiftBanner(null);
             }, 10000);
 
-            // Broadcast to all rooms
-            const globalCh = supabase
-              .channel('global_large_gifts')
-              .subscribe();
-
-            setTimeout(() => {
-              globalCh.send({
+            if (globalGiftChannelRef.current) {
+              globalGiftChannelRef.current.send({
                 type: 'broadcast',
                 event: 'large_gift_banner',
                 payload: {
@@ -10648,7 +10645,7 @@ useEffect(() => {
                   ts: Date.now(),
                 },
               });
-            }, 500);
+            }
           }
         }}
       />
@@ -10766,11 +10763,8 @@ useEffect(() => {
               setLargeGiftBanner(null);
             }, 10000);
 
-            const globalCh = supabase
-              .channel('global_large_gifts')
-              .subscribe();
-            setTimeout(() => {
-              globalCh.send({
+            if (globalGiftChannelRef.current) {
+              globalGiftChannelRef.current.send({
                 type: 'broadcast',
                 event: 'large_gift_banner',
                 payload: {
@@ -10788,7 +10782,7 @@ useEffect(() => {
                   ts: Date.now(),
                 },
               });
-            }, 500);
+            }
           }
         }}
       />
