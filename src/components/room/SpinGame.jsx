@@ -854,7 +854,7 @@ export default function SpinGame({
                     >
                       {soundMuted ? '🔇 Unmute Game Sound' : '🔊 Mute Game Sound'}
                     </button>
-                    {canModerate && (currentSession?.status === 'waiting' || currentSession?.status === 'spinning') && (
+                    {canModerate && currentSession?.status === 'waiting' && (
                       <button
                         onClick={() => {
                           setShowSettingsMenu(false);
