@@ -200,11 +200,11 @@ const KICK_OPTIONS = [
 
 const SPARKLE_CSS = `
 @keyframes giftPop {
-  0% { opacity: 0; transform: translateY(20px) scale(0.8); }
-  15% { opacity: 1; transform: translateY(-5px) scale(1.05); }
-  25% { transform: translateY(0) scale(1); }
-  75% { opacity: 1; transform: translateY(0) scale(1); }
-  100% { opacity: 0; transform: translateY(-20px) scale(0.95); }
+  0%   { opacity: 0; transform: translateY(30px) scale(0.7); }
+  12%  { opacity: 1; transform: translateY(-8px) scale(1.08); }
+  20%  { opacity: 1; transform: translateY(0)    scale(1);    }
+  75%  { opacity: 1; transform: translateY(0)    scale(1);    }
+  100% { opacity: 0; transform: translateY(-30px) scale(0.85); }
 }
 @keyframes slideArrow {
   0% { transform: translateX(0); opacity: 0.6; }
@@ -10068,8 +10068,8 @@ useEffect(() => {
         <div className="absolute top-1/3 left-0 right-0
           flex items-center justify-center z-[70]
           pointer-events-none px-4">
-          <div className="flex flex-col items-center gap-3
-            animate-[giftPop_4s_ease-in-out_forwards]">
+          <div className="flex flex-col items-center gap-3"
+            style={{ animation: 'giftPop 4s ease-in-out forwards' }}>
 
             {/* Sender → Gift → Receiver */}
             <div className="flex items-center gap-3">
