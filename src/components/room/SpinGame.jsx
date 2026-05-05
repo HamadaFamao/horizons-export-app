@@ -166,7 +166,7 @@ export default function SpinGame({
   // Load active session for this room
   useEffect(() => {
     if (!open || !roomId) return;
-    loadSession();
+    cleanupStaleSessions().then(() => loadSession());
   }, [open, roomId]);
 
   // Realtime subscription
@@ -208,6 +208,50 @@ export default function SpinGame({
     };
   }, [open, roomId, currentSession?.id]);
 
+  const cleanupStaleSessions = async () => {
+    try {
+      // Find spinning sessions older than 2 minutes - they're stuck
+      const twoMinsAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+      const { data: staleSessions } = await supabase
+        .from('room_spin_sessions')
+        .select('id, winner_id')
+        .eq('room_id', roomId)
+        .eq('status', 'spinning')
+        .lt('started_at', twoMinsAgo);
+
+      if (!staleSessions?.length) return;
+
+      for (const session of staleSessions) {
+        // Try to finish via RPC if there's a winner, otherwise cancel
+        if (session.winner_id) {
+          // Find winner's seat number to finish properly
+          const { data: winnerPlayer } = await supabase
+            .from('room_spin_players')
+            .select('seat_number')
+            .eq('session_id', session.id)
+            .eq('user_id', session.winner_id)
+            .maybeSingle();
+
+          if (winnerPlayer?.seat_number) {
+            await supabase.rpc('finish_spin_session', {
+              p_session_id: session.id,
+              p_winner_seat: winnerPlayer.seat_number,
+            });
+            continue;
+          }
+        }
+
+        // No winner info - just mark as finished and refund
+        await supabase.rpc('cancel_spin_session', {
+          p_session_id: session.id,
+          p_user_id: user?.id,
+        });
+      }
+    } catch (err) {
+      console.warn('[SPIN_CLEANUP_ERROR]', err);
+    }
+  };
+
   const loadSession = async () => {
     setLoading(true);
     try {
@@ -219,6 +263,13 @@ export default function SpinGame({
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
+
+      // If session is stuck in 'spinning' with a winner already set, finish it
+      if (data?.status === 'spinning' && data?.winner_id) {
+        await handleFinishedSession(data);
+        setLoading(false);
+        return;
+      }
 
       setCurrentSession(data || null);
       if (data?.id) {
