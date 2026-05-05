@@ -680,11 +680,56 @@ export default function SpinGame({
         p_session_id: currentSession.id,
         p_user_id: user.id,
       });
-      if (error) throw error;
-      if (!data?.success) throw new Error(data?.error || 'Failed to cancel');
+
+      // If RPC fails (e.g. spinning status not allowed), force-reset in DB directly
+      if (error || !data?.success) {
+        const { error: forceError } = await supabase
+          .from('room_spin_sessions')
+          .update({ status: 'finished' })
+          .eq('id', currentSession.id);
+
+        if (forceError) throw forceError;
+
+        // Refund all players manually
+        const { data: playersToRefund } = await supabase
+          .from('room_spin_players')
+          .select('user_id')
+          .eq('session_id', currentSession.id)
+          .is('refunded_at', null);
+
+        const entryCost = currentSession.entry_cost || 0;
+        if (entryCost > 0 && playersToRefund?.length) {
+          for (const p of playersToRefund) {
+            const { data: wallet } = await supabase
+              .from('wallets')
+              .select('coins')
+              .eq('user_id', p.user_id)
+              .maybeSingle();
+
+            if (wallet) {
+              await supabase
+                .from('wallets')
+                .update({ coins: (wallet.coins || 0) + entryCost })
+                .eq('user_id', p.user_id);
+
+              await supabase
+                .from('room_spin_players')
+                .update({ refunded_at: new Date().toISOString() })
+                .eq('session_id', currentSession.id)
+                .eq('user_id', p.user_id);
+            }
+          }
+        }
+      }
+
       onCoinsUpdated?.();
       setCurrentSession(null);
       setPlayers([]);
+      setSpinning(false);
+      setShowResult(false);
+      setWinner(null);
+      setRotation(0);
+      handledFinishRef.current = null;
     } catch (err) {
       alert(err.message || 'Failed to cancel');
     }
@@ -809,7 +854,7 @@ export default function SpinGame({
                     >
                       {soundMuted ? '🔇 Unmute Game Sound' : '🔊 Mute Game Sound'}
                     </button>
-                    {canModerate && currentSession?.status === 'waiting' && (
+                    {canModerate && (currentSession?.status === 'waiting' || currentSession?.status === 'spinning') && (
                       <button
                         onClick={() => {
                           setShowSettingsMenu(false);
