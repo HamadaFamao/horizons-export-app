@@ -591,10 +591,10 @@ export default function LiveRoomPage() {
           if (!payload) return;
 
           const isGlobal = payload.is_global || false;
-          const animUrl = payload.animation_url || payload.gift_icon || '';
+          const animUrl = payload.animation_url || '';
 
-          // Show fullscreen animation in other rooms too
-          if (animUrl) {
+          // Show fullscreen animation only if there's a real animation URL
+          if (animUrl && animUrl.match(/\.(gif|mp4|webm|png|jpg|jpeg|webp)(\?|#|$)/i)) {
             const isVideo = /\.(mp4|webm)(\?|#|$)/i.test(animUrl);
             const overlay = document.createElement('div');
             overlay.style.cssText = `
