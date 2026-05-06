@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { GIFT_CATEGORIES } from '@/lib/giftCategories';
 import { Loader2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const QUANTITY_PRESETS = [5, 10, 15, 20, 50, 100, 150, 250, 500, 1000];
 
@@ -50,6 +51,7 @@ export default function GiftPanel({
   initialRecipientMode = 'all',
 }) {
   const [activeCategory, setActiveCategory] = useState('general');
+  const navigate = useNavigate();
   const [gifts, setGifts] = useState({});
   const [loading, setLoading] = useState(true);
   const [selectedGift, setSelectedGift] = useState(null);
@@ -357,12 +359,16 @@ export default function GiftPanel({
     >
       {/* Header: coins + drag handle + close */}
       <div className="flex items-center justify-between px-4 pt-3 pb-2 shrink-0">
-        <div className="flex items-center gap-1.5 bg-white/10 rounded-full px-3 py-1">
+        <button
+          onClick={() => navigate('/plans')}
+          className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 rounded-full px-3 py-1 transition active:scale-95"
+        >
           <span className="text-yellow-400 text-sm">🪙</span>
           <span className="text-white text-sm font-bold">
             {(userCoins ?? 0).toLocaleString()}
           </span>
-        </div>
+          <span className="text-white/40 text-[10px]">+</span>
+        </button>
         <div className="w-8 h-1 bg-white/20 rounded-full mx-auto" />
         <button
           onClick={onClose}

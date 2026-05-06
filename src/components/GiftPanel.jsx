@@ -329,7 +329,7 @@ export default function GiftPanel({
             </div>
           </div>
           <button
-            onClick={() => navigate('/wallet')}
+            onClick={() => navigate('/plans')}
             className="text-xs bg-white border border-amber-200 text-amber-700 px-3 py-1 rounded-full hover:bg-amber-100 transition font-medium cursor-pointer"
           >
             + {language === 'ar' ? 'شحن' : 'Top Up'}

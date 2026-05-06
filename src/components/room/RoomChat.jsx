@@ -725,6 +725,7 @@ export default function RoomChat({
                           </button>
                           {renderRoleBadge(senderUserId)}
                           <span
+                            dir="auto"
                             className={isVip
                               ? "text-xs text-white font-medium break-words whitespace-pre-wrap"
                               : "text-xs text-white/80 break-words whitespace-pre-wrap"
