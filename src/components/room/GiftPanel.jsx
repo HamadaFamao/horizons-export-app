@@ -56,6 +56,8 @@ export default function GiftPanel({
   const [quantity, setQuantity] = useState(1);
   const [sending, setSending] = useState(false);
   const [bagGifts, setBagGifts] = useState([]);
+  const [loadingBag, setLoadingBag] = useState(false);
+  const [sendingBagGift, setSendingBagGift] = useState(false);
   const scrollRef = useRef(null);
 
   // Recipient — seeded from props when opening for a specific user
@@ -67,6 +69,38 @@ export default function GiftPanel({
   // Quantity picker
   const [showQuantityPicker, setShowQuantityPicker] = useState(false);
   const [customQty, setCustomQty] = useState('');
+
+  // Load bag items
+  useEffect(() => {
+    if (!user?.id) return;
+    const fetchBag = async () => {
+      setLoadingBag(true);
+      try {
+        const { data } = await supabase.rpc('get_user_bag', { p_user_id: user.id });
+        if (data?.success) {
+          // حوّل الـ bag items لنفس شكل الـ gifts عشان يتعرض صح
+          setBagGifts((data.items || []).map(item => ({
+            id: item.gift_id,
+            bag_item_id: item.id,
+            name_en: item.gift_name,
+            name_ar: item.gift_name_ar || item.gift_name,
+            icon_url: item.gift_icon || '🎁',
+            animation_asset_url: item.animation_asset_url || null,
+            gems_awarded: item.gems_awarded,
+            cost: 0,
+            quantity: item.quantity,
+            bag_only: true,
+            is_bag_gift: true,
+          })));
+        }
+      } catch (err) {
+        console.error('[BAG_FETCH_ERROR]', err);
+      } finally {
+        setLoadingBag(false);
+      }
+    };
+    fetchBag();
+  }, [user?.id]);
 
   useEffect(() => {
     const fetchGifts = async () => {
@@ -116,6 +150,55 @@ export default function GiftPanel({
 
     if (selectedGift.is_vip_only && !isVIP) {
       alert('This gift is for VIP members only');
+      return;
+    }
+
+    // ── BAG GIFT mode ──
+    if (selectedGift.is_bag_gift) {
+      const recipientId = specificRecipient || targetUserId || roomOwnerId;
+      if (!recipientId || String(recipientId) === String(user?.id)) {
+        alert('Please select a recipient for this bag gift');
+        setRecipientMode('specific');
+        return;
+      }
+      if (selectedGift.quantity < 1) {
+        alert('You have no more of this gift');
+        return;
+      }
+      setSendingBagGift(true);
+      try {
+        const { data, error } = await supabase.rpc('use_bag_gift', {
+          p_user_id: user.id,
+          p_gift_id: selectedGift.id,
+          p_receiver_id: recipientId,
+          p_room_id: room?.id,
+        });
+        if (error) throw error;
+        if (!data?.success) throw new Error(data?.error || 'Failed to send');
+
+        // قلل الكمية locally
+        setBagGifts(prev => prev.map(g =>
+          g.id === selectedGift.id
+            ? { ...g, quantity: g.quantity - 1 }
+            : g
+        ).filter(g => g.quantity > 0));
+
+        onGiftSent?.({
+          gift: selectedGift,
+          quantity: 1,
+          recipientId,
+          recipientMode: 'specific',
+          isBagGift: true,
+          result: data,
+        });
+
+        setSelectedGift(null);
+        onClose();
+      } catch (err) {
+        alert(err.message || 'Failed to send bag gift');
+      } finally {
+        setSendingBagGift(false);
+      }
       return;
     }
 
@@ -386,11 +469,15 @@ export default function GiftPanel({
           <div className="flex items-center justify-center h-32">
             <Loader2 className="w-6 h-6 animate-spin text-amber-400" />
           </div>
+        ) : activeCategory === 'bag' && loadingBag ? (
+          <div className="flex items-center justify-center h-32">
+            <Loader2 className="w-6 h-6 animate-spin text-purple-400" />
+          </div>
         ) : activeCategory === 'bag' && bagGifts.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-32 gap-2">
             <span className="text-3xl">🎒</span>
             <p className="text-white/40 text-sm">Your bag is empty</p>
-            <p className="text-white/30 text-xs">Win gifts from games &amp; competitions</p>
+            <p className="text-white/30 text-xs">Win gifts from the Slot Machine!</p>
           </div>
         ) : activeCategory === 'exclusive' && 
             (gifts['exclusive'] || []).length === 0 ? (
@@ -439,10 +526,21 @@ export default function GiftPanel({
                 </p>
 
                 <div className="flex items-center gap-0.5">
-                  <span className="text-[10px] text-yellow-400">🪙</span>
-                  <span className="text-[10px] text-yellow-300 font-bold">
-                    {gift.cost}
-                  </span>
+                  {gift.is_bag_gift ? (
+                    <>
+                      <span className="text-[10px] text-purple-400">🎒</span>
+                      <span className="text-[10px] text-purple-300 font-bold">
+                        ×{gift.quantity}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-[10px] text-yellow-400">🪙</span>
+                      <span className="text-[10px] text-yellow-300 font-bold">
+                        {gift.cost}
+                      </span>
+                    </>
+                  )}
                 </div>
 
                 {gift.is_lucky && (
