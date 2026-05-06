@@ -149,7 +149,7 @@ export default function SlotGame({ open, onClose, roomId, user, userCoins, onCoi
         setSpinning(false); setShowResult(true);
         playWin(data.result_type);
         if (data.gift_id) loadBag();
-        if (data.result_type === 'jackpot' || data.result_type === 'gift_win') {
+        if (data.result_type === 'jackpot' || data.result_type === 'gift_win' || data.result_type === 'big_win') {
           onSlotResult?.({ resultType: data.result_type, coinsWon: data.coins_won, giftName: data.gift_name, giftIcon: data.gift_icon, betAmount: bet });
         }
       }, 3200);

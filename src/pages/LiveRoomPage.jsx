@@ -10868,7 +10868,7 @@ useEffect(() => {
           }
         }}
         onSlotResult={({ resultType, giftName, giftIcon, coinsWon }) => {
-          if (resultType === 'jackpot' || resultType === 'gift_win') {
+          if (resultType === 'jackpot' || resultType === 'gift_win' || resultType === 'big_win') {
             const isGlobal = resultType === 'jackpot';
             const receiverName = giftName
               ? `🎁 ${giftName}`
