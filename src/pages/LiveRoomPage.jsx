@@ -10869,26 +10869,46 @@ useEffect(() => {
         }}
         onSlotResult={({ resultType, giftName, giftIcon, coinsWon }) => {
           if (resultType === 'jackpot' || resultType === 'gift_win') {
-            const bannerPayload = {
-              senderName: currentUserProfile?.name || 'Player',
-              senderAvatar: currentUserProfile?.avatar_url || null,
-              receiverName: giftName || `🪙 ${coinsWon?.toLocaleString()}`,
-              giftName: '🎰 Slot Machine',
-              giftIcon: giftIcon || '🎰',
-              isGlobal: resultType === 'jackpot',
-              roomId,
-            };
+            const isGlobal = resultType === 'jackpot';
+            const receiverName = giftName
+              ? `🎁 ${giftName}`
+              : `🪙 ${(coinsWon || 0).toLocaleString()}`;
 
             // عرض للاعب نفسه
-            setLargeGiftBanner(bannerPayload);
-            largeGiftBannerTimerRef.current = setTimeout(() => setLargeGiftBanner(null), 8000);
-
-            // بعت لباقي اللاعبين في الروم
-            globalGiftChannelRef.current?.send({
-              type: 'broadcast',
-              event: 'large_gift',
-              payload: bannerPayload,
+            if (largeGiftBannerTimerRef.current) clearTimeout(largeGiftBannerTimerRef.current);
+            setLargeGiftBanner({
+              senderName: currentUserProfile?.name || 'Player',
+              senderAvatar: currentUserProfile?.avatar_url || null,
+              receiverName,
+              receiverAvatar: null,
+              giftName: '🎰 Slot Machine',
+              giftIcon: giftIcon || null,
+              isToAll: false,
+              roomId,
+              isGlobal,
             });
+            largeGiftBannerTimerRef.current = setTimeout(() => setLargeGiftBanner(null), 10000);
+
+            // بعت لباقي اللاعبين
+            if (globalGiftChannelRef.current) {
+              globalGiftChannelRef.current.send({
+                type: 'broadcast',
+                event: 'large_gift_banner',
+                payload: {
+                  room_id: roomId,
+                  sender_name: currentUserProfile?.name || 'Player',
+                  sender_avatar: currentUserProfile?.avatar_url || null,
+                  receiver_name: receiverName,
+                  receiver_avatar: null,
+                  gift_name: '🎰 Slot Machine',
+                  gift_icon: giftIcon || null,
+                  animation_url: null,
+                  is_to_all: false,
+                  is_global: isGlobal,
+                  ts: Date.now(),
+                },
+              });
+            }
           }
         }}
       />
