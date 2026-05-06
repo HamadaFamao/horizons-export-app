@@ -27,20 +27,27 @@ function Reel({ spinning, finalSymbol, delay = 0 }) {
   const toRef = useRef(null);
 
   useEffect(() => {
-    if (!spinning) { setSettled(false); return; }
+    if (!spinning) {
+      // لما الـ spinning يوقف، اعرض الرمز الصح مباشرة
+      if (finalSymbol && finalSymbol !== '🎰') {
+        setDisplay(finalSymbol);
+        setSettled(true);
+      } else {
+        setSettled(false);
+      }
+      clearInterval(ivRef.current);
+      clearTimeout(toRef.current);
+      return;
+    }
     setSettled(false);
+    setDisplay('🎰');
     toRef.current = setTimeout(() => {
       ivRef.current = setInterval(() => {
         setDisplay(ALL_SYMBOLS[Math.floor(Math.random() * ALL_SYMBOLS.length)]);
       }, 80);
-      setTimeout(() => {
-        clearInterval(ivRef.current);
-        setDisplay(finalSymbol || '🎰');
-        setSettled(true);
-      }, 1800 + delay * 600);
     }, delay * 300);
     return () => { clearInterval(ivRef.current); clearTimeout(toRef.current); };
-  }, [spinning]);
+  }, [spinning, finalSymbol]);
 
   return (
     <div className={`relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl flex items-center justify-center border-2 transition-all duration-300 ${
