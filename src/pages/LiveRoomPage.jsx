@@ -2836,12 +2836,14 @@ useEffect(() => {
       );
       if (banErr) throw banErr;
 
-      const { error: presErr } = await supabase
-        .from("live_room_presence")
-        .delete()
-        .eq("room_id", roomId)
-        .eq("user_id", kickTargetId);
-      if (presErr) throw presErr;
+        // أخرجه من الروم
+        const { error: partErr } = await supabase
+          .from("live_room_participants")
+          .update({ left_at: new Date().toISOString() })
+          .eq("room_id", roomId)
+          .eq("user_id", kickTargetId)
+          .is("left_at", null);
+        if (partErr) throw partErr;
 
       try {
         await supabase.rpc("remove_user_from_mic", { p_room_id: roomId, p_user_id: kickTargetId });
@@ -2899,7 +2901,12 @@ useEffect(() => {
       );
       if (banErr) throw banErr;
 
-      await supabase.from("live_room_presence").delete().eq("room_id", roomId).eq("user_id", banTargetId);
+      await supabase
+        .from("live_room_participants")
+        .update({ left_at: new Date().toISOString() })
+        .eq("room_id", roomId)
+        .eq("user_id", banTargetId)
+        .is("left_at", null);
 
       try {
         await supabase.rpc("remove_user_from_mic", { p_room_id: roomId, p_user_id: banTargetId });
