@@ -252,6 +252,10 @@ export default function ChatPage() {
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [sendingVoice, setSendingVoice] = useState(false);
 
+  // Keyboard detection
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+
   // ── Refs ───────────────────────────────────────────────────────────────
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
@@ -329,26 +333,33 @@ export default function ChatPage() {
     return () => clearInterval(recordingTimerRef.current);
   }, []);
 
-  // visualViewport listener for Android Chrome keyboard
+  // visualViewport listener for Android Chrome keyboard with offset calculation
   useEffect(() => {
-    const handleResize = () => {
-      document.documentElement.style.setProperty(
-        '--app-height',
-        `${window.visualViewport?.height || window.innerHeight}px`
-      );
-      setTimeout(() => scrollToBottom('auto'), 100);
+    const updateViewport = () => {
+      const vv = window.visualViewport;
+      const viewportHeight = vv?.height || window.innerHeight;
+      const windowHeight = window.innerHeight;
+      const offset = Math.max(0, windowHeight - viewportHeight - (vv?.offsetTop || 0));
+
+      document.documentElement.style.setProperty('--app-height', `${viewportHeight}px`);
+
+      const isOpen = offset > 80;
+      setKeyboardOpen(isOpen);
+      setKeyboardOffset(isOpen ? offset : 0);
+
+      setTimeout(() => scrollToBottom('auto'), 50);
     };
 
-    handleResize();
+    updateViewport();
 
-    window.visualViewport?.addEventListener('resize', handleResize);
-    window.visualViewport?.addEventListener('scroll', handleResize);
-    window.addEventListener('resize', handleResize);
+    window.visualViewport?.addEventListener('resize', updateViewport);
+    window.visualViewport?.addEventListener('scroll', updateViewport);
+    window.addEventListener('resize', updateViewport);
 
     return () => {
-      window.visualViewport?.removeEventListener('resize', handleResize);
-      window.visualViewport?.removeEventListener('scroll', handleResize);
-      window.removeEventListener('resize', handleResize);
+      window.visualViewport?.removeEventListener('resize', updateViewport);
+      window.visualViewport?.removeEventListener('scroll', updateViewport);
+      window.removeEventListener('resize', updateViewport);
     };
   }, []);
 
@@ -912,7 +923,9 @@ export default function ChatPage() {
       {/* Messages */}
       <div
         ref={messagesContainerRef}
-        className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2 bg-slate-100/50"
+        className={`flex-1 min-h-0 overflow-y-auto p-4 space-y-2 bg-slate-100/50 ${
+          keyboardOpen ? 'pb-28' : ''
+        }`}
         onClick={() => setShowEmojiPicker(false)}
       >
         {Array.isArray(messages) && messages.length === 0 ? (
@@ -955,7 +968,12 @@ export default function ChatPage() {
       </div>
 
       {/* Input area */}
-      <div className="shrink-0 border-t border-gray-200 bg-white p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] z-30">
+      <div
+        className={`border-t border-gray-200 bg-white p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 ${
+          keyboardOpen ? 'fixed left-0 right-0' : 'shrink-0'
+        }`}
+        style={keyboardOpen ? { bottom: `${keyboardOffset}px` } : undefined}
+      >
         {/* Status banners */}
         {isBlocked && (
           <div className="px-4 py-2 bg-red-50 border border-red-100 rounded-xl mb-2 flex items-center justify-between">
@@ -1033,7 +1051,7 @@ export default function ChatPage() {
             ref={inputRef} value={inputValue} onChange={handleInputChange}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
             onFocus={() => {
-              setTimeout(() => scrollToBottom('smooth'), 250);
+              setTimeout(() => scrollToBottom('auto'), 300);
             }}
             disabled={isInputDisabled} placeholder={inputPlaceholder}
             className={`flex-1 px-4 py-3 border rounded-2xl resize-none focus:outline-none focus:ring-2 transition-all text-sm md:text-base min-h-[48px] max-h-[120px] ${!isInputDisabled ? 'bg-gray-50 border-gray-200 focus:ring-blue-100 focus:border-blue-300 focus:bg-white' : 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed placeholder:text-gray-400'}`}
