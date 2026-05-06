@@ -55,7 +55,7 @@ const GAMES = [
   },
   {
     id: 'trivia',
-    emoji: '🧠',
+    emoji: '🕵️‍♀️',
     name: 'Dash Quiz',
     subtitle: TRIVIA_SUBTITLE,
     description: 'Test your knowledge and compete with others',
@@ -84,7 +84,7 @@ export default function GamesLobby({ open, onClose, onSelectGame, activeSpinSess
         <div className="px-4 py-3 flex items-center justify-between
           border-b border-white/10">
           <div className="flex items-center gap-2">
-            <span className="text-2xl">🕵️‍♀️</span>
+            <span className="text-2xl">🎮</span>
             <span className="font-bold text-white text-lg">Games</span>
           </div>
           <button onClick={onClose} className="text-white/50 hover:text-white transition-colors">
