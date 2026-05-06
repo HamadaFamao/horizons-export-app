@@ -110,7 +110,7 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
     else if (profileCheckLoading) loadingMessage = 'Verifying access...';
 
     return (
-      <div className="min-h-screen flex items-center justify-center bg-rose-50">
+      <div className="min-h-[100dvh] flex items-center justify-center bg-rose-50 overflow-visible">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="w-8 h-8 animate-spin text-rose-500" />
           <p className="text-sm text-rose-600 font-medium animate-pulse">{loadingMessage}</p>

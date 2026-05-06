@@ -1,6 +1,6 @@
 
 import React, { useEffect } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
 
 import AuthPage from '@/pages/AuthPage';
@@ -67,7 +67,7 @@ const isHorizonsPreview =
 
 function HorizonsPreviewBlocked() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+    <div className="min-h-[100dvh] flex items-center justify-center bg-slate-50 p-6 overflow-visible">
       <div className="max-w-md w-full bg-white border rounded-xl p-6 text-center shadow-sm">
         <h2 className="text-xl font-bold text-slate-900">Preview Disabled</h2>
         <p className="text-slate-600 mt-2 text-sm leading-relaxed">
@@ -95,6 +95,8 @@ function AppContent() {
   usePageVisibility();
 
   const { user } = useAuth();
+  const location = useLocation();
+  const isChatRoute = location.pathname.startsWith('/messages/');
 
   useEffect(() => {
     const initUser = async () => {
@@ -118,8 +120,8 @@ function AppContent() {
   }, [user?.id]);
 
   return (
-    <div className="min-h-screen flex flex-col relative">
-      <MiniRoomBar />
+    <div className="flex min-h-[100dvh] flex-col relative overflow-visible">
+      {!isChatRoute && <MiniRoomBar />}
       <Routes>
         {/* Website Layout */}
         <Route element={<WebsiteLayout />}>
