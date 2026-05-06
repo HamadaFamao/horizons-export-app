@@ -252,9 +252,8 @@ export default function ChatPage() {
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [sendingVoice, setSendingVoice] = useState(false);
 
-  // Keyboard detection
-  const [keyboardOpen, setKeyboardOpen] = useState(false);
-  const [composerFocused, setComposerFocused] = useState(false);
+  // Viewport height (tracks visualViewport for keyboard avoidance)
+  const [appHeight, setAppHeight] = useState(window.innerHeight);
 
   // ── Refs ───────────────────────────────────────────────────────────────
   const messagesEndRef = useRef(null);
@@ -333,33 +332,24 @@ export default function ChatPage() {
     return () => clearInterval(recordingTimerRef.current);
   }, []);
 
-  // visualViewport listener for Android Chrome keyboard detection
+  // visualViewport listener — shrinks root height so composer rises above keyboard
   useEffect(() => {
-    const updateViewport = () => {
-      const viewportHeight = window.visualViewport?.height || window.innerHeight;
-      
-      const activeTag = document.activeElement?.tagName?.toLowerCase();
-      const inputFocused = activeTag === 'textarea' || activeTag === 'input';
-      
-      const isOpen =
-        inputFocused ||
-        (window.innerHeight - viewportHeight) > 120;
-      
-      setKeyboardOpen(isOpen);
-      document.documentElement.style.setProperty('--app-height', `${viewportHeight}px`);
-      if (isOpen) setTimeout(() => scrollToBottom('auto'), 50);
+    const updateHeight = () => {
+      const height = window.visualViewport?.height || window.innerHeight;
+      setAppHeight(height);
+      setTimeout(() => scrollToBottom('auto'), 80);
     };
 
-    updateViewport();
+    updateHeight();
 
-    window.visualViewport?.addEventListener('resize', updateViewport);
-    window.visualViewport?.addEventListener('scroll', updateViewport);
-    window.addEventListener('resize', updateViewport);
+    window.visualViewport?.addEventListener('resize', updateHeight);
+    window.visualViewport?.addEventListener('scroll', updateHeight);
+    window.addEventListener('resize', updateHeight);
 
     return () => {
-      window.visualViewport?.removeEventListener('resize', updateViewport);
-      window.visualViewport?.removeEventListener('scroll', updateViewport);
-      window.removeEventListener('resize', updateViewport);
+      window.visualViewport?.removeEventListener('resize', updateHeight);
+      window.visualViewport?.removeEventListener('scroll', updateHeight);
+      window.removeEventListener('resize', updateHeight);
     };
   }, []);
 
@@ -822,7 +812,7 @@ export default function ChatPage() {
   return (
     <div
       className="flex flex-col bg-gray-50 overflow-hidden"
-      style={{ height: 'var(--app-height, 100dvh)' }}
+      style={{ height: `${appHeight}px` }}
     >
       {/* Header */}
       <div className="shrink-0 flex items-center justify-between px-4 py-3 bg-white border-b border-gray-100 shadow-sm z-30">
@@ -923,9 +913,7 @@ export default function ChatPage() {
       {/* Messages */}
       <div
         ref={messagesContainerRef}
-        className={`flex-1 min-h-0 overflow-y-auto p-4 space-y-2 bg-slate-100/50 ${
-          keyboardOpen ? 'pb-32' : 'pb-4'
-        }`}
+        className="flex-1 min-h-0 overflow-y-auto p-4 pb-4 space-y-2 bg-slate-100/50"
         onClick={() => setShowEmojiPicker(false)}
       >
         {Array.isArray(messages) && messages.length === 0 ? (
@@ -969,9 +957,7 @@ export default function ChatPage() {
 
       {/* Input area */}
       <div
-        className={`border-t border-gray-200 bg-white p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] z-50 ${
-          keyboardOpen ? 'fixed left-0 right-0 bottom-0' : 'shrink-0'
-        }`}
+        className="shrink-0 border-t border-gray-200 bg-white p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] z-30"
       >
         {/* Status banners */}
         {isBlocked && (
@@ -1050,7 +1036,6 @@ export default function ChatPage() {
             ref={inputRef} value={inputValue} onChange={handleInputChange}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
             onFocus={() => {
-              setKeyboardOpen(true);
               setTimeout(() => scrollToBottom('auto'), 300);
             }}
             disabled={isInputDisabled} placeholder={inputPlaceholder}
