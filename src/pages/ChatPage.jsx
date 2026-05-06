@@ -333,21 +333,14 @@ export default function ChatPage() {
     return () => clearInterval(recordingTimerRef.current);
   }, []);
 
-  // visualViewport listener for Android Chrome keyboard with offset calculation
+  // visualViewport listener for Android Chrome keyboard detection
   useEffect(() => {
     const updateViewport = () => {
-      const vv = window.visualViewport;
-      const viewportHeight = vv?.height || window.innerHeight;
-      const windowHeight = window.innerHeight;
-      const offset = Math.max(0, windowHeight - viewportHeight - (vv?.offsetTop || 0));
-
-      document.documentElement.style.setProperty('--app-height', `${viewportHeight}px`);
-
-      const isOpen = offset > 80;
+      const viewportHeight = window.visualViewport?.height || window.innerHeight;
+      const isOpen = (window.innerHeight - viewportHeight) > 120;
       setKeyboardOpen(isOpen);
-      setKeyboardOffset(isOpen ? offset : 0);
-
-      setTimeout(() => scrollToBottom('auto'), 50);
+      document.documentElement.style.setProperty('--app-height', `${viewportHeight}px`);
+      if (isOpen) setTimeout(() => scrollToBottom('auto'), 50);
     };
 
     updateViewport();
@@ -924,7 +917,7 @@ export default function ChatPage() {
       <div
         ref={messagesContainerRef}
         className={`flex-1 min-h-0 overflow-y-auto p-4 space-y-2 bg-slate-100/50 ${
-          keyboardOpen ? 'pb-28' : ''
+          keyboardOpen ? 'pb-32' : 'pb-4'
         }`}
         onClick={() => setShowEmojiPicker(false)}
       >
@@ -969,10 +962,9 @@ export default function ChatPage() {
 
       {/* Input area */}
       <div
-        className={`border-t border-gray-200 bg-white p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 ${
-          keyboardOpen ? 'fixed left-0 right-0' : 'shrink-0'
+        className={`border-t border-gray-200 bg-white p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] z-50 ${
+          keyboardOpen ? 'fixed left-0 right-0 bottom-0' : 'shrink-0'
         }`}
-        style={keyboardOpen ? { bottom: `${keyboardOffset}px` } : undefined}
       >
         {/* Status banners */}
         {isBlocked && (
@@ -1051,6 +1043,7 @@ export default function ChatPage() {
             ref={inputRef} value={inputValue} onChange={handleInputChange}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
             onFocus={() => {
+              setKeyboardOpen(true);
               setTimeout(() => scrollToBottom('auto'), 300);
             }}
             disabled={isInputDisabled} placeholder={inputPlaceholder}
