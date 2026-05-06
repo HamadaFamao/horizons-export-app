@@ -253,8 +253,8 @@ export default function ChatPage() {
   const [sendingVoice, setSendingVoice] = useState(false);
 
   // Keyboard detection
-  const [keyboardOffset, setKeyboardOffset] = useState(0);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const [composerFocused, setComposerFocused] = useState(false);
 
   // ── Refs ───────────────────────────────────────────────────────────────
   const messagesEndRef = useRef(null);
@@ -337,7 +337,14 @@ export default function ChatPage() {
   useEffect(() => {
     const updateViewport = () => {
       const viewportHeight = window.visualViewport?.height || window.innerHeight;
-      const isOpen = (window.innerHeight - viewportHeight) > 120;
+      
+      const activeTag = document.activeElement?.tagName?.toLowerCase();
+      const inputFocused = activeTag === 'textarea' || activeTag === 'input';
+      
+      const isOpen =
+        inputFocused ||
+        (window.innerHeight - viewportHeight) > 120;
+      
       setKeyboardOpen(isOpen);
       document.documentElement.style.setProperty('--app-height', `${viewportHeight}px`);
       if (isOpen) setTimeout(() => scrollToBottom('auto'), 50);
