@@ -10869,20 +10869,26 @@ useEffect(() => {
         }}
         onSlotResult={({ resultType, giftName, giftIcon, coinsWon }) => {
           if (resultType === 'jackpot' || resultType === 'gift_win') {
-            const myProfile = participantsMap?.[user?.id];
-            if (largeGiftBannerTimerRef.current) {
-              clearTimeout(largeGiftBannerTimerRef.current);
-            }
-            setLargeGiftBanner({
-              senderName: myProfile?.name || myProfile?.display_name || currentUserProfile?.name || 'Player',
-              senderAvatar: myProfile?.avatar_url || null,
+            const bannerPayload = {
+              senderName: currentUserProfile?.name || 'Player',
+              senderAvatar: currentUserProfile?.avatar_url || null,
               receiverName: giftName || `🪙 ${coinsWon?.toLocaleString()}`,
               giftName: '🎰 Slot Machine',
-              giftIcon,
+              giftIcon: giftIcon || '🎰',
               isGlobal: resultType === 'jackpot',
               roomId,
-            });
+            };
+
+            // عرض للاعب نفسه
+            setLargeGiftBanner(bannerPayload);
             largeGiftBannerTimerRef.current = setTimeout(() => setLargeGiftBanner(null), 8000);
+
+            // بعت لباقي اللاعبين في الروم
+            globalGiftChannelRef.current?.send({
+              type: 'broadcast',
+              event: 'large_gift',
+              payload: bannerPayload,
+            });
           }
         }}
       />
