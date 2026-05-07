@@ -298,14 +298,22 @@ export default function ChatPage() {
 
   // ── Effects ────────────────────────────────────────────────────────────
 
-  // Viewport resize listener for Android Keyboard
+  // Viewport resize listener for Android Keyboard Fix
   useEffect(() => {
+    let prevHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+
     const updateViewport = () => {
       if (window.visualViewport) {
         setViewportStyle({
           height: `${window.visualViewport.height}px`,
           top: `${window.visualViewport.offsetTop}px`
         });
+
+        // Scroll to bottom if keyboard opens (height decreases significantly)
+        if (prevHeight - window.visualViewport.height > 100) {
+          setTimeout(() => scrollToBottom('auto'), 100);
+        }
+        prevHeight = window.visualViewport.height;
       } else {
         setViewportStyle({
           height: `${window.innerHeight}px`,
@@ -319,6 +327,7 @@ export default function ChatPage() {
     // Prevent native body scroll to avoid layout viewport shifting
     document.documentElement.style.overflow = 'hidden';
     document.body.style.overflow = 'hidden';
+    document.body.style.overscrollBehavior = 'none';
 
     if (window.visualViewport) {
       window.visualViewport.addEventListener('resize', updateViewport);
@@ -337,6 +346,7 @@ export default function ChatPage() {
       // Restore body scroll
       document.documentElement.style.overflow = '';
       document.body.style.overflow = '';
+      document.body.style.overscrollBehavior = '';
     };
   }, []);
 
@@ -832,7 +842,7 @@ export default function ChatPage() {
 
   return (
     <div 
-      className="fixed left-0 w-full flex flex-col bg-gray-50 overflow-hidden" 
+      className="absolute left-0 w-full flex flex-col bg-gray-50 overflow-hidden z-50" 
       style={{ 
         ...viewportStyle,
         overscrollBehavior: 'none' 
