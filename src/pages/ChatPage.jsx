@@ -213,6 +213,8 @@ export default function ChatPage() {
   const [otherUser, setOtherUser] = useState(null);
   const [otherUserLastSeen, setOtherUserLastSeen] = useState(null);
   const [inputValue, setInputValue] = useState('');
+  const [showMobileComposer, setShowMobileComposer] = useState(false);
+  const [mobileDraft, setMobileDraft] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [isSendingGift, setIsSendingGift] = useState(false);
   const [showGiftModal, setShowGiftModal] = useState(false);
@@ -292,6 +294,9 @@ export default function ChatPage() {
       messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' });
     });
   };
+
+  const isMobileDevice = () =>
+    window.matchMedia('(max-width: 768px)').matches;
 
   // ── Effects ────────────────────────────────────────────────────────────
 
@@ -546,9 +551,9 @@ export default function ChatPage() {
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
   };
 
-  const handleSendMessage = async () => {
-    const trimmedInput = inputValue.trim();
-    if (!trimmedInput || !thread?.id || !currentUser?.id) return;
+  const handleSendMessage = async (overrideText = null) => {
+    const messageText = (overrideText ?? inputValue).trim();
+    if (!messageText || isSending || !thread?.id || !currentUser?.id) return;
 
     if (isBlocked) {
       toast({ title: 'Cannot send', description: 'You have blocked this user.', variant: 'destructive' });
@@ -570,7 +575,7 @@ export default function ChatPage() {
     try {
       setIsSending(true);
       const { data, error } = await supabase.from('messages')
-        .insert({ thread_id: thread.id, sender_id: currentUser.id, body: trimmedInput, created_at: new Date().toISOString() })
+        .insert({ thread_id: thread.id, sender_id: currentUser.id, body: messageText, created_at: new Date().toISOString() })
         .select().single();
       if (error) { toast({ title: 'Error', description: 'Failed to send message', variant: 'destructive' }); return; }
       setMessages((prev) => Array.isArray(prev) ? [...prev, data] : [data]);
@@ -1014,6 +1019,12 @@ export default function ChatPage() {
             ref={inputRef} value={inputValue} onChange={handleInputChange}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
             onFocus={() => {
+              if (isMobileDevice()) {
+                setMobileDraft(inputValue);
+                setShowMobileComposer(true);
+                setTimeout(() => document.activeElement?.blur(), 50);
+                return;
+              }
               setTimeout(() => {
                 messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
               }, 300);
@@ -1036,6 +1047,59 @@ export default function ChatPage() {
         </div>
 
       </footer>
+
+      {showMobileComposer && (
+        <div className="fixed inset-0 z-[9999] bg-black/40 flex items-end">
+          <div className="w-full bg-white rounded-t-3xl p-4 shadow-2xl">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold text-gray-800">Write a message</h3>
+              <button
+                onClick={() => setShowMobileComposer(false)}
+                className="text-gray-500 text-xl"
+              >
+                &times;
+              </button>
+            </div>
+
+            <textarea
+              autoFocus
+              value={mobileDraft}
+              onChange={(e) => setMobileDraft(e.target.value)}
+              placeholder="Type a message..."
+              rows={4}
+              className="w-full resize-none rounded-2xl border border-gray-200 p-3 text-base outline-none focus:ring-2 focus:ring-blue-300"
+            />
+
+            <div className="flex items-center justify-end gap-3 mt-3">
+              <button
+                onClick={() => setShowMobileComposer(false)}
+                className="px-4 py-2 rounded-xl bg-gray-100 text-gray-600 font-semibold"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={async () => {
+                  const text = mobileDraft.trim();
+                  if (!text || isSending) return;
+
+                  setInputValue(text);
+                  setShowMobileComposer(false);
+
+                  setTimeout(() => {
+                    handleSendMessage(text);
+                  }, 0);
+                }}
+                disabled={!mobileDraft.trim() || isSending}
+                className="px-5 py-2 rounded-xl bg-blue-500 text-white font-bold disabled:opacity-50"
+              >
+                Send
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <ChatGiftModal isOpen={showGiftModal} onClose={() => setShowGiftModal(false)} recipientId={recipientId} recipientName={otherUser.name} onGiftSelected={handleSendGift} isLoading={isSendingGift} />
 
       <style>{`
