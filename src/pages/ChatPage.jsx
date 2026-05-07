@@ -1053,35 +1053,43 @@ export default function ChatPage() {
       </footer>
 
       {showMobileComposer && (
-        <div className="fixed inset-0 bg-white z-[9999] flex flex-col">
-          <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-gray-200">
-            <button
-              onClick={() => setShowMobileComposer(false)}
-              className="text-gray-600 font-semibold"
-            >
-              Cancel
-            </button>
-            <h3 className="font-bold text-gray-800">Write a message</h3>
-            <button
-              onClick={() => {
-                const text = mobileDraft.trim();
-                if (!text || isSending) return;
-                setShowMobileComposer(false);
-                handleSendMessage(text);
-              }}
-              disabled={!mobileDraft.trim() || isSending}
-              className="text-blue-600 font-bold disabled:opacity-50"
-            >
-              Send
-            </button>
-          </div>
+        <div className="fixed inset-0 z-[9999] bg-black/10">
+          <div className="absolute top-20 left-3 right-3 bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+              <button
+                onClick={() => setShowMobileComposer(false)}
+                className="font-bold text-gray-600"
+              >
+                Cancel
+              </button>
 
-          <textarea
-            autoFocus
-            value={mobileDraft}
-            onChange={(e) => setMobileDraft(e.target.value)}
-            className="flex-1 w-full p-5 text-lg outline-none resize-none"
-          />
+              <div className="font-black text-gray-800">
+                Write a message
+              </div>
+
+              <button
+                onClick={async () => {
+                  const text = mobileDraft.trim();
+                  if (!text || isSending) return;
+                  setShowMobileComposer(false);
+                  await handleSendMessage(text);
+                }}
+                disabled={!mobileDraft.trim() || isSending}
+                className="font-bold text-blue-500 disabled:opacity-40"
+              >
+                Send
+              </button>
+            </div>
+
+            <textarea
+              autoFocus
+              value={mobileDraft}
+              onChange={(e) => setMobileDraft(e.target.value)}
+              placeholder="Type a message..."
+              rows={5}
+              className="w-full resize-none p-4 text-lg outline-none bg-white"
+            />
+          </div>
         </div>
       )}
 
