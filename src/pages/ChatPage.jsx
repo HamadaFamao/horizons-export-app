@@ -253,7 +253,7 @@ export default function ChatPage() {
   const [sendingVoice, setSendingVoice] = useState(false);
 
   // Viewport Style for Android Keyboard Fix
-  const [viewportHeight, setViewportHeight] = useState('100dvh');
+  const [viewportStyle, setViewportStyle] = useState({ height: '100dvh', top: 0 });
 
   // ── Refs ───────────────────────────────────────────────────────────────
   const messagesEndRef = useRef(null);
@@ -302,13 +302,15 @@ export default function ChatPage() {
   useEffect(() => {
     const updateViewport = () => {
       if (window.visualViewport) {
-        const vh = window.visualViewport.height;
-        document.documentElement.style.height = `${vh}px`;
-        document.body.style.height = `${vh}px`;
-        setViewportHeight(`${vh}px`);
-        window.scrollTo(0, 0);
+        setViewportStyle({
+          height: `${window.visualViewport.height}px`,
+          top: `${window.visualViewport.offsetTop}px`
+        });
       } else {
-        setViewportHeight(`${window.innerHeight}px`);
+        setViewportStyle({
+          height: `${window.innerHeight}px`,
+          top: '0px'
+        });
       }
     };
 
@@ -334,9 +336,7 @@ export default function ChatPage() {
       }
       // Restore body scroll
       document.documentElement.style.overflow = '';
-      document.documentElement.style.height = '';
       document.body.style.overflow = '';
-      document.body.style.height = '';
     };
   }, []);
 
@@ -832,9 +832,9 @@ export default function ChatPage() {
 
   return (
     <div 
-      className="fixed top-0 left-0 w-full flex flex-col bg-gray-50 overflow-hidden" 
+      className="fixed left-0 w-full flex flex-col bg-gray-50 overflow-hidden" 
       style={{ 
-        height: viewportHeight, 
+        ...viewportStyle,
         overscrollBehavior: 'none' 
       }}
     >
@@ -1059,7 +1059,6 @@ export default function ChatPage() {
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
             onFocus={() => {
               const scrollDown = () => {
-                window.scrollTo(0, 0);
                 messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
               };
               // Multiple timeouts to ensure it scrolls after keyboard animation finishes
