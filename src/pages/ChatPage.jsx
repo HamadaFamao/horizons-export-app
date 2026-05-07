@@ -935,10 +935,18 @@ export default function ChatPage() {
           <footer className="shrink-0 border-t border-gray-200 bg-white p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] z-30">
         {/* Status banners */}
         {isBlocked && (
-          <div className="px-4 py-2 bg-red-50 border border-red-100 rounded-xl mb-2 flex items-center justify-between">
-            <span className="text-sm text-red-600 font-medium">🚫 You blocked {otherUser?.name}</span>
-            <button onClick={handleUnblock} className="text-xs text-red-500 underline hover:text-red-700">Unblock</button>
-        )}
+  <div className="px-4 py-2 bg-red-50 border border-red-100 rounded-xl mb-2 flex items-center justify-between">
+    <span className="text-sm text-red-600 font-medium">
+      🚫 You blocked {otherUser?.name}
+    </span>
+    <button
+      onClick={handleUnblock}
+      className="text-xs text-red-500 underline hover:text-red-700"
+    >
+      Unblock
+    </button>
+  </div>
+)}
         {otherUserDND && (
           <div className="px-4 py-2 bg-amber-50 border border-amber-100 rounded-xl mb-2 flex items-center gap-2">
             <span className="text-lg">🔕</span>
