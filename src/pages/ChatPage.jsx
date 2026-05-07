@@ -300,21 +300,38 @@ export default function ChatPage() {
 
   // Android Keyboard Fix with virtualKeyboard API
   useEffect(() => {
+    console.log('📱 ChatPage mounted - initializing keyboard detection');
+    
     if ('virtualKeyboard' in navigator) {
       try {
         navigator.virtualKeyboard.overlaysContent = true;
-      } catch (e) {}
+        console.log('✅ virtualKeyboard API detected and enabled');
+      } catch (e) {
+        console.warn('⚠️  virtualKeyboard.overlaysContent failed:', e.message);
+      }
+    } else {
+      console.warn('⚠️  virtualKeyboard API not available');
     }
 
     const updateKeyboardInset = () => {
       const vv = window.visualViewport;
       if (!vv) {
+        console.log('🔍 KEYBOARD DEBUG: visualViewport not available');
         setKeyboardInset(0);
         return;
       }
 
       const layoutHeight = document.documentElement.clientHeight || window.innerHeight;
       const inset = Math.max(0, layoutHeight - vv.height - vv.offsetTop);
+
+      console.log('🔍 KEYBOARD DEBUG:', {
+        layoutHeight,
+        visualHeight: vv.height,
+        offsetTop: vv.offsetTop,
+        calculatedInset: inset,
+        finalInset: inset > 80 ? inset : 0,
+        keyboardVisible: inset > 80,
+      });
 
       setKeyboardInset(inset > 80 ? inset : 0);
 
@@ -1056,6 +1073,13 @@ export default function ChatPage() {
             ref={inputRef} value={inputValue} onChange={handleInputChange}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
             onFocus={() => {
+              console.log('FOCUS DEBUG', {
+                innerHeight: window.innerHeight,
+                visualHeight: window.visualViewport?.height,
+                offsetTop: window.visualViewport?.offsetTop,
+                clientHeight: document.documentElement.clientHeight,
+                activeElement: document.activeElement?.tagName,
+              });
               setTimeout(() => {
                 messagesEndRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
               }, 300);
