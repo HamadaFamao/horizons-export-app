@@ -252,9 +252,6 @@ export default function ChatPage() {
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [sendingVoice, setSendingVoice] = useState(false);
 
-  // Keyboard inset for Android Keyboard Fix
-  const [keyboardInset, setKeyboardInset] = useState(0);
-
   // ── Refs ───────────────────────────────────────────────────────────────
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
@@ -297,61 +294,6 @@ export default function ChatPage() {
   };
 
   // ── Effects ────────────────────────────────────────────────────────────
-
-  // Android Keyboard Fix with virtualKeyboard API
-  useEffect(() => {
-    console.log('📱 ChatPage mounted - initializing keyboard detection');
-    
-    if ('virtualKeyboard' in navigator) {
-      try {
-        navigator.virtualKeyboard.overlaysContent = true;
-        console.log('✅ virtualKeyboard API detected and enabled');
-      } catch (e) {
-        console.warn('⚠️  virtualKeyboard.overlaysContent failed:', e.message);
-      }
-    } else {
-      console.warn('⚠️  virtualKeyboard API not available');
-    }
-
-    const updateKeyboardInset = () => {
-      const vv = window.visualViewport;
-      if (!vv) {
-        console.log('🔍 KEYBOARD DEBUG: visualViewport not available');
-        setKeyboardInset(0);
-        return;
-      }
-
-      const layoutHeight = document.documentElement.clientHeight || window.innerHeight;
-      const inset = Math.max(0, layoutHeight - vv.height - vv.offsetTop);
-
-      console.log('🔍 KEYBOARD DEBUG:', {
-        layoutHeight,
-        visualHeight: vv.height,
-        offsetTop: vv.offsetTop,
-        calculatedInset: inset,
-        finalInset: inset > 80 ? inset : 0,
-        keyboardVisible: inset > 80,
-      });
-
-      setKeyboardInset(inset > 80 ? inset : 0);
-
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
-      }, 80);
-    };
-
-    updateKeyboardInset();
-
-    window.visualViewport?.addEventListener('resize', updateKeyboardInset);
-    window.visualViewport?.addEventListener('scroll', updateKeyboardInset);
-    window.addEventListener('resize', updateKeyboardInset);
-
-    return () => {
-      window.visualViewport?.removeEventListener('resize', updateKeyboardInset);
-      window.visualViewport?.removeEventListener('scroll', updateKeyboardInset);
-      window.removeEventListener('resize', updateKeyboardInset);
-    };
-  }, []);
 
   // Auto-scroll
   useEffect(() => {
@@ -844,7 +786,10 @@ export default function ChatPage() {
     : 'Chat is locked...';
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-gray-50 overflow-hidden">
+    <div
+      className="chat-page flex flex-col bg-gray-50 min-h-0"
+      style={{ height: '100dvh' }}
+    >
       {/* Header */}
       <header className="shrink-0 flex items-center justify-between px-4 py-3 bg-white border-b border-gray-100 shadow-sm z-30">
         <div className="flex items-center gap-3">
@@ -944,10 +889,7 @@ export default function ChatPage() {
       {/* Messages */}
       <main
         ref={messagesContainerRef}
-        className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2 bg-slate-100/50"
-        style={{
-          paddingBottom: keyboardInset ? `${keyboardInset + 88}px` : '88px',
-        }}
+        className="flex-1 min-h-0 overflow-y-auto p-4 pb-6 space-y-2 bg-slate-100/50"
         onClick={() => setShowEmojiPicker(false)}
       >
         {Array.isArray(messages) && messages.length === 0 ? (
@@ -990,23 +932,12 @@ export default function ChatPage() {
       </main>
 
       {/* Input area */}
-      <div
-        className="fixed left-0 right-0 border-t border-gray-200 bg-white p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] z-[100]"
-        style={{
-          bottom: keyboardInset ? `${keyboardInset}px` : '0px',
-        }}
-      >
+          <footer className="shrink-0 border-t border-gray-200 bg-white p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] z-30">
         {/* Status banners */}
         {isBlocked && (
           <div className="px-4 py-2 bg-red-50 border border-red-100 rounded-xl mb-2 flex items-center justify-between">
             <span className="text-sm text-red-600 font-medium">🚫 You blocked {otherUser?.name}</span>
             <button onClick={handleUnblock} className="text-xs text-red-500 underline hover:text-red-700">Unblock</button>
-          </div>
-        )}
-        {blockedByOther && (
-          <div className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl mb-2 flex items-center gap-2">
-            <span className="text-sm text-slate-500 font-medium">💬 You cannot send messages to this person right now.</span>
-          </div>
         )}
         {otherUserDND && (
           <div className="px-4 py-2 bg-amber-50 border border-amber-100 rounded-xl mb-2 flex items-center gap-2">
@@ -1073,16 +1004,9 @@ export default function ChatPage() {
             ref={inputRef} value={inputValue} onChange={handleInputChange}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
             onFocus={() => {
-              console.log('FOCUS DEBUG', {
-                innerHeight: window.innerHeight,
-                visualHeight: window.visualViewport?.height,
-                offsetTop: window.visualViewport?.offsetTop,
-                clientHeight: document.documentElement.clientHeight,
-                activeElement: document.activeElement?.tagName,
-              });
-              setTimeout(() => {
-                messagesEndRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
-              }, 300);
+                  setTimeout(() => {
+                    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                  }, 350);
             }}
             disabled={isInputDisabled} placeholder={inputPlaceholder}
             className={`flex-1 px-4 py-3 border rounded-2xl resize-none focus:outline-none focus:ring-2 transition-all text-sm md:text-base min-h-[48px] max-h-[120px] ${!isInputDisabled ? 'bg-gray-50 border-gray-200 focus:ring-blue-100 focus:border-blue-300 focus:bg-white' : 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed placeholder:text-gray-400'}`}
@@ -1100,8 +1024,8 @@ export default function ChatPage() {
             {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5 ml-0.5" />}
           </button>
         </div>
-      </div>
 
+      </footer>
       <ChatGiftModal isOpen={showGiftModal} onClose={() => setShowGiftModal(false)} recipientId={recipientId} recipientName={otherUser.name} onGiftSelected={handleSendGift} isLoading={isSendingGift} />
 
       <style>{`
