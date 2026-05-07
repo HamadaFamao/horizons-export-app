@@ -252,12 +252,12 @@ export default function ChatPage() {
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [sendingVoice, setSendingVoice] = useState(false);
 
-  // Viewport Style for Android Keyboard Fix
-  const [viewportStyle, setViewportStyle] = useState(() => {
-    if (typeof window !== 'undefined' && window.visualViewport) {
-      return { height: `${window.visualViewport.height}px`, top: `${window.visualViewport.offsetTop}px` };
+  // Viewport Height for Android Keyboard Fix
+  const [viewportHeight, setViewportHeight] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.visualViewport ? `${window.visualViewport.height}px` : `${window.innerHeight}px`;
     }
-    return { height: '100dvh', top: '0px' };
+    return '100dvh';
   });
 
   // ── Refs ───────────────────────────────────────────────────────────────
@@ -305,38 +305,35 @@ export default function ChatPage() {
 
   // Viewport resize listener for Android Keyboard
   useEffect(() => {
-    const updateViewport = () => {
+    const handleResize = () => {
       if (window.visualViewport) {
-        setViewportStyle({
-          height: `${window.visualViewport.height}px`,
-          top: `${window.visualViewport.offsetTop}px`
-        });
+        setViewportHeight(`${window.visualViewport.height}px`);
+        window.scrollTo(0, 0); // Prevent body scroll offset
       } else {
-        setViewportStyle({
-          height: `${window.innerHeight}px`,
-          top: '0px'
-        });
+        setViewportHeight(`${window.innerHeight}px`);
       }
     };
 
-    updateViewport();
-    document.body.style.overflow = 'hidden'; // Prevent native body scroll
+    const handleScroll = () => {
+      window.scrollTo(0, 0);
+    };
+
+    handleResize();
 
     if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', updateViewport);
-      window.visualViewport.addEventListener('scroll', updateViewport);
+      window.visualViewport.addEventListener('resize', handleResize);
+      window.visualViewport.addEventListener('scroll', handleScroll);
     } else {
-      window.addEventListener('resize', updateViewport);
+      window.addEventListener('resize', handleResize);
     }
 
     return () => {
       if (window.visualViewport) {
-        window.visualViewport.removeEventListener('resize', updateViewport);
-        window.visualViewport.removeEventListener('scroll', updateViewport);
+        window.visualViewport.removeEventListener('resize', handleResize);
+        window.visualViewport.removeEventListener('scroll', handleScroll);
       } else {
-        window.removeEventListener('resize', updateViewport);
+        window.removeEventListener('resize', handleResize);
       }
-      document.body.style.overflow = ''; // Restore body scroll
     };
   }, []);
 
@@ -832,12 +829,8 @@ export default function ChatPage() {
 
   return (
     <div 
-      className="fixed left-0 w-full flex flex-col bg-gray-50 overflow-hidden" 
-      style={{ 
-        height: viewportStyle.height, 
-        top: viewportStyle.top, 
-        overscrollBehavior: 'none' 
-      }}
+      className="fixed top-0 left-0 w-full flex flex-col bg-gray-50 overflow-hidden" 
+      style={{ height: viewportHeight, overscrollBehavior: 'none' }}
     >
       {/* Header */}
       <header className="shrink-0 flex items-center justify-between px-4 py-3 bg-white border-b border-gray-100 shadow-sm z-30">
@@ -1060,6 +1053,7 @@ export default function ChatPage() {
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
             onFocus={() => {
               const scrollDown = () => {
+                window.scrollTo(0, 0);
                 messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
               };
               // Multiple timeouts to ensure it scrolls after keyboard animation finishes
