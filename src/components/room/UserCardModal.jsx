@@ -172,14 +172,14 @@ const cardIsAdmin = cardIsMod;
 
   const handleKick = () => {
     if (!selectedUserId) return;
-    openKickConfirm(selectedUserId);
     onClose();
+    setTimeout(() => openKickConfirm(selectedUserId), 50);
   };
 
   const handleBan = () => {
     if (!selectedUserId) return;
-    openBanConfirm(selectedUserId);
     onClose();
+    setTimeout(() => openBanConfirm(selectedUserId), 50);
   };
 
   const handleModeratorToggle = () => {
