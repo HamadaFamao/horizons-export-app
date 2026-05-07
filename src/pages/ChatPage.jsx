@@ -255,6 +255,7 @@ export default function ChatPage() {
   // ── Refs ───────────────────────────────────────────────────────────────
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
+  const composerRef = useRef(null);
   const inputRef = useRef(null);
   const realtimeChannelRef = useRef(null);
   const typingChannelRef = useRef(null);
@@ -295,10 +296,14 @@ export default function ChatPage() {
 
   // ── Effects ────────────────────────────────────────────────────────────
 
-  // Auto-scroll
+  // Auto-scroll after messages load
   useEffect(() => {
-    if (!loading) scrollToBottom('auto');
-  }, [thread?.id, loading, messages?.length]);
+    if (!loading) {
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
+      }, 100);
+    }
+  }, [loading, messages.length]);
 
   // Countdown timer
   useEffect(() => {
@@ -786,12 +791,9 @@ export default function ChatPage() {
     : 'Chat is locked...';
 
   return (
-    <div
-      className="chat-page flex flex-col bg-gray-50 min-h-0"
-      style={{ height: '100dvh' }}
-    >
+    <div className="chat-page bg-gray-50 min-h-screen flex flex-col">
       {/* Header */}
-      <header className="shrink-0 flex items-center justify-between px-4 py-3 bg-white border-b border-gray-100 shadow-sm z-30">
+      <header className="sticky top-0 z-30 shrink-0 flex items-center justify-between px-4 py-3 bg-white border-b border-gray-100 shadow-sm">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors">
             <ArrowLeft className="w-5 h-5 text-gray-600" />
@@ -889,7 +891,7 @@ export default function ChatPage() {
       {/* Messages */}
       <main
         ref={messagesContainerRef}
-        className="flex-1 min-h-0 overflow-y-auto p-4 pb-6 space-y-2 bg-slate-100/50"
+        className="flex-1 p-4 pb-28 space-y-2 bg-slate-100/50"
         onClick={() => setShowEmojiPicker(false)}
       >
         {Array.isArray(messages) && messages.length === 0 ? (
@@ -932,7 +934,10 @@ export default function ChatPage() {
       </main>
 
       {/* Input area */}
-          <footer className="shrink-0 border-t border-gray-200 bg-white p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] z-30">
+      <footer
+        ref={composerRef}
+        className="sticky bottom-0 z-40 border-t border-gray-200 bg-white p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
+      >
         {/* Status banners */}
         {isBlocked && (
   <div className="px-4 py-2 bg-red-50 border border-red-100 rounded-xl mb-2 flex items-center justify-between">
@@ -1012,9 +1017,12 @@ export default function ChatPage() {
             ref={inputRef} value={inputValue} onChange={handleInputChange}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
             onFocus={() => {
-                  setTimeout(() => {
-                    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-                  }, 350);
+              setTimeout(() => {
+                composerRef.current?.scrollIntoView({
+                  behavior: 'smooth',
+                  block: 'end',
+                });
+              }, 400);
             }}
             disabled={isInputDisabled} placeholder={inputPlaceholder}
             className={`flex-1 px-4 py-3 border rounded-2xl resize-none focus:outline-none focus:ring-2 transition-all text-sm md:text-base min-h-[48px] max-h-[120px] ${!isInputDisabled ? 'bg-gray-50 border-gray-200 focus:ring-blue-100 focus:border-blue-300 focus:bg-white' : 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed placeholder:text-gray-400'}`}

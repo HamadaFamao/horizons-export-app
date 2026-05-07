@@ -7,8 +7,10 @@
 html,
 body,
 #root {
-  height: auto !important;
-  overflow: visible !important;
+  min-height: 100%;
+  height: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .hide-scrollbar::-webkit-scrollbar {
