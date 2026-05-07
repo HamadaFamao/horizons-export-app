@@ -252,13 +252,8 @@ export default function ChatPage() {
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [sendingVoice, setSendingVoice] = useState(false);
 
-  // Viewport Height for Android Keyboard Fix
-  const [viewportHeight, setViewportHeight] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return window.visualViewport ? `${window.visualViewport.height}px` : `${window.innerHeight}px`;
-    }
-    return '100dvh';
-  });
+  // Viewport Style for Android Keyboard Fix
+  const [viewportHeight, setViewportHeight] = useState('100dvh');
 
   // ── Refs ───────────────────────────────────────────────────────────────
   const messagesEndRef = useRef(null);
@@ -305,35 +300,43 @@ export default function ChatPage() {
 
   // Viewport resize listener for Android Keyboard
   useEffect(() => {
-    const handleResize = () => {
+    const updateViewport = () => {
       if (window.visualViewport) {
-        setViewportHeight(`${window.visualViewport.height}px`);
-        window.scrollTo(0, 0); // Prevent body scroll offset
+        const vh = window.visualViewport.height;
+        document.documentElement.style.height = `${vh}px`;
+        document.body.style.height = `${vh}px`;
+        setViewportHeight(`${vh}px`);
+        window.scrollTo(0, 0);
       } else {
         setViewportHeight(`${window.innerHeight}px`);
       }
     };
 
-    const handleScroll = () => {
-      window.scrollTo(0, 0);
-    };
-
-    handleResize();
+    updateViewport();
+    
+    // Prevent native body scroll to avoid layout viewport shifting
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
 
     if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', handleResize);
-      window.visualViewport.addEventListener('scroll', handleScroll);
+      window.visualViewport.addEventListener('resize', updateViewport);
+      window.visualViewport.addEventListener('scroll', updateViewport);
     } else {
-      window.addEventListener('resize', handleResize);
+      window.addEventListener('resize', updateViewport);
     }
 
     return () => {
       if (window.visualViewport) {
-        window.visualViewport.removeEventListener('resize', handleResize);
-        window.visualViewport.removeEventListener('scroll', handleScroll);
+        window.visualViewport.removeEventListener('resize', updateViewport);
+        window.visualViewport.removeEventListener('scroll', updateViewport);
       } else {
-        window.removeEventListener('resize', handleResize);
+        window.removeEventListener('resize', updateViewport);
       }
+      // Restore body scroll
+      document.documentElement.style.overflow = '';
+      document.documentElement.style.height = '';
+      document.body.style.overflow = '';
+      document.body.style.height = '';
     };
   }, []);
 
@@ -830,7 +833,10 @@ export default function ChatPage() {
   return (
     <div 
       className="fixed top-0 left-0 w-full flex flex-col bg-gray-50 overflow-hidden" 
-      style={{ height: viewportHeight, overscrollBehavior: 'none' }}
+      style={{ 
+        height: viewportHeight, 
+        overscrollBehavior: 'none' 
+      }}
     >
       {/* Header */}
       <header className="shrink-0 flex items-center justify-between px-4 py-3 bg-white border-b border-gray-100 shadow-sm z-30">
