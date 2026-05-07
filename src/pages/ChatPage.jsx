@@ -252,6 +252,14 @@ export default function ChatPage() {
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [sendingVoice, setSendingVoice] = useState(false);
 
+  // Viewport Style for Android Keyboard Fix
+  const [viewportStyle, setViewportStyle] = useState(() => {
+    if (typeof window !== 'undefined' && window.visualViewport) {
+      return { height: `${window.visualViewport.height}px`, top: `${window.visualViewport.offsetTop}px` };
+    }
+    return { height: '100dvh', top: '0px' };
+  });
+
   // ── Refs ───────────────────────────────────────────────────────────────
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
@@ -294,6 +302,43 @@ export default function ChatPage() {
   };
 
   // ── Effects ────────────────────────────────────────────────────────────
+
+  // Viewport resize listener for Android Keyboard
+  useEffect(() => {
+    const updateViewport = () => {
+      if (window.visualViewport) {
+        setViewportStyle({
+          height: `${window.visualViewport.height}px`,
+          top: `${window.visualViewport.offsetTop}px`
+        });
+      } else {
+        setViewportStyle({
+          height: `${window.innerHeight}px`,
+          top: '0px'
+        });
+      }
+    };
+
+    updateViewport();
+    document.body.style.overflow = 'hidden'; // Prevent native body scroll
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', updateViewport);
+      window.visualViewport.addEventListener('scroll', updateViewport);
+    } else {
+      window.addEventListener('resize', updateViewport);
+    }
+
+    return () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', updateViewport);
+        window.visualViewport.removeEventListener('scroll', updateViewport);
+      } else {
+        window.removeEventListener('resize', updateViewport);
+      }
+      document.body.style.overflow = ''; // Restore body scroll
+    };
+  }, []);
 
   // Auto-scroll
   useEffect(() => {
@@ -786,7 +831,14 @@ export default function ChatPage() {
     : 'Chat is locked...';
 
   return (
-    <div className="flex flex-col bg-gray-50 overflow-hidden fixed inset-0">
+    <div 
+      className="fixed left-0 w-full flex flex-col bg-gray-50 overflow-hidden" 
+      style={{ 
+        height: viewportStyle.height, 
+        top: viewportStyle.top, 
+        overscrollBehavior: 'none' 
+      }}
+    >
       {/* Header */}
       <header className="shrink-0 flex items-center justify-between px-4 py-3 bg-white border-b border-gray-100 shadow-sm z-30">
         <div className="flex items-center gap-3">
@@ -1007,9 +1059,13 @@ export default function ChatPage() {
             ref={inputRef} value={inputValue} onChange={handleInputChange}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
             onFocus={() => {
-              setTimeout(() => {
+              const scrollDown = () => {
                 messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-              }, 500);
+              };
+              // Multiple timeouts to ensure it scrolls after keyboard animation finishes
+              setTimeout(scrollDown, 100);
+              setTimeout(scrollDown, 300);
+              setTimeout(scrollDown, 500);
             }}
             disabled={isInputDisabled} placeholder={inputPlaceholder}
             className={`flex-1 px-4 py-3 border rounded-2xl resize-none focus:outline-none focus:ring-2 transition-all text-sm md:text-base min-h-[48px] max-h-[120px] ${!isInputDisabled ? 'bg-gray-50 border-gray-200 focus:ring-blue-100 focus:border-blue-300 focus:bg-white' : 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed placeholder:text-gray-400'}`}
