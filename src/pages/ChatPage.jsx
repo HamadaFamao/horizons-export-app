@@ -1018,11 +1018,15 @@ export default function ChatPage() {
           <textarea
             ref={inputRef} value={inputValue} onChange={handleInputChange}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
-            onFocus={() => {
+            readOnly={isMobileDevice()}
+            onClick={() => {
+              if (!isMobileDevice()) return;
+              setMobileDraft(inputValue || '');
+              setShowMobileComposer(true);
+            }}
+            onFocus={(e) => {
               if (isMobileDevice()) {
-                setMobileDraft(inputValue);
-                setShowMobileComposer(true);
-                setTimeout(() => document.activeElement?.blur(), 50);
+                e.target.blur();
                 return;
               }
               setTimeout(() => {
@@ -1049,54 +1053,35 @@ export default function ChatPage() {
       </footer>
 
       {showMobileComposer && (
-        <div className="fixed inset-0 z-[9999] bg-black/40 flex items-end">
-          <div className="w-full bg-white rounded-t-3xl p-4 shadow-2xl">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-bold text-gray-800">Write a message</h3>
-              <button
-                onClick={() => setShowMobileComposer(false)}
-                className="text-gray-500 text-xl"
-              >
-                &times;
-              </button>
-            </div>
-
-            <textarea
-              autoFocus
-              value={mobileDraft}
-              onChange={(e) => setMobileDraft(e.target.value)}
-              placeholder="Type a message..."
-              rows={4}
-              className="w-full resize-none rounded-2xl border border-gray-200 p-3 text-base outline-none focus:ring-2 focus:ring-blue-300"
-            />
-
-            <div className="flex items-center justify-end gap-3 mt-3">
-              <button
-                onClick={() => setShowMobileComposer(false)}
-                className="px-4 py-2 rounded-xl bg-gray-100 text-gray-600 font-semibold"
-              >
-                Cancel
-              </button>
-
-              <button
-                onClick={async () => {
-                  const text = mobileDraft.trim();
-                  if (!text || isSending) return;
-
-                  setInputValue(text);
-                  setShowMobileComposer(false);
-
-                  setTimeout(() => {
-                    handleSendMessage(text);
-                  }, 0);
-                }}
-                disabled={!mobileDraft.trim() || isSending}
-                className="px-5 py-2 rounded-xl bg-blue-500 text-white font-bold disabled:opacity-50"
-              >
-                Send
-              </button>
-            </div>
+        <div className="fixed inset-0 bg-white z-[9999] flex flex-col">
+          <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-gray-200">
+            <button
+              onClick={() => setShowMobileComposer(false)}
+              className="text-gray-600 font-semibold"
+            >
+              Cancel
+            </button>
+            <h3 className="font-bold text-gray-800">Write a message</h3>
+            <button
+              onClick={() => {
+                const text = mobileDraft.trim();
+                if (!text || isSending) return;
+                setShowMobileComposer(false);
+                handleSendMessage(text);
+              }}
+              disabled={!mobileDraft.trim() || isSending}
+              className="text-blue-600 font-bold disabled:opacity-50"
+            >
+              Send
+            </button>
           </div>
+
+          <textarea
+            autoFocus
+            value={mobileDraft}
+            onChange={(e) => setMobileDraft(e.target.value)}
+            className="flex-1 w-full p-5 text-lg outline-none resize-none"
+          />
         </div>
       )}
 
