@@ -786,7 +786,7 @@ export default function ChatPage() {
     : 'Chat is locked...';
 
   return (
-    <div className="flex flex-col bg-gray-50 overflow-hidden" style={{ height: '100dvh' }}>
+    <div className="flex flex-col bg-gray-50 overflow-hidden fixed inset-0">
       {/* Header */}
       <header className="shrink-0 flex items-center justify-between px-4 py-3 bg-white border-b border-gray-100 shadow-sm z-30">
         <div className="flex items-center gap-3">
