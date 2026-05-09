@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { LayoutGrid, Users, CreditCard, ShieldAlert, Database, Settings, Home, Gem, Award, Wrench, ArrowDownLeftFromCircle, Building, Gift } from 'lucide-react';
+import { LayoutGrid, Users, CreditCard, ShieldAlert, Database, Settings, Home, Gem, Award, Wrench, ArrowDownLeftFromCircle, Building } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAdminPermissions } from '@/contexts/AdminPermissionsContext';
 import { cn } from '@/lib/utils';
@@ -26,7 +26,7 @@ const AdminLayout = () => {
     { name: 'Rewards',      href: 'rewards',           icon: Award,                    permission: 'can_manage_finance' },
     { name: 'Reports',      href: 'reports',           icon: ShieldAlert,              permission: 'can_manage_users' },
     { name: 'Seed Data',    href: 'seed',              icon: Database,                 permission: 'can_manage_finance' },
-    { name: 'Gifts',        href: 'gifts',             icon: gifts,                      permission: 'can_manage_finance' },
+    { name: 'Gifts',        href: 'gifts',             icon: Gem,                      permission: 'can_manage_finance' },
     { name: 'Tools',        href: 'tools/profile-id',  icon: Wrench,                   permission: 'can_manage_users' },
     { name: 'Settings',     href: 'settings',          icon: Settings,                 permission: 'can_manage_banners' },
   ];
