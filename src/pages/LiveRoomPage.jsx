@@ -2638,7 +2638,7 @@ useEffect(() => {
 
     const { data, error } = await supabase
       .from("profiles")
-      .select("id,name,avatar_url,gender,age,country,living_in,plan,verified,is_vip,vip_until,vip_number,occupation,full_name,username")
+      .select("id,name,avatar_url,gender,age,country,living_in,plan,verified,is_vip,vip_until,vip_number,occupation,username")
       .in("id", unique);
 
     if (error) throw error;
@@ -2664,7 +2664,7 @@ useEffect(() => {
 
     const { data, error } = await supabase
       .from("profiles")
-      .select("id,name,avatar_url,gender,age,country,living_in,plan,verified,is_vip,vip_until,vip_number,occupation,full_name,username")
+      .select("id,name,avatar_url,gender,age,country,living_in,plan,verified,is_vip,vip_until,vip_number,occupation,username")
       .eq("id", userId)
       .maybeSingle();
 
@@ -2945,7 +2945,14 @@ useEffect(() => {
 
       const rows = data || [];
       const ids = rows.map((r) => r.user_id);
-      const map = await fetchProfilesMap(ids);
+
+      const { data: profilesData } = await supabase
+        .from("profiles")
+        .select("id, name, avatar_url")
+        .in("id", ids);
+
+      const profilesMap = new Map((profilesData || []).map((p) => [p.id, p]));
+      const map = { get: (id) => profilesMap.get(id) };
 
       return rows.map((r) => {
         const p = map.get(r.user_id);
