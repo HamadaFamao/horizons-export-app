@@ -231,7 +231,7 @@ export default function AdminUsers() {
                                 <Edit className="h-4 w-4" />
                             </Button>
                         </DialogTrigger>
-                        <DialogContent className="max-w-2xl">
+                        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                           <DialogHeader>
                             <DialogTitle>Edit User: {editingUser?.name} ({editingUser?.profile_id})</DialogTitle>
                           </DialogHeader>
@@ -319,10 +319,108 @@ export default function AdminUsers() {
                                         <img src={editingUser.avatar_url || DEFAULT_AVATAR} alt="avatar"
                                             className="w-16 h-16 rounded-full object-cover border"
                                             onError={e => e.target.src = DEFAULT_AVATAR} />
-                                        <Button variant="outline" size="sm" className="text-red-600"
-                                            onClick={() => handleEditFieldChange('avatar_url', '')}>
-                                            <Trash2 className="h-4 w-4 mr-1" /> Clear Avatar
-                                        </Button>
+                                        <div className="flex flex-col gap-2">
+                                            <label className="cursor-pointer">
+                                                <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-slate-200 text-sm hover:bg-slate-50 transition">
+                                                    📤 Upload Avatar
+                                                </span>
+                                                <input type="file" accept="image/*" className="hidden"
+                                                    onChange={async (e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (!file) return;
+                                                        const ext = file.name.split('.').pop();
+                                                        const path = `${editingUser.user_uuid}/${Date.now()}.${ext}`;
+                                                        const { error: upErr } = await supabase.storage
+                                                            .from('profile-photos')
+                                                            .upload(path, file, { upsert: true });
+                                                        if (upErr) { toast({ title: 'Upload failed', description: upErr.message, variant: 'destructive' }); return; }
+                                                        const { data: urlData } = supabase.storage.from('profile-photos').getPublicUrl(path);
+                                                        handleEditFieldChange('avatar_url', urlData.publicUrl);
+                                                        toast({ title: '✅ Avatar uploaded' });
+                                                    }}
+                                                />
+                                            </label>
+                                            <Button variant="outline" size="sm" className="text-red-600"
+                                                onClick={() => handleEditFieldChange('avatar_url', null)}>
+                                                <Trash2 className="h-4 w-4 mr-1" /> Clear Avatar
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="md:col-span-2 border-t pt-4 mt-2">
+                                    <Label className="text-base font-semibold">📸 Profile Photos ({parsePhotos(editingUser.photos).length})</Label>
+                                    <div className="mt-3 grid grid-cols-3 gap-2">
+                                        {parsePhotos(editingUser.photos).map((photo) => (
+                                            <div key={photo.id} className="relative group rounded-lg overflow-hidden border aspect-square bg-slate-100">
+                                                <img src={photo.url} alt="photo"
+                                                    className="w-full h-full object-cover"
+                                                    onError={e => e.target.src = DEFAULT_AVATAR} />
+                                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex flex-col items-center justify-center gap-1.5 p-1">
+                                                    {!photo.is_primary && (
+                                                        <button
+                                                            className="text-xs text-white bg-blue-500 rounded px-2 py-1 w-full text-center"
+                                                            onClick={async () => {
+                                                                await supabase.from('photos').update({ is_primary: false }).eq('user_id', editingUser.user_uuid);
+                                                                await supabase.from('photos').update({ is_primary: true }).eq('id', photo.id);
+                                                                await supabase.from('profiles').update({ avatar_url: photo.url }).eq('id', editingUser.user_uuid);
+                                                                handleEditFieldChange('avatar_url', photo.url);
+                                                                const updated = parsePhotos(editingUser.photos).map(p => ({ ...p, is_primary: p.id === photo.id }));
+                                                                handleEditFieldChange('photos', updated);
+                                                                toast({ title: '⭐ Set as primary' });
+                                                            }}
+                                                        >⭐ Set Primary</button>
+                                                    )}
+                                                    <button
+                                                        className="text-xs text-white bg-red-500 rounded px-2 py-1 w-full text-center"
+                                                        onClick={async () => {
+                                                            if (!window.confirm('Delete this photo?')) return;
+                                                            const { error } = await supabase.from('photos').delete().eq('id', photo.id);
+                                                            if (!error) {
+                                                                const updated = parsePhotos(editingUser.photos).filter(p => p.id !== photo.id);
+                                                                handleEditFieldChange('photos', updated);
+                                                                toast({ title: '🗑️ Photo deleted' });
+                                                            }
+                                                        }}
+                                                    >🗑️ Delete</button>
+                                                </div>
+                                                {photo.is_primary && (
+                                                    <div className="absolute top-1 left-1 bg-yellow-400 text-[10px] font-bold px-1.5 py-0.5 rounded">⭐ PRIMARY</div>
+                                                )}
+                                            </div>
+                                        ))}
+
+                                        <label className="cursor-pointer aspect-square border-2 border-dashed border-slate-300 rounded-lg flex flex-col items-center justify-center hover:border-blue-400 hover:bg-blue-50 transition">
+                                            <span className="text-3xl text-slate-400">+</span>
+                                            <span className="text-xs text-slate-500 mt-1">Add Photo</span>
+                                            <input type="file" accept="image/*" className="hidden"
+                                                onChange={async (e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (!file) return;
+                                                    const ext = file.name.split('.').pop();
+                                                    const path = `${editingUser.user_uuid}/${Date.now()}.${ext}`;
+                                                    const { error: upErr } = await supabase.storage
+                                                        .from('profile-photos')
+                                                        .upload(path, file, { upsert: false });
+                                                    if (upErr) { toast({ title: 'Upload failed', description: upErr.message, variant: 'destructive' }); return; }
+                                                    const { data: urlData } = supabase.storage.from('profile-photos').getPublicUrl(path);
+                                                    const isPrimary = parsePhotos(editingUser.photos).length === 0;
+                                                    const { data: newPhoto, error: dbErr } = await supabase.from('photos').insert({
+                                                        user_id: editingUser.user_uuid,
+                                                        profile_id: editingUser.profile_id,
+                                                        url: urlData.publicUrl,
+                                                        is_primary: isPrimary,
+                                                        is_public: true,
+                                                    }).select().single();
+                                                    if (!dbErr && newPhoto) {
+                                                        const updated = [...parsePhotos(editingUser.photos), newPhoto];
+                                                        handleEditFieldChange('photos', updated);
+                                                        if (isPrimary) handleEditFieldChange('avatar_url', urlData.publicUrl);
+                                                        toast({ title: '✅ Photo uploaded' });
+                                                    }
+                                                }}
+                                            />
+                                        </label>
                                     </div>
                                 </div>
                             </div>
