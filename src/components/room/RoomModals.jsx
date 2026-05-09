@@ -691,7 +691,8 @@ export default function RoomModals({
                         onClick={async () => {
                           const el = document.getElementById("room-topic-input");
                           const newTopic = el?.value?.trim() || null;
-                          if (!room?.id) return;
+                          console.log('[TOPIC_SAVE]', { roomId: room?.id, newTopic });
+                          if (!room?.id) { toast("Room ID missing", 1400); return; }
                           const { error } = await supabase
                             .from("live_rooms")
                             .update({ topic: newTopic })
