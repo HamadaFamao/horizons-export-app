@@ -252,9 +252,6 @@ export default function ChatPage() {
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [sendingVoice, setSendingVoice] = useState(false);
 
-  // Viewport Style for Android Keyboard Fix
-  const [viewportStyle, setViewportStyle] = useState({ height: '100dvh', top: 0 });
-
   // ── Refs ───────────────────────────────────────────────────────────────
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
@@ -269,6 +266,8 @@ export default function ChatPage() {
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const recordingTimerRef = useRef(null);
+  const [footerHeight, setFooterHeight] = useState(0);
+  const footerRef = useRef(null);
 
   // ── Helpers ────────────────────────────────────────────────────────────
   const playNotificationSound = () => {
@@ -298,55 +297,34 @@ export default function ChatPage() {
 
   // ── Effects ────────────────────────────────────────────────────────────
 
-  // Viewport resize listener for Android Keyboard Fix
   useEffect(() => {
-    let prevHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-
-    const updateViewport = () => {
-      if (window.visualViewport) {
-        setViewportStyle({
-          height: `${window.visualViewport.height}px`,
-          top: `${window.visualViewport.offsetTop}px`
-        });
-
-        // Scroll to bottom if keyboard opens (height decreases significantly)
-        if (prevHeight - window.visualViewport.height > 100) {
-          setTimeout(() => scrollToBottom('auto'), 100);
-        }
-        prevHeight = window.visualViewport.height;
-      } else {
-        setViewportStyle({
-          height: `${window.innerHeight}px`,
-          top: '0px'
-        });
+    try {
+      if (window.navigator?.virtualKeyboard) {
+        window.navigator.virtualKeyboard.overlaysContent = true;
       }
+    } catch {}
+
+    const footerEl = footerRef.current;
+    if (!footerEl || typeof window === 'undefined') return;
+
+    const updateFooterHeight = () => {
+      const next = Math.ceil(footerEl.getBoundingClientRect().height || 0);
+      setFooterHeight((prev) => (prev === next ? prev : next));
     };
 
-    updateViewport();
-    
-    // Prevent native body scroll to avoid layout viewport shifting
-    document.documentElement.style.overflow = 'hidden';
-    document.body.style.overflow = 'hidden';
-    document.body.style.overscrollBehavior = 'none';
+    updateFooterHeight();
 
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', updateViewport);
-      window.visualViewport.addEventListener('scroll', updateViewport);
-    } else {
-      window.addEventListener('resize', updateViewport);
+    let resizeObserver;
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(updateFooterHeight);
+      resizeObserver.observe(footerEl);
     }
 
+    window.addEventListener('resize', updateFooterHeight);
+
     return () => {
-      if (window.visualViewport) {
-        window.visualViewport.removeEventListener('resize', updateViewport);
-        window.visualViewport.removeEventListener('scroll', updateViewport);
-      } else {
-        window.removeEventListener('resize', updateViewport);
-      }
-      // Restore body scroll
-      document.documentElement.style.overflow = '';
-      document.body.style.overflow = '';
-      document.body.style.overscrollBehavior = '';
+      resizeObserver?.disconnect();
+      window.removeEventListener('resize', updateFooterHeight);
     };
   }, []);
 
@@ -841,13 +819,7 @@ export default function ChatPage() {
     : 'Chat is locked...';
 
   return (
-    <div 
-      className="absolute left-0 w-full flex flex-col bg-gray-50 overflow-hidden z-50" 
-      style={{ 
-        ...viewportStyle,
-        overscrollBehavior: 'none' 
-      }}
-    >
+    <div className="fixed inset-0 z-50 flex flex-col bg-gray-50 overflow-hidden">
       {/* Header */}
       <header className="shrink-0 flex items-center justify-between px-4 py-3 bg-white border-b border-gray-100 shadow-sm z-30">
         <div className="flex items-center gap-3">
@@ -947,7 +919,10 @@ export default function ChatPage() {
       {/* Messages */}
       <main
         ref={messagesContainerRef}
-        className="flex-1 min-h-0 overflow-y-auto p-4 pb-6 space-y-2 bg-slate-100/50"
+        className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2 bg-slate-100/50"
+        style={{
+          paddingBottom: `calc(${footerHeight + 8}px + env(safe-area-inset-bottom, 0px) + env(keyboard-inset-height, 0px))`,
+        }}
         onClick={() => setShowEmojiPicker(false)}
       >
         {Array.isArray(messages) && messages.length === 0 ? (
@@ -990,7 +965,14 @@ export default function ChatPage() {
       </main>
 
       {/* Input area */}
-      <div className="shrink-0 border-t border-gray-200 bg-white p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] z-30">
+      <footer
+        ref={footerRef}
+        className="fixed left-0 right-0 bottom-0 border-t border-gray-200 bg-white p-3 z-40"
+        style={{
+          bottom: 'env(keyboard-inset-height, 0px)',
+          paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 8px)',
+        }}
+      >
         {/* Status banners */}
         {isBlocked && (
           <div className="px-4 py-2 bg-red-50 border border-red-100 rounded-xl mb-2 flex items-center justify-between">
@@ -1069,9 +1051,12 @@ export default function ChatPage() {
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
             onFocus={() => {
               const scrollDown = () => {
-                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                messagesEndRef.current?.scrollIntoView({
+                  behavior: 'smooth',
+                  block: 'end',
+                });
               };
-              // Multiple timeouts to ensure it scrolls after keyboard animation finishes
+
               setTimeout(scrollDown, 100);
               setTimeout(scrollDown, 300);
               setTimeout(scrollDown, 500);
@@ -1092,7 +1077,7 @@ export default function ChatPage() {
             {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5 ml-0.5" />}
           </button>
         </div>
-      </div>
+      </footer>
 
       <ChatGiftModal isOpen={showGiftModal} onClose={() => setShowGiftModal(false)} recipientId={recipientId} recipientName={otherUser.name} onGiftSelected={handleSendGift} isLoading={isSendingGift} />
 
