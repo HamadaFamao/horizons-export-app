@@ -942,7 +942,7 @@ export default function ChatPage() {
         ref={messagesContainerRef}
         className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2 bg-slate-100/50"
         style={{
-          paddingBottom: `calc(${footerHeight + 72}px + env(safe-area-inset-bottom, 0px) + env(keyboard-inset-height, 0px))`,
+          paddingBottom: '8px',
         }}
         onClick={() => setShowEmojiPicker(false)}
       >
@@ -982,6 +982,13 @@ export default function ChatPage() {
         )}
         {otherUserTyping && <TypingIndicator userName={otherUser.name} />}
         <div ref={messagesEndRef} />
+        <div
+          aria-hidden="true"
+          style={{
+            height: `calc(${footerHeight + 96}px + env(safe-area-inset-bottom, 0px) + env(keyboard-inset-height, 0px))`,
+            flexShrink: 0,
+          }}
+        />
         {emojiBurst && <EmojiBurst x={emojiBurst.x} y={emojiBurst.y} key={emojiBurst.key} />}
       </main>
 
