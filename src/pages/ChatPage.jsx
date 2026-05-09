@@ -606,6 +606,12 @@ export default function ChatPage() {
       handleInputClear();
       setShowEmojiPicker(false);
       inputRef.current?.focus();
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'end',
+        });
+      }, 150);
     } catch (err) {
       toast({ title: 'Error', description: 'Failed to send message', variant: 'destructive' });
     } finally {
@@ -921,7 +927,7 @@ export default function ChatPage() {
         ref={messagesContainerRef}
         className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2 bg-slate-100/50"
         style={{
-          paddingBottom: `calc(${footerHeight + 8}px + env(safe-area-inset-bottom, 0px) + env(keyboard-inset-height, 0px))`,
+          paddingBottom: `calc(${footerHeight + 72}px + env(safe-area-inset-bottom, 0px) + env(keyboard-inset-height, 0px))`,
         }}
         onClick={() => setShowEmojiPicker(false)}
       >
@@ -1059,7 +1065,12 @@ export default function ChatPage() {
 
               setTimeout(scrollDown, 100);
               setTimeout(scrollDown, 300);
-              setTimeout(scrollDown, 500);
+              setTimeout(() => {
+                messagesEndRef.current?.scrollIntoView({
+                  behavior: 'smooth',
+                  block: 'end',
+                });
+              }, 700);
             }}
             disabled={isInputDisabled} placeholder={inputPlaceholder}
             className={`flex-1 px-4 py-3 border rounded-2xl resize-none focus:outline-none focus:ring-2 transition-all text-sm md:text-base min-h-[48px] max-h-[120px] ${!isInputDisabled ? 'bg-gray-50 border-gray-200 focus:ring-blue-100 focus:border-blue-300 focus:bg-white' : 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed placeholder:text-gray-400'}`}
