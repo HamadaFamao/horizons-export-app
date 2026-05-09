@@ -8109,6 +8109,13 @@ useEffect(() => {
 
               if (userId && (!user?.id || String(userId) !== String(user.id))) {
                 pushJoinNotif({ user_id: userId, display_name: displayName, avatar_url: avatarUrl });
+                setMessages((prev) => [...prev, {
+                  id: `join_${userId}_${Date.now()}`,
+                  type: 'join_notification',
+                  name: displayName,
+                  avatar: avatarUrl,
+                  created_at: new Date().toISOString(),
+                }]);
               }
             } else if (payload.new?.left_at && !payload.old?.left_at) {
               await loadActiveParticipants();
