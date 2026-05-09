@@ -19,6 +19,7 @@ export default function RoomsLobby() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
   const [openCreate, setOpenCreate] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const fetchRooms = async () => {
     setErr('');
@@ -26,7 +27,7 @@ export default function RoomsLobby() {
     try {
       const { data, error } = await supabase
         .from('live_rooms')
-        .select('id,title,avatar_url,is_locked,max_mics,is_active,created_at,owner_user_id,public_room_id')
+        .select('id,title,topic,avatar_url,is_locked,max_mics,is_active,created_at,owner_user_id,public_room_id')
         .eq('is_active', true)
         .order('created_at', { ascending: false })
         .limit(50);
@@ -332,7 +333,12 @@ export default function RoomsLobby() {
 
         <div className="p-2 flex flex-col flex-1">
           <div className="mb-1 flex items-start justify-between gap-2">
-            <h3 className="font-semibold text-slate-900 line-clamp-2 text-xs">{room.title}</h3>
+            <div className="min-w-0 flex-1">
+              <h3 className="font-semibold text-slate-900 line-clamp-1 text-xs">{room.title}</h3>
+              {room.topic ? (
+                <p className="text-[10px] text-slate-500 line-clamp-1 mt-0.5">📌 {room.topic}</p>
+              ) : null}
+            </div>
             {room.is_locked ? (
               <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
                 <Lock className="w-3 h-3" />
@@ -406,10 +412,21 @@ export default function RoomsLobby() {
   }, [rooms, followedRoomIds]);
 
   const activeTabRooms = useMemo(() => {
-    if (activeTab === 'favorites') return favoriteRooms;
-    if (activeTab === 'recent') return recentRooms;
-    return popularRooms;
-  }, [activeTab, favoriteRooms, recentRooms, popularRooms]);
+    let base;
+    if (activeTab === 'favorites') base = favoriteRooms;
+    else if (activeTab === 'recent') base = recentRooms;
+    else base = popularRooms;
+
+    if (!searchQuery.trim()) return base;
+
+    const q = searchQuery.trim().toLowerCase().replace(/^#/, '');
+    return base.filter((room) => {
+      const titleMatch = (room.title || '').toLowerCase().includes(q);
+      const topicMatch = (room.topic || '').toLowerCase().includes(q);
+      const idMatch = String(room.public_room_id || '').includes(q);
+      return titleMatch || topicMatch || idMatch;
+    });
+  }, [activeTab, favoriteRooms, recentRooms, popularRooms, searchQuery]);
 
   const hasRooms = useMemo(() => Array.isArray(rooms) && rooms.length > 0, [rooms]);
 
@@ -521,6 +538,25 @@ export default function RoomsLobby() {
             {tab.label}
           </button>
         ))}
+      </div>
+
+      {/* Search */}
+      <div className="mb-4 relative">
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search by room name or #ID..."
+          className="w-full border border-slate-200 rounded-full px-4 py-2.5 text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-300 pr-10"
+        />
+        {searchQuery ? (
+          <button
+            onClick={() => setSearchQuery('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-lg"
+          >×</button>
+        ) : (
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">🔍</span>
+        )}
       </div>
 
       {/* Error */}

@@ -595,6 +595,22 @@ export default function RoomChat({
                     );
                   }
 
+                  if (m.type === "join_notification") {
+                    return (
+                      <div key={m.id} className="flex items-center gap-2 px-3 py-1 mx-2 my-0.5">
+                        <img
+                          src={m.avatar || FALLBACK_AVATAR}
+                          alt={m.name}
+                          onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
+                          className="w-5 h-5 rounded-full object-cover shrink-0 opacity-70"
+                        />
+                        <span className="text-[11px] text-white/50 italic">
+                          <span className="text-white/70 font-semibold">{m.name}</span> joined the room 👋
+                        </span>
+                      </div>
+                    );
+                  }
+
                   if (m.type === "gift" || m.content_type === "gift") {
                     return (
                       <div key={m.id} className="bg-rose-50 border border-rose-100 rounded-xl p-2 mb-2">

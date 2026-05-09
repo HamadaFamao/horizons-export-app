@@ -8046,11 +8046,20 @@ useEffect(() => {
             }
 
             if (userId && (!user?.id || String(userId) !== String(user.id))) {
-              toast(`${displayName} joined the room`, 1400);
-              pushJoinNotif({ user_id: userId, display_name: displayName, avatar_url: avatarUrl });
+                toast(`${displayName} joined the room`, 1400);
+                pushJoinNotif({ user_id: userId, display_name: displayName, avatar_url: avatarUrl });
+                
+                const joinMsg = {
+                  id: `join_${userId}_${Date.now()}`,
+                  type: 'join_notification',
+                  name: displayName,
+                  avatar: avatarUrl,
+                  created_at: new Date().toISOString(),
+                };
+                setMessages((prev) => [...prev, joinMsg]);
+              }
             }
-          }
-        )
+          )
         .on(
           'postgres_changes',
           {
