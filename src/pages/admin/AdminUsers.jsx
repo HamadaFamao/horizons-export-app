@@ -134,10 +134,10 @@ export default function AdminUsers() {
     if (!editingUser) return;
     setIsSaving(true);
     
-    const { profile_id, name, gender, age, living_in_code, from_code, avatar_url, bio, occupation, staff_role, user_uuid } = editingUser;
+    const { profile_id, name, gender, age, living_in_code, from_code, avatar_url, bio, occupation, marital_status, lookingfor, staff_role, user_uuid } = editingUser;
 
     const { error } = await supabase.from('profiles').update({
-        name, gender, age, living_in_code, from_code, avatar_url, bio, occupation
+      name, gender, age, living_in_code, from_code, avatar_url, bio, occupation, marital_status, lookingfor
     }).eq('profile_id', profile_id);
 
     if (error) {
@@ -271,6 +271,32 @@ export default function AdminUsers() {
                                 <div>
                                     <Label htmlFor="occupation">Occupation</Label>
                                     <Input id="occupation" value={editingUser.occupation || ''} onChange={(e) => handleEditFieldChange('occupation', e.target.value)} />
+                                </div>
+                                <div>
+                                  <Label htmlFor="marital_status">Marital Status</Label>
+                                  <Select value={editingUser.marital_status || 'none'} onValueChange={v => handleEditFieldChange('marital_status', v === 'none' ? null : v)}>
+                                    <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="none">—</SelectItem>
+                                      <SelectItem value="single">Single</SelectItem>
+                                      <SelectItem value="married">Married</SelectItem>
+                                      <SelectItem value="divorced">Divorced</SelectItem>
+                                      <SelectItem value="widowed">Widowed</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div>
+                                  <Label htmlFor="lookingfor">Looking For</Label>
+                                  <Select value={editingUser.lookingfor || 'none'} onValueChange={v => handleEditFieldChange('lookingfor', v === 'none' ? null : v)}>
+                                    <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="none">—</SelectItem>
+                                      <SelectItem value="friendship">Friendship</SelectItem>
+                                      <SelectItem value="dating">Dating</SelectItem>
+                                      <SelectItem value="relationship">Relationship</SelectItem>
+                                      <SelectItem value="marriage">Marriage</SelectItem>
+                                    </SelectContent>
+                                  </Select>
                                 </div>
                                 <div>
                                     <Label htmlFor="staff_role">Staff Role</Label>
