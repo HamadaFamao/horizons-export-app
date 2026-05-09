@@ -10920,6 +10920,76 @@ useEffect(() => {
         }}
       />
 
+      {kickOpen && (
+  <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+    <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-5" onClick={(e) => e.stopPropagation()}>
+      <div className="text-lg font-bold text-slate-900 mb-1">Kick User</div>
+      <div className="text-sm text-slate-500 mb-4">Select kick duration:</div>
+      <div className="space-y-2">
+        {KICK_OPTIONS.map((opt) => (
+          <button
+            key={opt.minutes}
+            onClick={() => setKickMinutes(opt.minutes)}
+            className={`w-full py-2.5 rounded-xl text-sm font-semibold border transition ${
+              kickMinutes === opt.minutes
+                ? "bg-slate-900 text-white border-slate-900"
+                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+      <div className="flex gap-3 mt-5">
+        <button
+          onClick={closeKickConfirm}
+          className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-semibold hover:bg-slate-50 transition"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={kickUserNow}
+          disabled={kickBusy}
+          className="flex-1 py-2.5 rounded-xl bg-orange-500 text-white font-semibold hover:bg-orange-600 transition disabled:opacity-50"
+        >
+          {kickBusy ? "Kicking..." : `Kick (${KICK_OPTIONS.find(o => o.minutes === kickMinutes)?.label})`}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+{banOpen && (
+  <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+    <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-5" onClick={(e) => e.stopPropagation()}>
+      <div className="text-lg font-bold text-slate-900 mb-1">Ban User</div>
+      <div className="text-sm text-slate-500 mb-4">This will permanently ban the user from this room.</div>
+      <textarea
+        value={banReason}
+        onChange={(e) => setBanReason(e.target.value)}
+        placeholder="Reason (optional)"
+        rows={3}
+        className="w-full border rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-slate-300"
+      />
+      <div className="flex gap-3 mt-4">
+        <button
+          onClick={closeBanConfirm}
+          className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-semibold hover:bg-slate-50 transition"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={banUserNow}
+          disabled={banBusy}
+          className="flex-1 py-2.5 rounded-xl bg-rose-600 text-white font-semibold hover:bg-rose-700 transition disabled:opacity-50"
+        >
+          {banBusy ? "Banning..." : "Ban User"}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
       <TriviaGame
         open={showTriviaGame}
         onClose={() => setShowTriviaGame(false)}
