@@ -54,6 +54,7 @@ import { RewardsProvider } from '@/contexts/RewardsContext';
 import { UnreadProvider } from '@/context/UnreadContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { UnsavedChangesProvider } from '@/contexts/UnsavedChangesContext';
+import { AdminPermissionsProvider } from '@/contexts/AdminPermissionsContext';
 
 import { useUpdateLastSeen } from '@/hooks/useUpdateLastSeen';
 import { usePageVisibility } from '@/hooks/usePageVisibility';
@@ -360,7 +361,9 @@ function App() {
         <UnreadProvider>
           <LanguageProvider>
             <UnsavedChangesProvider>
-              <AppContent />
+              <AdminPermissionsProvider>
+                <AppContent />
+              </AdminPermissionsProvider>
             </UnsavedChangesProvider>
           </LanguageProvider>
         </UnreadProvider>

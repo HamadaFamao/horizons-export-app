@@ -67,7 +67,7 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
       try {
         const { data, error } = await supabase
           .from('profiles')
-          .select('isadmin')
+          .select('isadmin, staff_role')
           .eq('id', authUserId)
           .single()
           .abortSignal(abortControllerRef.current.signal);
@@ -78,8 +78,11 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
           console.error('[PROTECTED ROUTE] Error fetching profile:', error);
           setIsAdmin(false);
         } else {
-          const isUserAdmin = data?.isadmin === true;
-          console.log(`[PROTECTED ROUTE] Admin access verified: ${isUserAdmin}`);
+          const isUserAdmin = data?.isadmin === true || !!data?.staff_role;
+          console.log(`[PROTECTED ROUTE] Admin access verified: ${isUserAdmin}`, {
+            isadmin: data?.isadmin,
+            staff_role: data?.staff_role,
+          });
           setIsAdmin(isUserAdmin);
         }
       } catch (err) {

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { LayoutGrid, Users, CreditCard, ShieldAlert, Database, Settings, Home, Gem, Award, Wrench, ArrowDownLeftFromCircle, Building } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAdminPermissions } from '@/contexts/AdminPermissionsContext';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useUnsavedChanges } from '@/contexts/UnsavedChangesContext';
@@ -9,24 +10,29 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 
 const AdminLayout = () => {
   const { user } = useAuth();
+  const { can, staffRole, loading: permLoading } = useAdminPermissions();
   const navigate = useNavigate();
   const { isDirty, setDirty } = useUnsavedChanges();
   const [showConfirm, setShowConfirm] = useState(false);
   const [pendingPath, setPendingPath] = useState(null);
 
-  const navItems = [
-    { name: 'Overview', href: 'dashboard', icon: LayoutGrid },
-    { name: 'Users', href: 'users', icon: Users },
-    { name: 'Agencies', href: 'agencies', icon: Building },
-    { name: 'Withdrawals', href: 'withdrawals', icon: ArrowDownLeftFromCircle },
-    { name: 'Plans', href: 'plans', icon: CreditCard },
-    { name: 'Coins', href: 'coins', icon: Gem },
-    { name: 'Rewards', href: 'rewards', icon: Award },
-    { name: 'Reports', href: 'reports', icon: ShieldAlert },
-    { name: 'Seed Data', href: 'seed', icon: Database },
-    { name: 'Tools', href: 'tools/profile-id', icon: Wrench },
-    { name: 'Settings', href: 'settings', icon: Settings },
+  const allNavItems = [
+    { name: 'Overview',     href: 'dashboard',        icon: LayoutGrid,               permission: null },
+    { name: 'Users',        href: 'users',             icon: Users,                    permission: 'can_manage_users' },
+    { name: 'Agencies',     href: 'agencies',          icon: Building,                 permission: 'can_manage_agencies' },
+    { name: 'Withdrawals',  href: 'withdrawals',       icon: ArrowDownLeftFromCircle,  permission: 'can_manage_withdrawals' },
+    { name: 'Plans',        href: 'plans',             icon: CreditCard,               permission: 'can_manage_finance' },
+    { name: 'Coins',        href: 'coins',             icon: Gem,                      permission: 'can_manage_finance' },
+    { name: 'Rewards',      href: 'rewards',           icon: Award,                    permission: 'can_manage_finance' },
+    { name: 'Reports',      href: 'reports',           icon: ShieldAlert,              permission: 'can_manage_users' },
+    { name: 'Seed Data',    href: 'seed',              icon: Database,                 permission: 'can_manage_finance' },
+    { name: 'Tools',        href: 'tools/profile-id',  icon: Wrench,                   permission: 'can_manage_users' },
+    { name: 'Settings',     href: 'settings',          icon: Settings,                 permission: 'can_manage_banners' },
   ];
+
+  const navItems = allNavItems.filter(item => 
+    !item.permission || can(item.permission)
+  );
 
   // Intercept navigation
   const handleNavClick = (e, path) => {
@@ -82,6 +88,17 @@ const AdminLayout = () => {
         <div className="text-center mb-8">
           <h2 className="text-2xl font-bold gradient-text">Admin Panel</h2>
           <p className="text-sm text-gray-600">Welcome, {user?.name}</p>
+          {staffRole && (
+            <span className={`mt-1 inline-block text-xs font-bold px-2 py-0.5 rounded-full ${
+              staffRole === 'manager'     ? 'bg-purple-100 text-purple-700' :
+              staffRole === 'super_admin' ? 'bg-blue-100 text-blue-700' :
+              staffRole === 'moderator'   ? 'bg-green-100 text-green-700' :
+              staffRole === 'finance'     ? 'bg-amber-100 text-amber-700' :
+              'bg-gray-100 text-gray-700'
+            }`}>
+              {staffRole.replace('_', ' ').toUpperCase()}
+            </span>
+          )}
         </div>
         <nav className="flex-grow overflow-y-auto pr-2 custom-scrollbar">
           <ul>
