@@ -5727,6 +5727,7 @@ useEffect(() => {
 
   const visibleMessages = combinedMessages.filter(m => 
   m.type === 'spin_result' || 
+  m.type === 'join_notification' ||
   new Date(m.created_at).getTime() >= joinTime
 );
 
@@ -8046,7 +8047,6 @@ useEffect(() => {
             }
 
             if (userId && (!user?.id || String(userId) !== String(user.id))) {
-                toast(`${displayName} joined the room`, 1400);
                 pushJoinNotif({ user_id: userId, display_name: displayName, avatar_url: avatarUrl });
                 
                 const joinMsg = {
@@ -8108,7 +8108,6 @@ useEffect(() => {
               }
 
               if (userId && (!user?.id || String(userId) !== String(user.id))) {
-                toast(`${displayName} joined the room`, 1400);
                 pushJoinNotif({ user_id: userId, display_name: displayName, avatar_url: avatarUrl });
               }
             } else if (payload.new?.left_at && !payload.old?.left_at) {
