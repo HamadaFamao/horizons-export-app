@@ -295,6 +295,22 @@ export default function ChatPage() {
     });
   };
 
+  const scrollToBottomNow = (behavior = 'smooth') => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop =
+            messagesContainerRef.current.scrollHeight;
+        }
+
+        messagesEndRef.current?.scrollIntoView({
+          behavior,
+          block: 'end',
+        });
+      });
+    });
+  };
+
   // ── Effects ────────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -328,10 +344,11 @@ export default function ChatPage() {
     };
   }, []);
 
-  // Auto-scroll
   useEffect(() => {
-    if (!loading) scrollToBottom('auto');
-  }, [thread?.id, loading, messages?.length]);
+    if (!loading && messages.length > 0) {
+      scrollToBottomNow('auto');
+    }
+  }, [messages.length, loading]);
 
   // Countdown timer
   useEffect(() => {
@@ -604,14 +621,12 @@ export default function ChatPage() {
       if (error) { toast({ title: 'Error', description: 'Failed to send message', variant: 'destructive' }); return; }
       setMessages((prev) => Array.isArray(prev) ? [...prev, data] : [data]);
       handleInputClear();
+      scrollToBottomNow('smooth');
+
+      setTimeout(() => scrollToBottomNow('smooth'), 120);
+      setTimeout(() => scrollToBottomNow('auto'), 300);
       setShowEmojiPicker(false);
       inputRef.current?.focus();
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'end',
-        });
-      }, 150);
     } catch (err) {
       toast({ title: 'Error', description: 'Failed to send message', variant: 'destructive' });
     } finally {
