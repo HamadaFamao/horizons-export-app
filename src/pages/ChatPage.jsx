@@ -289,26 +289,23 @@ export default function ChatPage() {
     }
   };
 
-  const scrollToBottom = (behavior = 'auto') => {
-    requestAnimationFrame(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' });
-    });
-  };
+  const forceScrollToBottom = (behavior = 'auto') => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
 
-  const scrollToBottomNow = (behavior = 'smooth') => {
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        if (messagesContainerRef.current) {
-          messagesContainerRef.current.scrollTop =
-            messagesContainerRef.current.scrollHeight;
-        }
-
-        messagesEndRef.current?.scrollIntoView({
-          behavior,
-          block: 'end',
-        });
+    const run = () => {
+      el.scrollTo({
+        top: el.scrollHeight + 9999,
+        behavior,
       });
-    });
+    };
+
+    run();
+    requestAnimationFrame(run);
+    setTimeout(run, 50);
+    setTimeout(run, 150);
+    setTimeout(run, 350);
+    setTimeout(run, 700);
   };
 
   // ── Effects ────────────────────────────────────────────────────────────
@@ -346,9 +343,9 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (!loading && messages.length > 0) {
-      scrollToBottomNow('auto');
+      forceScrollToBottom('auto');
     }
-  }, [messages.length, loading]);
+  }, [messages.length, loading, footerHeight]);
 
   // Countdown timer
   useEffect(() => {
@@ -621,12 +618,13 @@ export default function ChatPage() {
       if (error) { toast({ title: 'Error', description: 'Failed to send message', variant: 'destructive' }); return; }
       setMessages((prev) => Array.isArray(prev) ? [...prev, data] : [data]);
       handleInputClear();
-      scrollToBottomNow('smooth');
-
-      setTimeout(() => scrollToBottomNow('smooth'), 120);
-      setTimeout(() => scrollToBottomNow('auto'), 300);
+      setInputValue('');
+      document.activeElement?.blur();
+      inputRef.current?.blur?.();
+      forceScrollToBottom('smooth');
+      setTimeout(() => forceScrollToBottom('auto'), 300);
+      setTimeout(() => forceScrollToBottom('auto'), 800);
       setShowEmojiPicker(false);
-      inputRef.current?.focus();
     } catch (err) {
       toast({ title: 'Error', description: 'Failed to send message', variant: 'destructive' });
     } finally {
@@ -981,11 +979,10 @@ export default function ChatPage() {
           })
         )}
         {otherUserTyping && <TypingIndicator userName={otherUser.name} />}
-        <div ref={messagesEndRef} />
         <div
-          aria-hidden="true"
+          ref={messagesEndRef}
           style={{
-            height: `calc(${footerHeight + 96}px + env(safe-area-inset-bottom, 0px) + env(keyboard-inset-height, 0px))`,
+            height: `calc(${footerHeight + 140}px + env(safe-area-inset-bottom, 0px) + env(keyboard-inset-height, 0px))`,
             flexShrink: 0,
           }}
         />
@@ -1078,21 +1075,10 @@ export default function ChatPage() {
             ref={inputRef} value={inputValue} onChange={handleInputChange}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
             onFocus={() => {
-              const scrollDown = () => {
-                messagesEndRef.current?.scrollIntoView({
-                  behavior: 'smooth',
-                  block: 'end',
-                });
-              };
-
-              setTimeout(scrollDown, 100);
-              setTimeout(scrollDown, 300);
-              setTimeout(() => {
-                messagesEndRef.current?.scrollIntoView({
-                  behavior: 'smooth',
-                  block: 'end',
-                });
-              }, 700);
+              forceScrollToBottom('smooth');
+              setTimeout(() => forceScrollToBottom('smooth'), 100);
+              setTimeout(() => forceScrollToBottom('smooth'), 300);
+              setTimeout(() => forceScrollToBottom('smooth'), 700);
             }}
             disabled={isInputDisabled} placeholder={inputPlaceholder}
             className={`flex-1 px-4 py-3 border rounded-2xl resize-none focus:outline-none focus:ring-2 transition-all text-sm md:text-base min-h-[48px] max-h-[120px] ${!isInputDisabled ? 'bg-gray-50 border-gray-200 focus:ring-blue-100 focus:border-blue-300 focus:bg-white' : 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed placeholder:text-gray-400'}`}
