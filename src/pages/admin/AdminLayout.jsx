@@ -10,7 +10,7 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 
 const AdminLayout = () => {
   const { user } = useAuth();
-  const { can, staffRole, loading: permLoading } = useAdminPermissions();
+  const { can, permissions, staffRole, loading: permLoading } = useAdminPermissions();
   const navigate = useNavigate();
   const { isDirty, setDirty } = useUnsavedChanges();
   const [showConfirm, setShowConfirm] = useState(false);
@@ -31,7 +31,7 @@ const AdminLayout = () => {
   ];
 
   const navItems = allNavItems.filter(item => 
-    !item.permission || can(item.permission)
+    !item.permission || (permissions && !!permissions[item.permission])
   );
 
   // Intercept navigation
