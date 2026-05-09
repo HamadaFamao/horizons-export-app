@@ -691,7 +691,12 @@ export default function RoomModals({
                         onClick={async () => {
                           const el = document.getElementById("room-topic-input");
                           const newTopic = el?.value?.trim() || null;
-                          await supabase.from("live_rooms").update({ topic: newTopic }).eq("id", room?.id);
+                          if (!room?.id) return;
+                          const { error } = await supabase
+                            .from("live_rooms")
+                            .update({ topic: newTopic })
+                            .eq("id", room.id);
+                          if (error) { toast(error.message, 1400); return; }
                           setRoom(prev => ({ ...prev, topic: newTopic }));
                           showSuccessToast("✅ Topic updated", 1400);
                         }}
