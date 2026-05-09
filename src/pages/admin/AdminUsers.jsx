@@ -36,7 +36,7 @@ export default function AdminUsers() {
   ];
 
   const STAFF_ROLES = [
-    { label: 'None',        value: '' },
+    { label: 'None',        value: 'none' },
     { label: 'Manager',     value: 'manager' },
     { label: 'Super Admin', value: 'super_admin' },
     { label: 'Moderator',   value: 'moderator' },
@@ -144,7 +144,9 @@ export default function AdminUsers() {
         toast({ title: "Error saving user", description: error.message, variant: 'destructive' });
     } else {
       if (staff_role !== undefined) {
-        await supabase.from('profiles').update({ staff_role: staff_role || null }).eq('id', user_uuid);
+        await supabase.from('profiles').update({ 
+          staff_role: (staff_role === 'none' || !staff_role) ? null : staff_role 
+        }).eq('id', user_uuid);
       }
       toast({ title: "✅ User updated successfully" });
       setEditingUser(null);
@@ -272,7 +274,7 @@ export default function AdminUsers() {
                                 </div>
                                 <div>
                                     <Label htmlFor="staff_role">Staff Role</Label>
-                                    <Select value={editingUser.staff_role || ''} onValueChange={v => handleEditFieldChange('staff_role', v)}>
+                                    <Select value={editingUser.staff_role || 'none'} onValueChange={v => handleEditFieldChange('staff_role', v === 'none' ? null : v)}>
                                         <SelectTrigger><SelectValue placeholder="No role" /></SelectTrigger>
                                         <SelectContent>
                                             {STAFF_ROLES.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
