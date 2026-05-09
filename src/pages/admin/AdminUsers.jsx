@@ -159,6 +159,12 @@ export default function AdminUsers() {
     setEditingUser(prev => ({...prev, [key]: value}));
   }
 
+  const parsePhotos = (photos) => {
+    if (!photos) return [];
+    if (Array.isArray(photos)) return photos;
+    try { return JSON.parse(photos); } catch { return []; }
+  };
+
   const handleEditCountryChange = (key, opt) => {
     setEditingUser(prev => ({...prev, [key]: opt?.code || null}));
   }
