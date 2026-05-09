@@ -696,7 +696,8 @@ export default function RoomModals({
                           const { error } = await supabase
                             .from("live_rooms")
                             .update({ topic: newTopic })
-                            .eq("id", room.id);
+                            .eq("id", room.id)
+                            .eq("owner_user_id", room.owner_user_id);
                           if (error) { toast(error.message, 1400); return; }
                           setRoom(prev => ({ ...prev, topic: newTopic }));
                           showSuccessToast("✅ Topic updated", 1400);
