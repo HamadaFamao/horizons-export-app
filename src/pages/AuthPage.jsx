@@ -21,6 +21,7 @@ const GoogleIcon = () => (
 const AuthPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [banInfo, setBanInfo] = useState(null);
   const [isInApp, setIsInApp] = useState(
     /FBAN|FBAV|Instagram|Messenger|WebView|wv/i.test(navigator.userAgent)
   );
@@ -34,6 +35,16 @@ const AuthPage = () => {
       navigate('/discover', { replace: true });
     }
   }, [user?.id, authLoading, navigate]);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('ban_info');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setBanInfo(parsed);
+      }
+    } catch {}
+  }, []);
 
   useEffect(() => {
     if (location.state?.error) {
@@ -160,6 +171,28 @@ const AuthPage = () => {
           </CardHeader>
 
           <CardContent className="pb-8">
+            {banInfo && (
+              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-sm">
+                <div className="flex items-center gap-2 text-red-700 font-bold mb-2">
+                  <span>⛔</span>
+                  <span>Your account has been suspended</span>
+                </div>
+                {banInfo.isPermanent ? (
+                  <p className="text-red-600">This account has been permanently suspended.</p>
+                ) : (
+                  <p className="text-red-600">
+                    Suspended until: <strong>{new Date(banInfo.banned_until).toLocaleString()}</strong>
+                  </p>
+                )}
+                {banInfo.reason && (
+                  <p className="text-red-500 mt-1">Reason: {banInfo.reason}</p>
+                )}
+                <p className="text-red-400 text-xs mt-2">
+                  If you think this is a mistake, please contact support.
+                </p>
+              </div>
+            )}
+
             {error && (
               <div className="mb-4 p-3 bg-red-50 border border-red-100 text-red-600 rounded-lg text-sm flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />

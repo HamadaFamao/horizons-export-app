@@ -117,9 +117,30 @@ export default function AdminUsers() {
         
     if (error) {
         toast({ title: "Error fetching users", description: error.message, variant: 'destructive' });
-    } else {
-        setUsers(data);
+        setLoading(false);
+        return;
     }
+
+    // جيب الـ bans
+    const userIds = (data || []).map(u => u.user_uuid).filter(Boolean);
+    let bansMap = {};
+    if (userIds.length > 0) {
+      const { data: bansData } = await supabase
+        .from('user_bans')
+        .select('user_id, banned_until, reason, is_active')
+        .in('user_id', userIds)
+        .eq('is_active', true);
+      
+      (bansData || []).forEach(b => {
+        const isStillBanned = !b.banned_until || new Date(b.banned_until) > new Date();
+        if (isStillBanned) bansMap[b.user_id] = b;
+      });
+    }
+
+    setUsers((data || []).map(u => ({
+      ...u,
+      ban: bansMap[u.user_uuid] || null,
+    })));
     setLoading(false);
   };
   
@@ -216,6 +237,7 @@ export default function AdminUsers() {
               <TableHead>From</TableHead>
               <TableHead>Living In</TableHead>
               <TableHead>Created At</TableHead>
+              <TableHead>Ban</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -240,6 +262,29 @@ export default function AdminUsers() {
                 <TableCell>{user.from_country}</TableCell>
                 <TableCell>{user.living_in_country}</TableCell>
                 <TableCell>{new Date(user.profile_created_at).toLocaleDateString()}</TableCell>
+                <TableCell>
+                  {user.ban ? (
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs font-bold text-red-600">⛔ Banned</span>
+                      {user.ban.banned_until && (
+                        <span className="text-[10px] text-slate-500">
+                          Until: {new Date(user.ban.banned_until).toLocaleDateString()}
+                        </span>
+                      )}
+                      {!user.ban.banned_until && (
+                        <span className="text-[10px] text-red-500">Permanent</span>
+                      )}
+                      <button
+                        className="text-[10px] text-blue-600 underline text-left"
+                        onClick={() => handleUnban(user.user_uuid)}
+                      >
+                        Unban
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-green-600">✅ Active</span>
+                  )}
+                </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1">
                     <Button variant="outline" size="sm" onClick={() => setViewingUser(user)} title="View Profile">

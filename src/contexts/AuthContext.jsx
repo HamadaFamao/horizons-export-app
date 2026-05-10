@@ -84,12 +84,23 @@ export const AuthProvider = ({ children }) => {
 
         if (isStillBanned) {
           console.warn('[AuthContext] User is banned - forcing logout');
+          
+          // حفظ معلومات الحظر عشان نعرضها
+          const banInfo = {
+            banned_until: banData.banned_until,
+            reason: banData.reason,
+            isPermanent,
+          };
+          localStorage.setItem('ban_info', JSON.stringify(banInfo));
+          
           await hardLogout('[refreshUserProfile] user is banned');
           return;
         } else {
-          // Ban expired - auto-lift
           await supabase.from('user_bans').update({ is_active: false }).eq('user_id', userId);
+          localStorage.removeItem('ban_info');
         }
+      } else {
+        localStorage.removeItem('ban_info');
       }
 
       const { data: profileData, error } = await supabase
