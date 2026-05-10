@@ -157,6 +157,13 @@ export default function AdminUsers() {
   
   useEffect(() => {
     fetchUsers();
+    // Auto-simulate online activity every 10 minutes
+    const interval = setInterval(async () => {
+      await supabase.rpc('simulate_online_activity');
+    }, 10 * 60 * 1000);
+    // Run once on load
+    supabase.rpc('simulate_online_activity');
+    return () => clearInterval(interval);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   
