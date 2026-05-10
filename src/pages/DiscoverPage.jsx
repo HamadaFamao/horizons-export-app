@@ -189,13 +189,22 @@ const DiscoverPage = () => {
     if (!hasFetched.current) fetchProfiles(false);
   }, [fetchProfiles]);
 
-  // Simulate online activity for fake profiles
+   // Simulate online activity - once every 5 minutes globally
   useEffect(() => {
+    const SIMULATE_KEY = 'last_simulate_ts';
+    const INTERVAL_MS = 5 * 60 * 1000;
+
     const simulate = async () => {
+      const last = parseInt(localStorage.getItem(SIMULATE_KEY) || '0');
+      const now = Date.now();
+      if (now - last < INTERVAL_MS) return; // مش فاضل 5 دقايق
+      
+      localStorage.setItem(SIMULATE_KEY, String(now));
       await supabase.rpc('simulate_online_activity');
     };
+
     simulate();
-    const interval = setInterval(simulate, 5 * 60 * 1000);
+    const interval = setInterval(simulate, INTERVAL_MS);
     return () => clearInterval(interval);
   }, []);
 
