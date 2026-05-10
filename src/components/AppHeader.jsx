@@ -290,8 +290,19 @@ const AppHeader = () => {
       profileUser?.role ||
       null;
 
-    const isManager = role === 'manager' || hookShowManagerBadge === true;
-    const isSuperAdmin = role === 'admin';
+    const staffRole =
+      headerProfile?.staff_role ||
+      profileUser?.staff_role ||
+      null;
+
+    const isManager = 
+      role === 'manager' || 
+      staffRole === 'manager' ||
+      hookShowManagerBadge === true;
+
+    const isSuperAdmin = 
+      role === 'admin' || 
+      staffRole === 'super_admin';
 
     const isAdmin =
       headerProfile?.isadmin === true ||
@@ -300,9 +311,10 @@ const AppHeader = () => {
       profileUser?.is_admin === true ||
       isSuperAdmin ||
       isManager ||
+      !!staffRole ||
       hookShowAdminBadge === true;
 
-    return { isAdmin, isManager };
+    return { isAdmin, isManager, staffRole };
   }, [headerProfile, profileUser, hookShowAdminBadge, hookShowManagerBadge]);
 
   // ✅ Is Agency Agent?
