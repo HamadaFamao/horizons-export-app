@@ -404,10 +404,15 @@ export default function AdminUsers() {
                                             </div>
                                         ))}
 
-                                        <label className="cursor-pointer aspect-square border-2 border-dashed border-slate-300 rounded-lg flex flex-col items-center justify-center hover:border-blue-400 hover:bg-blue-50 transition">
+                                        <label className="cursor-pointer aspect-square border-2 border-dashed border-slate-300 rounded-lg flex flex-col items-center justify-center hover:border-blue-400 hover:bg-blue-50 transition"
+                                          onClick={(e) => {
+                                            const input = e.currentTarget.querySelector('input[type="file"]');
+                                            if (input) { input.value = ''; input.click(); }
+                                            e.preventDefault();
+                                          }}>
                                             <span className="text-3xl text-slate-400">+</span>
                                             <span className="text-xs text-slate-500 mt-1">Add Photo</span>
-                                            <input type="file" accept="image/*" className="hidden"
+                                          <input type="file" accept="image/*" className="hidden" style={{display:'none'}}
                                                 onChange={async (e) => {
                                                     const file = e.target.files?.[0];
                                                     if (!file) return;
