@@ -75,6 +75,8 @@ const AdminLayout = () => {
     setPendingPath(null);
   };
 
+  const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+
   return (
     <div className="min-h-screen flex bg-gradient-to-br from-rose-50 via-pink-50 to-orange-50">
       <ConfirmDialog 
@@ -85,7 +87,75 @@ const AdminLayout = () => {
         description="You have unsaved changes in the form. Are you sure you want to leave? Your changes will be lost."
       />
 
-      <aside className="w-64 bg-white/80 backdrop-blur-md border-r border-pink-100 p-4 flex flex-col h-screen sticky top-0">
+      {/* Mobile top bar */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b border-pink-100 px-4 py-3 flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-rose-500">Admin Panel</h2>
+          {staffRole && (
+            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+              staffRole === 'manager' ? 'bg-purple-100 text-purple-700' :
+              staffRole === 'super_admin' ? 'bg-blue-100 text-blue-700' :
+              staffRole === 'moderator' ? 'bg-green-100 text-green-700' :
+              'bg-amber-100 text-amber-700'
+            }`}>{staffRole.replace('_', ' ').toUpperCase()}</span>
+          )}
+        </div>
+        <button
+          onClick={() => setMobileMenuOpen(true)}
+          className="p-2 rounded-lg bg-rose-50 text-rose-600"
+        >
+          ☰
+        </button>
+      </div>
+
+      {/* Mobile overlay */}
+      {mobileMenuOpen && (
+        <div className="md:hidden fixed inset-0 z-50 flex">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setMobileMenuOpen(false)} />
+          <div className="relative w-64 bg-white h-full flex flex-col p-4 shadow-xl">
+            <div className="text-center mb-6">
+              <h2 className="text-xl font-bold text-rose-500">Admin Panel</h2>
+              <p className="text-sm text-gray-600">Welcome, {user?.name}</p>
+              {staffRole && (
+                <span className={`mt-1 inline-block text-xs font-bold px-2 py-0.5 rounded-full ${
+                  staffRole === 'manager' ? 'bg-purple-100 text-purple-700' :
+                  staffRole === 'super_admin' ? 'bg-blue-100 text-blue-700' :
+                  staffRole === 'moderator' ? 'bg-green-100 text-green-700' :
+                  'bg-amber-100 text-amber-700'
+                }`}>{staffRole.replace('_', ' ').toUpperCase()}</span>
+              )}
+            </div>
+            <nav className="flex-1 overflow-y-auto">
+              <ul>
+                {navItems.map(item => (
+                  <li key={item.name}>
+                    <NavLink
+                      to={item.href}
+                      end={item.href === 'dashboard'}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={({ isActive }) => cn(
+                        "flex items-center gap-3 px-4 py-3 my-1 rounded-lg text-gray-700 transition-colors hover:bg-rose-100 hover:text-rose-600",
+                        { "bg-rose-200 text-rose-700 font-semibold": isActive }
+                      )}
+                    >
+                      <item.icon className="w-5 h-5" />
+                      <span>{item.name}</span>
+                    </NavLink>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+            <div className="mt-auto pt-4 border-t border-pink-100">
+              <Button variant="ghost" className="w-full justify-start" onClick={handleBackToSite}>
+                <Home className="w-5 h-5 mr-3" />
+                Back to Site
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <aside className="hidden md:flex w-64 bg-white/80 backdrop-blur-md border-r border-pink-100 p-4 flex-col h-screen sticky top-0">
         <div className="text-center mb-8">
           <h2 className="text-2xl font-bold gradient-text">Admin Panel</h2>
           <p className="text-sm text-gray-600">Welcome, {user?.name}</p>
@@ -132,7 +202,7 @@ const AdminLayout = () => {
           </Button>
         </div>
       </aside>
-      <main className="flex-1 p-8 overflow-auto">
+      <main className="flex-1 p-4 md:p-8 overflow-auto mt-14 md:mt-0">
         <Outlet />
       </main>
     </div>
