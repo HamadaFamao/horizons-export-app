@@ -148,6 +148,27 @@ export default function GiftPanel({
     try {
       setSending(true);
 
+      // Check do_not_disturb
+      if (resolvedReceiverUserId && resolvedReceiverUserId !== 'all') {
+        const { data: recipientCheck } = await supabase
+          .from('profiles')
+          .select('do_not_disturb')
+          .eq('id', resolvedReceiverUserId)
+          .maybeSingle();
+
+        if (recipientCheck?.do_not_disturb) {
+          toast({
+            title: '🔕 Not Available',
+            description: language === 'ar'
+              ? 'هذا المستخدم لا يقبل الهدايا حالياً'
+              : 'This user is not accepting gifts at the moment.',
+            variant: 'destructive',
+          });
+          setSending(false);
+          return;
+        }
+      }
+
       if (onGiftSent) {
         await onGiftSent(payload);
       }

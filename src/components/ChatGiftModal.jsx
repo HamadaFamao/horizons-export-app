@@ -97,6 +97,23 @@ export default function ChatGiftModal({
     setIsSending(true);
 
     try {
+      // Check if recipient has do_not_disturb enabled
+      const { data: recipientProfile } = await supabase
+        .from('profiles')
+        .select('do_not_disturb, name')
+        .eq('id', recipientId)
+        .maybeSingle();
+
+      if (recipientProfile?.do_not_disturb) {
+        toast({
+          title: '🔕 Not Available',
+          description: `${recipientName} is not accepting gifts at the moment.`,
+          variant: 'destructive',
+        });
+        setIsSending(false);
+        return;
+      }
+
       // 1. Call RPC directly with standard error handling
       const { data, error } = await supabase.rpc('send_gift_secure', {
         p_gift_id: selectedGift.id,
