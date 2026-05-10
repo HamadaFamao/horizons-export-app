@@ -306,16 +306,15 @@ export default function AdminUsers() {
                                 </div>
                                 <div>
                                     <Label htmlFor="staff_role">Staff Role</Label>
-                                    <Select value={(editingUser.staff_role || 'none').toLowerCase()} onValueChange={v => handleEditFieldChange('staff_role', v === 'none' ? null : v)}>
-                                        <SelectTrigger><SelectValue placeholder="No role" /></SelectTrigger>
-                                        <SelectContent>
-                                            {STAFF_ROLES.map(r => (
-                                                <SelectItem key={r.value} value={r.value}>
-                                                    {r.label}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <select
+                                        value={(editingUser.staff_role || 'none').toLowerCase()}
+                                        onChange={e => handleEditFieldChange('staff_role', e.target.value === 'none' ? null : e.target.value)}
+                                        className="w-full border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-slate-300"
+                                    >
+                                        {STAFF_ROLES.map(r => (
+                                            <option key={r.value} value={r.value}>{r.label}</option>
+                                        ))}
+                                    </select>
                                     <p className="text-xs text-slate-400 mt-1">
                                         Current: {editingUser.staff_role || 'none'}
                                     </p>
