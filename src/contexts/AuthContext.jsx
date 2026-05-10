@@ -70,6 +70,28 @@ export const AuthProvider = ({ children }) => {
     if (!userId) return;
 
     try {
+      // Check ban first
+      const { data: banData } = await supabase
+        .from('user_bans')
+        .select('banned_until, is_active')
+        .eq('user_id', userId)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (banData) {
+        const isPermanent = !banData.banned_until;
+        const isStillBanned = isPermanent || new Date(banData.banned_until) > new Date();
+
+        if (isStillBanned) {
+          console.warn('[AuthContext] User is banned - forcing logout');
+          await hardLogout('[refreshUserProfile] user is banned');
+          return;
+        } else {
+          // Ban expired - auto-lift
+          await supabase.from('user_bans').update({ is_active: false }).eq('user_id', userId);
+        }
+      }
+
       const { data: profileData, error } = await supabase
         .from('v_user_profile_with_wallet')
         .select('*')
@@ -86,13 +108,15 @@ export const AuthProvider = ({ children }) => {
       if (profileData) {
         const isAdmin = profileData.isadmin === true;
         const adminRole = profileData.admin_role;
-        const isManager = adminRole === 'manager';
-        const isSuperAdmin = adminRole === 'admin';
-        const isAdminOrManager = isAdmin || isSuperAdmin || isManager;
+        const staffRole = profileData.staff_role;
+        const isManager = adminRole === 'manager' || staffRole === 'manager';
+        const isSuperAdmin = adminRole === 'admin' || staffRole === 'super_admin';
+        const isAdminOrManager = isAdmin || isSuperAdmin || isManager || !!staffRole;
 
         let roleLabel = null;
         if (isManager) roleLabel = 'Manager';
         else if (isSuperAdmin || isAdmin) roleLabel = 'Admin';
+        else if (staffRole) roleLabel = staffRole.replace('_', ' ').toUpperCase();
 
         setUser((prev) => ({
           ...(prev || {}),
