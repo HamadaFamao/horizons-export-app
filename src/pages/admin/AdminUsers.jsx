@@ -135,6 +135,7 @@ export default function AdminUsers() {
     setIsSaving(true);
     
     const { profile_id, name, gender, age, living_in_code, from_code, avatar_url, bio, occupation, marital_status, lookingfor, staff_role, user_uuid } = editingUser;
+    console.log('[SAVE_DEBUG]', { profile_id, user_uuid, staff_role });
 
     const { error } = await supabase.from('profiles').update({
       name, gender, age, living_in_code, from_code, avatar_url, bio, occupation, marital_status, lookingfor
