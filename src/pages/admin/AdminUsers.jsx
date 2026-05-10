@@ -36,11 +36,11 @@ export default function AdminUsers() {
   ];
 
   const STAFF_ROLES = [
-    { label: 'None',        value: 'none' },
-    { label: 'Manager',     value: 'manager' },
-    { label: 'Super Admin', value: 'super_admin' },
-    { label: 'Moderator',   value: 'moderator' },
-    { label: 'Finance',     value: 'finance' },
+    { label: '— None',        value: 'none' },
+    { label: '👑 Manager',     value: 'manager' },
+    { label: '🔵 Super Admin', value: 'super_admin' },
+    { label: '🟢 Moderator',   value: 'moderator' },
+    { label: '🟡 Finance',     value: 'finance' },
   ];
 
   const handleBanUser = async () => {
@@ -306,12 +306,19 @@ export default function AdminUsers() {
                                 </div>
                                 <div>
                                     <Label htmlFor="staff_role">Staff Role</Label>
-                                    <Select value={editingUser.staff_role || 'none'} onValueChange={v => handleEditFieldChange('staff_role', v === 'none' ? null : v)}>
+                                    <Select value={(editingUser.staff_role || 'none').toLowerCase()} onValueChange={v => handleEditFieldChange('staff_role', v === 'none' ? null : v)}>
                                         <SelectTrigger><SelectValue placeholder="No role" /></SelectTrigger>
                                         <SelectContent>
-                                            {STAFF_ROLES.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+                                            {STAFF_ROLES.map(r => (
+                                                <SelectItem key={r.value} value={r.value}>
+                                                    {r.label}
+                                                </SelectItem>
+                                            ))}
                                         </SelectContent>
                                     </Select>
+                                    <p className="text-xs text-slate-400 mt-1">
+                                        Current: {editingUser.staff_role || 'none'}
+                                    </p>
                                 </div>
                                 <div className="md:col-span-2">
                                     <Label>Avatar Preview</Label>
