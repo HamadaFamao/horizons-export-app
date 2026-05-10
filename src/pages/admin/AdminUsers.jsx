@@ -5,7 +5,6 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
 import { Loader2, Search, Edit, Ban, Shield, Trash2, Eye } from 'lucide-react';
 import { useAdminPermissions } from '@/contexts/AdminPermissionsContext';
@@ -508,12 +507,15 @@ export default function AdminUsers() {
           <div className="space-y-4 py-4">
             <div>
               <Label>Ban Duration</Label>
-              <Select value={banDuration} onValueChange={setBanDuration}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {BAN_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <select
+                value={banDuration}
+                onChange={e => setBanDuration(e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-slate-300"
+              >
+                {BAN_OPTIONS.map(o => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
             </div>
             <div>
               <Label>Reason (optional)</Label>
