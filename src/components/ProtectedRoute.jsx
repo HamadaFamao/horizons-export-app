@@ -65,6 +65,29 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
       setProfileCheckLoading(true);
 
       try {
+        // Check if user is banned
+        const { data: banData } = await supabase
+          .from('user_bans')
+          .select('banned_until, is_active')
+          .eq('user_id', authUserId)
+          .eq('is_active', true)
+          .maybeSingle();
+
+        if (banData) {
+          const isPermanent = !banData.banned_until;
+          const isStillBanned = isPermanent || new Date(banData.banned_until) > new Date();
+
+          if (isStillBanned) {
+            console.warn(`[PROTECTED ROUTE] User ${authUserId} is banned`);
+            await supabase.auth.signOut();
+            if (isMountedRef.current) setIsAdmin(false);
+            return;
+          } else {
+            // Ban expired - auto-lift
+            await supabase.from('user_bans').update({ is_active: false }).eq('user_id', authUserId);
+          }
+        }
+
         const { data, error } = await supabase
           .from('profiles')
           .select('isadmin, staff_role')
