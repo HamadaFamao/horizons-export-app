@@ -143,12 +143,19 @@ export default function AdminUsers() {
     if (error) {
         toast({ title: "Error saving user", description: error.message, variant: 'destructive' });
     } else {
-      if (staff_role !== undefined) {
-        await supabase.from('profiles').update({ 
-          staff_role: (staff_role === 'none' || !staff_role) ? null : staff_role 
-        }).eq('id', user_uuid);
+      // save staff_role separately using profile_id (more reliable)
+      const newStaffRole = (staff_role === 'none' || !staff_role) ? null : staff_role;
+      const { error: roleError } = await supabase
+        .from('profiles')
+        .update({ staff_role: newStaffRole })
+        .eq('profile_id', profile_id);
+      
+      if (roleError) {
+        console.error('[STAFF_ROLE_UPDATE_ERROR]', roleError);
+        toast({ title: "⚠️ Profile saved but role update failed", description: roleError.message, variant: 'destructive' });
+      } else {
+        toast({ title: "✅ User updated successfully" });
       }
-      toast({ title: "✅ User updated successfully" });
       setEditingUser(null);
       fetchUsers();
     }
