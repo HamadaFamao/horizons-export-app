@@ -24,6 +24,9 @@ export default function AdminUsers() {
   const [banReason, setBanReason] = useState('');
   const [isBanning, setIsBanning] = useState(false);
   const [viewingUser, setViewingUser] = useState(null);
+  const [page, setPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const PAGE_SIZE = 50;
   const addPhotoInputRef = useRef(null);
 
   const { staffRole } = useAdminPermissions();
@@ -104,16 +107,24 @@ export default function AdminUsers() {
     else toast({ title: 'Error', description: error.message, variant: 'destructive' });
   };
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (currentPage = page) => {
     setLoading(true);
-    let query = supabase.from('v_users_admin').select('*');
-    if (searchTerm) {
-        query = query.or(`name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,profile_id.eq.${parseInt(searchTerm) || 0}`);
-    }
     
+    let countQuery = supabase.from('v_users_admin').select('*', { count: 'exact', head: true });
+    let query = supabase.from('v_users_admin').select('*');
+    
+    if (searchTerm) {
+      const filter = `name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,profile_id.eq.${parseInt(searchTerm) || 0}`;
+      query = query.or(filter);
+      countQuery = countQuery.or(filter);
+    }
+
+    const { count } = await countQuery;
+    setTotalCount(count || 0);
+
     const { data, error } = await query
         .order('profile_created_at', { ascending: false })
-        .limit(50);
+        .range(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE - 1);
         
     if (error) {
         toast({ title: "Error fetching users", description: error.message, variant: 'destructive' });
@@ -151,7 +162,8 @@ export default function AdminUsers() {
   
   const handleSearch = (e) => {
     e.preventDefault();
-    fetchUsers();
+    setPage(0);
+    fetchUsers(0);
   };
 
   const handleSaveChanges = async () => {
@@ -212,7 +224,20 @@ export default function AdminUsers() {
   
   return (
     <div className="p-4 md:p-6">
-      <h1 className="text-2xl font-bold mb-4">Users Management</h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-bold">Users Management</h1>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={async () => {
+            const { error } = await supabase.rpc('simulate_online_activity');
+            if (!error) toast({ title: '✅ Online activity simulated!' });
+            else toast({ title: 'Error', description: error.message, variant: 'destructive' });
+          }}
+        >
+          🟢 Simulate Online
+        </Button>
+      </div>
       
       <form onSubmit={handleSearch} className="flex gap-2 mb-6">
         <Input 
@@ -541,6 +566,26 @@ export default function AdminUsers() {
             {!loading && users.length === 0 && <TableRow><TableCell colSpan={9} className="text-center p-4 text-gray-500">No users found.</TableCell></TableRow>}
           </TableBody>
         </Table>
+      </div>
+
+      {/* Pagination */}
+      <div className="flex items-center justify-between mt-4 px-2">
+        <span className="text-sm text-slate-500">
+          Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalCount)} of {totalCount} users
+        </span>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline" size="sm"
+            disabled={page === 0 || loading}
+            onClick={() => { setPage(p => p - 1); fetchUsers(page - 1); }}
+          >← Prev</Button>
+          <span className="text-sm font-medium">Page {page + 1} of {Math.ceil(totalCount / PAGE_SIZE)}</span>
+          <Button
+            variant="outline" size="sm"
+            disabled={(page + 1) * PAGE_SIZE >= totalCount || loading}
+            onClick={() => { setPage(p => p + 1); fetchUsers(page + 1); }}
+          >Next →</Button>
+        </div>
       </div>
 
       {/* Ban Dialog */}
