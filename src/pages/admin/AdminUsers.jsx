@@ -364,11 +364,14 @@ export default function AdminUsers() {
                                                     onChange={async (e) => {
                                                         const file = e.target.files?.[0];
                                                         if (!file) return;
+                                                        console.log('[ADD_PHOTO]', { file: file.name, size: file.size, userId: editingUser.user_uuid });
                                                         const ext = file.name.split('.').pop();
                                                         const path = `${editingUser.user_uuid}/${Date.now()}.${ext}`;
-                                                        const { error: upErr } = await supabase.storage
+                                                        console.log('[ADD_PHOTO_PATH]', path);
+                                                        const { error: upErr, data: upData } = await supabase.storage
                                                             .from('profile-photos')
-                                                            .upload(path, file, { upsert: true });
+                                                            .upload(path, file, { upsert: false });
+                                                        console.log('[ADD_PHOTO_RESULT]', { upErr, upData });
                                                         if (upErr) { toast({ title: 'Upload failed', description: upErr.message, variant: 'destructive' }); return; }
                                                         const { data: urlData } = supabase.storage.from('profile-photos').getPublicUrl(path);
                                                         handleEditFieldChange('avatar_url', urlData.publicUrl);
@@ -434,11 +437,14 @@ export default function AdminUsers() {
                                                 onChange={async (e) => {
                                                     const file = e.target.files?.[0];
                                                     if (!file) return;
+                                                    console.log('[ADD_PHOTO]', { file: file.name, size: file.size, userId: editingUser.user_uuid });
                                                     const ext = file.name.split('.').pop();
                                                     const path = `${editingUser.user_uuid}/${Date.now()}.${ext}`;
-                                                    const { error: upErr } = await supabase.storage
+                                                    console.log('[ADD_PHOTO_PATH]', path);
+                                                    const { error: upErr, data: upData } = await supabase.storage
                                                         .from('profile-photos')
                                                         .upload(path, file, { upsert: false });
+                                                    console.log('[ADD_PHOTO_RESULT]', { upErr, upData });
                                                     if (upErr) { toast({ title: 'Upload failed', description: upErr.message, variant: 'destructive' }); return; }
                                                     const { data: urlData } = supabase.storage.from('profile-photos').getPublicUrl(path);
                                                     const isPrimary = parsePhotos(editingUser.photos).length === 0;
