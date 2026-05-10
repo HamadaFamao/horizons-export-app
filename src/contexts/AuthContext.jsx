@@ -211,6 +211,28 @@ export const AuthProvider = ({ children }) => {
 
     initAuth();
 
+    // Check ban every 60 seconds
+    const banCheckInterval = setInterval(async () => {
+      const currentSession = (await supabase.auth.getSession())?.data?.session;
+      if (!currentSession?.user?.id) return;
+
+      const { data: banData } = await supabase
+        .from('user_bans')
+        .select('banned_until, is_active')
+        .eq('user_id', currentSession.user.id)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (banData) {
+        const isPermanent = !banData.banned_until;
+        const isStillBanned = isPermanent || new Date(banData.banned_until) > new Date();
+        if (isStillBanned) {
+          console.warn('[AuthContext] Ban detected - forcing logout');
+          await hardLogout('[banCheck] user is banned');
+        }
+      }
+    }, 60000);
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
       if (!mounted) return;
 
@@ -231,6 +253,7 @@ export const AuthProvider = ({ children }) => {
 
     return () => {
       mounted = false;
+      clearInterval(banCheckInterval);
       if (subscription) subscription.unsubscribe();
     };
   }, [hardLogout, refreshUserProfile]);
