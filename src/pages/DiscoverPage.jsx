@@ -189,6 +189,16 @@ const DiscoverPage = () => {
     if (!hasFetched.current) fetchProfiles(false);
   }, [fetchProfiles]);
 
+  // Simulate online activity for fake profiles
+  useEffect(() => {
+    const simulate = async () => {
+      await supabase.rpc('simulate_online_activity');
+    };
+    simulate();
+    const interval = setInterval(simulate, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   const handleRetry = () => fetchProfiles(true);
 
   return (
