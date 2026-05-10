@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
 import { Loader2, Search, Edit, Ban, Shield, Trash2, Eye } from 'lucide-react';
+import { useAdminPermissions } from '@/contexts/AdminPermissionsContext';
 import CountrySelect from '@/components/CountrySelect';
 import { DEFAULT_AVATAR } from '@/lib/constants';
 import { Textarea } from '@/components/ui/textarea';
@@ -24,6 +25,7 @@ export default function AdminUsers() {
   const [isBanning, setIsBanning] = useState(false);
   const [viewingUser, setViewingUser] = useState(null);
 
+  const { staffRole } = useAdminPermissions();
   const { toast } = useToast();
 
   const BAN_OPTIONS = [
@@ -135,7 +137,14 @@ export default function AdminUsers() {
     setIsSaving(true);
     
     const { profile_id, name, gender, age, living_in_code, from_code, avatar_url, bio, occupation, marital_status, lookingfor, staff_role, user_uuid } = editingUser;
-    console.log('[SAVE_DEBUG]', { profile_id, user_uuid, staff_role });
+    console.log('[SAVE_DEBUG]', { 
+      profile_id, user_uuid, staff_role,
+      gender: editingUser.gender,
+      from_code: editingUser.from_code,
+      living_in_code: editingUser.living_in_code,
+      marital_status: editingUser.marital_status,
+      lookingfor: editingUser.lookingfor
+    });
 
     const { error } = await supabase.from('profiles').update({
       name, gender, age, living_in_code, from_code, avatar_url, bio, occupation, marital_status, lookingfor
@@ -255,10 +264,15 @@ export default function AdminUsers() {
                                 </div>
                                 <div>
                                     <Label htmlFor="gender">Gender</Label>
-                                    <Select value={editingUser.gender} onValueChange={v => handleEditFieldChange('gender', v)}>
-                                        <SelectTrigger id="gender"><SelectValue placeholder="Select gender" /></SelectTrigger>
-                                        <SelectContent><SelectItem value="male">Male</SelectItem><SelectItem value="female">Female</SelectItem></SelectContent>
-                                    </Select>
+                                    <select
+                                        value={editingUser.gender || ''}
+                                        onChange={e => handleEditFieldChange('gender', e.target.value)}
+                                        className="w-full border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-slate-300"
+                                    >
+                                        <option value="">Select gender</option>
+                                        <option value="male">Male</option>
+                                        <option value="female">Female</option>
+                                    </select>
                                 </div>
                                 <div>
                                     <Label htmlFor="avatar_url">Avatar URL</Label>
@@ -288,45 +302,49 @@ export default function AdminUsers() {
                                 </div>
                                 <div>
                                   <Label htmlFor="marital_status">Marital Status</Label>
-                                  <Select value={editingUser.marital_status || 'none'} onValueChange={v => handleEditFieldChange('marital_status', v === 'none' ? null : v)}>
-                                    <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="none">—</SelectItem>
-                                      <SelectItem value="single">Single</SelectItem>
-                                      <SelectItem value="married">Married</SelectItem>
-                                      <SelectItem value="divorced">Divorced</SelectItem>
-                                      <SelectItem value="widowed">Widowed</SelectItem>
-                                    </SelectContent>
-                                  </Select>
+                                  <select
+                                    value={editingUser.marital_status || ''}
+                                    onChange={e => handleEditFieldChange('marital_status', e.target.value || null)}
+                                    className="w-full border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-slate-300"
+                                  >
+                                    <option value="">—</option>
+                                    <option value="single">Single</option>
+                                    <option value="married">Married</option>
+                                    <option value="divorced">Divorced</option>
+                                    <option value="widowed">Widowed</option>
+                                  </select>
                                 </div>
                                 <div>
                                   <Label htmlFor="lookingfor">Looking For</Label>
-                                  <Select value={editingUser.lookingfor || 'none'} onValueChange={v => handleEditFieldChange('lookingfor', v === 'none' ? null : v)}>
-                                    <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="none">—</SelectItem>
-                                      <SelectItem value="friendship">Friendship</SelectItem>
-                                      <SelectItem value="dating">Dating</SelectItem>
-                                      <SelectItem value="relationship">Relationship</SelectItem>
-                                      <SelectItem value="marriage">Marriage</SelectItem>
-                                    </SelectContent>
-                                  </Select>
+                                  <select
+                                    value={editingUser.lookingfor || ''}
+                                    onChange={e => handleEditFieldChange('lookingfor', e.target.value || null)}
+                                    className="w-full border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-slate-300"
+                                  >
+                                    <option value="">—</option>
+                                    <option value="friendship">Friendship</option>
+                                    <option value="dating">Dating</option>
+                                    <option value="relationship">Relationship</option>
+                                    <option value="marriage">Marriage</option>
+                                  </select>
                                 </div>
-                                <div>
-                                    <Label htmlFor="staff_role">Staff Role</Label>
-                                    <select
-                                        value={(editingUser.staff_role || 'none').toLowerCase()}
-                                        onChange={e => handleEditFieldChange('staff_role', e.target.value === 'none' ? null : e.target.value)}
-                                        className="w-full border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-slate-300"
-                                    >
-                                        {STAFF_ROLES.map(r => (
-                                            <option key={r.value} value={r.value}>{r.label}</option>
-                                        ))}
-                                    </select>
-                                    <p className="text-xs text-slate-400 mt-1">
-                                        Current: {editingUser.staff_role || 'none'}
-                                    </p>
-                                </div>
+                                {staffRole === 'manager' && (
+                                  <div>
+                                      <Label htmlFor="staff_role">Staff Role</Label>
+                                      <select
+                                          value={(editingUser.staff_role || 'none').toLowerCase()}
+                                          onChange={e => handleEditFieldChange('staff_role', e.target.value === 'none' ? null : e.target.value)}
+                                          className="w-full border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-slate-300"
+                                      >
+                                          {STAFF_ROLES.map(r => (
+                                              <option key={r.value} value={r.value}>{r.label}</option>
+                                          ))}
+                                      </select>
+                                      <p className="text-xs text-slate-400 mt-1">
+                                          Current: {editingUser.staff_role || 'none'}
+                                      </p>
+                                  </div>
+                                )}
                                 <div className="md:col-span-2">
                                     <Label>Avatar Preview</Label>
                                     <div className="flex items-center gap-3 mt-1">
@@ -404,15 +422,11 @@ export default function AdminUsers() {
                                             </div>
                                         ))}
 
-                                        <label className="cursor-pointer aspect-square border-2 border-dashed border-slate-300 rounded-lg flex flex-col items-center justify-center hover:border-blue-400 hover:bg-blue-50 transition"
-                                          onClick={(e) => {
-                                            const input = e.currentTarget.querySelector('input[type="file"]');
-                                            if (input) { input.value = ''; input.click(); }
-                                            e.preventDefault();
-                                          }}>
+                                        <div className="cursor-pointer aspect-square border-2 border-dashed border-slate-300 rounded-lg flex flex-col items-center justify-center hover:border-blue-400 hover:bg-blue-50 transition"
+                                            onClick={() => document.getElementById('add-photo-input').click()}>
                                             <span className="text-3xl text-slate-400">+</span>
                                             <span className="text-xs text-slate-500 mt-1">Add Photo</span>
-                                          <input type="file" accept="image/*" className="hidden" style={{display:'none'}}
+                                            <input id="add-photo-input" type="file" accept="image/*" style={{display:'none'}}
                                                 onChange={async (e) => {
                                                     const file = e.target.files?.[0];
                                                     if (!file) return;
@@ -439,7 +453,7 @@ export default function AdminUsers() {
                                                     }
                                                 }}
                                             />
-                                        </label>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
