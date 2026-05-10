@@ -239,8 +239,12 @@ export default function AdminUsers() {
           onClick={async () => {
             const { data, error } = await supabase.rpc('simulate_online_activity');
             console.log('[SIMULATE]', { data, error });
-            if (!error) toast({ title: '✅ Online activity simulated!' });
-            else toast({ title: 'Error', description: error.message, variant: 'destructive' });
+            if (!error) {
+              const result = typeof data === 'string' ? JSON.parse(data) : data;
+              toast({ title: `✅ ${result?.updated || 0} profiles updated online!` });
+            } else {
+              toast({ title: 'Error', description: error.message, variant: 'destructive' });
+            }
           }}
         >
           🟢 Simulate Online
