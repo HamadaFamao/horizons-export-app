@@ -12,6 +12,7 @@ import { useAdminPermissions } from '@/contexts/AdminPermissionsContext';
 import CountrySelect from '@/components/CountrySelect';
 import { DEFAULT_AVATAR } from '@/lib/constants';
 import { Textarea } from '@/components/ui/textarea';
+import { useRef } from 'react';
 
 export default function AdminUsers() {
   const [users, setUsers] = useState([]);
@@ -24,6 +25,7 @@ export default function AdminUsers() {
   const [banReason, setBanReason] = useState('');
   const [isBanning, setIsBanning] = useState(false);
   const [viewingUser, setViewingUser] = useState(null);
+  const addPhotoInputRef = useRef(null);
 
   const { staffRole } = useAdminPermissions();
   const { toast } = useToast();
@@ -183,7 +185,9 @@ export default function AdminUsers() {
   };
 
   const handleEditCountryChange = (key, opt) => {
-    setEditingUser(prev => ({...prev, [key]: opt?.code || null}));
+    console.log('[COUNTRY_SELECT]', key, opt);
+    const code = opt?.code || opt?.value || opt || null;
+    setEditingUser(prev => ({...prev, [key]: code}));
   }
   
   return (
@@ -423,10 +427,10 @@ export default function AdminUsers() {
                                         ))}
 
                                         <div className="cursor-pointer aspect-square border-2 border-dashed border-slate-300 rounded-lg flex flex-col items-center justify-center hover:border-blue-400 hover:bg-blue-50 transition"
-                                            onClick={() => document.getElementById('add-photo-input').click()}>
+                                            onClick={() => addPhotoInputRef.current?.click()}>
                                             <span className="text-3xl text-slate-400">+</span>
                                             <span className="text-xs text-slate-500 mt-1">Add Photo</span>
-                                            <input id="add-photo-input" type="file" accept="image/*" style={{display:'none'}}
+                                            <input ref={addPhotoInputRef} type="file" accept="image/*" style={{display:'none'}}
                                                 onChange={async (e) => {
                                                     const file = e.target.files?.[0];
                                                     if (!file) return;
