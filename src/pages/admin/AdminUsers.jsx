@@ -195,15 +195,15 @@ export default function AdminUsers() {
         toast({ title: "Error saving user", description: error.message, variant: 'destructive' });
     } else {
       // save staff_role separately using profile_id (more reliable)
-      const newStaffRole = (staff_role === 'none' || !staff_role) ? null : staff_role;
-      const { error: roleError } = await supabase
-        .from('profiles')
-        .update({ staff_role: newStaffRole })
-        .eq('profile_id', profile_id);
-      
-      if (roleError) {
-        console.error('[STAFF_ROLE_UPDATE_ERROR]', roleError);
-        toast({ title: "⚠️ Profile saved but role update failed", description: roleError.message, variant: 'destructive' });
+      const { data: roleData, error: roleError } = await supabase
+        .rpc('update_user_staff_role', {
+          p_profile_id: profile_id,
+          p_staff_role: staff_role || 'none'
+        });
+
+      if (roleError || !roleData?.success) {
+        console.error('[STAFF_ROLE_UPDATE_ERROR]', roleError || roleData?.error);
+        toast({ title: "⚠️ Profile saved but role update failed", description: roleError?.message || roleData?.error, variant: 'destructive' });
       } else {
         toast({ title: "✅ User updated successfully" });
       }
