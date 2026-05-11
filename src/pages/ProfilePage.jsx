@@ -53,7 +53,8 @@ export default function ProfilePage() {
   const navigate = useNavigate();
   const { user: authUser, refreshUserProfile } = useAuth();
   const { toast } = useToast();
-  const { isAdmin: isStaffMember } = useAdminPermissions();
+  const { isAdmin: isStaffMember, staffRole, loading: permLoading } = useAdminPermissions();
+  console.log('[STAFF_CHECK]', { isStaffMember, staffRole, permLoading });
 
   const { rewards, claimDailyReward, loading: rewardsLoading } = useRewards();
 
