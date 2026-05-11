@@ -414,6 +414,8 @@ export default function ProfilePage() {
     );
 
   const computedLevel = profile?.xp !== undefined ? getLevelFromXp(profile.xp)?.currentLevel : null;
+  const isStaffMember = !!(profile?.staff_role || profile?.isadmin);
+  console.log('[PROFILE_STAFF_CHECK]', { staff_role: profile?.staff_role, isadmin: profile?.isadmin, isStaffMember });
   const vipInfo = getVipInfo(profile);
   const vipStyle = getVipStyle(profile?.vip_number);
   const interests = Array.isArray(profile?.interests) ? profile.interests : [];
@@ -719,7 +721,7 @@ export default function ProfilePage() {
         )}
 
         {/* Add Photos - hidden for staff/admin */}
-        {!profile?.staff_role && !profile?.isadmin && (
+        {!isStaffMember && (
           <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Add Photos</h2>
 
@@ -749,7 +751,7 @@ export default function ProfilePage() {
                     alt="Gallery photo"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                   />
-                  {!profile?.staff_role && !profile?.isadmin && (
+                  {!isStaffMember && (
                     <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
                       <button
                         onClick={() => handleSetProfilePhoto(photo.url)}
