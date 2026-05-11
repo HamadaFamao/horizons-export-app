@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
-import { Loader2, Search, Ban, Lock, Unlock, MessageSquare, MessageSquareX, Mic, MicOff, Trash2, Shield, RefreshCw } from 'lucide-react';
+import { Loader2, Search, Ban, Lock, Unlock, MessageSquare, Mic, MicOff, Trash2, Shield, RefreshCw } from 'lucide-react';
 import { useAdminPermissions } from '@/contexts/AdminPermissionsContext';
 
 const DEFAULT_AVATAR = '/default-room.png';
@@ -360,7 +360,7 @@ export default function AdminRooms() {
                       onClick={() => handleToggleChat(room)}
                       title={room.chat_disabled ? 'Enable Chat' : 'Disable Chat'}
                     >
-                      {room.chat_disabled ? <MessageSquare className="h-4 w-4" /> : <MessageSquareX className="h-4 w-4" />}
+                      {room.chat_disabled ? <MessageSquare className="h-4 w-4" /> : <MessageSquare className="h-4 w-4 text-red-500" />}
                     </Button>
 
                     {/* حظر/فك حظر الغرفة */}
@@ -468,7 +468,7 @@ export default function AdminRooms() {
                     onClick={() => handleToggleChat(managingRoom)}>
                     {managingRoom.chat_disabled
                       ? <><MessageSquare className="h-4 w-4 mr-1" /> Enable Chat</>
-                      : <><MessageSquareX className="h-4 w-4 mr-1" /> Disable Chat</>
+                      : <><MessageSquare className="h-4 w-4 mr-1" /> Disable Chat</>
                     }
                   </Button>
 
