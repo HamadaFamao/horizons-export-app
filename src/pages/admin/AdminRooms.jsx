@@ -37,10 +37,7 @@ export default function AdminRooms() {
     try {
       let query = supabase
         .from('live_rooms')
-        .select(`
-          *,
-          owner:profiles!live_rooms_owner_user_id_fkey(name, avatar_url, profile_id, staff_role, isadmin)
-        `, { count: 'exact' });
+        .select('*', { count: 'exact' });
 
       if (searchTerm) {
         query = query.or(`title.ilike.%${searchTerm}%,public_room_id.eq.${parseInt(searchTerm) || 0}`);
@@ -51,6 +48,17 @@ export default function AdminRooms() {
         .range(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE - 1);
 
       if (error) throw error;
+
+      // جيب بيانات الـ owners
+      const ownerIds = [...new Set((data || []).map(r => r.owner_user_id).filter(Boolean))];
+      let ownersMap = {};
+      if (ownerIds.length > 0) {
+        const { data: owners } = await supabase
+          .from('profiles')
+          .select('id, name, avatar_url, profile_id, staff_role, isadmin')
+          .in('id', ownerIds);
+        (owners || []).forEach(o => { ownersMap[o.id] = o; });
+      }
 
       // Get participant counts
       const roomIds = (data || []).map(r => r.id);
@@ -67,7 +75,11 @@ export default function AdminRooms() {
         });
       }
 
-      setRooms((data || []).map(r => ({ ...r, participant_count: participantMap[r.id] || 0 })));
+      setRooms((data || []).map(r => ({
+        ...r,
+        owner: ownersMap[r.owner_user_id] || null,
+        participant_count: participantMap[r.id] || 0
+      })));
       setTotalCount(count || 0);
     } catch (e) {
       toast({ title: 'Error', description: e.message, variant: 'destructive' });
