@@ -3,9 +3,10 @@ import { supabase } from '@/lib/supabaseClient';
 import { Plus, Trash2, Loader2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
-export default function PhotoGallery({ userId, photos = [], onPhotosUpdate }) {
+export default function PhotoGallery({ userId, photos = [], onPhotosUpdate, isOwner = false }) {
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState(null);
+  const [lightboxPhoto, setLightboxPhoto] = useState(null);
   const fileInputRef = useRef(null);
   const { toast } = useToast();
 
@@ -155,51 +156,59 @@ export default function PhotoGallery({ userId, photos = [], onPhotosUpdate }) {
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {photos.map((photo, idx) => (
             <div key={idx} className="relative group">
-              {/* Photo */}
               <div className="relative overflow-hidden rounded-2xl bg-gray-100 aspect-square">
                 <img
                   src={photo}
                   alt={`Photo ${idx + 1}`}
-                  className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                  className="w-full h-full object-cover group-hover:scale-105 transition duration-300 cursor-pointer"
+                  onClick={() => setLightboxPhoto(photo)}
                 />
-
-                {/* Overlay on hover */}
                 <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition duration-300 flex items-center justify-center gap-2">
-                  {/* Delete button */}
-                  <button
-                    onClick={() => handleDeletePhoto(photo)}
-                    disabled={deleting === photo}
-                    className="bg-red-500 hover:bg-red-600 text-white p-3 rounded-full opacity-0 group-hover:opacity-100 transition disabled:opacity-50 shadow-lg"
-                    aria-label="Delete photo"
-                  >
-                    {deleting === photo ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
-                  </button>
+                  {isOwner ? (
+                    <button
+                      onClick={() => handleDeletePhoto(photo)}
+                      disabled={deleting === photo}
+                      className="bg-red-500 hover:bg-red-600 text-white p-3 rounded-full opacity-0 group-hover:opacity-100 transition disabled:opacity-50 shadow-lg"
+                      aria-label="Delete photo"
+                    >
+                      {deleting === photo ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setLightboxPhoto(photo)}
+                      className="bg-white/20 text-white p-3 rounded-full opacity-0 group-hover:opacity-100 transition shadow-lg"
+                      aria-label="View photo"
+                    >
+                      <span className="text-lg">🔍</span>
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
           ))}
 
-          {/* Add Photo Button */}
-          <label className="relative overflow-hidden rounded-2xl bg-gray-100 aspect-square border-2 border-dashed border-gray-300 hover:border-blue-500 hover:bg-blue-50 transition cursor-pointer flex items-center justify-center group">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handlePhotoUpload}
-              disabled={uploading}
-              className="hidden"
-            />
-            <div className="text-center">
-              {uploading ? (
-                <Loader2 size={32} className="text-blue-500 animate-spin mx-auto mb-2" />
-              ) : (
-                <Plus size={32} className="text-gray-400 mx-auto mb-2 group-hover:text-blue-500 transition" />
-              )}
-              <p className="text-sm text-gray-600 group-hover:text-blue-600 transition font-medium">
-                {uploading ? 'Uploading...' : 'Add Photo'}
-              </p>
-            </div>
-          </label>
+          {isOwner && (
+            <label className="relative overflow-hidden rounded-2xl bg-gray-100 aspect-square border-2 border-dashed border-gray-300 hover:border-blue-500 hover:bg-blue-50 transition cursor-pointer flex items-center justify-center group">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handlePhotoUpload}
+                disabled={uploading}
+                className="hidden"
+              />
+              <div className="text-center">
+                {uploading ? (
+                  <Loader2 size={32} className="text-blue-500 animate-spin mx-auto mb-2" />
+                ) : (
+                  <Plus size={32} className="text-gray-400 mx-auto mb-2 group-hover:text-blue-500 transition" />
+                )}
+                <p className="text-sm text-gray-600 group-hover:text-blue-600 transition font-medium">
+                  {uploading ? 'Uploading...' : 'Add Photo'}
+                </p>
+              </div>
+            </label>
+          )}
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -207,22 +216,39 @@ export default function PhotoGallery({ userId, photos = [], onPhotosUpdate }) {
             <Plus size={56} />
           </div>
           <p className="text-gray-600 mb-6 font-medium">No photos yet</p>
-          <label className="inline-flex items-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition cursor-pointer font-semibold shadow-lg">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handlePhotoUpload}
-              disabled={uploading}
-              className="hidden"
-            />
-            {uploading ? (
-              <Loader2 size={20} className="mr-2 h-5 w-5 animate-spin" />
-            ) : (
-              <Plus size={20} />
-            )}
-            {uploading ? 'Uploading...' : 'Add Your First Photo'}
-          </label>
+          {isOwner && (
+            <label className="inline-flex items-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition cursor-pointer font-semibold shadow-lg">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handlePhotoUpload}
+                disabled={uploading}
+                className="hidden"
+              />
+              {uploading ? <Loader2 size={20} className="animate-spin" /> : <Plus size={20} />}
+              {uploading ? 'Uploading...' : 'Add Your First Photo'}
+            </label>
+          )}
+        </div>
+      )}
+
+      {/* Lightbox */}
+      {lightboxPhoto && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+          onClick={() => setLightboxPhoto(null)}
+        >
+          <button
+            className="absolute top-4 right-4 text-white text-3xl hover:text-gray-300"
+            onClick={() => setLightboxPhoto(null)}
+          >✕</button>
+          <img
+            src={lightboxPhoto}
+            alt="Full size"
+            className="max-w-full max-h-full rounded-xl object-contain shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          />
         </div>
       )}
     </div>
