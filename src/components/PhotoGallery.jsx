@@ -6,9 +6,31 @@ import { useToast } from '@/components/ui/use-toast';
 export default function PhotoGallery({ userId, photos = [], onPhotosUpdate, isOwner = false }) {
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState(null);
-  const [lightboxPhoto, setLightboxPhoto] = useState(null);
+  const [lightboxIndex, setLightboxIndex] = useState(null);
   const fileInputRef = useRef(null);
   const { toast } = useToast();
+
+  const lightboxPhoto = lightboxIndex !== null ? photos[lightboxIndex] : null;
+
+  const openLightbox = (idx) => setLightboxIndex(idx);
+
+  const closeLightbox = () => setLightboxIndex(null);
+
+  const showPrevPhoto = (e) => {
+    e.stopPropagation();
+    setLightboxIndex((prev) => {
+      if (prev === null) return 0;
+      return prev === 0 ? photos.length - 1 : prev - 1;
+    });
+  };
+
+  const showNextPhoto = (e) => {
+    e.stopPropagation();
+    setLightboxIndex((prev) => {
+      if (prev === null) return 0;
+      return prev === photos.length - 1 ? 0 : prev + 1;
+    });
+  };
 
   // Handle photo upload - KEEP EXACT SAME LOGIC
   const handlePhotoUpload = async (e) => {
@@ -161,7 +183,7 @@ export default function PhotoGallery({ userId, photos = [], onPhotosUpdate, isOw
                   src={photo}
                   alt={`Photo ${idx + 1}`}
                   className="w-full h-full object-cover group-hover:scale-105 transition duration-300 cursor-pointer"
-                  onClick={() => setLightboxPhoto(photo)}
+                  onClick={() => openLightbox(idx)}
                 />
                 <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition duration-300 flex items-center justify-center gap-2">
                   {isOwner ? (
@@ -175,7 +197,7 @@ export default function PhotoGallery({ userId, photos = [], onPhotosUpdate, isOw
                     </button>
                   ) : (
                     <button
-                      onClick={() => setLightboxPhoto(photo)}
+                      onClick={() => openLightbox(idx)}
                       className="bg-white/20 text-white p-3 rounded-full opacity-0 group-hover:opacity-100 transition shadow-lg"
                       aria-label="View photo"
                     >
@@ -237,18 +259,50 @@ export default function PhotoGallery({ userId, photos = [], onPhotosUpdate, isOw
       {lightboxPhoto && (
         <div
           className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
-          onClick={() => setLightboxPhoto(null)}
+          onClick={closeLightbox}
         >
           <button
-            className="absolute top-4 right-4 text-white text-3xl hover:text-gray-300"
-            onClick={() => setLightboxPhoto(null)}
-          >✕</button>
+            className="absolute top-4 right-4 text-white text-3xl hover:text-gray-300 z-20"
+            onClick={(e) => {
+              e.stopPropagation();
+              closeLightbox();
+            }}
+          >
+            ✕
+          </button>
+
+          {photos.length > 1 && (
+            <>
+              <button
+                onClick={showPrevPhoto}
+                className="absolute left-3 md:left-8 top-1/2 -translate-y-1/2 z-20 bg-white/15 hover:bg-white/25 text-white w-12 h-12 rounded-full text-3xl flex items-center justify-center"
+                aria-label="Previous photo"
+              >
+                ‹
+              </button>
+
+              <button
+                onClick={showNextPhoto}
+                className="absolute right-3 md:right-8 top-1/2 -translate-y-1/2 z-20 bg-white/15 hover:bg-white/25 text-white w-12 h-12 rounded-full text-3xl flex items-center justify-center"
+                aria-label="Next photo"
+              >
+                ›
+              </button>
+            </>
+          )}
+
           <img
             src={lightboxPhoto}
             alt="Full size"
             className="max-w-full max-h-full rounded-xl object-contain shadow-2xl"
-            onClick={e => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
           />
+
+          {photos.length > 1 && (
+            <div className="absolute bottom-5 left-1/2 -translate-x-1/2 text-white/80 text-sm bg-black/40 px-3 py-1 rounded-full">
+              {lightboxIndex + 1} / {photos.length}
+            </div>
+          )}
         </div>
       )}
     </div>
