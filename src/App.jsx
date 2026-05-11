@@ -37,6 +37,7 @@ import LiveRoomPage from '@/pages/LiveRoomPage';
 import AdminLayout from '@/pages/admin/AdminLayout';
 import AdminOverview from '@/pages/admin/AdminOverview';
 import AdminUsers from '@/pages/admin/AdminUsers';
+import AdminRooms from '@/pages/admin/AdminRooms';
 import AdminAgencies from '@/pages/admin/AdminAgencies';
 import AdminSeed from '@/pages/admin/AdminSeed';
 import ProfileIdTool from '@/pages/admin/ProfileIdTool';
@@ -337,6 +338,7 @@ function AppContent() {
           <Route index element={<Navigate to="dashboard" />} />
           <Route path="dashboard" element={<AdminOverview />} />
           <Route path="users" element={<AdminUsers />} />
+          <Route path="rooms" element={<AdminRooms />} />
           <Route path="agencies" element={<AdminAgencies />} />
           <Route path="seed" element={<AdminSeed />} />
           <Route path="tools/profile-id" element={<ProfileIdTool />} />
