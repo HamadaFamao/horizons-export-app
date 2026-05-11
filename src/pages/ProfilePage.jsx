@@ -10,6 +10,7 @@ import AgencySection from '@/components/AgencySection';
 import AgentDashboard from '@/components/AgentDashboard';
 import AgencyMembersSection from '@/components/AgencyMembersSection';
 import { useToast } from '@/components/ui/use-toast';
+import { useAdminPermissions } from '@/contexts/AdminPermissionsContext';
 import {
   Dialog,
   DialogContent,
@@ -52,6 +53,7 @@ export default function ProfilePage() {
   const navigate = useNavigate();
   const { user: authUser, refreshUserProfile } = useAuth();
   const { toast } = useToast();
+  const { isAdmin: isStaffMember } = useAdminPermissions();
 
   const { rewards, claimDailyReward, loading: rewardsLoading } = useRewards();
 
@@ -414,8 +416,6 @@ export default function ProfilePage() {
     );
 
   const computedLevel = profile?.xp !== undefined ? getLevelFromXp(profile.xp)?.currentLevel : null;
-  const isStaffMember = !!(profile?.staff_role || profile?.isadmin);
-  console.log('[PROFILE_STAFF_CHECK]', { staff_role: profile?.staff_role, isadmin: profile?.isadmin, isStaffMember });
   const vipInfo = getVipInfo(profile);
   const vipStyle = getVipStyle(profile?.vip_number);
   const interests = Array.isArray(profile?.interests) ? profile.interests : [];
