@@ -718,22 +718,24 @@ export default function ProfilePage() {
           </>
         )}
 
-        {/* Add Photos */}
-        <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Add Photos</h2>
+        {/* Add Photos - hidden for staff/admin */}
+        {!profile?.staff_role && !profile?.isadmin && (
+          <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Add Photos</h2>
 
-          <button
-            onClick={handleAddPhotosClick}
-            disabled={uploadingPhotos}
-            className="w-full border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <p className="text-4xl mb-2">{uploadingPhotos ? '⏳' : '📸'}</p>
-            <p className="text-gray-600">{uploadingPhotos ? 'Uploading...' : 'Click to upload photos'}</p>
-            <p className="text-sm text-gray-500 mt-1">or drag and drop</p>
-          </button>
+            <button
+              onClick={handleAddPhotosClick}
+              disabled={uploadingPhotos}
+              className="w-full border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <p className="text-4xl mb-2">{uploadingPhotos ? '⏳' : '📸'}</p>
+              <p className="text-gray-600">{uploadingPhotos ? 'Uploading...' : 'Click to upload photos'}</p>
+              <p className="text-sm text-gray-500 mt-1">or drag and drop</p>
+            </button>
 
-          {uploadError && <p className="text-red-600 text-sm mt-2">{uploadError}</p>}
-        </div>
+            {uploadError && <p className="text-red-600 text-sm mt-2">{uploadError}</p>}
+          </div>
+        )}
 
         {galleryPhotos.length > 0 && (
           <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
@@ -747,23 +749,25 @@ export default function ProfilePage() {
                     alt="Gallery photo"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                   />
-                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
-                    <button
-                      onClick={() => handleSetProfilePhoto(photo.url)}
-                      disabled={settingProfilePhoto === photo.url}
-                      className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-500 text-white rounded-full p-2 transition-colors"
-                      title="Set as profile photo"
-                    >
-                      {settingProfilePhoto === photo.url ? '⏳' : '✓'}
-                    </button>
-                    <button
-                      onClick={() => handleDeletePhoto(photo.id, photo.url)}
-                      className="bg-red-500 hover:bg-red-600 text-white rounded-full p-2 transition-colors"
-                      title="Delete photo"
-                    >
-                      ✕
-                    </button>
-                  </div>
+                  {!profile?.staff_role && !profile?.isadmin && (
+                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+                      <button
+                        onClick={() => handleSetProfilePhoto(photo.url)}
+                        disabled={settingProfilePhoto === photo.url}
+                        className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-500 text-white rounded-full p-2 transition-colors"
+                        title="Set as profile photo"
+                      >
+                        {settingProfilePhoto === photo.url ? '⏳' : '✓'}
+                      </button>
+                      <button
+                        onClick={() => handleDeletePhoto(photo.id, photo.url)}
+                        className="bg-red-500 hover:bg-red-600 text-white rounded-full p-2 transition-colors"
+                        title="Delete photo"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
