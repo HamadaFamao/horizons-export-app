@@ -9,7 +9,14 @@ import { useToast } from '@/components/ui/use-toast';
 import { Loader2, Search, Ban, Lock, Unlock, MessageSquare, Mic, MicOff, Trash2, Shield, RefreshCw } from 'lucide-react';
 import { useAdminPermissions } from '@/contexts/AdminPermissionsContext';
 
-const DEFAULT_AVATAR = '/default-room.png';
+const DEFAULT_AVATAR =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80">
+      <rect width="80" height="80" rx="16" fill="#e5e7eb"/>
+      <text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" font-size="30">🏠</text>
+    </svg>
+  `);
 
 export default function AdminRooms() {
   const [rooms, setRooms] = useState([]);
@@ -305,9 +312,15 @@ export default function AdminRooms() {
                   <div className="flex items-center gap-2">
                     <img
                       src={room.avatar_url || DEFAULT_AVATAR}
-                      onError={e => e.target.src = DEFAULT_AVATAR}
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = DEFAULT_AVATAR;
+                      }}
                       alt="room"
-                      className="w-10 h-10 rounded-lg object-cover"
+                      width={40}
+                      height={40}
+                      loading="lazy"
+                      className="w-10 h-10 min-w-10 min-h-10 rounded-lg object-cover bg-gray-200"
                     />
                     <div>
                       <p className="font-medium text-sm">{room.title || 'Untitled'}</p>
