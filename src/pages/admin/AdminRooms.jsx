@@ -98,6 +98,28 @@ export default function AdminRooms() {
 
   useEffect(() => { fetchRooms(); }, []);
 
+  useEffect(() => {
+    const channel = supabase
+      .channel('admin-rooms-changes')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'live_rooms' },
+        (payload) => {
+          // حدّث الـ room في الـ list
+          setRooms(prev => prev.map(r =>
+            r.id === payload.new.id ? { ...r, ...payload.new } : r
+          ));
+          // حدّث الـ managing modal لو مفتوح
+          setManagingRoom(prev =>
+            prev?.id === payload.new.id ? { ...prev, ...payload.new } : prev
+          );
+        }
+      )
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
+  }, []);
+
   const handleSearch = (e) => {
     e.preventDefault();
     setPage(0);
