@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
+import ReportModal from "@/components/ReportModal";
 import PeopleInRoomButton from "@/components/room/PeopleInRoomButton";
 import MicRequestsButton from "@/components/room/MicRequestsButton";
 import PkButton from "@/components/room/PkButton";
@@ -24,6 +25,8 @@ const SHIMMER_STYLE = `
 `;
 
 function RoomCardModal({ room, hostUser, onClose, openUserCard, followsCount, onOpenFollowersModal }) {
+  const [showReport, setShowReport] = useState(false);
+
   const roomId = room?.public_room_id
     ? `#${room.public_room_id}`
     : room?.id
@@ -163,6 +166,24 @@ function RoomCardModal({ room, hostUser, onClose, openUserCard, followsCount, on
               </button>
             </div>
           )}
+
+          <div className="mt-4 border-t pt-4">
+            <button
+              onClick={() => setShowReport(true)}
+              className="w-full flex items-center justify-center gap-2 py-2 rounded-xl border border-red-100 text-red-400 hover:bg-red-50 hover:text-red-500 transition text-sm"
+            >
+              <span>🚩</span>
+              Report Room
+            </button>
+          </div>
+
+          <ReportModal
+            isOpen={showReport}
+            onClose={() => setShowReport(false)}
+            reportType="room"
+            targetId={room?.id}
+            targetName={room?.title}
+          />
         </div>
       </div>
     </div>
