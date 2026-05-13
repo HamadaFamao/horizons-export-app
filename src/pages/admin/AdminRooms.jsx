@@ -212,10 +212,15 @@ export default function AdminRooms() {
   // إغلاق الشات
   const handleToggleChat = async (room) => {
   const newVal = !room.chat_disabled;
-  const { error } = await supabase
+  console.log('Toggle chat:', room.id, 'newVal:', newVal);
+  
+  const { data, error } = await supabase
     .from('live_rooms')
     .update({ chat_disabled: newVal })
-    .eq('id', room.id);
+    .eq('id', room.id)
+    .select();
+  
+  console.log('Result:', data, error);
   
   if (!error) {
     toast({ title: newVal ? '🔇 Chat disabled' : '💬 Chat enabled' });
