@@ -72,7 +72,7 @@ export default function AdminRooms() {
       let participantMap = {};
       if (roomIds.length > 0) {
         const { data: seats } = await supabase
-          .from('live_room_seats')
+          .from('live_room_mic_seats')
           .select('room_id, user_id')
           .in('room_id', roomIds)
           .not('user_id', 'is', null);
@@ -110,15 +110,26 @@ export default function AdminRooms() {
     setLoadingUsers(true);
     try {
       const { data } = await supabase
-        .from('live_room_seats')
-        .select(`
-          seat_index, user_id, is_muted,
-          profile:profiles(name, avatar_url, profile_id, staff_role, isadmin)
-        `)
+        .from('live_room_mic_seats')
+        .select('seat_index, user_id, is_muted')
         .eq('room_id', roomId)
         .not('user_id', 'is', null);
 
-      setRoomUsers(data || []);
+      // جيب بيانات الـ profiles منفصلة
+      const userIds = (data || []).map(s => s.user_id).filter(Boolean);
+      let profilesMap = {};
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, name, avatar_url, profile_id, staff_role, isadmin')
+          .in('id', userIds);
+        (profiles || []).forEach(p => { profilesMap[p.id] = p; });
+      }
+
+      setRoomUsers((data || []).map(s => ({
+        ...s,
+        profile: profilesMap[s.user_id] || null
+      })));
     } catch (e) {
       console.error(e);
     } finally {
@@ -204,8 +215,8 @@ export default function AdminRooms() {
   // كتم مايك مستخدم
   const handleMuteUser = async (roomId, userId) => {
     const { error } = await supabase
-      .from('live_room_seats')
-      .update({ is_muted: true })
+        .from('live_room_mic_seats')
+        .update({ is_muted: true })
       .eq('room_id', roomId)
       .eq('user_id', userId);
     if (!error) {
@@ -217,8 +228,8 @@ export default function AdminRooms() {
   // فك كتم مايك مستخدم
   const handleUnmuteUser = async (roomId, userId) => {
     const { error } = await supabase
-      .from('live_room_seats')
-      .update({ is_muted: false })
+        .from('live_room_mic_seats')
+        .update({ is_muted: false })
       .eq('room_id', roomId)
       .eq('user_id', userId);
     if (!error) {
@@ -236,7 +247,7 @@ export default function AdminRooms() {
     }
     if (!window.confirm(`Kick ${profile?.name} from room?`)) return;
     const { error } = await supabase
-      .from('live_room_seats')
+      .from('live_room_mic_seats')
       .delete()
       .eq('room_id', roomId)
       .eq('user_id', userId);
