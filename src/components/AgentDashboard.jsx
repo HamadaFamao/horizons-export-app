@@ -295,9 +295,6 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-2xl font-bold text-slate-900">{agencyName || 'Unknown Agency'}</h2>
               <Badge className="bg-indigo-600 text-white hover:bg-indigo-600">Agent</Badge>
-              <Badge variant="secondary" className="bg-white text-slate-700 border">
-                {members.length} Members
-              </Badge>
             </div>
             <p className="text-sm text-slate-600 mt-1">Manage earnings, withdrawals, and your members from one place.</p>
           </div>
@@ -360,6 +357,9 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
           <div className="flex items-center gap-2">
             <Users className="w-4 h-4 text-slate-700" />
             <h3 className="font-semibold text-slate-900">My Members</h3>
+            <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-medium">
+              {members.length}
+            </span>
           </div>
 
           <Button variant="outline" onClick={() => setReportOpen(true)}>
