@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabaseClient';
 import {
   Dialog,
@@ -13,7 +12,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Loader2,
   Plus,
@@ -21,8 +19,6 @@ import {
   Diamond,
   AlertTriangle,
   ChevronDown,
-  User,
-  ExternalLink,
   RefreshCw
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
@@ -63,6 +59,15 @@ const getInitials = (name) => {
   if (parts.length > 1) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   return '';
 };
+
+const FALLBACK_AVATAR =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64">
+      <rect width="64" height="64" rx="14" fill="#e5e7eb"/>
+      <text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="24">👤</text>
+    </svg>
+  `);
 
 // Helper: first day of current month (UTC) => "YYYY-MM-01"
 const getCurrentCycleMonth = () => {
@@ -171,78 +176,49 @@ const SplitRow = ({
               </button>
             </div>
 
-            <div className="relative">
-              <select
-                className={cn(
-                  "flex h-10 w-full appearance-none items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer relative z-10 pointer-events-auto",
-                  agentsError ? "border-red-300 bg-red-50 text-red-900" : ""
-                )}
-                value={split.agentId}
-                onChange={(e) => handleAgentChange(e.target.value)}
-                disabled={loadingAgents}
-              >
-                <option value="">
-                  {loadingAgents
-                    ? "Loading agents..."
-                    : agentsError
-                      ? "Failed to load agents"
-                      : (rechargeAgents.length === 0 ? "No active agents found" : "Choose an agent...")}
-                </option>
-
-                {!loadingAgents && !agentsError && rechargeAgents.map(agent => (
-                  <option key={agent.id} value={agent.id}>
-                    {agent.name} {agent.country_code ? `(${agent.country_code})` : ''} — ID:{agent.profile_id ?? 'N/A'}
-                  </option>
-                ))}
-              </select>
-
+            <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
               {loadingAgents ? (
-                <Loader2 className="absolute right-3 top-3 h-4 w-4 animate-spin opacity-50 pointer-events-none z-20" />
+                <div className="text-sm text-slate-500 flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading agents...
+                </div>
+              ) : agentsError ? (
+                <div className="text-sm text-red-600">Failed to load agents.</div>
+              ) : rechargeAgents.length === 0 ? (
+                <div className="text-sm text-slate-500">No active agents found.</div>
               ) : (
-                <ChevronDown className="absolute right-3 top-3 h-4 w-4 opacity-50 pointer-events-none z-0" />
+                rechargeAgents.map((agent) => (
+                  <button
+                    key={agent.id}
+                    type="button"
+                    onClick={() => handleAgentChange(String(agent.id))}
+                    className={`w-full flex items-center gap-3 p-3 rounded-xl border transition ${
+                      selectedAgent?.id === agent.id
+                        ? 'border-indigo-500 bg-indigo-50'
+                        : 'border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    <img
+                      src={agent.profiles?.avatar_url || FALLBACK_AVATAR}
+                      alt={agent.name || 'Agent'}
+                      className="w-10 h-10 rounded-full object-cover border"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (agent.profiles?.id) {
+                          window.open(`/user/${agent.profiles.id}`, '_blank');
+                        }
+                      }}
+                    />
+                    <div className="text-left">
+                      <div className="font-semibold text-slate-900">{agent.name || agent.profiles?.name || 'Unknown Agent'}</div>
+                      <div className="text-xs text-slate-500">
+                        {agent.country_code || '—'} • ID: {agent.profiles?.profile_id || 'N/A'}
+                      </div>
+                    </div>
+                  </button>
+                ))
               )}
             </div>
-
-            {/* Avatar + name confirmation block */}
-            {selectedAgent && !agentsError && (
-              <div className="mt-3 p-3 rounded-xl border border-slate-200 bg-slate-50/50 flex items-start gap-3">
-                <Avatar className="h-12 w-12 border-2 border-white shadow-sm shrink-0">
-                  <AvatarImage src={selectedAgent.avatar_url} alt={selectedAgent.name} className="object-cover" />
-                  <AvatarFallback className="bg-slate-200 text-slate-500 font-bold">
-                    {getInitials(selectedAgent.name) || <User className="h-6 w-6" />}
-                  </AvatarFallback>
-                </Avatar>
-
-                <div className="flex-1 min-w-0 space-y-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-bold text-slate-900 truncate">
-                      {selectedAgent.name}
-                      {selectedAgent.country_code ? ` (${selectedAgent.country_code})` : ''}
-                    </span>
-
-                    {!!selectedAgent.profile_id && (
-                      <Link
-                        to={`/user/${selectedAgent.profile_id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[10px] font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-full flex items-center gap-1 transition-colors border border-blue-100 pointer-events-auto"
-                      >
-                        View Profile <ExternalLink className="h-3 w-3" />
-                      </Link>
-                    )}
-                  </div>
-
-                  <div className="text-xs text-slate-500 flex flex-col gap-0.5">
-                    {selectedAgent.profile_id && (
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-medium text-slate-600 min-w-[50px]">ID:</span>
-                        <span className="font-mono text-slate-700">{selectedAgent.profile_id}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         )}
 
@@ -281,10 +257,31 @@ export default function WithdrawalRequestModal({ isOpen, onClose, availableGems,
     setAgentsError(false);
 
     try {
-      const { data, error } = await supabase.rpc('get_active_recharge_agents_for_user');
+      const { data, error } = await supabase
+        .from('recharge_agents')
+        .select(`
+          id,
+          name,
+          country_code,
+          contact_info,
+          is_active,
+          user_id,
+          profiles:user_id (
+            id,
+            name,
+            avatar_url,
+            profile_id
+          )
+        `)
+        .eq('is_active', true);
       if (error) throw error;
 
-      setRechargeAgents(data || []);
+      const mapped = (data || []).map((agent) => ({
+        ...agent,
+        profiles: Array.isArray(agent.profiles) ? agent.profiles[0] || null : agent.profiles || null,
+      }));
+
+      setRechargeAgents(mapped);
     } catch (err) {
       console.error('[WithdrawalModal] Error fetching agents:', err);
       setAgentsError(true);

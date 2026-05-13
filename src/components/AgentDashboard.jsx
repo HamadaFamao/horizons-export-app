@@ -40,9 +40,11 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
   const [lastCycle, setLastCycle] = useState(null);
   const [lockedGems, setLockedGems] = useState(0);
   const [lockedUsd, setLockedUsd] = useState(0);
+  const [, setActiveCycleId] = useState(null);
+  const [pendingRequest, setPendingRequest] = useState(null);
   const [snapshotRows, setSnapshotRows] = useState([]);
 
-  const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
 
   const isAgent = useMemo(() => {
@@ -135,18 +137,31 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
         );
       }
 
-      const { data: cycleData, error: cycleErr } = await supabase
+      const { data: activeCycle, error: cycleErr } = await supabase
         .from('agency_withdrawal_cycles')
-        .select('locked_gems, locked_usd, status, cycle_month')
+        .select('id, locked_gems, locked_usd, status, cycle_month')
         .eq('agency_user_id', user.id)
+        .eq('status', 'open')
         .order('cycle_month', { ascending: false })
         .limit(1)
         .maybeSingle();
 
       if (cycleErr) throw cycleErr;
-      setLastCycle(cycleData || null);
-      setLockedGems(cycleData?.locked_gems || 0);
-      setLockedUsd(cycleData?.locked_usd || 0);
+      setLastCycle(activeCycle || null);
+      setLockedGems(activeCycle?.locked_gems || 0);
+      setLockedUsd(activeCycle?.locked_usd || 0);
+      setActiveCycleId(activeCycle?.id || null);
+
+      const { data: pendingReq, error: pendingErr } = await supabase
+        .from('gem_withdrawal_requests')
+        .select('id, gems_requested, status, created_at')
+        .eq('user_id', user.id)
+        .in('status', ['pending', 'approved', 'processing'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (pendingErr) throw pendingErr;
+      setPendingRequest(pendingReq || null);
 
       const { data: snapshotData, error: snapErr } = await supabase
         .from('agency_earnings_snapshots')
@@ -315,13 +330,29 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
 
           <div className="rounded-xl border bg-indigo-600 text-white p-4 flex flex-col justify-between">
             <p className="text-xs uppercase tracking-wide text-indigo-100">Withdrawal</p>
-            <Button
-              variant="secondary"
-              className="mt-3 w-full bg-white text-indigo-700 hover:bg-indigo-50"
-              onClick={() => setWithdrawOpen(true)}
+
+            {pendingRequest ? (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-3 flex items-center gap-2">
+                <span className="text-amber-600 text-lg">⏳</span>
+                <div>
+                  <div className="text-sm font-semibold text-amber-800">
+                    Withdrawal Pending Review
+                  </div>
+                  <div className="text-xs text-amber-600">
+                    {pendingRequest.gems_requested} gems •
+                    {' '}Status: {pendingRequest.status}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            <button
+              onClick={() => setShowWithdrawModal(true)}
+              disabled={!!pendingRequest || (lastCycle?.locked_gems || 0) === 0}
+              className="w-full py-3 rounded-xl bg-indigo-600 text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed transition"
             >
-              Withdraw
-            </Button>
+              {pendingRequest ? '⏳ Request Pending' : 'Withdraw'}
+            </button>
           </div>
         </div>
       </div>
@@ -443,10 +474,16 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
       </Dialog>
 
       <WithdrawalRequestModal
-        isOpen={withdrawOpen}
-        onClose={() => setWithdrawOpen(false)}
+        isOpen={showWithdrawModal}
+        onClose={() => setShowWithdrawModal(false)}
         availableGems={lockedGems}
-        onSuccess={() => fetchDashboard()}
+        onSuccess={() => {
+          toast({
+            title: 'Withdrawal request submitted',
+            description: 'Withdrawal request submitted - pending review',
+          });
+          fetchDashboard();
+        }}
         isCycleWithdrawal={true}
       />
     </div>
