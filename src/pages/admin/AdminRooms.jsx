@@ -211,17 +211,24 @@ export default function AdminRooms() {
 
   // إغلاق الشات
   const handleToggleChat = async (room) => {
-    const newVal = !room.chat_disabled;
-    const { error } = await supabase
-      .from('live_rooms')
-      .update({ chat_disabled: newVal })
-      .eq('id', room.id);
-    if (!error) {
-      toast({ title: newVal ? '🔇 Chat disabled' : '💬 Chat enabled' });
-      fetchRooms();
-      if (managingRoom?.id === room.id) setManagingRoom(prev => ({ ...prev, chat_disabled: newVal }));
-    }
-  };
+  const newVal = !room.chat_disabled;
+  const { error } = await supabase
+    .from('live_rooms')
+    .update({ chat_disabled: newVal })
+    .eq('id', room.id);
+  
+  if (!error) {
+    toast({ title: newVal ? '🔇 Chat disabled' : '💬 Chat enabled' });
+    setRooms(prev => prev.map(r => 
+      r.id === room.id ? { ...r, chat_disabled: newVal } : r
+    ));
+    setManagingRoom(prev => 
+      prev?.id === room.id ? { ...prev, chat_disabled: newVal } : prev
+    );
+  } else {
+    toast({ title: 'Error', description: error.message, variant: 'destructive' });
+  }
+};
 
   // مسح خلفية الغرفة
   const handleClearBackground = async (room) => {
