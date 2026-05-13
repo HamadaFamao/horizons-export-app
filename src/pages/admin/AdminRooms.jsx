@@ -175,6 +175,9 @@ export default function AdminRooms() {
     if (!error) {
       toast({ title: '⛔ Room banned' });
       fetchRooms();
+      const adminCh = supabase.channel(`lr_${room.id}`);
+      await adminCh.send({ type: 'broadcast', event: 'admin_room_update', payload: { room_id: room.id, is_active: false, action: 'ban' } });
+      supabase.removeChannel(adminCh);
     } else {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     }
@@ -223,6 +226,9 @@ export default function AdminRooms() {
   
   if (!error) {
     toast({ title: newVal ? '🔇 Chat disabled' : '💬 Chat enabled' });
+    const adminCh = supabase.channel(`lr_${room.id}`);
+    await adminCh.send({ type: 'broadcast', event: 'admin_room_update', payload: { room_id: room.id, chat_disabled: newVal, action: 'chat_toggle' } });
+    supabase.removeChannel(adminCh);
     setRooms(prev => prev.map(r => 
       r.id === room.id ? { ...r, chat_disabled: newVal } : r
     ));
@@ -244,6 +250,9 @@ export default function AdminRooms() {
     if (!error) {
       toast({ title: '🗑️ Background cleared' });
       fetchRooms();
+      const adminCh = supabase.channel(`lr_${room.id}`);
+      await adminCh.send({ type: 'broadcast', event: 'admin_room_update', payload: { room_id: room.id, background_url: null, action: 'clear_background' } });
+      supabase.removeChannel(adminCh);
       if (managingRoom?.id === room.id) setManagingRoom(prev => ({ ...prev, background_url: null }));
     }
   };

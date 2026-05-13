@@ -7808,6 +7808,21 @@ useEffect(() => {
   }
 });
 
+      ch.on("broadcast", { event: "admin_room_update" }, ({ payload }) => {
+  if (!payload || String(payload.room_id) !== String(roomId)) return;
+  setRoom(prev => prev ? { ...prev, ...payload } : prev);
+  if (payload.action === 'ban' || payload.is_active === false) {
+    toast('⛔ This room has been closed by admin');
+    setTimeout(() => navigate('/rooms', { replace: true }), 2000);
+  }
+  if (payload.action === 'chat_toggle') {
+    toast(payload.chat_disabled ? '🔇 Chat disabled by admin' : '💬 Chat enabled');
+  }
+  if (payload.action === 'clear_background') {
+    setRoom(prev => prev ? { ...prev, background_url: null } : prev);
+  }
+});
+
       ch.on("broadcast", { event: "background_changed" }, ({ payload }) => {
         if (payload?.room_id && String(payload.room_id) !== String(roomId)) return;
         if (payload?.background_url !== undefined) {
