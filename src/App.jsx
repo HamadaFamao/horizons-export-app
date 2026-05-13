@@ -42,6 +42,7 @@ import AdminAgencies from '@/pages/admin/AdminAgencies';
 import AdminSeed from '@/pages/admin/AdminSeed';
 import ProfileIdTool from '@/pages/admin/ProfileIdTool';
 import AdminWithdrawals from '@/pages/admin/AdminWithdrawals';
+import AdminReports from '@/pages/admin/AdminReports';
 import AdminGiftsPage from '@/pages/AdminGiftsPage'; // ✅ ADDED
 
 import WebsiteLayout from '@/components/WebsiteLayout';
@@ -340,6 +341,7 @@ function AppContent() {
           <Route path="users" element={<AdminUsers />} />
           <Route path="rooms" element={<AdminRooms />} />
           <Route path="agencies" element={<AdminAgencies />} />
+          <Route path="reports" element={<AdminReports />} />
           <Route path="seed" element={<AdminSeed />} />
           <Route path="tools/profile-id" element={<ProfileIdTool />} />
           <Route path="withdrawals" element={<AdminWithdrawals />} />

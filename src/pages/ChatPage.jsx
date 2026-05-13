@@ -28,6 +28,7 @@ import EmojiBurst from '@/components/EmojiBurst';
 import UserAvatar from '@/components/UserAvatar';
 import TypingIndicator from '@/components/TypingIndicator';
 import OnlineStatus from '@/components/OnlineStatus';
+import ReportModal from '@/components/ReportModal';
 import { Loader2, ArrowLeft, Send, MoreVertical, Trash2 } from 'lucide-react';
 import { getVipInfo } from '@/utils/vip';
 
@@ -235,6 +236,7 @@ export default function ChatPage() {
 
   // Menu & clear
   const [showMenu, setShowMenu] = useState(false);
+  const [showReport, setShowReport] = useState(false);
   const [clearingChat, setClearingChat] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
@@ -890,6 +892,10 @@ export default function ChatPage() {
                 className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50">
                 {isBlocked ? '✅ Unblock User' : '🚫 Block User'}
               </button>
+              <button onClick={(e) => { e.stopPropagation(); setShowMenu(false); setShowReport(true); }}
+                className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50">
+                🚩 Report User
+              </button>
             </div>
           )}
         </div>
@@ -1099,6 +1105,14 @@ export default function ChatPage() {
       </footer>
 
       <ChatGiftModal isOpen={showGiftModal} onClose={() => setShowGiftModal(false)} recipientId={recipientId} recipientName={otherUser.name} onGiftSelected={handleSendGift} isLoading={isSendingGift} />
+
+      <ReportModal
+        isOpen={showReport}
+        onClose={() => setShowReport(false)}
+        reportType="message"
+        targetId={recipientId}
+        targetName={otherUser?.name}
+      />
 
       <style>{`
         @keyframes emoji-pop {

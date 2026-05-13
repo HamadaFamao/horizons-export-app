@@ -11,6 +11,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import GiftPanel from '@/components/GiftPanel';
 import WalletDisplay from '@/components/WalletDisplay';
+import ReportModal from '@/components/ReportModal';
 import { getOnlineStatus } from '@/lib/lastSeenUtils';
 import { getOrCreateThread } from '@/lib/messagingUtils';
 import { getLevelFromXp } from '@/lib/xpLevelUtils';
@@ -36,6 +37,7 @@ export default function UserProfilePage() {
   const [profileRefreshTrigger, setProfileRefreshTrigger] = useState(0);
   const [isBlocked, setIsBlocked] = useState(false);
   const [blocking, setBlocking] = useState(false);
+  const [showReport, setShowReport] = useState(false);
 
   // Scroll to top when page opens
   useEffect(() => {
@@ -502,6 +504,17 @@ export default function UserProfilePage() {
                               </span>
                             </div>
 
+                            <div className="flex flex-col items-center gap-1">
+                              <button
+                                onClick={() => setShowReport(true)}
+                                className="w-14 h-14 rounded-full bg-amber-500 hover:bg-amber-600 text-white shadow-lg flex items-center justify-center transition active:scale-95"
+                                title="Report"
+                              >
+                                🚩
+                              </button>
+                              <span className="text-xs font-medium text-gray-500">Report</span>
+                            </div>
+
                         </div>
                     )}
                     {!currentUser && (
@@ -606,6 +619,14 @@ export default function UserProfilePage() {
                 </div>
             </div>
         )}
+
+        <ReportModal
+          isOpen={showReport}
+          onClose={() => setShowReport(false)}
+          reportType="user"
+          targetId={profile.id}
+          targetName={profile.name}
+        />
       </div>
     </Layout>
   );
