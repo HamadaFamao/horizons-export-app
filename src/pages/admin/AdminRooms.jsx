@@ -75,7 +75,8 @@ export default function AdminRooms() {
           .from('live_room_mic_seats')
           .select('room_id, user_id')
           .in('room_id', roomIds)
-          .not('user_id', 'is', null);
+          .not('user_id', 'is', null)
+          .not('user_id', 'eq', '');
 
         (seats || []).forEach(s => {
           participantMap[s.room_id] = (participantMap[s.room_id] || 0) + 1;
@@ -111,7 +112,7 @@ export default function AdminRooms() {
     try {
       const { data } = await supabase
         .from('live_room_mic_seats')
-        .select('seat_index, user_id, is_muted')
+        .select('seat_no, user_id, locked')
         .eq('room_id', roomId)
         .not('user_id', 'is', null);
 
@@ -128,6 +129,8 @@ export default function AdminRooms() {
 
       setRoomUsers((data || []).map(s => ({
         ...s,
+        seat_index: s.seat_no,
+        is_muted: s.locked,
         profile: profilesMap[s.user_id] || null
       })));
     } catch (e) {
@@ -216,7 +219,7 @@ export default function AdminRooms() {
   const handleMuteUser = async (roomId, userId) => {
     const { error } = await supabase
         .from('live_room_mic_seats')
-        .update({ is_muted: true })
+        .update({ locked: true })
       .eq('room_id', roomId)
       .eq('user_id', userId);
     if (!error) {
@@ -229,7 +232,7 @@ export default function AdminRooms() {
   const handleUnmuteUser = async (roomId, userId) => {
     const { error } = await supabase
         .from('live_room_mic_seats')
-        .update({ is_muted: false })
+        .update({ locked: false })
       .eq('room_id', roomId)
       .eq('user_id', userId);
     if (!error) {
