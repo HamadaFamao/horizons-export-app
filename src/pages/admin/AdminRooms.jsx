@@ -75,8 +75,7 @@ export default function AdminRooms() {
           .from('live_room_mic_seats')
           .select('room_id, user_id')
           .in('room_id', roomIds)
-          .not('user_id', 'is', null)
-          .not('user_id', 'eq', '');
+          .not('user_id', 'is', null);
 
         (seats || []).forEach(s => {
           participantMap[s.room_id] = (participantMap[s.room_id] || 0) + 1;
