@@ -6,22 +6,15 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 
-const REPORT_REASONS = [
-  'spam',
-  'harassment',
-  'inappropriate_content',
-  'fake_profile',
-  'scam',
-  'violence',
-  'other',
+const REASONS = [
+  { value: 'spam', label: 'Spam' },
+  { value: 'harassment', label: 'Harassment' },
+  { value: 'inappropriate_content', label: 'Inappropriate Content' },
+  { value: 'fake_profile', label: 'Fake Profile' },
+  { value: 'scam', label: 'Scam' },
+  { value: 'violence', label: 'Violence' },
+  { value: 'other', label: 'Other' },
 ];
 
 export default function ReportModal({
@@ -34,24 +27,22 @@ export default function ReportModal({
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
 
-  const [reason, setReason] = useState('');
+  const [selectedReason, setSelectedReason] = useState('');
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const isSubmitDisabled = useMemo(() => {
-    return submitting || !currentUser?.id || !reportType || !targetId || !reason;
-  }, [submitting, currentUser?.id, reportType, targetId, reason]);
+    return submitting || !currentUser?.id || !reportType || !targetId || !selectedReason;
+  }, [submitting, currentUser?.id, reportType, targetId, selectedReason]);
 
   const handleClose = () => {
     if (submitting) return;
-    setReason('');
+    setSelectedReason('');
     setDescription('');
     onClose?.();
   };
 
   const handleSubmit = async () => {
-    const selectedReason = reason;
-
     if (!currentUser?.id) {
       toast({ title: 'Error', description: 'You must be logged in to report.', variant: 'destructive' });
       return;
@@ -115,18 +106,23 @@ export default function ReportModal({
 
           <div className="space-y-2">
             <Label>Reason</Label>
-            <Select value={reason} onValueChange={setReason} disabled={submitting}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a reason" />
-              </SelectTrigger>
-              <SelectContent>
-                {REPORT_REASONS.map((item) => (
-                  <SelectItem key={item} value={item}>
-                    {item}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="space-y-2 mt-2">
+              {REASONS.map((r) => (
+                <button
+                  key={r.value}
+                  type="button"
+                  onClick={() => !submitting && setSelectedReason(r.value)}
+                  disabled={submitting}
+                  className={`w-full text-left px-4 py-2.5 rounded-xl border text-sm font-medium transition ${
+                    selectedReason === r.value
+                      ? 'bg-slate-900 text-white border-slate-900'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="space-y-2">

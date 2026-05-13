@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { LayoutGrid, Users, CreditCard, ShieldAlert, Database, Settings, Home, Gem, Award, Wrench, ArrowDownLeftFromCircle, Building, Mic } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAdminPermissions } from '@/contexts/AdminPermissionsContext';
+import { supabase } from '@/lib/supabaseClient';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useUnsavedChanges } from '@/contexts/UnsavedChangesContext';
@@ -15,6 +16,7 @@ const AdminLayout = () => {
   const { isDirty, setDirty } = useUnsavedChanges();
   const [showConfirm, setShowConfirm] = useState(false);
   const [pendingPath, setPendingPath] = useState(null);
+  const [pendingReportsCount, setPendingReportsCount] = useState(0);
 
   const allNavItems = [
     { name: 'Overview',     href: 'dashboard',        icon: LayoutGrid,               permission: null },
@@ -35,6 +37,31 @@ const AdminLayout = () => {
   const navItems = allNavItems.filter(item => 
     !item.permission || (permissions && !!permissions[item.permission])
   );
+
+  useEffect(() => {
+    const fetchPendingCount = async () => {
+      const { count } = await supabase
+        .from('reports')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending');
+      setPendingReportsCount(count || 0);
+    };
+
+    fetchPendingCount();
+
+    const channel = supabase
+      .channel('reports-count')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'reports' },
+        () => fetchPendingCount()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   // Intercept navigation
   const handleNavClick = (e, path) => {
@@ -141,6 +168,11 @@ const AdminLayout = () => {
                     >
                       <item.icon className="w-5 h-5" />
                       <span>{item.name}</span>
+                      {item.href === 'reports' && pendingReportsCount > 0 && (
+                        <span className="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                          {pendingReportsCount}
+                        </span>
+                      )}
                     </NavLink>
                   </li>
                 ))}
@@ -187,6 +219,11 @@ const AdminLayout = () => {
                 >
                   <item.icon className="w-5 h-5" />
                   <span>{item.name}</span>
+                  {item.href === 'reports' && pendingReportsCount > 0 && (
+                    <span className="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                      {pendingReportsCount}
+                    </span>
+                  )}
                 </NavLink>
               </li>
             ))}

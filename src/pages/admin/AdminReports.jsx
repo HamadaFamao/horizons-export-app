@@ -27,7 +27,7 @@ export default function AdminReports() {
   const [statusFilter, setStatusFilter] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
 
-  const [reviewingReport, setReviewingReport] = useState(null);
+  const [managingReport, setManagingReport] = useState(null);
   const [adminNote, setAdminNote] = useState('');
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
@@ -72,16 +72,34 @@ export default function AdminReports() {
         });
       }
 
-      // Fetch reported user/room profiles (if applicable)
-      const targetIds = [...new Set((data || []).map(r => r.target_id).filter(Boolean))];
-      let targetsMap = {};
-      if (targetIds.length > 0) {
-        const { data: targets } = await supabase
+      // Fetch reported users
+      const reportedUserIds = (data || [])
+        .map(r => r.reported_user_id)
+        .filter(Boolean);
+
+      const reportedRoomIds = (data || [])
+        .map(r => r.reported_room_id)
+        .filter(Boolean);
+
+      let reportedUsersMap = {};
+      if (reportedUserIds.length > 0) {
+        const { data: users } = await supabase
           .from('profiles')
-          .select('id, name')
-          .in('id', targetIds);
-        (targets || []).forEach(t => {
-          targetsMap[t.id] = t;
+          .select('id, name, profile_id')
+          .in('id', reportedUserIds);
+        (users || []).forEach(u => {
+          reportedUsersMap[u.id] = u;
+        });
+      }
+
+      let reportedRoomsMap = {};
+      if (reportedRoomIds.length > 0) {
+        const { data: rooms } = await supabase
+          .from('live_rooms')
+          .select('id, title, public_room_id')
+          .in('id', reportedRoomIds);
+        (rooms || []).forEach(r => {
+          reportedRoomsMap[r.id] = r;
         });
       }
 
@@ -89,7 +107,8 @@ export default function AdminReports() {
       const enrichedReports = (data || []).map(r => ({
         ...r,
         reporter: reportersMap[r.reporter_id] || null,
-        targetProfile: targetsMap[r.target_id] || null,
+        reported_user: reportedUsersMap[r.reported_user_id] || null,
+        reported_room: reportedRoomsMap[r.reported_room_id] || null,
       }));
 
       setReports(enrichedReports);
@@ -121,35 +140,59 @@ export default function AdminReports() {
   // REVIEW ACTIONS
   // ============================================
   const handleReviewReport = (report) => {
-    setReviewingReport(report);
+    setManagingReport(report);
     setAdminNote(report.admin_note || '');
   };
 
-  const updateReportStatus = async (newStatus) => {
-    if (!reviewingReport || updatingStatus) return;
+  const handleSaveNote = async (reportId, note, newStatus) => {
+    if (!reportId || updatingStatus) return;
     setUpdatingStatus(true);
 
     try {
+      const { data: { user } } = await supabase.auth.getUser();
       const { error } = await supabase
         .from('reports')
         .update({
+          admin_note: note,
           status: newStatus,
-          reviewed_by: (await supabase.auth.getUser()).data?.user?.id,
+          reviewed_by: user?.id || null,
           reviewed_at: new Date().toISOString(),
-          admin_note: adminNote.trim() || null,
         })
-        .eq('id', reviewingReport.id);
+        .eq('id', reportId);
 
       if (error) throw error;
 
-      toast({
-        title: `✅ Report ${newStatus}`,
-        description: `Status updated to ${newStatus}`,
-      });
-
-      setReviewingReport(null);
+      toast({ title: '✅ Report updated' });
+      setManagingReport(null);
       setAdminNote('');
-      fetchReports(page);
+      fetchReports();
+    } catch (e) {
+      toast({
+        title: 'Error',
+        description: e.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
+  const handleDeleteReport = async (reportId) => {
+    if (!reportId) return;
+    if (!window.confirm('Delete this report permanently?')) return;
+
+    setUpdatingStatus(true);
+    try {
+      const { error } = await supabase
+        .from('reports')
+        .delete()
+        .eq('id', reportId);
+      if (error) throw error;
+
+      toast({ title: '🗑️ Report deleted' });
+      setManagingReport(null);
+      setAdminNote('');
+      fetchReports();
     } catch (e) {
       toast({
         title: 'Error',
@@ -234,7 +277,7 @@ export default function AdminReports() {
                     {report.reporter?.name || 'Unknown'} (#{report.reporter_id?.slice(0, 8)})
                   </TableCell>
                   <TableCell>
-                    {report.targetProfile?.name || report.target_name || 'Unknown'} (#{report.target_id?.slice(0, 8)})
+                    {report.reported_user?.name || report.reported_room?.title || 'Unknown'} (#{report.reported_user?.profile_id || report.reported_room?.public_room_id || '—'})
                   </TableCell>
                   <TableCell>
                     <span className="text-xs font-semibold bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
@@ -316,41 +359,41 @@ export default function AdminReports() {
       </div>
 
       {/* Review Modal */}
-      <Dialog open={!!reviewingReport} onOpenChange={(open) => !open && setReviewingReport(null)}>
+      <Dialog open={!!managingReport} onOpenChange={(open) => !open && setManagingReport(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Review Report</DialogTitle>
           </DialogHeader>
 
-          {reviewingReport && (
+          {managingReport && (
             <div className="space-y-4 py-2">
               <div className="bg-slate-50 rounded-lg p-3 space-y-2">
                 <div>
                   <p className="text-xs text-slate-500 font-semibold">Reporter</p>
-                  <p className="font-medium">{reviewingReport.reporter?.name || 'Unknown'}</p>
+                  <p className="font-medium">{managingReport.reporter?.name || 'Unknown'}</p>
                 </div>
                 <div>
                   <p className="text-xs text-slate-500 font-semibold">Reported User/Room</p>
-                  <p className="font-medium">{reviewingReport.targetProfile?.name || reviewingReport.target_name || 'Unknown'}</p>
+                  <p className="font-medium">{managingReport.reported_user?.name || managingReport.reported_room?.title || 'Unknown'}</p>
                 </div>
                 <div>
                   <p className="text-xs text-slate-500 font-semibold">Type</p>
-                  <p className="font-medium capitalize">{reviewingReport.report_type}</p>
+                  <p className="font-medium capitalize">{managingReport.report_type}</p>
                 </div>
                 <div>
                   <p className="text-xs text-slate-500 font-semibold">Reason</p>
-                  <p className="font-medium">{reviewingReport.reason}</p>
+                  <p className="font-medium">{managingReport.reason}</p>
                 </div>
                 <div>
                   <p className="text-xs text-slate-500 font-semibold">Status</p>
-                  <p className="font-medium capitalize">{reviewingReport.status}</p>
+                  <p className="font-medium capitalize">{managingReport.status}</p>
                 </div>
               </div>
 
-              {reviewingReport.description && (
+              {managingReport.description && (
                 <div className="bg-blue-50 rounded-lg p-3">
                   <p className="text-xs text-blue-600 font-semibold mb-1">Description</p>
-                  <p className="text-sm text-blue-900 break-words">{reviewingReport.description}</p>
+                  <p className="text-sm text-blue-900 break-words">{managingReport.description}</p>
                 </div>
               )}
 
@@ -372,20 +415,28 @@ export default function AdminReports() {
           <DialogFooter className="flex flex-col sm:flex-row gap-2">
             <Button
               variant="outline"
-              onClick={() => updateReportStatus('dismissed')}
+              onClick={() => handleSaveNote(managingReport.id, adminNote, 'dismissed')}
               disabled={updatingStatus}
             >
               Dismiss
             </Button>
             <Button
               variant="outline"
-              onClick={() => updateReportStatus('reviewed')}
+              onClick={() => handleSaveNote(managingReport.id, adminNote, 'reviewed')}
               disabled={updatingStatus}
             >
               Mark Reviewed
             </Button>
             <Button
-              onClick={() => updateReportStatus('resolved')}
+              variant="outline"
+              className="text-red-600 border-red-200 hover:bg-red-50"
+              onClick={() => handleDeleteReport(managingReport.id)}
+              disabled={updatingStatus}
+            >
+              🗑️ Delete Report
+            </Button>
+            <Button
+              onClick={() => handleSaveNote(managingReport.id, adminNote, 'resolved')}
               disabled={updatingStatus}
             >
               {updatingStatus ? <Loader2 className="animate-spin" /> : 'Resolve'}
