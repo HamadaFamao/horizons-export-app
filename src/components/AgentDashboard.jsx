@@ -124,6 +124,7 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
             )
           `)
           .eq('agency_id', activeAgencyId)
+          .neq('user_id', user.id)
           .is('left_at', null)
           .order('joined_at', { ascending: false });
 
@@ -330,31 +331,29 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
 
           <div className="rounded-xl border bg-indigo-600 text-white p-4 flex flex-col justify-between">
             <p className="text-xs uppercase tracking-wide text-indigo-100">Withdrawal</p>
-
-            {pendingRequest ? (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-3 flex items-center gap-2">
-                <span className="text-amber-600 text-lg">⏳</span>
-                <div>
-                  <div className="text-sm font-semibold text-amber-800">
-                    Withdrawal Pending Review
-                  </div>
-                  <div className="text-xs text-amber-600">
-                    {pendingRequest.gems_requested} gems •
-                    {' '}Status: {pendingRequest.status}
-                  </div>
-                </div>
-              </div>
-            ) : null}
-
             <button
               onClick={() => setShowWithdrawModal(true)}
-              disabled={!!pendingRequest || (lastCycle?.locked_gems || 0) === 0}
-              className="w-full py-3 rounded-xl bg-indigo-600 text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed transition"
+              disabled={!!pendingRequest || lockedGems === 0}
+              className="mt-3 w-full py-3 rounded-xl bg-white text-indigo-600 font-bold disabled:opacity-50 disabled:cursor-not-allowed transition"
             >
               {pendingRequest ? '⏳ Request Pending' : 'Withdraw'}
             </button>
           </div>
         </div>
+
+        {pendingRequest && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-2 mt-3">
+            <span className="text-amber-600 text-lg">⏳</span>
+            <div>
+              <div className="text-sm font-semibold text-amber-800">
+                Withdrawal Pending Review
+              </div>
+              <div className="text-xs text-amber-600">
+                {pendingRequest.gems_requested} gems • Status: {pendingRequest.status}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="rounded-2xl border bg-white p-4 md:p-5">
