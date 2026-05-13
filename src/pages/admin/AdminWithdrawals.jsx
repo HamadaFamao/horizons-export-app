@@ -41,6 +41,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import OpenWithdrawalCycleModal from '@/components/admin/OpenWithdrawalCycleModal';
+import { useAdminPermissions } from '@/contexts/AdminPermissionsContext';
 
 const FILTERS = [
   { label: 'All', value: 'all' },
@@ -52,6 +53,8 @@ const FILTERS = [
 
 export default function AdminWithdrawals() {
   const { toast } = useToast();
+  const { isAdmin, staffRole, loading: permLoading } = useAdminPermissions();
+  const canView = isAdmin || staffRole === 'manager' || staffRole === 'moderator';
 
   // Data State
   const [requests, setRequests] = useState([]);
@@ -80,6 +83,12 @@ export default function AdminWithdrawals() {
   const abortControllerRef = useRef(null);
 
   const fetchRequests = useCallback(async (isBackground = false) => {
+    if (permLoading || !canView) {
+      setIsInitialLoading(false);
+      setIsFetching(false);
+      return;
+    }
+
     if (abortControllerRef.current) abortControllerRef.current.abort();
     const controller = new AbortController();
     abortControllerRef.current = controller;
@@ -116,12 +125,13 @@ export default function AdminWithdrawals() {
         setIsInitialLoading(false);
       }
     }
-  }, [statusFilter, toast]);
+  }, [statusFilter, toast, canView, permLoading]);
 
   useEffect(() => {
+    if (permLoading) return;
     fetchRequests();
     return () => abortControllerRef.current?.abort();
-  }, [fetchRequests]);
+  }, [fetchRequests, permLoading]);
 
   const toggleRow = (id) => {
     const newSet = new Set(expandedRows);
@@ -325,6 +335,29 @@ export default function AdminWithdrawals() {
         return '';
     }
   };
+
+  if (!permLoading && !canView) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900">Withdrawals</h1>
+          <p className="text-muted-foreground mt-1">Manage and process gem withdrawal requests</p>
+        </div>
+
+        <Card className="border-t-4 border-t-red-500 shadow-sm">
+          <CardContent className="py-8">
+            <div className="flex items-start gap-3 text-red-700">
+              <AlertCircle className="w-5 h-5 mt-0.5" />
+              <div>
+                <p className="font-semibold">No permission to view this page.</p>
+                <p className="text-sm text-red-600 mt-1">You must be an admin, manager, or moderator.</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

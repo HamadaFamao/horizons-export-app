@@ -38,6 +38,8 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
 
   const [members, setMembers] = useState([]);
   const [lastCycle, setLastCycle] = useState(null);
+  const [lockedGems, setLockedGems] = useState(0);
+  const [lockedUsd, setLockedUsd] = useState(0);
   const [snapshotRows, setSnapshotRows] = useState([]);
 
   const [withdrawOpen, setWithdrawOpen] = useState(false);
@@ -52,9 +54,6 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
       false
     );
   }, [profile]);
-
-  const lockedGems = toNumber(lastCycle?.locked_gems);
-  const lockedUsd = toNumber(lastCycle?.locked_usd);
 
   const fetchProfile = async () => {
     if (profileProp) {
@@ -108,41 +107,37 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
       if (!activeAgencyId) {
         setMembers([]);
       } else {
-        const { data: memberships, error: mErr } = await supabase
+        const { data: membersData, error: mErr } = await supabase
           .from('agency_memberships')
-          .select('user_id, joined_at')
+          .select(`
+            user_id,
+            joined_at,
+            withdrawal_method,
+            withdrawal_note,
+            profiles:user_id (
+              id,
+              name,
+              avatar_url,
+              profile_id
+            )
+          `)
           .eq('agency_id', activeAgencyId)
           .is('left_at', null)
           .order('joined_at', { ascending: false });
 
         if (mErr) throw mErr;
 
-        const memberIds = (memberships || []).map((m) => m.user_id).filter(Boolean);
-        let profilesMap = {};
-
-        if (memberIds.length > 0) {
-          const { data: memberProfiles, error: profErr } = await supabase
-            .from('profiles')
-            .select('id, name, avatar_url, profile_id, withdrawal_method')
-            .in('id', memberIds);
-
-          if (profErr) throw profErr;
-          (memberProfiles || []).forEach((p) => {
-            profilesMap[p.id] = p;
-          });
-        }
-
         setMembers(
-          (memberships || []).map((m) => ({
+          (membersData || []).map((m) => ({
             ...m,
-            profile: profilesMap[m.user_id] || null,
+            profile: Array.isArray(m.profiles) ? m.profiles[0] || null : m.profiles || null,
           }))
         );
       }
 
       const { data: cycleData, error: cycleErr } = await supabase
         .from('agency_withdrawal_cycles')
-        .select('id, cycle_month, locked_gems, locked_usd')
+        .select('locked_gems, locked_usd, status, cycle_month')
         .eq('agency_user_id', user.id)
         .order('cycle_month', { ascending: false })
         .limit(1)
@@ -150,6 +145,8 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
 
       if (cycleErr) throw cycleErr;
       setLastCycle(cycleData || null);
+      setLockedGems(cycleData?.locked_gems || 0);
+      setLockedUsd(cycleData?.locked_usd || 0);
 
       const { data: snapshotData, error: snapErr } = await supabase
         .from('agency_earnings_snapshots')
@@ -378,7 +375,7 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
                       </div>
                     </TableCell>
                     <TableCell>
-                      {m.profile?.withdrawal_method === 'agent' ? (
+                      {m.withdrawal_method === 'agent' ? (
                         <Badge className="bg-emerald-600 text-white hover:bg-emerald-600">Via Agent</Badge>
                       ) : (
                         <Badge variant="secondary" className="bg-slate-200 text-slate-700 hover:bg-slate-200">
