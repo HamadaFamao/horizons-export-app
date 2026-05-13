@@ -2,6 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Loader2 } from 'lucide-react';
 
 /**
@@ -49,6 +52,12 @@ export default function AgencyMembersSection({
   // actions loading
   const [leaving, setLeaving] = useState(false);
   const [removingUserId, setRemovingUserId] = useState(null);
+
+  // member self withdrawal preferences
+  const [editingMethodMember, setEditingMethodMember] = useState(null);
+  const [methodChoice, setMethodChoice] = useState('agent');
+  const [methodNote, setMethodNote] = useState('');
+  const [savingMethod, setSavingMethod] = useState(false);
 
   // --------
   // Helpers
@@ -132,7 +141,34 @@ export default function AgencyMembersSection({
 
       if (error) throw error;
 
-      setRows(Array.isArray(data) ? data : []);
+      const baseRows = Array.isArray(data) ? data : [];
+
+      // Enrich members with withdrawal preferences from active membership row.
+      const memberIds = baseRows.map((r) => r?.user_id).filter(Boolean);
+      let prefMap = {};
+
+      if (memberIds.length > 0) {
+        const { data: prefs, error: prefErr } = await supabase
+          .from('agency_memberships')
+          .select('user_id, withdrawal_method, withdrawal_note')
+          .eq('agency_id', agencyId)
+          .is('left_at', null)
+          .in('user_id', memberIds);
+
+        if (prefErr) throw prefErr;
+
+        (prefs || []).forEach((p) => {
+          prefMap[p.user_id] = p;
+        });
+      }
+
+      setRows(
+        baseRows.map((r) => ({
+          ...r,
+          withdrawal_method: prefMap[r.user_id]?.withdrawal_method || null,
+          withdrawal_note: prefMap[r.user_id]?.withdrawal_note || null,
+        }))
+      );
     } catch (e) {
       console.error('[AgencyMembersSection] load error:', e);
       setErr(e?.message || 'Failed to load members');
@@ -252,6 +288,49 @@ export default function AgencyMembersSection({
     }
   };
 
+  const openMethodModal = (m) => {
+    if (!m?.user_id || !currentUserId || m.user_id !== currentUserId) return;
+    setEditingMethodMember(m);
+    setMethodChoice(m?.withdrawal_method === 'self' ? 'self' : 'agent');
+    setMethodNote(m?.withdrawal_note || '');
+  };
+
+  const saveWithdrawalMethod = async () => {
+    if (!agencyId || !currentUserId || !editingMethodMember) return;
+
+    if (methodChoice === 'self' && !String(methodNote || '').trim()) {
+      setErr('Please write your preferred payout method note when choosing Self.');
+      return;
+    }
+
+    try {
+      setSavingMethod(true);
+      setErr('');
+
+      const payload = {
+        withdrawal_method: methodChoice,
+        withdrawal_note: methodChoice === 'self' ? String(methodNote || '').trim() : null,
+      };
+
+      const { error } = await supabase
+        .from('agency_memberships')
+        .update(payload)
+        .eq('user_id', currentUserId)
+        .eq('agency_id', agencyId)
+        .is('left_at', null);
+
+      if (error) throw error;
+
+      await fetchMembers();
+      setEditingMethodMember(null);
+    } catch (e) {
+      console.error('[AgencyMembersSection] saveWithdrawalMethod error:', e);
+      setErr(e?.message || 'Failed to update withdrawal method');
+    } finally {
+      setSavingMethod(false);
+    }
+  };
+
   if (!agencyId) return null;
 
   return (
@@ -364,6 +443,22 @@ export default function AgencyMembersSection({
                         </span>
                       ) : null}
 
+                      {m?.withdrawal_method ? (
+                        <span
+                          className={`text-xs rounded-full px-2 py-0.5 border ${
+                            m.withdrawal_method === 'agent'
+                              ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                              : 'text-gray-700 bg-gray-50 border-gray-200'
+                          }`}
+                        >
+                          {m.withdrawal_method === 'agent' ? 'Via Agent' : 'Self'}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-full px-2 py-0.5">
+                          Not set
+                        </span>
+                      )}
+
                       {/* gems: على حسب الview هيكون null لغير المسموح */}
                       {m?.gems !== null && m?.gems !== undefined ? (
                         <span className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
@@ -375,6 +470,17 @@ export default function AgencyMembersSection({
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
+                  {isMe && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openMethodModal(m)}
+                      className="whitespace-nowrap"
+                    >
+                      Change
+                    </Button>
+                  )}
+
                   <Button variant="outline" onClick={() => openMemberProfile(m)}>
                     View Profile
                   </Button>
@@ -403,6 +509,74 @@ export default function AgencyMembersSection({
           })}
         </div>
       )}
+
+      <Dialog open={!!editingMethodMember} onOpenChange={(open) => !open && setEditingMethodMember(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Change Withdrawal Method</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-1">
+            <div className="space-y-2">
+              <Label>Choose Method</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMethodChoice('agent')}
+                  className={`rounded-lg border px-3 py-2 text-sm font-medium transition ${
+                    methodChoice === 'agent'
+                      ? 'bg-emerald-600 text-white border-emerald-600'
+                      : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  Via Agent
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMethodChoice('self')}
+                  className={`rounded-lg border px-3 py-2 text-sm font-medium transition ${
+                    methodChoice === 'self'
+                      ? 'bg-slate-900 text-white border-slate-900'
+                      : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  Self
+                </button>
+              </div>
+            </div>
+
+            {methodChoice === 'self' && (
+              <div className="space-y-2">
+                <Label>Preferred Payout Method</Label>
+                <Textarea
+                  value={methodNote}
+                  onChange={(e) => setMethodNote(e.target.value.slice(0, 300))}
+                  placeholder="Write your preferred payout details..."
+                  maxLength={300}
+                  className="min-h-[100px]"
+                />
+                <p className="text-xs text-gray-500 text-right">{methodNote.length}/300</p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditingMethodMember(null)} disabled={savingMethod}>
+              Cancel
+            </Button>
+            <Button onClick={saveWithdrawalMethod} disabled={savingMethod}>
+              {savingMethod ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

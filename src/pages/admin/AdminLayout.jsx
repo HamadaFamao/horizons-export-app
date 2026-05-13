@@ -17,12 +17,13 @@ const AdminLayout = () => {
   const [showConfirm, setShowConfirm] = useState(false);
   const [pendingPath, setPendingPath] = useState(null);
   const [pendingReportsCount, setPendingReportsCount] = useState(0);
+  const [bannedAgenciesCount, setBannedAgenciesCount] = useState(0);
 
   const allNavItems = [
     { name: 'Overview',     href: 'dashboard',        icon: LayoutGrid,               permission: null },
     { name: 'Users',        href: 'users',             icon: Users,                    permission: 'can_manage_users' },
     { name: 'Rooms',        href: 'rooms',             icon: Mic,                      permission: 'can_manage_rooms' },
-    { name: 'Agencies',     href: 'agencies',          icon: Building,                 permission: 'can_manage_agencies' },
+    { name: 'Agencies',     href: '/admin/agencies',   icon: Building, iconEmoji: '🏢', permission: 'can_manage_agencies' },
     { name: 'Withdrawals',  href: 'withdrawals',       icon: ArrowDownLeftFromCircle,  permission: 'can_manage_withdrawals' },
     { name: 'Plans',        href: 'plans',             icon: CreditCard,               permission: 'can_manage_finance' },
     { name: 'Coins',        href: 'coins',             icon: Gem,                      permission: 'can_manage_finance' },
@@ -55,6 +56,31 @@ const AdminLayout = () => {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'reports' },
         () => fetchPendingCount()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  useEffect(() => {
+    const fetchBannedAgenciesCount = async () => {
+      const { count } = await supabase
+        .from('agencies')
+        .select('*', { count: 'exact', head: true })
+        .eq('is_active', false);
+      setBannedAgenciesCount(count || 0);
+    };
+
+    fetchBannedAgenciesCount();
+
+    const channel = supabase
+      .channel('agencies-banned-count')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'agencies' },
+        () => fetchBannedAgenciesCount()
       )
       .subscribe();
 
@@ -166,11 +192,20 @@ const AdminLayout = () => {
                         { "bg-rose-200 text-rose-700 font-semibold": isActive }
                       )}
                     >
-                      <item.icon className="w-5 h-5" />
+                      {item.iconEmoji ? (
+                        <span className="text-base leading-none">{item.iconEmoji}</span>
+                      ) : (
+                        <item.icon className="w-5 h-5" />
+                      )}
                       <span>{item.name}</span>
                       {item.href === 'reports' && pendingReportsCount > 0 && (
                         <span className="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
                           {pendingReportsCount}
+                        </span>
+                      )}
+                      {(item.href === '/admin/agencies' || item.href === 'agencies') && bannedAgenciesCount > 0 && (
+                        <span className="ml-auto bg-rose-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                          {bannedAgenciesCount}
                         </span>
                       )}
                     </NavLink>
@@ -217,11 +252,20 @@ const AdminLayout = () => {
                     { "bg-rose-200 text-rose-700 font-semibold": isActive }
                   )}
                 >
-                  <item.icon className="w-5 h-5" />
+                  {item.iconEmoji ? (
+                    <span className="text-base leading-none">{item.iconEmoji}</span>
+                  ) : (
+                    <item.icon className="w-5 h-5" />
+                  )}
                   <span>{item.name}</span>
                   {item.href === 'reports' && pendingReportsCount > 0 && (
                     <span className="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
                       {pendingReportsCount}
+                    </span>
+                  )}
+                  {(item.href === '/admin/agencies' || item.href === 'agencies') && bannedAgenciesCount > 0 && (
+                    <span className="ml-auto bg-rose-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                      {bannedAgenciesCount}
                     </span>
                   )}
                 </NavLink>

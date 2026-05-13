@@ -1,661 +1,616 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { Building, Plus, Search, User, Loader2, X, Check, Copy, RefreshCw, AlertCircle, ArrowLeft } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { supabase } from '@/lib/supabaseClient';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
-import { supabase } from '@/lib/supabaseClient';
-import { cn } from '@/lib/utils';
-import { useDebounce } from '@/hooks/useDebounce';
-import { format } from 'date-fns';
+import { useAdminPermissions } from '@/contexts/AdminPermissionsContext';
+import { Loader2, RefreshCw, Search } from 'lucide-react';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { logRedirect } from '@/lib/debugLogger';
-import { useUnsavedChanges } from '@/contexts/UnsavedChangesContext';
-import { saveDraft, loadDraft, clearDraft } from '@/lib/formDraftStorage';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
-const DRAFT_KEY = 'adminAgencies_draft';
+const PAGE_SIZE = 20;
+const DEFAULT_AVATAR =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64">
+      <rect width="64" height="64" rx="14" fill="#e5e7eb"/>
+      <text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="24">👤</text>
+    </svg>
+  `);
 
-const AdminAgencies = () => {
-    const { toast } = useToast();
-    const { setDirty } = useUnsavedChanges();
-    
-    // --- Create Form State ---
-    const [isCreating, setIsCreating] = useState(false);
-    const [agencyName, setAgencyName] = useState('');
-    const [selectedOwner, setSelectedOwner] = useState(null);
-    const [createdAgency, setCreatedAgency] = useState(null); // Stores success data
-    
-    // --- Unsaved Changes Detection ---
-    // Form is dirty if fields have values AND we haven't successfully created an agency yet
-    const isLocalDirty = (agencyName.trim() !== '' || selectedOwner !== null) && !createdAgency;
+export default function AdminAgencies() {
+  const { toast } = useToast();
+  const { staffRole } = useAdminPermissions();
+  const isManager = staffRole === 'manager';
 
-    // --- Search/Autocomplete State ---
-    const [searchQuery, setSearchQuery] = useState('');
-    const [isSearching, setIsSearching] = useState(false);
-    const [searchResults, setSearchResults] = useState([]);
-    const [showDropdown, setShowDropdown] = useState(false);
-    
-    const searchInputRef = useRef(null);
-    const dropdownRef = useRef(null);
-    
-    const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  const [agencies, setAgencies] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
 
-    // --- Agencies List State ---
-    const [agencies, setAgencies] = useState([]);
-    const [isLoadingAgencies, setIsLoadingAgencies] = useState(false);
-    const [agenciesError, setAgenciesError] = useState(null);
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [searchTerm, setSearchTerm] = useState('');
 
-    // --- Draft Persistence: Load on Mount ---
-    useEffect(() => {
-        const draft = loadDraft(DRAFT_KEY);
-        if (draft) {
-            // Restore fields if present in draft
-            // Note: draft.selectedProfile maps to component state 'selectedOwner'
-            if (draft.agencyName !== undefined) setAgencyName(draft.agencyName);
-            if (draft.selectedProfile !== undefined) setSelectedOwner(draft.selectedProfile);
-            if (draft.searchQuery !== undefined) setSearchQuery(draft.searchQuery);
-            if (draft.searchResults !== undefined) setSearchResults(draft.searchResults);
-        }
-    }, []);
+  const [managingAgency, setManagingAgency] = useState(null);
+  const [members, setMembers] = useState([]);
+  const [loadingMembers, setLoadingMembers] = useState(false);
 
-    // --- Draft Persistence: Save on Change ---
-    useEffect(() => {
-        // Persist draft unless we have successfully created an agency (which displays success view)
-        // If createdAgency is true, the form inputs are hidden, so we shouldn't overwrite draft with stale state,
-        // although technically state is preserved. More importantly, we clear draft on success, 
-        // so we avoid re-saving it immediately here.
-        if (!createdAgency) {
-            saveDraft(DRAFT_KEY, {
-                agencyName,
-                selectedProfile: selectedOwner, // Map component state 'selectedOwner' to 'selectedProfile' in storage
-                searchQuery,
-                searchResults
-            });
-        }
-    }, [agencyName, selectedOwner, searchQuery, searchResults, createdAgency]);
+  const [updating, setUpdating] = useState(false);
+  const [newAgencyName, setNewAgencyName] = useState('');
+  const [newOwnerProfileId, setNewOwnerProfileId] = useState('');
+  const [banReason, setBanReason] = useState('');
 
-    // --- Sync Dirty State with Context ---
-    useEffect(() => {
-        setDirty(isLocalDirty);
-    }, [isLocalDirty, setDirty]);
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(totalCount / PAGE_SIZE)), [totalCount]);
 
-    // --- Cleanup on Unmount ---
-    useEffect(() => {
-        return () => setDirty(false);
-    }, [setDirty]);
-    
-    // --- Browser Refresh/Close Protection ---
-    useEffect(() => {
-        const handleBeforeUnload = (e) => {
-            if (isLocalDirty) {
-                // Log strictly for functional tracing of protection logic
-                console.log('[UnsavedChanges] Browser unload prevented.');
-                logRedirect('AdminAgencies: Browser Unload Prevented', 'EXTERNAL');
-                e.preventDefault();
-                e.returnValue = ''; // Chrome requires returnValue to be set
-                return '';
+  const fetchAgencies = async (currentPage = page) => {
+    setLoading(true);
+    try {
+      let query = supabase
+        .from('v_agencies_with_members_count')
+        .select('*', { count: 'exact' });
+
+      if (statusFilter === 'Active') {
+        query = query.eq('is_active', true);
+      }
+      if (statusFilter === 'Banned') {
+        query = query.eq('is_active', false);
+      }
+      if (searchTerm.trim()) {
+        query = query.ilike('name', `%${searchTerm.trim()}%`);
+      }
+
+      const { data, error, count } = await query
+        .order('created_at', { ascending: false })
+        .range(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE - 1);
+
+      if (error) throw error;
+
+      const ownerIds = [...new Set((data || []).map((a) => a.owner_user_id).filter(Boolean))];
+      let ownersMap = {};
+
+      if (ownerIds.length > 0) {
+        const { data: owners, error: ownersErr } = await supabase
+          .from('profiles')
+          .select('id, name, profile_id')
+          .in('id', ownerIds);
+        if (ownersErr) throw ownersErr;
+        (owners || []).forEach((o) => {
+          ownersMap[o.id] = o;
+        });
+      }
+
+      const rows = (data || []).map((a) => ({
+        ...a,
+        owner: ownersMap[a.owner_user_id] || null,
+      }));
+
+      setAgencies(rows);
+      setTotalCount(count || 0);
+    } catch (e) {
+      toast({ title: 'Error', description: e.message || 'Failed to fetch agencies.', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchMembers = async (agencyId) => {
+    setLoadingMembers(true);
+    try {
+      const { data: memberships, error: memErr } = await supabase
+        .from('agency_memberships')
+        .select('user_id, role, joined_at, left_at')
+        .eq('agency_id', agencyId)
+        .is('left_at', null)
+        .order('joined_at', { ascending: true });
+
+      if (memErr) throw memErr;
+
+      const memberIds = (memberships || []).map((m) => m.user_id).filter(Boolean);
+      let profilesMap = {};
+
+      if (memberIds.length > 0) {
+        const { data: profiles, error: profErr } = await supabase
+          .from('profiles')
+          .select('id, name, profile_id, avatar_url, withdrawal_method')
+          .in('id', memberIds);
+
+        if (profErr) throw profErr;
+        (profiles || []).forEach((p) => {
+          profilesMap[p.id] = p;
+        });
+      }
+
+      setMembers(
+        (memberships || []).map((m) => ({
+          ...m,
+          profile: profilesMap[m.user_id] || null,
+        }))
+      );
+    } catch (e) {
+      toast({ title: 'Error', description: e.message || 'Failed to fetch members.', variant: 'destructive' });
+    } finally {
+      setLoadingMembers(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAgencies(0);
+  }, [statusFilter, searchTerm]);
+
+  useEffect(() => {
+    if (page === 0) return;
+    fetchAgencies(page);
+  }, [page]);
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    setPage(0);
+    fetchAgencies(0);
+  };
+
+  const handleOpenManage = async (agency) => {
+    setManagingAgency(agency);
+    setNewAgencyName(agency?.name || '');
+    setNewOwnerProfileId('');
+    setBanReason('');
+    await fetchMembers(agency.id);
+  };
+
+  const handleSaveName = async () => {
+    if (!managingAgency || updating) return;
+    if (!newAgencyName.trim()) {
+      toast({ title: 'Validation', description: 'Agency name is required.', variant: 'destructive' });
+      return;
+    }
+
+    setUpdating(true);
+    try {
+      const { error } = await supabase
+        .from('agencies')
+        .update({ name: newAgencyName.trim() })
+        .eq('id', managingAgency.id);
+
+      if (error) throw error;
+
+      toast({ title: '✅ Name updated' });
+      setManagingAgency((prev) => (prev ? { ...prev, name: newAgencyName.trim() } : prev));
+      fetchAgencies(page);
+    } catch (e) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleChangeOwner = async () => {
+    if (!managingAgency || updating) return;
+    if (!newOwnerProfileId.trim()) {
+      toast({ title: 'Validation', description: 'Enter new owner profile ID.', variant: 'destructive' });
+      return;
+    }
+
+    setUpdating(true);
+    try {
+      const oldOwnerId = managingAgency.owner_user_id;
+
+      const { data: newOwner, error: ownerErr } = await supabase
+        .from('profiles')
+        .select('id, name, profile_id')
+        .eq('profile_id', newOwnerProfileId.trim())
+        .single();
+
+      if (ownerErr || !newOwner) {
+        throw new Error(ownerErr?.message || 'Owner profile not found.');
+      }
+
+      const { error: agencyErr } = await supabase
+        .from('agencies')
+        .update({ owner_user_id: newOwner.id })
+        .eq('id', managingAgency.id);
+
+      if (agencyErr) throw agencyErr;
+
+      const { error: upsertErr } = await supabase
+        .from('agency_memberships')
+        .upsert(
+          {
+            agency_id: managingAgency.id,
+            user_id: newOwner.id,
+            role: 'owner',
+            left_at: null,
+          },
+          { onConflict: 'agency_id,user_id' }
+        );
+
+      if (upsertErr) throw upsertErr;
+
+      if (oldOwnerId) {
+        const { error: oldOwnerErr } = await supabase
+          .from('agency_memberships')
+          .update({ role: 'member' })
+          .eq('agency_id', managingAgency.id)
+          .eq('user_id', oldOwnerId)
+          .is('left_at', null);
+
+        if (oldOwnerErr) throw oldOwnerErr;
+      }
+
+      toast({ title: '✅ Agency owner changed' });
+      setManagingAgency((prev) =>
+        prev
+          ? {
+              ...prev,
+              owner_user_id: newOwner.id,
+              owner: {
+                id: newOwner.id,
+                name: newOwner.name,
+                profile_id: newOwner.profile_id,
+              },
             }
-        };
+          : prev
+      );
+      setNewOwnerProfileId('');
+      await fetchMembers(managingAgency.id);
+      fetchAgencies(page);
+    } catch (e) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } finally {
+      setUpdating(false);
+    }
+  };
 
-        window.addEventListener('beforeunload', handleBeforeUnload);
-        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-    }, [isLocalDirty]);
+  const handleBanAgency = async () => {
+    if (!managingAgency || updating) return;
+    if (!window.confirm(`Ban agency "${managingAgency.name}"?`)) return;
+    if (!banReason.trim()) {
+      toast({ title: 'Validation', description: 'Please provide ban reason.', variant: 'destructive' });
+      return;
+    }
 
-    useEffect(() => {
-        // Removed unnecessary "Page loaded" debug log
-        fetchAgencies();
-    }, []);
+    setUpdating(true);
+    try {
+      const authResult = await supabase.auth.getUser();
+      const adminId = authResult?.data?.user?.id || null;
 
-    // --- Create Agency: Click Outside Dropdown ---
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target) && 
-                searchInputRef.current && !searchInputRef.current.contains(event.target)) {
-                setShowDropdown(false);
-            }
-        };
+      const { error } = await supabase
+        .from('agencies')
+        .update({
+          is_active: false,
+          banned_at: new Date().toISOString(),
+          banned_by: adminId,
+          ban_reason: banReason.trim(),
+        })
+        .eq('id', managingAgency.id);
 
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
+      if (error) throw error;
 
-    // --- Create Agency: Search Effect ---
-    useEffect(() => {
-        const searchProfiles = async () => {
-            if (!debouncedSearchQuery || debouncedSearchQuery.length < 2) {
-                // Only clear results if we are actually interacting with search.
-                // On mount, if we restored a query but debounce hasn't fired yet, this might run.
-                // However, restoring searchQuery sets the state, so debouncedSearchQuery will update.
-                // We avoid clearing restored results unnecessarily if the query is just empty.
-                if (debouncedSearchQuery === '') {
-                     setSearchResults([]);
-                }
-                return;
-            }
+      toast({ title: '⛔ Agency banned' });
+      setManagingAgency((prev) => (prev ? { ...prev, is_active: false } : prev));
+      fetchAgencies(page);
+    } catch (e) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } finally {
+      setUpdating(false);
+    }
+  };
 
-            setIsSearching(true);
-            setShowDropdown(true);
-            
-            try {
-                // Call the admin_search_profiles RPC
-                const { data, error } = await supabase
-                    .rpc('admin_search_profiles', { 
-                        p_q: debouncedSearchQuery,
-                        p_limit: 10 
-                    });
+  const handleUnbanAgency = async () => {
+    if (!managingAgency || updating) return;
 
-                if (error) throw error;
-                
-                setSearchResults(data || []);
-            } catch (err) {
-                console.error("Error searching profiles:", err);
-                toast({
-                    title: "Search Error",
-                    description: "Failed to search profiles.",
-                    variant: "destructive"
-                });
-                setSearchResults([]);
-            } finally {
-                setIsSearching(false);
-            }
-        };
+    setUpdating(true);
+    try {
+      const { error } = await supabase
+        .from('agencies')
+        .update({
+          is_active: true,
+          banned_at: null,
+          banned_by: null,
+          ban_reason: null,
+        })
+        .eq('id', managingAgency.id);
 
-        searchProfiles();
-    }, [debouncedSearchQuery, toast]);
+      if (error) throw error;
 
-    // --- Agencies List: Fetch Function ---
-    const fetchAgencies = async () => {
-        setIsLoadingAgencies(true);
-        setAgenciesError(null);
+      toast({ title: '✅ Agency unbanned' });
+      setManagingAgency((prev) => (prev ? { ...prev, is_active: true } : prev));
+      fetchAgencies(page);
+    } catch (e) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } finally {
+      setUpdating(false);
+    }
+  };
 
-        try {
-            const { data, error } = await supabase
-                .from('agencies')
-                .select(`
-                    id,
-                    name,
-                    agency_code,
-                    is_active,
-                    created_at,
-                    owner_user_id,
-                    owner:profiles!owner_user_id (
-                        profile_id,
-                        name,
-                        avatar_url
-                    )
-                `)
-                .order('created_at', { ascending: false });
+  const handleRemoveMember = async (memberUserId) => {
+    if (!managingAgency || !memberUserId || updating) return;
+    if (!window.confirm('Remove this member from agency?')) return;
 
-            if (error) throw error;
+    setUpdating(true);
+    try {
+      const { error } = await supabase
+        .from('agency_memberships')
+        .update({ left_at: new Date().toISOString() })
+        .eq('agency_id', managingAgency.id)
+        .eq('user_id', memberUserId)
+        .is('left_at', null);
 
-            setAgencies(data || []);
-        } catch (err) {
-            console.error("Error fetching agencies:", err);
-            setAgenciesError(err.message);
-            toast({
-                title: "Fetch Error",
-                description: "Failed to load agencies list.",
-                variant: "destructive"
-            });
-        } finally {
-            setIsLoadingAgencies(false);
-        }
-    };
+      if (error) throw error;
 
-    // --- Create Agency Handlers ---
-    const handleSelectProfile = (profile) => {
-        setSelectedOwner(profile);
-        setSearchQuery(''); // Clear search input
-        setShowDropdown(false);
-        setSearchResults([]);
-    };
+      toast({ title: '✅ Member removed' });
+      await fetchMembers(managingAgency.id);
+      fetchAgencies(page);
+    } catch (e) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } finally {
+      setUpdating(false);
+    }
+  };
 
-    const handleClearSelection = () => {
-        setSelectedOwner(null);
-        setSearchQuery('');
-    };
+  return (
+    <div className="p-4 md:p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-bold">Agencies Management</h1>
+        <Button variant="outline" size="sm" onClick={() => fetchAgencies(page)}>
+          <RefreshCw className="h-4 w-4 mr-1" /> Refresh
+        </Button>
+      </div>
 
-    const handleCopyCode = () => {
-        if (createdAgency?.agency_code) {
-            navigator.clipboard.writeText(createdAgency.agency_code);
-            toast({
-                title: "Copied!",
-                description: "Agency code copied to clipboard",
-                className: "bg-green-50 border-green-200 text-green-800"
-            });
-        }
-    };
+      <div className="flex flex-col md:flex-row gap-4 mb-6">
+        <form onSubmit={handleSearch} className="flex gap-2 flex-1">
+          <Input
+            placeholder="Search by agency name..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <Button type="submit" disabled={loading}>
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+          </Button>
+        </form>
 
-    const handleResetForm = () => {
-        clearDraft(DRAFT_KEY); // Clear persisted draft
-        setCreatedAgency(null);
-        setAgencyName('');
-        setSelectedOwner(null);
-        setSearchQuery('');
-        setDirty(false); // Explicitly clear dirty state on reset
-    };
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="All">All</SelectItem>
+            <SelectItem value="Active">Active</SelectItem>
+            <SelectItem value="Banned">Banned</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
-    const handleCreateAgency = async (e) => {
-        e.preventDefault();
-        
-        if (!agencyName.trim()) {
-            toast({
-                title: "Validation Error",
-                description: "Agency name is required",
-                variant: "destructive"
-            });
-            return;
-        }
-
-        if (!selectedOwner) {
-            toast({
-                title: "Validation Error",
-                description: "Please select an agency owner",
-                variant: "destructive"
-            });
-            return;
-        }
-
-        setIsCreating(true);
-        // Functional log: Critical action tracking
-        console.log("Creating agency:", { name: agencyName, owner_id: selectedOwner.profile_id });
-
-        try {
-            const { data, error } = await supabase
-                .rpc('admin_create_agency_by_profile_id', {
-                    p_name: agencyName,
-                    p_owner_profile_id: selectedOwner.profile_id
-                });
-
-            if (error) throw error;
-
-            console.log("Agency creation response:", data);
-
-            if (data && data.success) {
-                // Set success state
-                setCreatedAgency({
-                    name: agencyName,
-                    agency_code: data.agency_code,
-                    owner_profile_id: selectedOwner.profile_id,
-                    owner_name: selectedOwner.name
-                });
-                
-                clearDraft(DRAFT_KEY); // Clear persisted draft on successful creation
-                setDirty(false); // Clear dirty state on success
-
-                toast({
-                    title: "Agency Created",
-                    description: `Agency created successfully!`,
-                    className: "bg-green-50 border-green-200 text-green-800"
-                });
-                
-                // Refresh list
-                fetchAgencies();
-            } else {
-                throw new Error(data?.error || "Unknown error occurred");
-            }
-        } catch (err) {
-            console.error("Error creating agency:", err);
-            toast({
-                title: "Creation Failed",
-                description: err.message || "Failed to create agency",
-                variant: "destructive"
-            });
-        } finally {
-            setIsCreating(false);
-        }
-    };
-
-    return (
-        <div className="p-6 space-y-6 animate-in fade-in duration-500 max-w-[1600px] mx-auto">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-rose-100 rounded-lg">
-                        <Building className="w-6 h-6 text-rose-600" />
+      <div className="bg-white rounded-lg shadow-md overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Name</TableHead>
+              <TableHead>Owner</TableHead>
+              <TableHead>Members</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Created</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center">
+                  <Loader2 className="mx-auto animate-spin" />
+                </TableCell>
+              </TableRow>
+            ) : agencies.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center p-4 text-slate-500">
+                  No agencies found.
+                </TableCell>
+              </TableRow>
+            ) : (
+              agencies.map((agency) => (
+                <TableRow key={agency.id} className={!agency.is_active ? 'bg-red-50' : ''}>
+                  <TableCell className="font-medium">{agency.name || '—'}</TableCell>
+                  <TableCell>
+                    <div className="text-sm">
+                      <p className="font-medium">{agency.owner?.name || 'Unknown'}</p>
+                      <p className="text-xs text-slate-400">#{agency.owner?.profile_id || '—'}</p>
                     </div>
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-900">Agencies Management</h1>
-                        <p className="text-sm text-muted-foreground">Monitor and manage agency performance</p>
-                    </div>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                {/* Create Agency Form Card - Takes 1 column on large screens */}
-                <Card className="xl:col-span-1 border-rose-100 shadow-md overflow-visible relative h-fit">
-                    {!createdAgency ? (
-                        <>
-                            <CardHeader className="bg-gradient-to-r from-rose-50 to-orange-50 rounded-t-lg pb-4 border-b border-rose-100">
-                                <CardTitle className="text-lg flex items-center gap-2 text-rose-900">
-                                    <Plus className="w-5 h-5 text-rose-600" />
-                                    Create New Agency
-                                </CardTitle>
-                                <CardDescription>Register a new agency and assign an owner.</CardDescription>
-                            </CardHeader>
-                            <CardContent className="pt-6 space-y-4 overflow-visible">
-                                <div className="space-y-2">
-                                    <Label htmlFor="agencyName">Agency Name</Label>
-                                    <div className="relative">
-                                        <Building className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                                        <Input 
-                                            id="agencyName" 
-                                            placeholder="e.g. Elite Talent Agency" 
-                                            className="pl-9"
-                                            value={agencyName}
-                                            onChange={(e) => setAgencyName(e.target.value)}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2 relative z-50">
-                                    <Label>Agency Owner</Label>
-                                    
-                                    {!selectedOwner ? (
-                                        <div className="relative">
-                                            <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                                            <Input 
-                                                ref={searchInputRef}
-                                                placeholder="Search by name or profile ID..." 
-                                                className="pl-9"
-                                                value={searchQuery}
-                                                onChange={(e) => {
-                                                    setSearchQuery(e.target.value);
-                                                    if (!showDropdown) setShowDropdown(true);
-                                                }}
-                                                onFocus={() => {
-                                                    if (searchQuery.length >= 2) setShowDropdown(true);
-                                                }}
-                                            />
-                                            {isSearching && (
-                                                <div className="absolute right-3 top-3">
-                                                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                                                </div>
-                                            )}
-
-                                            {/* Autocomplete Dropdown */}
-                                            {showDropdown && searchQuery.length >= 2 && (
-                                                <div 
-                                                    ref={dropdownRef}
-                                                    className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-60 overflow-y-auto z-[100] animate-in fade-in zoom-in-95 duration-100"
-                                                >
-                                                    {isSearching ? (
-                                                        <div className="p-4 text-center text-sm text-muted-foreground">
-                                                            Searching...
-                                                        </div>
-                                                    ) : searchResults.length > 0 ? (
-                                                        <div className="py-1">
-                                                            {searchResults.map((result) => (
-                                                                <button
-                                                                    key={result.user_id}
-                                                                    className="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-3 transition-colors"
-                                                                    onClick={() => handleSelectProfile(result)}
-                                                                >
-                                                                    <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
-                                                                        {result.avatar_url ? (
-                                                                            <img src={result.avatar_url} alt={result.name} className="h-full w-full object-cover" />
-                                                                        ) : (
-                                                                            <User className="h-4 w-4 text-slate-400" />
-                                                                        )}
-                                                                    </div>
-                                                                    <div className="flex-1 min-w-0">
-                                                                        <p className="text-sm font-medium text-slate-900 truncate">{result.name}</p>
-                                                                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                                                            <span>ID: {result.profile_id}</span>
-                                                                            {result.is_agent && (
-                                                                                <span className="px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-medium">Agent</span>
-                                                                            )}
-                                                                        </div>
-                                                                    </div>
-                                                                </button>
-                                                            ))}
-                                                        </div>
-                                                    ) : (
-                                                        <div className="p-4 text-center text-sm text-muted-foreground">
-                                                            No users found
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-                                    ) : (
-                                        /* Selected Owner Display */
-                                        <div className="bg-rose-50 border border-rose-100 rounded-md p-3 flex items-center gap-3 group relative">
-                                            <div className="h-10 w-10 rounded-full bg-white flex items-center justify-center overflow-hidden border border-rose-100 shadow-sm">
-                                                {selectedOwner.avatar_url ? (
-                                                    <img src={selectedOwner.avatar_url} alt={selectedOwner.name} className="h-full w-full object-cover" />
-                                                ) : (
-                                                    <User className="h-5 w-5 text-rose-400" />
-                                                )}
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-medium text-slate-900 truncate">{selectedOwner.name}</p>
-                                                <p className="text-xs text-slate-500">ID: {selectedOwner.profile_id}</p>
-                                            </div>
-                                            <div className="flex items-center gap-1">
-                                                <div className="h-6 w-6 rounded-full bg-green-100 flex items-center justify-center">
-                                                    <Check className="h-3.5 w-3.5 text-green-600" />
-                                                </div>
-                                                <Button 
-                                                    variant="ghost" 
-                                                    size="icon" 
-                                                    className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50"
-                                                    onClick={handleClearSelection}
-                                                >
-                                                    <X className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    )}
-                                    <p className="text-[11px] text-muted-foreground mt-1.5">
-                                        Search for a user to assign as the agency owner.
-                                    </p>
-                                </div>
-
-                            </CardContent>
-                            <CardFooter className="pt-2">
-                                <Button 
-                                    className="w-full bg-rose-600 hover:bg-rose-700 text-white" 
-                                    onClick={handleCreateAgency}
-                                    disabled={isCreating || !selectedOwner || !agencyName}
-                                >
-                                    {isCreating ? (
-                                        <>
-                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating...
-                                        </>
-                                    ) : (
-                                        "Create Agency"
-                                    )}
-                                </Button>
-                            </CardFooter>
-                        </>
+                  </TableCell>
+                  <TableCell className="text-sm font-semibold">{agency.members_count ?? 0}</TableCell>
+                  <TableCell>
+                    {agency.is_active ? (
+                      <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full">Active</span>
                     ) : (
-                        // SUCCESS STATE PANEL
-                        <div className="absolute inset-0 bg-white rounded-lg z-10 flex flex-col animate-in fade-in zoom-in-95 duration-300">
-                             <div className="bg-green-50 rounded-t-lg p-6 flex flex-col items-center justify-center text-center border-b border-green-100">
-                                <div className="h-16 w-16 bg-green-100 rounded-full flex items-center justify-center mb-4 border-4 border-white shadow-sm">
-                                    <Check className="h-8 w-8 text-green-600" />
-                                </div>
-                                <h3 className="text-xl font-bold text-green-800">Agency Created!</h3>
-                                <p className="text-green-600 text-sm mt-1">
-                                    The agency has been successfully registered.
-                                </p>
-                             </div>
-                             
-                             <div className="p-6 space-y-5 flex-1 overflow-y-auto">
-                                <div className="space-y-1">
-                                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Agency Name</p>
-                                    <p className="text-lg font-semibold text-gray-900">{createdAgency.name}</p>
-                                </div>
-
-                                <div className="space-y-1">
-                                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Owner</p>
-                                    <div className="flex items-center gap-2">
-                                        <p className="text-base font-medium text-gray-900">{createdAgency.owner_name}</p>
-                                        <span className="text-sm text-gray-400">({createdAgency.owner_profile_id})</span>
-                                    </div>
-                                </div>
-
-                                <div className="bg-slate-50 rounded-lg border border-slate-200 p-4">
-                                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Agency Code</p>
-                                    <div className="flex items-center gap-2">
-                                        <code className="flex-1 bg-white px-3 py-2 rounded border border-slate-200 font-mono text-lg font-bold text-slate-800 tracking-wide text-center">
-                                            {createdAgency.agency_code}
-                                        </code>
-                                        <Button 
-                                            variant="outline" 
-                                            size="icon" 
-                                            className="h-11 w-11 shrink-0 bg-white hover:bg-slate-50"
-                                            onClick={handleCopyCode}
-                                            title="Copy Code"
-                                        >
-                                            <Copy className="h-5 w-5 text-slate-500" />
-                                        </Button>
-                                    </div>
-                                    <p className="text-[11px] text-slate-400 mt-2 text-center">
-                                        Share this code with users to let them join this agency.
-                                    </p>
-                                </div>
-                             </div>
-
-                             <div className="p-6 pt-2 mt-auto border-t border-slate-100">
-                                <Button 
-                                    className="w-full" 
-                                    variant="outline"
-                                    onClick={handleResetForm}
-                                >
-                                    <ArrowLeft className="mr-2 h-4 w-4" /> Create Another
-                                </Button>
-                             </div>
-                        </div>
+                      <span className="text-xs font-bold text-red-600 bg-red-50 px-2 py-1 rounded-full">Banned</span>
                     )}
-                </Card>
+                  </TableCell>
+                  <TableCell className="text-xs text-slate-500">
+                    {agency.created_at ? new Date(agency.created_at).toLocaleDateString() : '—'}
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleOpenManage(agency)}
+                    >
+                      Manage
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
 
-                {/* Agencies List Panel - Takes 2 columns on large screens */}
-                <div className="xl:col-span-2 space-y-6">
-                    <Card className="h-full border-slate-200 shadow-sm flex flex-col">
-                        <CardHeader className="border-b border-slate-100 py-4 flex flex-row items-center justify-between">
-                            <div>
-                                <CardTitle className="text-lg text-slate-900">Registered Agencies</CardTitle>
-                                <CardDescription>List of all agencies currently in the system.</CardDescription>
-                            </div>
-                            <Button variant="ghost" size="sm" onClick={fetchAgencies} disabled={isLoadingAgencies} className="h-8">
-                                <RefreshCw className={cn("h-4 w-4 mr-2", isLoadingAgencies && "animate-spin")} />
-                                Refresh
-                            </Button>
-                        </CardHeader>
-                        
-                        <div className="flex-1 overflow-auto min-h-[400px]">
-                            {isLoadingAgencies ? (
-                                <div className="flex flex-col items-center justify-center h-64 text-slate-400">
-                                    <Loader2 className="h-8 w-8 animate-spin mb-2" />
-                                    <p className="text-sm">Loading agencies...</p>
-                                </div>
-                            ) : agenciesError ? (
-                                <div className="flex flex-col items-center justify-center h-64 text-red-500">
-                                    <AlertCircle className="h-8 w-8 mb-2" />
-                                    <p className="text-sm font-medium">Failed to load agencies</p>
-                                    <p className="text-xs text-red-400 mt-1">{agenciesError}</p>
-                                    <Button variant="outline" size="sm" onClick={fetchAgencies} className="mt-4">Try Again</Button>
-                                </div>
-                            ) : agencies.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center h-64 text-slate-400">
-                                    <Building className="h-10 w-10 mb-3 text-slate-200" />
-                                    <p className="text-sm font-medium text-slate-600">No agencies found</p>
-                                    <p className="text-xs">Create your first agency using the form.</p>
-                                </div>
-                            ) : (
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow className="bg-slate-50/50 hover:bg-slate-50/50">
-                                            <TableHead className="w-[250px]">Agency Name</TableHead>
-                                            <TableHead className="w-[120px]">Code</TableHead>
-                                            <TableHead className="w-[200px]">Owner</TableHead>
-                                            <TableHead className="w-[100px]">Status</TableHead>
-                                            <TableHead className="text-right">Created</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {agencies.map((agency) => (
-                                            <TableRow key={agency.id} className="hover:bg-slate-50">
-                                                <TableCell className="font-medium text-slate-900">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="h-8 w-8 rounded bg-rose-100 flex items-center justify-center text-rose-700 font-bold text-xs shrink-0">
-                                                            {agency.name.substring(0, 2).toUpperCase()}
-                                                        </div>
-                                                        {agency.name}
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="flex items-center gap-1.5">
-                                                        <code className="bg-slate-100 px-1.5 py-0.5 rounded text-xs font-mono font-medium text-slate-700 border border-slate-200">
-                                                            {agency.agency_code}
-                                                        </code>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="h-5 w-5 text-slate-400 hover:text-slate-600"
-                                                            onClick={() => {
-                                                                navigator.clipboard.writeText(agency.agency_code);
-                                                                toast({ title: "Copied!", description: "Code copied to clipboard", duration: 2000 });
-                                                            }}
-                                                        >
-                                                            <Copy className="h-3 w-3" />
-                                                        </Button>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    {agency.owner ? (
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="h-6 w-6 rounded-full bg-slate-100 overflow-hidden flex-shrink-0">
-                                                                {agency.owner.avatar_url ? (
-                                                                    <img src={agency.owner.avatar_url} alt={agency.owner.name} className="h-full w-full object-cover" />
-                                                                ) : (
-                                                                    <User className="h-3 w-3 m-1.5 text-slate-400" />
-                                                                )}
-                                                            </div>
-                                                            <div className="flex flex-col">
-                                                                <span className="text-sm font-medium text-slate-700 truncate max-w-[120px]">{agency.owner.name}</span>
-                                                                <span className="text-[10px] text-slate-500">ID: {agency.owner.profile_id}</span>
-                                                            </div>
-                                                        </div>
-                                                    ) : (
-                                                        <span className="text-xs text-red-400 italic">Owner not found</span>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Badge 
-                                                        variant={agency.is_active ? "success" : "secondary"}
-                                                        className={cn(
-                                                            "font-normal",
-                                                            agency.is_active ? "bg-green-100 text-green-700 hover:bg-green-100 border-green-200" : "bg-slate-100 text-slate-500"
-                                                        )}
-                                                    >
-                                                        {agency.is_active ? "Active" : "Inactive"}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell className="text-right text-xs text-slate-500">
-                                                    {format(new Date(agency.created_at), 'MMM d, yyyy')}
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            )}
-                        </div>
-                    </Card>
-                </div>
-            </div>
+      <div className="flex items-center justify-between mt-4 px-2">
+        <span className="text-sm text-slate-500">
+          Showing {Math.min(page * PAGE_SIZE + 1, totalCount)}-{Math.min((page + 1) * PAGE_SIZE, totalCount)} of {totalCount} agencies
+        </span>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page === 0 || loading}
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+          >
+            Prev
+          </Button>
+          <span className="text-sm font-medium">Page {page + 1} of {totalPages}</span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={(page + 1) * PAGE_SIZE >= totalCount || loading}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            Next
+          </Button>
         </div>
-    );
-};
+      </div>
 
-export default AdminAgencies;
+      <Dialog open={!!managingAgency} onOpenChange={(open) => !open && setManagingAgency(null)}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Manage Agency</DialogTitle>
+          </DialogHeader>
+
+          {managingAgency && (
+            <div className="space-y-6 py-1">
+              <div className="rounded-md bg-slate-50 p-3 text-sm text-slate-700">
+                <span className="font-semibold">Agency:</span> {managingAgency.name}
+              </div>
+
+              <div className="space-y-3 border rounded-lg p-4">
+                <h3 className="font-semibold">1. Change Name</h3>
+                <div className="flex gap-2">
+                  <Input
+                    value={newAgencyName}
+                    onChange={(e) => setNewAgencyName(e.target.value)}
+                    placeholder="Agency name"
+                    disabled={updating}
+                  />
+                  <Button onClick={handleSaveName} disabled={updating || !newAgencyName.trim()}>
+                    {updating ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-3 border rounded-lg p-4">
+                <h3 className="font-semibold">2. Change Owner</h3>
+                <div className="text-sm text-slate-500">
+                  Current owner: {managingAgency.owner?.name || 'Unknown'} (#{managingAgency.owner?.profile_id || '—'})
+                </div>
+                <div className="flex gap-2">
+                  <Input
+                    value={newOwnerProfileId}
+                    onChange={(e) => setNewOwnerProfileId(e.target.value)}
+                    placeholder="Enter new owner profile_id"
+                    disabled={updating}
+                  />
+                  <Button onClick={handleChangeOwner} disabled={updating || !newOwnerProfileId.trim() || !isManager}>
+                    Change Owner
+                  </Button>
+                </div>
+                {!isManager && (
+                  <p className="text-xs text-amber-600">Only manager can change agency owner.</p>
+                )}
+              </div>
+
+              <div className="space-y-3 border rounded-lg p-4">
+                <h3 className="font-semibold">3. Ban / Unban Agency</h3>
+                {managingAgency.is_active ? (
+                  <>
+                    <Label>Ban Reason</Label>
+                    <Textarea
+                      value={banReason}
+                      onChange={(e) => setBanReason(e.target.value)}
+                      placeholder="Why are you banning this agency?"
+                      disabled={updating}
+                      maxLength={500}
+                    />
+                    <Button
+                      variant="outline"
+                      className="text-red-600 border-red-200 hover:bg-red-50"
+                      onClick={handleBanAgency}
+                      disabled={updating || !banReason.trim() || !isManager}
+                    >
+                      Ban Agency
+                    </Button>
+                    {!isManager && (
+                      <p className="text-xs text-amber-600">Only manager can ban agencies.</p>
+                    )}
+                  </>
+                ) : (
+                  <Button onClick={handleUnbanAgency} disabled={updating || !isManager}>
+                    Unban Agency
+                  </Button>
+                )}
+              </div>
+
+              <div className="space-y-3 border rounded-lg p-4">
+                <h3 className="font-semibold">4. Members</h3>
+
+                {loadingMembers ? (
+                  <div className="py-6 text-center">
+                    <Loader2 className="mx-auto animate-spin" />
+                  </div>
+                ) : members.length === 0 ? (
+                  <p className="text-sm text-slate-500">No active members found.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {members.map((m) => (
+                      <div key={m.user_id} className="flex items-center gap-3 border rounded-lg p-3">
+                        <img
+                          src={m.profile?.avatar_url || DEFAULT_AVATAR}
+                          alt={m.profile?.name || 'member'}
+                          onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = DEFAULT_AVATAR;
+                          }}
+                          className="w-10 h-10 rounded-full object-cover bg-slate-100"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm truncate">{m.profile?.name || 'Unknown'}</p>
+                          <p className="text-xs text-slate-500">#{m.profile?.profile_id || '—'}</p>
+                          <p className="text-xs text-slate-500">
+                            Joined: {m.joined_at ? new Date(m.joined_at).toLocaleDateString() : '—'}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            Withdrawal: {m.profile?.withdrawal_method || '—'}
+                          </p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-red-600 border-red-200 hover:bg-red-50"
+                          onClick={() => handleRemoveMember(m.user_id)}
+                          disabled={updating || m.role === 'owner'}
+                          title={m.role === 'owner' ? 'Owner cannot be removed' : 'Remove from agency'}
+                        >
+                          Remove from agency
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setManagingAgency(null)} disabled={updating}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

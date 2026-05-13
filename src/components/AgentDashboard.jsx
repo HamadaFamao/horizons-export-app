@@ -1,215 +1,273 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { supabase } from "@/lib/supabaseClient";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Loader2, Users, MessageCircle, RefreshCw, UserPlus, Trash2 } from "lucide-react";
+import React, { useEffect, useMemo, useState } from 'react';
+import { supabase } from '@/lib/supabaseClient';
+import { Button } from '@/components/ui/button';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/components/ui/use-toast';
+import { Loader2, RefreshCw, Users, Wallet, Copy, Share2 } from 'lucide-react';
+import WithdrawalRequestModal from '@/components/modals/WithdrawalRequestModal';
+
+const DEFAULT_AVATAR =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64">
+      <rect width="64" height="64" rx="14" fill="#e5e7eb"/>
+      <text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="24">👤</text>
+    </svg>
+  `);
+
+const toNumber = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const formatGems = (v) => toNumber(v).toLocaleString();
+const formatUsd = (v) => toNumber(v).toFixed(2);
 
 export default function AgentDashboard({ profile: profileProp = null, embedded = true }) {
-  const navigate = useNavigate();
+  const { toast } = useToast();
 
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [profile, setProfile] = useState(profileProp);
+  const [error, setError] = useState('');
 
   const [agencyId, setAgencyId] = useState(null);
-  const [agencyName, setAgencyName] = useState(null);
+  const [agencyName, setAgencyName] = useState('');
 
-  const [admins, setAdmins] = useState([]);
-  const [adminsLoading, setAdminsLoading] = useState(false);
+  const [members, setMembers] = useState([]);
+  const [lastCycle, setLastCycle] = useState(null);
+  const [snapshotRows, setSnapshotRows] = useState([]);
 
-  const [addProfileId, setAddProfileId] = useState("");
-  const [addRole, setAddRole] = useState("mod");
-  const [adding, setAdding] = useState(false);
-
-  const [error, setError] = useState("");
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
 
   const isAgent = useMemo(() => {
     return (
       profile?.is_agent === true ||
       profile?.agent === true ||
-      profile?.role === "agent" ||
-      profile?.account_type === "agent" ||
+      profile?.role === 'agent' ||
+      profile?.account_type === 'agent' ||
       false
     );
   }, [profile]);
 
+  const lockedGems = toNumber(lastCycle?.locked_gems);
+  const lockedUsd = toNumber(lastCycle?.locked_usd);
+
+  const fetchProfile = async () => {
+    if (profileProp) {
+      setProfile(profileProp);
+      return profileProp;
+    }
+
+    const { data: auth } = await supabase.auth.getUser();
+    const user = auth?.user;
+    if (!user?.id) {
+      throw new Error('Not authenticated');
+    }
+
+    const { data, error: pErr } = await supabase
+      .from('profiles')
+      .select('id, profile_id, name, is_agent, agency_id, agency_name, family_id, family_name')
+      .eq('id', user.id)
+      .single();
+
+    if (pErr) throw pErr;
+    setProfile(data);
+    return data;
+  };
+
+  const fetchDashboard = async ({ initial = false, profileOverride = null } = {}) => {
+    if (initial) {
+      setLoading(true);
+    } else {
+      setRefreshing(true);
+    }
+    setError('');
+
+    try {
+      const { data: auth } = await supabase.auth.getUser();
+      const user = auth?.user;
+      if (!user?.id) throw new Error('Not authenticated');
+
+      const { data: ua } = await supabase
+        .from('v_user_agency')
+        .select('agency_id, agency_name')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      const profileRef = profileOverride || profile;
+      const activeAgencyId = ua?.agency_id ?? profileRef?.agency_id ?? profileRef?.family_id ?? null;
+      const activeAgencyName = ua?.agency_name ?? profileRef?.agency_name ?? profileRef?.family_name ?? '';
+
+      setAgencyId(activeAgencyId);
+      setAgencyName(activeAgencyName || 'Unknown Agency');
+
+      if (!activeAgencyId) {
+        setMembers([]);
+      } else {
+        const { data: memberships, error: mErr } = await supabase
+          .from('agency_memberships')
+          .select('user_id, joined_at')
+          .eq('agency_id', activeAgencyId)
+          .is('left_at', null)
+          .order('joined_at', { ascending: false });
+
+        if (mErr) throw mErr;
+
+        const memberIds = (memberships || []).map((m) => m.user_id).filter(Boolean);
+        let profilesMap = {};
+
+        if (memberIds.length > 0) {
+          const { data: memberProfiles, error: profErr } = await supabase
+            .from('profiles')
+            .select('id, name, avatar_url, profile_id, withdrawal_method')
+            .in('id', memberIds);
+
+          if (profErr) throw profErr;
+          (memberProfiles || []).forEach((p) => {
+            profilesMap[p.id] = p;
+          });
+        }
+
+        setMembers(
+          (memberships || []).map((m) => ({
+            ...m,
+            profile: profilesMap[m.user_id] || null,
+          }))
+        );
+      }
+
+      const { data: cycleData, error: cycleErr } = await supabase
+        .from('agency_withdrawal_cycles')
+        .select('id, cycle_month, locked_gems, locked_usd')
+        .eq('agency_user_id', user.id)
+        .order('cycle_month', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (cycleErr) throw cycleErr;
+      setLastCycle(cycleData || null);
+
+      const { data: snapshotData, error: snapErr } = await supabase
+        .from('agency_earnings_snapshots')
+        .select('snapshot_json, cycle_month')
+        .eq('agency_user_id', user.id)
+        .order('cycle_month', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (snapErr) throw snapErr;
+
+      const byUserRaw = snapshotData?.snapshot_json?.by_user;
+      const rawRows = Array.isArray(byUserRaw)
+        ? byUserRaw
+        : byUserRaw && typeof byUserRaw === 'object'
+          ? Object.values(byUserRaw)
+          : [];
+
+      let parsed = rawRows.map((row) => ({
+        user_id: row.user_id || null,
+        name: row.name || row.member_name || null,
+        gems: toNumber(row.gems ?? row.locked_gems ?? row.total_gems),
+        usd: toNumber(row.usd ?? row.locked_usd ?? row.total_usd),
+      }));
+
+      const missingNameIds = [...new Set(parsed.filter((r) => !r.name && r.user_id).map((r) => r.user_id))];
+      if (missingNameIds.length > 0) {
+        const { data: names } = await supabase
+          .from('profiles')
+          .select('id, name')
+          .in('id', missingNameIds);
+        const namesMap = {};
+        (names || []).forEach((p) => {
+          namesMap[p.id] = p.name;
+        });
+        parsed = parsed.map((r) => ({
+          ...r,
+          name: r.name || namesMap[r.user_id] || 'Unknown',
+        }));
+      }
+
+      setSnapshotRows(parsed);
+    } catch (e) {
+      setError(e?.message || 'Failed to load agent dashboard');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
   useEffect(() => {
     let mounted = true;
-
     const run = async () => {
       try {
-        if (profileProp) {
-          setProfile(profileProp);
-          setLoading(false);
-          return;
-        }
-
-        setLoading(true);
-        setError("");
-
-        const { data: auth } = await supabase.auth.getUser();
-        const user = auth?.user;
-        if (!user?.id) {
-          setError("Not authenticated");
-          return;
-        }
-
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("id, profile_id, name, avatar_url, is_agent, agency_id, agency_name, family_id, family_name")
-          .eq("id", user.id)
-          .single();
-
-        if (error) throw error;
+        const loadedProfile = await fetchProfile();
         if (!mounted) return;
-        setProfile(data);
+        await fetchDashboard({ initial: true, profileOverride: loadedProfile || profileProp || null });
       } catch (e) {
-        if (mounted) setError(e?.message || "Failed to load profile");
-      } finally {
-        if (mounted) setLoading(false);
+        if (mounted) {
+          setLoading(false);
+          setError(e?.message || 'Failed to initialize dashboard');
+        }
       }
     };
-
     run();
     return () => {
       mounted = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileProp]);
 
-  useEffect(() => {
-    let mounted = true;
+  const reportText = useMemo(() => {
+    return (snapshotRows || [])
+      .map((r) => `Member: ${r.name || 'Unknown'} | Gems: ${formatGems(r.gems)} | USD: $${formatUsd(r.usd)}`)
+      .join('\n');
+  }, [snapshotRows]);
 
-    const run = async () => {
-      try {
-        setError("");
-
-        const { data: auth } = await supabase.auth.getUser();
-        const user = auth?.user;
-        if (!user?.id) return;
-
-        const { data: ua, error: uaErr } = await supabase
-          .from("v_user_agency")
-          .select("agency_id, agency_name")
-          .eq("user_id", user.id)
-          .maybeSingle();
-
-        if (uaErr) {
-          console.warn("[AgentDashboard] v_user_agency error:", uaErr.message);
-        }
-
-        const aId = ua?.agency_id ?? profile?.agency_id ?? profile?.family_id ?? null;
-        const aName = ua?.agency_name ?? profile?.agency_name ?? profile?.family_name ?? null;
-
-        if (!mounted) return;
-        setAgencyId(aId);
-        setAgencyName(aName);
-      } catch (e) {
-        if (mounted) setError(e?.message || "Failed to load agency");
-      }
-    };
-
-    if (!profile) return;
-    run();
-
-    return () => {
-      mounted = false;
-    };
-  }, [profile]);
-
-  const refreshAdmins = async () => {
-    if (!agencyId) return;
-    setAdminsLoading(true);
-    setError("");
-
+  const handleCopyReport = async () => {
     try {
-      const { data, error } = await supabase.rpc("list_agency_chat_admins", {
-        p_agency_id: agencyId,
-      });
-
-      if (error) throw error;
-
-      setAdmins(Array.isArray(data) ? data : []);
+      if (!reportText) {
+        toast({ title: 'No data', description: 'No earnings rows to copy.' });
+        return;
+      }
+      await navigator.clipboard.writeText(reportText);
+      toast({ title: '✅ Copied', description: 'Earnings report copied as text.' });
     } catch (e) {
-      setError(e?.message || "Failed to load moderators");
-      setAdmins([]);
-    } finally {
-      setAdminsLoading(false);
+      toast({ title: 'Error', description: e?.message || 'Copy failed.', variant: 'destructive' });
     }
   };
 
-  useEffect(() => {
-    if (!agencyId) return;
-    refreshAdmins();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agencyId]);
-
-  const onAdd = async () => {
+  const handleShareReport = async () => {
     try {
-      const pid = parseInt(String(addProfileId || "").trim(), 10);
-      if (!pid || Number.isNaN(pid)) {
-        setError("Enter a valid Profile ID (numbers only).");
-        return;
-      }
-      if (!agencyId) {
-        setError("Missing agency_id");
+      if (!reportText) {
+        toast({ title: 'No data', description: 'No earnings rows to share.' });
         return;
       }
 
-      setAdding(true);
-      setError("");
-
-      const { data, error } = await supabase.rpc("set_agency_chat_admin", {
-        p_agency_id: agencyId,
-        p_target_profile_id: pid,
-        p_role: addRole,
-      });
-
-      if (error) throw error;
-
-      if (data?.success !== true) {
-        throw new Error(data?.error || "Failed to add moderator");
+      if (navigator.share) {
+        await navigator.share({
+          title: `Earnings Report - ${agencyName || 'Agency'}`,
+          text: reportText,
+        });
+      } else {
+        toast({ title: 'Not supported', description: 'Share is not supported on this device.' });
       }
-
-      setAddProfileId("");
-      await refreshAdmins();
     } catch (e) {
-      setError(e?.message || "Failed to add moderator");
-    } finally {
-      setAdding(false);
-    }
-  };
-
-  const onRevoke = async (targetUserId) => {
-    try {
-      if (!agencyId) return;
-      if (!targetUserId) return;
-
-      const ok = window.confirm("Remove this moderator?");
-      if (!ok) return;
-
-      setError("");
-      const { data, error } = await supabase.rpc("revoke_agency_chat_admin", {
-        p_agency_id: agencyId,
-        p_target_user_id: targetUserId,
-      });
-
-      if (error) throw error;
-      if (data?.success !== true) {
-        throw new Error(data?.error || "Failed to remove moderator");
+      if (e?.name !== 'AbortError') {
+        toast({ title: 'Error', description: e?.message || 'Share failed.', variant: 'destructive' });
       }
-
-      await refreshAdmins();
-    } catch (e) {
-      setError(e?.message || "Failed to remove moderator");
     }
   };
 
   if (loading) {
     return (
-      <div className={embedded ? "" : "bg-white rounded-2xl shadow-lg p-6"}>
+      <div className={embedded ? '' : 'bg-white rounded-2xl shadow-lg p-6'}>
         <div className="flex items-center gap-2 text-gray-600">
           <Loader2 className="h-4 w-4 animate-spin" />
-          Loading agency dashboard...
+          Loading agent dashboard...
         </div>
       </div>
     );
@@ -218,134 +276,182 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
   if (!isAgent) return null;
 
   return (
-    <div className={embedded ? "" : "bg-white rounded-2xl shadow-lg p-6"}>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Agency Dashboard</h2>
-          <p className="text-sm text-gray-600 mt-1">
-            Agency: <span className="font-semibold">{agencyName || "—"}</span>
-          </p>
-        </div>
-
-        <Button
-          variant="outline"
-          onClick={() => navigate("/agency/chat")}
-          className="flex items-center gap-2"
-        >
-          <MessageCircle className="w-4 h-4" />
-          Open Agency Chat
-        </Button>
-      </div>
-
-      {error ? <div className="mt-3 text-sm text-red-600 whitespace-pre-line">{error}</div> : null}
-
-      <div className="mt-5 border rounded-xl bg-white overflow-hidden">
-        <div className="p-4 border-b bg-gray-50 flex items-center justify-between">
-          <div className="flex items-center gap-2 font-semibold text-gray-900">
-            <Users className="w-4 h-4" />
-            Chat Moderators
+    <div className={embedded ? 'space-y-5' : 'bg-white rounded-2xl shadow-lg p-6 space-y-5'}>
+      <div className="rounded-2xl border bg-gradient-to-r from-indigo-50 via-sky-50 to-emerald-50 p-4 md:p-5">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-2xl font-bold text-slate-900">{agencyName || 'Unknown Agency'}</h2>
+              <Badge className="bg-indigo-600 text-white hover:bg-indigo-600">Agent</Badge>
+              <Badge variant="secondary" className="bg-white text-slate-700 border">
+                {members.length} Members
+              </Badge>
+            </div>
+            <p className="text-sm text-slate-600 mt-1">Manage earnings, withdrawals, and your members from one place.</p>
           </div>
 
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={refreshAdmins}
-            disabled={adminsLoading}
-            className="flex items-center gap-2"
-          >
-            {adminsLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+          <Button variant="outline" onClick={() => fetchDashboard()} disabled={refreshing}>
+            {refreshing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
             Refresh
           </Button>
         </div>
+      </div>
 
-        <div className="p-4">
-          {!agencyId ? (
-            <div className="text-sm text-gray-600">No agency found for this agent.</div>
-          ) : (
-            <>
-              <div className="flex flex-col md:flex-row gap-2 items-stretch md:items-center">
-                <Input
-                  value={addProfileId}
-                  onChange={(e) => setAddProfileId(e.target.value)}
-                  placeholder="Target Profile ID (e.g. 200150)"
-                  className="md:max-w-xs"
-                />
+      {error ? <div className="text-sm text-red-600 whitespace-pre-line">{error}</div> : null}
 
-                <select
-                  value={addRole}
-                  onChange={(e) => setAddRole(e.target.value)}
-                  className="border rounded-md px-3 py-2 text-sm bg-white"
-                >
-                  <option value="mod">mod</option>
-                  <option value="admin">admin</option>
-                </select>
+      <div className="rounded-2xl border bg-white p-4 md:p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <Wallet className="w-4 h-4 text-indigo-600" />
+          <h3 className="font-semibold text-slate-900">Earnings Summary</h3>
+        </div>
 
-                <Button onClick={onAdd} disabled={adding} className="flex items-center gap-2">
-                  {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
-                  Add
-                </Button>
-              </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="rounded-xl border bg-slate-50 p-4">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Locked Gems (Last Cycle)</p>
+            <p className="text-2xl font-bold text-slate-900 mt-1">{formatGems(lockedGems)}</p>
+          </div>
 
-              <div className="mt-4">
-                {adminsLoading ? (
-                  <div className="text-sm text-gray-600 flex items-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin" /> Loading moderators...
-                  </div>
-                ) : admins.length === 0 ? (
-                  <div className="text-sm text-gray-500">No moderators yet.</div>
-                ) : (
-                  <div className="space-y-2">
-                    {admins.map((a) => (
-                      <div key={a.id} className="flex items-center justify-between gap-3 border rounded-xl p-3">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <img
-                            src={a.avatar_url || "/placeholder-avatar.png"}
-                            alt={a.name || "User"}
-                            className="w-10 h-10 rounded-full object-cover bg-gray-100 border"
-                          />
-                          <div className="min-w-0">
-                            <div className="font-semibold text-gray-900 truncate">
-                              {a.name || "—"}
-                              <span className="ml-2 text-xs font-medium text-gray-500">({a.role})</span>
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              Profile ID: <span className="font-mono">{a.profile_id}</span>
-                            </div>
-                          </div>
-                        </div>
+          <div className="rounded-xl border bg-slate-50 p-4">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Locked USD (Last Cycle)</p>
+            <p className="text-2xl font-bold text-slate-900 mt-1">${formatUsd(lockedUsd)}</p>
+          </div>
 
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`text-xs px-2 py-1 rounded-full border ${
-                              a.is_active
-                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                : "bg-gray-50 text-gray-600 border-gray-200"
-                            }`}
-                          >
-                            {a.is_active ? "Active" : "Revoked"}
-                          </span>
-
-                          {a.is_active ? (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => onRevoke(a.user_id)}
-                              className="flex items-center gap-2"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                              Remove
-                            </Button>
-                          ) : null}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </>
-          )}
+          <div className="rounded-xl border bg-indigo-600 text-white p-4 flex flex-col justify-between">
+            <p className="text-xs uppercase tracking-wide text-indigo-100">Withdrawal</p>
+            <Button
+              variant="secondary"
+              className="mt-3 w-full bg-white text-indigo-700 hover:bg-indigo-50"
+              onClick={() => setWithdrawOpen(true)}
+            >
+              Withdraw
+            </Button>
+          </div>
         </div>
       </div>
+
+      <div className="rounded-2xl border bg-white p-4 md:p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-slate-700" />
+            <h3 className="font-semibold text-slate-900">My Members</h3>
+          </div>
+
+          <Button variant="outline" onClick={() => setReportOpen(true)}>
+            View Full Earnings Report
+          </Button>
+        </div>
+
+        <div className="border rounded-xl overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Member</TableHead>
+                <TableHead>Withdrawal Method</TableHead>
+                <TableHead>Joined</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {members.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center text-slate-500 p-6">
+                    No members found.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                members.map((m) => (
+                  <TableRow key={m.user_id}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={m.profile?.avatar_url || DEFAULT_AVATAR}
+                          alt={m.profile?.name || 'Member'}
+                          className="w-9 h-9 rounded-full object-cover bg-slate-100"
+                          onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = DEFAULT_AVATAR;
+                          }}
+                        />
+                        <div>
+                          <p className="font-medium text-slate-900">{m.profile?.name || 'Unknown'}</p>
+                          <p className="text-xs text-slate-500">#{m.profile?.profile_id || '—'}</p>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {m.profile?.withdrawal_method === 'agent' ? (
+                        <Badge className="bg-emerald-600 text-white hover:bg-emerald-600">Via Agent</Badge>
+                      ) : (
+                        <Badge variant="secondary" className="bg-slate-200 text-slate-700 hover:bg-slate-200">
+                          Self
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm text-slate-600">
+                      {m.joined_at ? new Date(m.joined_at).toLocaleDateString() : '—'}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+
+      <Dialog open={reportOpen} onOpenChange={setReportOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Full Earnings Report</DialogTitle>
+          </DialogHeader>
+
+          <div className="border rounded-xl overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Member</TableHead>
+                  <TableHead>Gems</TableHead>
+                  <TableHead>USD</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {snapshotRows.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-center p-5 text-slate-500">
+                      No snapshot data found.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  snapshotRows.map((row, idx) => (
+                    <TableRow key={`${row.user_id || 'row'}-${idx}`}>
+                      <TableCell>{row.name || 'Unknown'}</TableCell>
+                      <TableCell>{formatGems(row.gems)}</TableCell>
+                      <TableCell>${formatUsd(row.usd)}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          <DialogFooter className="flex flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={handleCopyReport} className="flex items-center gap-2">
+              <Copy className="w-4 h-4" />
+              Copy
+            </Button>
+            <Button variant="outline" onClick={handleShareReport} className="flex items-center gap-2">
+              <Share2 className="w-4 h-4" />
+              Share
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <WithdrawalRequestModal
+        isOpen={withdrawOpen}
+        onClose={() => setWithdrawOpen(false)}
+        availableGems={lockedGems}
+        onSuccess={() => fetchDashboard()}
+        isCycleWithdrawal={true}
+      />
     </div>
   );
 }

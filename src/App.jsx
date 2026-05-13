@@ -340,7 +340,7 @@ function AppContent() {
           <Route path="dashboard" element={<AdminOverview />} />
           <Route path="users" element={<AdminUsers />} />
           <Route path="rooms" element={<AdminRooms />} />
-          <Route path="agencies" element={<AdminAgencies />} />
+          <Route path="/admin/agencies" element={<AdminAgencies />} />
           <Route path="reports" element={<AdminReports />} />
           <Route path="seed" element={<AdminSeed />} />
           <Route path="tools/profile-id" element={<ProfileIdTool />} />
