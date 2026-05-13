@@ -50,28 +50,40 @@ export default function ReportModal({
   };
 
   const handleSubmit = async () => {
+    const selectedReason = reason;
+
     if (!currentUser?.id) {
       toast({ title: 'Error', description: 'You must be logged in to report.', variant: 'destructive' });
       return;
     }
 
-    if (!reason) {
+    if (!selectedReason) {
       toast({ title: 'Error', description: 'Please select a reason.', variant: 'destructive' });
       return;
     }
 
     setSubmitting(true);
     try {
-      const payload = {
+      const insertData = {
         reporter_id: currentUser.id,
         report_type: reportType,
-        target_id: String(targetId),
-        target_name: targetName || null,
-        reason,
-        description: description.trim() ? description.trim() : null,
+        reason: selectedReason,
+        description: description.trim() || null,
+        status: 'pending',
       };
 
-      const { error } = await supabase.from('reports').insert(payload);
+      if (reportType === 'user') {
+        insertData.reported_user_id = targetId;
+      } else if (reportType === 'room') {
+        insertData.reported_room_id = targetId;
+      } else if (reportType === 'message') {
+        insertData.reported_user_id = targetId;
+        insertData.reported_message_id = targetId;
+      }
+
+      const { error } = await supabase
+        .from('reports')
+        .insert(insertData);
       if (error) throw error;
 
       toast({ title: 'تم الإبلاغ بنجاح' });
