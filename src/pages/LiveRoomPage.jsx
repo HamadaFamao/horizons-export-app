@@ -7895,24 +7895,21 @@ useEffect(() => {
       });
 
       ch.on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "live_rooms", filter: `id=eq.${roomId}` },
-        (payload) => {
-          if (payload?.new?.title !== undefined) {
-            setRoom(prev => prev ? {
-              ...prev,
-              title: payload.new.title,
-              background_url: payload.new.background_url ?? prev.background_url,
-            } : prev);
-          }
-          if (payload?.new?.background_url !== undefined) {
-            setRoom(prev => prev ? {
-              ...prev,
-              background_url: payload.new.background_url ?? prev.background_url,
-            } : prev);
-          }
-        }
-      );
+  "postgres_changes",
+  { event: "UPDATE", schema: "public", table: "live_rooms", filter: `id=eq.${roomId}` },
+  (payload) => {
+    if (!payload?.new) return;
+    const updated = payload.new;
+
+    // حدّث كل التغييرات دفعة واحدة
+    setRoom(prev => prev ? { ...prev, ...updated } : prev);
+
+    // لو الغرفة اتحظرت - اطرد الكل
+    if (updated.is_active === false) {
+      setTimeout(() => navigate('/rooms', { replace: true }), 2000);
+    }
+  }
+);
 
       channelRef.current = ch;
 
