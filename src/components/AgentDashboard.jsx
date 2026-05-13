@@ -124,18 +124,17 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
             )
           `)
           .eq('agency_id', activeAgencyId)
-          .neq('user_id', user.id)
           .is('left_at', null)
           .order('joined_at', { ascending: false });
 
         if (mErr) throw mErr;
 
-        setMembers(
-          (membersData || []).map((m) => ({
-            ...m,
-            profile: Array.isArray(m.profiles) ? m.profiles[0] || null : m.profiles || null,
-          }))
-        );
+        const allMembers = (membersData || []).map((m) => ({
+          ...m,
+          profile: Array.isArray(m.profiles) ? m.profiles[0] || null : m.profiles || null,
+        }));
+
+        setMembers(allMembers);
       }
 
       const { data: activeCycle, error: cycleErr } = await supabase
