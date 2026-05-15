@@ -59,6 +59,12 @@ export default function AgencyMembersSection({
   const [methodNote, setMethodNote] = useState('');
   const [savingMethod, setSavingMethod] = useState(false);
 
+  const [joinRequests, setJoinRequests] = useState([]);
+  const [joinRequestsLoading, setJoinRequestsLoading] = useState(false);
+  const [inviteProfileId, setInviteProfileId] = useState('');
+  const [inviting, setInviting] = useState(false);
+  const [decidingId, setDecidingId] = useState(null);
+
   // --------
   // Helpers
   // --------
@@ -331,6 +337,69 @@ export default function AgencyMembersSection({
     }
   };
 
+  const fetchJoinRequests = async () => {
+    if (!isOwner || !agencyId) return;
+    setJoinRequestsLoading(true);
+    try {
+      const { data, error } = await supabase.rpc(
+        'list_agency_join_requests_for_dashboard'
+      );
+      if (error) throw error;
+      setJoinRequests(
+        (data || []).filter((r) =>
+          r.agency_id === agencyId &&
+          r.status === 'pending'
+        )
+      );
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setJoinRequestsLoading(false);
+    }
+  };
+
+  const handleDecideRequest = async (requestId, approve) => {
+    try {
+      setDecidingId(requestId);
+      const { error } = await supabase.rpc('decide_agency_join_request', {
+        p_request_id: requestId,
+        p_approve: approve,
+      });
+      if (error) throw error;
+      await fetchJoinRequests();
+      await fetchMembers();
+    } catch (e) {
+      setErr(e?.message || 'Failed');
+    } finally {
+      setDecidingId(null);
+    }
+  };
+
+  const handleInvite = async () => {
+    if (!inviteProfileId.trim()) return;
+    try {
+      setInviting(true);
+      const { error } = await supabase.rpc(
+        'send_agency_invite_by_profile_id', {
+          p_profile_id: Number(inviteProfileId.trim()),
+        }
+      );
+      if (error) throw error;
+      setInviteProfileId('');
+      setErr('');
+      alert('✅ Invite sent!');
+    } catch (e) {
+      setErr(e?.message || 'Failed to send invite');
+    } finally {
+      setInviting(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOwner) fetchJoinRequests();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOwner, agencyId]);
+
   if (!agencyId) return null;
 
   return (
@@ -387,6 +456,103 @@ export default function AgencyMembersSection({
           placeholder="Search by name or profile id..."
         />
       </div>
+
+      {isOwner && (
+        <div className="mb-6 space-y-4">
+          <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-4">
+            <p className="text-sm font-semibold text-indigo-900 mb-2">
+              📨 Invite Member
+            </p>
+            <div className="flex gap-2">
+              <Input
+                value={inviteProfileId}
+                onChange={(e) => setInviteProfileId(e.target.value)}
+                placeholder="Enter Profile ID..."
+                type="number"
+                className="flex-1"
+              />
+              <Button
+                onClick={handleInvite}
+                disabled={inviting || !inviteProfileId.trim()}
+                className="shrink-0"
+              >
+                {inviting
+                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : 'Invite'
+                }
+              </Button>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-amber-100 bg-amber-50 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-semibold text-amber-900">
+                📋 Join Requests
+                {joinRequests.length > 0 && (
+                  <span className="ml-2 bg-amber-500 text-white text-xs px-2 py-0.5 rounded-full">
+                    {joinRequests.length}
+                  </span>
+                )}
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={fetchJoinRequests}
+                disabled={joinRequestsLoading}
+              >
+                {joinRequestsLoading
+                  ? <Loader2 className="w-3 h-3 animate-spin" />
+                  : '↻'
+                }
+              </Button>
+            </div>
+
+            {joinRequests.length === 0 ? (
+              <p className="text-sm text-amber-700">No pending requests.</p>
+            ) : (
+              <div className="space-y-2">
+                {joinRequests.map((req) => (
+                  <div
+                    key={req.id}
+                    className="flex items-center justify-between gap-3 bg-white rounded-lg border p-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm text-slate-900 truncate">
+                        {req.name || req.user_name || 'User'}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        ID: {req.profile_id || req.user_id}
+                      </p>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-red-600 border-red-200 hover:bg-red-50"
+                        disabled={decidingId === req.id}
+                        onClick={() => handleDecideRequest(req.id, false)}
+                      >
+                        Reject
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                        disabled={decidingId === req.id}
+                        onClick={() => handleDecideRequest(req.id, true)}
+                      >
+                        {decidingId === req.id
+                          ? <Loader2 className="w-3 h-3 animate-spin" />
+                          : 'Accept'
+                        }
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {err ? (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 mb-4 whitespace-pre-line">
