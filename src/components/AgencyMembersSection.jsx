@@ -519,18 +519,34 @@ export default function AgencyMembersSection({
                         <img
                           src={req.requester_avatar_url}
                           alt={req.requester_name}
-                          className="w-10 h-10 rounded-full object-cover border bg-gray-100"
+                          className="w-10 h-10 rounded-full object-cover border bg-gray-100 cursor-pointer hover:opacity-80 transition"
+                          onClick={() => window.open(
+                            `/user/${req.requester_profile_id}`,
+                            '_blank'
+                          )}
                           onError={(e) => {
                             e.currentTarget.src = '';
                           }}
                         />
                       ) : (
-                        <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-lg">
+                        <div
+                          className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-lg cursor-pointer hover:opacity-80 transition"
+                          onClick={() => window.open(
+                            `/user/${req.requester_profile_id}`,
+                            '_blank'
+                          )}
+                        >
                           👤
                         </div>
                       )}
                       <div className="min-w-0">
-                        <p className="font-medium text-sm text-slate-900 truncate">
+                        <p
+                          className="font-medium text-sm text-slate-900 truncate cursor-pointer hover:text-indigo-600 transition"
+                          onClick={() => window.open(
+                            `/user/${req.requester_profile_id}`,
+                            '_blank'
+                          )}
+                        >
                           {req.requester_name || 'User'}
                         </p>
                         <p className="text-xs text-slate-500">
