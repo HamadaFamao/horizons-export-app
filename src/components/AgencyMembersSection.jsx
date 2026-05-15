@@ -342,14 +342,12 @@ export default function AgencyMembersSection({
     setJoinRequestsLoading(true);
     try {
       const { data, error } = await supabase.rpc(
-        'list_agency_join_requests_for_dashboard'
+        'list_agency_join_requests_for_dashboard',
+        { p_agency_id: agencyId }
       );
       if (error) throw error;
       setJoinRequests(
-        (data || []).filter((r) =>
-          r.agency_id === agencyId &&
-          r.status === 'pending'
-        )
+        (data || []).filter((r) => r.status === 'pending')
       );
     } catch (e) {
       console.error(e);
@@ -381,7 +379,7 @@ export default function AgencyMembersSection({
       setInviting(true);
       const { error } = await supabase.rpc(
         'send_agency_invite_by_profile_id', {
-          p_profile_id: Number(inviteProfileId.trim()),
+          p_invited_profile_id: Number(inviteProfileId.trim()),
         }
       );
       if (error) throw error;
