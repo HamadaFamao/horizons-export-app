@@ -250,7 +250,7 @@ export default function AgencySection({ profile, onProfileUpdate }) {
       setMyInvites([]);
 
       // 1) Pending join requests (for current user)
-      const resReq = await supabase.rpc('list_my_agency_pending_requests');
+      const resReq = await supabase.rpc('list_my_own_agency_requests');
       if (resReq.error) throw resReq.error;
 
       const reqList = Array.isArray(resReq.data) ? resReq.data : [];
@@ -516,16 +516,17 @@ export default function AgencySection({ profile, onProfileUpdate }) {
                 ) : (
                   <div className="space-y-3">
                     {myPendingRequests.map((req) => {
-                      const aName = agencyNameMap?.[req.agency_id] || req.agency_id;
                       return (
                         <div
                           key={req.id}
                           className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 p-3"
                         >
                           <div className="min-w-0">
-                            <p className="font-semibold text-gray-900 truncate">{aName}</p>
+                            <p className="font-semibold text-gray-900 truncate">
+                              {req.agency_name || req.agency_id}
+                            </p>
                             <p className="text-xs text-gray-500">
-                              Request ID: <span className="font-mono">{req.id}</span>
+                              {new Date(req.requested_at).toLocaleDateString()}
                             </p>
                           </div>
 
