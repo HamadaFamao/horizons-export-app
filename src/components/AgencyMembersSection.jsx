@@ -511,34 +511,53 @@ export default function AgencyMembersSection({
               <div className="space-y-2">
                 {joinRequests.map((req) => (
                   <div
-                    key={req.id}
+                    key={req.request_id}
                     className="flex items-center justify-between gap-3 bg-white rounded-lg border p-3"
                   >
-                    <div className="min-w-0">
-                      <p className="font-medium text-sm text-slate-900 truncate">
-                        {req.name || req.user_name || 'User'}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        ID: {req.profile_id || req.user_id}
-                      </p>
+                    <div className="flex items-center gap-3 min-w-0">
+                      {req.requester_avatar_url ? (
+                        <img
+                          src={req.requester_avatar_url}
+                          alt={req.requester_name}
+                          className="w-10 h-10 rounded-full object-cover border bg-gray-100"
+                          onError={(e) => {
+                            e.currentTarget.src = '';
+                          }}
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-lg">
+                          👤
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm text-slate-900 truncate">
+                          {req.requester_name || 'User'}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          ID: {req.requester_profile_id || '—'}
+                        </p>
+                        <p className="text-xs text-slate-400">
+                          {new Date(req.requested_at).toLocaleDateString()}
+                        </p>
+                      </div>
                     </div>
                     <div className="flex gap-2 shrink-0">
                       <Button
                         size="sm"
                         variant="outline"
                         className="text-red-600 border-red-200 hover:bg-red-50"
-                        disabled={decidingId === req.id}
-                        onClick={() => handleDecideRequest(req.id, false)}
+                        disabled={decidingId === req.request_id}
+                        onClick={() => handleDecideRequest(req.request_id, false)}
                       >
                         Reject
                       </Button>
                       <Button
                         size="sm"
                         className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                        disabled={decidingId === req.id}
-                        onClick={() => handleDecideRequest(req.id, true)}
+                        disabled={decidingId === req.request_id}
+                        onClick={() => handleDecideRequest(req.request_id, true)}
                       >
-                        {decidingId === req.id
+                        {decidingId === req.request_id
                           ? <Loader2 className="w-3 h-3 animate-spin" />
                           : 'Accept'
                         }
