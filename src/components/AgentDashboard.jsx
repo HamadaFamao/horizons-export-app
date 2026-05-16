@@ -43,6 +43,11 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
   const [, setActiveCycleId] = useState(null);
   const [pendingRequest, setPendingRequest] = useState(null);
   const [snapshotRows, setSnapshotRows] = useState([]);
+  const [referralCode, setReferralCode] = useState('');
+  const [referralEarnings, setReferralEarnings] = useState([]);
+  const [totalReferralCoins, setTotalReferralCoins] = useState(0);
+  const [payoutTiers, setPayoutTiers] = useState([]);
+  const [copiedReferral, setCopiedReferral] = useState(false);
 
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
@@ -204,6 +209,41 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
       }
 
       setSnapshotRows(parsed);
+
+      // جيب الـ referral code
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('referral_code')
+        .eq('id', user.id)
+        .maybeSingle();
+      setReferralCode(profileData?.referral_code || '');
+
+      // جيب آخر 10 referral earnings
+      const { data: refEarnings } = await supabase
+        .from('agency_referral_earnings')
+        .select(`
+          id,
+          commission_coins,
+          commission_rate,
+          created_at,
+          profiles:referred_user_id (name, profile_id)
+        `)
+        .eq('agent_user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      setReferralEarnings(refEarnings || []);
+      setTotalReferralCoins(
+        (refEarnings || []).reduce((sum, r) => sum + (r.commission_coins || 0), 0)
+      );
+
+      // جيب الـ payout tiers
+      const { data: tiers } = await supabase
+        .from('agency_payout_tiers')
+        .select('*')
+        .eq('is_active', true)
+        .order('min_gems', { ascending: true });
+      setPayoutTiers(tiers || []);
     } catch (e) {
       setError(e?.message || 'Failed to load agent dashboard');
     } finally {
@@ -272,6 +312,14 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
         toast({ title: 'Error', description: e?.message || 'Share failed.', variant: 'destructive' });
       }
     }
+  };
+
+  const handleCopyReferralLink = async () => {
+    const link = `${window.location.origin}?ref=${referralCode}`;
+    await navigator.clipboard.writeText(link);
+    setCopiedReferral(true);
+    setTimeout(() => setCopiedReferral(false), 2000);
+    toast({ title: '✅ Referral link copied!' });
   };
 
   if (loading) {
@@ -350,6 +398,166 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
             </div>
           </div>
         )}
+      </div>
+
+      {/* Referral Section */}
+      <div className="rounded-2xl border bg-white p-4 md:p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-lg">🔗</span>
+          <h3 className="font-semibold text-slate-900">My Referral Link</h3>
+        </div>
+
+        {/* Referral Link */}
+        <div className="flex items-center gap-2 mb-4">
+          <div className="flex-1 bg-slate-50 border rounded-xl px-3 py-2 text-sm text-slate-700 font-mono truncate">
+            {window.location.origin}?ref={referralCode || '...'}
+          </div>
+          <Button variant="outline" size="sm" onClick={handleCopyReferralLink} className="shrink-0">
+            {copiedReferral ? '✅' : <Copy className="w-4 h-4" />}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigator.share?.({
+              title: 'Join me!',
+              url: `${window.location.origin}?ref=${referralCode}`
+            })}
+            className="shrink-0"
+          >
+            <Share2 className="w-4 h-4" />
+          </Button>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="rounded-xl bg-indigo-50 border border-indigo-100 p-3 text-center">
+            <p className="text-xs text-indigo-600 font-medium">Total Earned</p>
+            <p className="text-xl font-bold text-indigo-900 mt-1">
+              🪙 {totalReferralCoins.toLocaleString()}
+            </p>
+          </div>
+          <div className="rounded-xl bg-emerald-50 border border-emerald-100 p-3 text-center">
+            <p className="text-xs text-emerald-600 font-medium">Referrals</p>
+            <p className="text-xl font-bold text-emerald-900 mt-1">
+              👥 {referralEarnings.length}
+            </p>
+          </div>
+        </div>
+
+        {/* Recent Earnings */}
+        {referralEarnings.length > 0 && (
+          <div className="border rounded-xl overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>User</TableHead>
+                  <TableHead>Coins Earned</TableHead>
+                  <TableHead>Date</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {referralEarnings.map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium text-sm">
+                          {r.profiles?.name || 'User'}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          #{r.profiles?.profile_id}
+                        </p>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className="font-semibold text-indigo-600">
+                        +{r.commission_coins?.toLocaleString()} 🪙
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-xs text-slate-500">
+                      {new Date(r.created_at).toLocaleDateString()}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+
+      {/* Payout Tiers Section */}
+      <div className="rounded-2xl border bg-white p-4 md:p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-lg">🏆</span>
+          <h3 className="font-semibold text-slate-900">Payout Tiers</h3>
+          <span className="text-xs text-slate-500">
+            (Gems carry over each month)
+          </span>
+        </div>
+
+        <div className="border rounded-xl overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Gems Required</TableHead>
+                <TableHead>Payout USD</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {payoutTiers.filter(t => t.min_gems > 0).map((tier) => {
+                const isCurrentTier =
+                  lockedGems >= tier.min_gems &&
+                  (tier.max_gems === null || lockedGems <= tier.max_gems);
+                return (
+                  <TableRow
+                    key={tier.id}
+                    className={isCurrentTier
+                      ? 'bg-indigo-50 border-l-4 border-l-indigo-500'
+                      : ''
+                    }
+                  >
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {isCurrentTier && (
+                          <span className="text-indigo-600 font-bold">▶</span>
+                        )}
+                        <span className={isCurrentTier ? 'font-bold text-indigo-700' : ''}>
+                          {tier.min_gems}
+                          {tier.max_gems ? ` - ${tier.max_gems}` : '+'} 💎
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className={`font-semibold ${
+                        isCurrentTier ? 'text-indigo-700' : 'text-slate-700'
+                      }`}>
+                        ${toNumber(tier.payout_usd).toFixed(2)}
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+
+        <div className="mt-3 p-3 bg-slate-50 rounded-xl text-sm text-slate-600">
+          💡 Your current gems: <span className="font-bold text-indigo-600">
+            {lockedGems.toLocaleString()} 💎
+          </span>
+          {payoutTiers.length > 0 && (() => {
+            const nextTier = payoutTiers.find(t => t.min_gems > lockedGems);
+            if (nextTier) {
+              return (
+                <span className="ml-2">
+                  • Need <span className="font-bold text-emerald-600">
+                    {(nextTier.min_gems - lockedGems).toLocaleString()} more
+                  </span> for next tier (${nextTier.payout_usd})
+                </span>
+              );
+            }
+            return <span className="ml-2 text-emerald-600 font-bold">🎉 Max tier reached!</span>;
+          })()}
+        </div>
       </div>
 
       <div className="rounded-2xl border bg-white p-4 md:p-5">
