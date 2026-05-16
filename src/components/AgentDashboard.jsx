@@ -48,6 +48,7 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
   const [totalReferralCoins, setTotalReferralCoins] = useState(0);
   const [payoutTiers, setPayoutTiers] = useState([]);
   const [copiedReferral, setCopiedReferral] = useState(false);
+  const [openingCycle, setOpeningCycle] = useState(false);
 
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
@@ -314,6 +315,40 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
     }
   };
 
+  const handleOpenCycle = async () => {
+    if (!window.confirm(
+      'This will collect all gems from your members and lock them for withdrawal. Continue?'
+    )) return;
+
+    setOpeningCycle(true);
+    try {
+      const { data, error } = await supabase.rpc('agent_open_withdrawal_cycle');
+      if (error) throw error;
+
+      if (data?.success) {
+        toast({
+          title: '✅ Cycle opened!',
+          description: `Locked ${data.locked_total_gems?.toLocaleString()} gems`
+        });
+        fetchDashboard();
+      } else {
+        toast({
+          title: 'Error',
+          description: data?.error || 'Failed to open cycle',
+          variant: 'destructive'
+        });
+      }
+    } catch (e) {
+      toast({
+        title: 'Error',
+        description: e?.message,
+        variant: 'destructive'
+      });
+    } finally {
+      setOpeningCycle(false);
+    }
+  };
+
   const handleCopyReferralLink = async () => {
     const link = `${window.location.origin}?ref=${referralCode}`;
     await navigator.clipboard.writeText(link);
@@ -384,6 +419,29 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
             </button>
           </div>
         </div>
+
+        {/* Open Cycle Button - يظهر لو مفيش gems في الـ cycle */}
+        {lockedGems === 0 && !pendingRequest && (
+          <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+            <p className="text-sm text-amber-800 font-semibold mb-1">
+              📊 Ready to collect gems?
+            </p>
+            <p className="text-xs text-amber-600 mb-3">
+              Open a new cycle to collect all gems from your members 
+              and lock them for withdrawal.
+            </p>
+            <Button
+              onClick={handleOpenCycle}
+              disabled={openingCycle}
+              className="w-full bg-amber-500 hover:bg-amber-600 text-white"
+            >
+              {openingCycle 
+                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Opening...</>
+                : '🔒 Open New Cycle & Collect Gems'
+              }
+            </Button>
+          </div>
+        )}
 
         {pendingRequest && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-2 mt-3">
