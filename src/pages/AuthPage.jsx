@@ -71,6 +71,13 @@ const AuthPage = () => {
         return;
       }
 
+      // احفظ الـ referral code قبل الـ redirect
+      const urlParams = new URLSearchParams(window.location.search);
+      const refCode = urlParams.get('ref');
+      if (refCode) {
+        localStorage.setItem('pending_referral_code', refCode);
+      }
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {

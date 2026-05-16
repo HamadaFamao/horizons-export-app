@@ -50,6 +50,7 @@ import AdminErrorBoundary from '@/components/AdminErrorBoundary';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import MiniRoomBar from '@/components/MiniRoomBar';
 
+import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { CoinsProvider } from '@/contexts/CoinsContext';
 import { RewardsProvider } from '@/contexts/RewardsContext';
@@ -121,6 +122,51 @@ function AppContent() {
 
     return () => clearInterval(interval);
   }, [user?.id]);
+
+  // تسجيل الـ referral بعد التسجيل
+  useEffect(() => {
+    const handleReferral = async () => {
+      if (!user?.id) return;
+
+      const refCode = localStorage.getItem('pending_referral_code');
+      if (!refCode) return;
+
+      // تحقق إن المستخدم تسجل حديثاً (خلال آخر 10 دقايق)
+      const createdAt = new Date(user?.created_at);
+      const diffMinutes = (new Date() - createdAt) / 1000 / 60;
+
+      if (diffMinutes > 10) {
+        localStorage.removeItem('pending_referral_code');
+        return;
+      }
+
+      try {
+        const { data } = await supabase.rpc('register_agency_referral', {
+          p_referred_user_id: user.id,
+          p_referral_code: refCode,
+        });
+
+        if (data?.success) {
+          console.log('✅ Referral registered');
+        }
+      } catch (e) {
+        console.error('Referral error:', e);
+      } finally {
+        localStorage.removeItem('pending_referral_code');
+      }
+    };
+
+    handleReferral();
+  }, [user?.id]);
+
+  // كمان احفظ الـ ref code لما يجي في الـ URL قبل التسجيل
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const refCode = urlParams.get('ref');
+    if (refCode) {
+      localStorage.setItem('pending_referral_code', refCode);
+    }
+  }, []);
 
   return (
     <div className="flex min-h-[100dvh] flex-col relative overflow-visible">
