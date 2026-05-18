@@ -40,6 +40,9 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
   const [lastCycle, setLastCycle] = useState(null);
   const [lockedGems, setLockedGems] = useState(0);
   const [lockedUsd, setLockedUsd] = useState(0);
+  const [agentEarnedGems, setAgentEarnedGems] = useState(0);
+  const [agentEarnedUsd, setAgentEarnedUsd] = useState(0);
+  const [membersGems, setMembersGems] = useState(0);
   const [, setActiveCycleId] = useState(null);
   const [pendingRequest, setPendingRequest] = useState(null);
   const [snapshotRows, setSnapshotRows] = useState([]);
@@ -145,7 +148,7 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
 
       const { data: activeCycle, error: cycleErr } = await supabase
         .from('agency_withdrawal_cycles')
-        .select('id, locked_gems, locked_usd, status, cycle_month')
+        .select('id, locked_gems, locked_usd, agent_earned_gems, agent_earned_usd, members_gems, status, cycle_month')
         .eq('agency_user_id', user.id)
         .eq('status', 'open')
         .order('cycle_month', { ascending: false })
@@ -156,6 +159,9 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
       setLastCycle(activeCycle || null);
       setLockedGems(activeCycle?.locked_gems || 0);
       setLockedUsd(activeCycle?.locked_usd || 0);
+      setAgentEarnedGems(activeCycle?.agent_earned_gems || 0);
+      setAgentEarnedUsd(activeCycle?.agent_earned_usd || 0);
+      setMembersGems(activeCycle?.members_gems || 0);
       setActiveCycleId(activeCycle?.id || null);
 
       const { data: pendingReq, error: pendingErr } = await supabase
@@ -397,27 +403,73 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
           <h3 className="font-semibold text-slate-900">Earnings Summary</h3>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          <div className="rounded-xl border bg-slate-50 p-4">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Locked Gems (Last Cycle)</p>
-            <p className="text-2xl font-bold text-slate-900 mt-1">{formatGems(lockedGems)}</p>
+        <div className="grid grid-cols-1 gap-3">
+
+          {/* عداد الوكيل الثابت */}
+          <div className="rounded-xl border-2 border-indigo-200 bg-indigo-50 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-lg">🔒</span>
+              <p className="text-sm font-bold text-indigo-800">
+                My Earnings (Fixed)
+              </p>
+              <span className="text-xs bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full">
+                Won't change
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-white rounded-lg p-3">
+                <p className="text-xs text-slate-500">Gems Earned</p>
+                <p className="text-xl font-bold text-indigo-700 mt-1">
+                  💎 {agentEarnedGems.toLocaleString()}
+                </p>
+              </div>
+              <div className="bg-white rounded-lg p-3">
+                <p className="text-xs text-slate-500">USD Value</p>
+                <p className="text-xl font-bold text-indigo-700 mt-1">
+                  ${formatUsd(agentEarnedUsd)}
+                </p>
+              </div>
+            </div>
           </div>
 
-          <div className="rounded-xl border bg-slate-50 p-4">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Locked USD (Last Cycle)</p>
-            <p className="text-2xl font-bold text-slate-900 mt-1">${formatUsd(lockedUsd)}</p>
+          {/* عداد الأعضاء المتغير */}
+          <div className="rounded-xl border-2 border-emerald-200 bg-emerald-50 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-lg">👥</span>
+              <p className="text-sm font-bold text-emerald-800">
+                Members Gems (Variable)
+              </p>
+              <span className="text-xs bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded-full">
+                Changes with members
+              </span>
+            </div>
+            <div className="bg-white rounded-lg p-3">
+              <p className="text-xs text-slate-500">
+                Total gems of members (Via Agent)
+              </p>
+              <p className="text-xl font-bold text-emerald-700 mt-1">
+                💎 {membersGems.toLocaleString()}
+              </p>
+              <p className="text-xs text-slate-400 mt-1">
+                ≈ ${(membersGems * 0.0005).toFixed(2)} if withdrawn now
+              </p>
+            </div>
           </div>
 
-          <div className="rounded-xl border bg-indigo-600 text-white p-4 flex flex-col justify-between">
-            <p className="text-xs uppercase tracking-wide text-indigo-100">Withdrawal</p>
+          {/* Withdrawal Card */}
+          <div className="rounded-xl border bg-indigo-600 text-white p-4">
+            <p className="text-xs uppercase tracking-wide text-indigo-100">
+              Withdrawal
+            </p>
             <button
               onClick={() => setShowWithdrawModal(true)}
-              disabled={!!pendingRequest || lockedGems === 0}
+              disabled={!!pendingRequest || agentEarnedGems === 0}
               className="mt-3 w-full py-3 rounded-xl bg-white text-indigo-600 font-bold disabled:opacity-50 disabled:cursor-not-allowed transition"
             >
-              {pendingRequest ? '⏳ Request Pending' : 'Withdraw'}
+              {pendingRequest ? '⏳ Request Pending' : 'Withdraw My Earnings'}
             </button>
           </div>
+
         </div>
 
         {/* Open Cycle Button - يظهر لو مفيش gems في الـ cycle */}
@@ -451,7 +503,8 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
                 Withdrawal Pending Review
               </div>
               <div className="text-xs text-amber-600">
-                {pendingRequest.gems_requested} gems • Status: {pendingRequest.status}
+                {pendingRequest.gems_requested} gems • 
+                Status: {pendingRequest.status}
               </div>
             </div>
           </div>
@@ -740,7 +793,7 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
       <WithdrawalRequestModal
         isOpen={showWithdrawModal}
         onClose={() => setShowWithdrawModal(false)}
-        availableGems={lockedGems}
+        availableGems={agentEarnedGems}
         onSuccess={() => {
           toast({
             title: 'Withdrawal request submitted',
