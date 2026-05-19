@@ -132,9 +132,6 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
               name,
               avatar_url,
               profile_id
-            ),
-            wallets:user_id (
-              gems
             )
           `)
           .eq('agency_id', activeAgencyId)
@@ -148,19 +145,34 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
           profile: Array.isArray(m.profiles) ? m.profiles[0] || null : m.profiles || null,
         }));
 
-        setMembers(allMembers);
+        // جيب gems لكل عضو منفصل
+        const memberIds = allMembers.map((m) => m.user_id).filter(Boolean);
+        let gemsMap = {};
+        if (memberIds.length > 0) {
+          const { data: walletsData } = await supabase
+            .from('wallets')
+            .select('user_id, gems')
+            .in('user_id', memberIds);
 
-        // احسب إجمالي الـ withdrawable gems للأعضاء Via Agent
+          (walletsData || []).forEach((w) => {
+            gemsMap[w.user_id] = w.gems || 0;
+          });
+        }
+
+        const membersWithGems = allMembers.map((m) => ({
+          ...m,
+          current_gems: gemsMap[m.user_id] || 0,
+        }));
+
+        setMembers(membersWithGems);
+
+        // احسب withdrawable gems للأعضاء Via Agent
         let totalWithdrawable = 0;
-        for (const m of (membersData || [])) {
-          if ((m.withdrawal_method ?? 'agent') === 'agent') {
-            const memberGems = Array.isArray(m.wallets)
-              ? (m.wallets[0]?.gems || 0)
-              : (m.wallets?.gems || 0);
-
+        for (const m of membersWithGems) {
+          if (!m.withdrawal_method || m.withdrawal_method === 'agent') {
             const { data: tierData } = await supabase
               .rpc('get_withdrawable_gems', {
-                p_total_gems: memberGems || 0
+                p_total_gems: m.current_gems || 0
               });
             totalWithdrawable += tierData?.[0]?.withdrawable_gems || 0;
           }
@@ -187,10 +199,9 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
       setActiveCycleId(activeCycle?.id || null);
 
       // احسب tier الوكيل نفسه
-      const cycleAgentEarnedGems = activeCycle?.agent_earned_gems || 0;
       const { data: agentTier } = await supabase
         .rpc('get_withdrawable_gems', {
-          p_total_gems: cycleAgentEarnedGems
+          p_total_gems: agentEarnedGems || 0
         });
       setWithdrawableTier(agentTier?.[0] || null);
 
