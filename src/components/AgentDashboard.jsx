@@ -43,6 +43,8 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
   const [agentEarnedGems, setAgentEarnedGems] = useState(0);
   const [agentEarnedUsd, setAgentEarnedUsd] = useState(0);
   const [membersGems, setMembersGems] = useState(0);
+  const [withdrawableTier, setWithdrawableTier] = useState(null);
+  const [membersWithdrawable, setMembersWithdrawable] = useState(0);
   const [, setActiveCycleId] = useState(null);
   const [pendingRequest, setPendingRequest] = useState(null);
   const [snapshotRows, setSnapshotRows] = useState([]);
@@ -130,6 +132,9 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
               name,
               avatar_url,
               profile_id
+            ),
+            wallets:user_id (
+              gems
             )
           `)
           .eq('agency_id', activeAgencyId)
@@ -144,6 +149,23 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
         }));
 
         setMembers(allMembers);
+
+        // احسب إجمالي الـ withdrawable gems للأعضاء Via Agent
+        let totalWithdrawable = 0;
+        for (const m of (membersData || [])) {
+          if ((m.withdrawal_method ?? 'agent') === 'agent') {
+            const memberGems = Array.isArray(m.wallets)
+              ? (m.wallets[0]?.gems || 0)
+              : (m.wallets?.gems || 0);
+
+            const { data: tierData } = await supabase
+              .rpc('get_withdrawable_gems', {
+                p_total_gems: memberGems || 0
+              });
+            totalWithdrawable += tierData?.[0]?.withdrawable_gems || 0;
+          }
+        }
+        setMembersWithdrawable(totalWithdrawable);
       }
 
       const { data: activeCycle, error: cycleErr } = await supabase
@@ -163,6 +185,14 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
       setAgentEarnedUsd(activeCycle?.agent_earned_usd || 0);
       setMembersGems(activeCycle?.members_gems || 0);
       setActiveCycleId(activeCycle?.id || null);
+
+      // احسب tier الوكيل نفسه
+      const cycleAgentEarnedGems = activeCycle?.agent_earned_gems || 0;
+      const { data: agentTier } = await supabase
+        .rpc('get_withdrawable_gems', {
+          p_total_gems: cycleAgentEarnedGems
+        });
+      setWithdrawableTier(agentTier?.[0] || null);
 
       const { data: pendingReq, error: pendingErr } = await supabase
         .from('gem_withdrawal_requests')
@@ -430,6 +460,32 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
                 </p>
               </div>
             </div>
+            {withdrawableTier && (
+              <div className="mt-3 p-3 bg-white rounded-lg border border-indigo-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-slate-500">Withdrawable Now</p>
+                    <p className="text-lg font-bold text-indigo-700">
+                      💎 {withdrawableTier.withdrawable_gems?.toLocaleString()}
+                      <span className="text-sm ml-2 text-emerald-600">
+                        = ${withdrawableTier.payout_usd?.toFixed(2)}
+                      </span>
+                    </p>
+                  </div>
+                  {withdrawableTier.next_tier_gems && (
+                    <div className="text-right">
+                      <p className="text-xs text-slate-400">Next tier</p>
+                      <p className="text-xs font-bold text-amber-600">
+                        Need {withdrawableTier.gems_needed?.toLocaleString()} more 💎
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        → ${withdrawableTier.next_tier_usd?.toFixed(2)}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* عداد الأعضاء المتغير */}
@@ -445,14 +501,20 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
             </div>
             <div className="bg-white rounded-lg p-3">
               <p className="text-xs text-slate-500">
-                Total gems of members (Via Agent)
+                Total gems (Via Agent members)
               </p>
               <p className="text-xl font-bold text-emerald-700 mt-1">
                 💎 {membersGems.toLocaleString()}
               </p>
-              <p className="text-xs text-slate-400 mt-1">
-                ≈ ${(membersGems * 0.0005).toFixed(2)} if withdrawn now
-              </p>
+              <div className="mt-2 pt-2 border-t border-emerald-100">
+                <p className="text-xs text-slate-500">Withdrawable by members</p>
+                <p className="text-lg font-bold text-emerald-600">
+                  💎 {membersWithdrawable.toLocaleString()}
+                  <span className="text-sm ml-2">
+                    = ${(membersWithdrawable * 0.0005).toFixed(2)}
+                  </span>
+                </p>
+              </div>
             </div>
           </div>
 
