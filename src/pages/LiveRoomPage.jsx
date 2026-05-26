@@ -6469,6 +6469,7 @@ useEffect(() => {
 
           if (!eventId) return;
           if (payloadRoomId && String(payloadRoomId) !== String(roomId)) return;
+          if (payload?.sender_id && String(payload.sender_id) === String(user?.id)) return;
           if (processedRoomGiftIdsRef.current.has(eventId)) return;
 
           // PK score always affects DB regardless of who sent the gift
