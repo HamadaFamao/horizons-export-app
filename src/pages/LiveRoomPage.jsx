@@ -2580,7 +2580,8 @@ useEffect(() => {
       const token = data?.token;
       if (!token) throw new Error("No token returned from livekit-token");
 
-      const roomUrl = "wss://singlesdate-voice-axhc4zy4.livekit.cloud";
+      const roomUrl = import.meta.env.VITE_LIVEKIT_URL;
+      if (!roomUrl) throw new Error("Missing VITE_LIVEKIT_URL");
 
       const lkRoom = await connectVoice(roomUrl, token);
 
