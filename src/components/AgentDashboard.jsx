@@ -978,7 +978,7 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
       <WithdrawalRequestModal
         isOpen={showWithdrawModal}
         onClose={() => setShowWithdrawModal(false)}
-        availableGems={agentEarnedGems}
+        availableGems={agentEarnedGems + membersWithdrawable}
         onSuccess={() => {
           toast({
             title: 'Withdrawal request submitted',
