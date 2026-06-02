@@ -43,6 +43,7 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
   const [agentEarnedGems, setAgentEarnedGems] = useState(0);
   const [agentEarnedUsd, setAgentEarnedUsd] = useState(0);
   const [membersGems, setMembersGems] = useState(0);
+  const [membersTotalGems, setMembersTotalGems] = useState(0);
   const [withdrawableTier, setWithdrawableTier] = useState(null);
   const [membersWithdrawable, setMembersWithdrawable] = useState(0);
   const [, setActiveCycleId] = useState(null);
@@ -153,16 +154,19 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
 
         setMembers(membersForDisplay);
 
-        // ✅ مجموع القابل للسحب لأعضاء "Via Agent" فقط، ماعدا الوكيل نفسه
+        // ✅ مجاميع أعضاء "Via Agent" فقط، ماعدا الوكيل نفسه
         const ownerId = user.id;
         let totalWithdrawable = 0;
+        let totalMembersGems = 0;
         for (const r of rows) {
           if (r.user_id === ownerId) continue; // الوكيل نفسه مش عضو محسوب
           if (!r.withdrawal_method || r.withdrawal_method === 'agent') {
             totalWithdrawable += Number(r.withdrawable_gems || 0);
+            totalMembersGems += Number(r.total_gems || 0);
           }
         }
         setMembersWithdrawable(totalWithdrawable);
+        setMembersTotalGems(totalMembersGems);
       }
 
       const { data: activeCycle, error: cycleErr } = await supabase
@@ -500,7 +504,7 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
                 Total gems (Via Agent members)
               </p>
               <p className="text-xl font-bold text-emerald-700 mt-1">
-                💎 {membersGems.toLocaleString()}
+                💎 {membersTotalGems.toLocaleString()}
               </p>
               <div className="mt-2 pt-2 border-t border-emerald-100">
                 <p className="text-xs text-slate-500">Withdrawable by members</p>
