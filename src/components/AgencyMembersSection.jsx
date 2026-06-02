@@ -41,7 +41,6 @@ export default function AgencyMembersSection({
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState([]);
   const [err, setErr] = useState('');
-  const [q, setQ] = useState('');
 
   // ✅ owner / permissions
   const [ownerUserId, setOwnerUserId] = useState(null);
@@ -168,16 +167,6 @@ export default function AgencyMembersSection({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agencyId, limit, isOwner]);
-
-  const filtered = useMemo(() => {
-    const s = (q || '').trim().toLowerCase();
-    if (!s) return rows;
-    return rows.filter((r) => {
-      const name = (r?.name || '').toLowerCase();
-      const pid = String(r?.profile_id || '');
-      return name.includes(s) || pid.includes(s);
-    });
-  }, [rows, q]);
 
   // --------
   // Actions
@@ -418,14 +407,6 @@ export default function AgencyMembersSection({
             </Button>
           )}
         </div>
-      </div>
-
-      <div className="mb-4">
-        <Input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search by name or profile id..."
-        />
       </div>
 
       {isOwner && (
