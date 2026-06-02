@@ -119,62 +119,47 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
 
       if (!activeAgencyId) {
         setMembers([]);
+        setMembersWithdrawable(0);
       } else {
-        const { data: membersData, error: mErr } = await supabase
-          .from('agency_memberships')
-          .select(`
-            user_id,
-            joined_at,
-            withdrawal_method,
-            withdrawal_note,
-            profiles:user_id (
-              id,
-              name,
-              avatar_url,
-              profile_id
-            )
-          `)
-          .eq('agency_id', activeAgencyId)
-          .is('left_at', null)
-          .order('joined_at', { ascending: false });
-
-        if (mErr) throw mErr;
-
-        const allMembers = (membersData || []).map((m) => ({
-          ...m,
-          profile: Array.isArray(m.profiles) ? m.profiles[0] || null : m.profiles || null,
-        }));
-
-        // جيب gems لكل عضو منفصل
-        const memberIds = allMembers.map((m) => m.user_id).filter(Boolean);
-        let gemsMap = {};
-        if (memberIds.length > 0) {
-          const { data: walletsData } = await supabase
-            .from('wallets')
-            .select('user_id, gems')
-            .in('user_id', memberIds);
-
-          (walletsData || []).forEach((w) => {
-            gemsMap[w.user_id] = w.gems || 0;
+        // ✅ نستخدم breakdown function الموحّدة (فيها gems_at_join + agent_share)
+        const { data: breakdownData, error: bErr } = await supabase
+          .rpc('get_agency_members_breakdown', {
+            p_agency_id: activeAgencyId,
           });
-        }
 
-        const membersWithGems = allMembers.map((m) => ({
-          ...m,
-          current_gems: gemsMap[m.user_id] || 0,
+        if (bErr) throw bErr;
+
+        const rows = Array.isArray(breakdownData) ? breakdownData : [];
+
+        // نجهّز شكل الأعضاء للعرض في جدول My Members
+        const membersForDisplay = rows.map((r) => ({
+          user_id: r.user_id,
+          joined_at: r.joined_at,
+          withdrawal_method: r.withdrawal_method,
+          withdrawal_note: r.withdrawal_note,
+          current_gems: r.total_gems,
+          gems_before_join: r.gems_before_join,
+          gems_after_join: r.gems_after_join,
+          agent_share_gems: r.agent_share_gems,
+          withdrawable_gems: r.withdrawable_gems,
+          payout_usd: r.payout_usd,
+          profile: {
+            id: r.user_id,
+            name: r.name,
+            avatar_url: r.avatar_url,
+            profile_id: r.profile_id,
+          },
         }));
 
-        setMembers(membersWithGems);
+        setMembers(membersForDisplay);
 
-        // احسب withdrawable gems للأعضاء Via Agent
+        // ✅ مجموع القابل للسحب لأعضاء "Via Agent" فقط، ماعدا الوكيل نفسه
+        const ownerId = user.id;
         let totalWithdrawable = 0;
-        for (const m of membersWithGems) {
-          if (!m.withdrawal_method || m.withdrawal_method === 'agent') {
-            const { data: tierData } = await supabase
-              .rpc('get_withdrawable_gems', {
-                p_total_gems: m.current_gems || 0
-              });
-            totalWithdrawable += tierData?.[0]?.withdrawable_gems || 0;
+        for (const r of rows) {
+          if (r.user_id === ownerId) continue; // الوكيل نفسه مش عضو محسوب
+          if (!r.withdrawal_method || r.withdrawal_method === 'agent') {
+            totalWithdrawable += Number(r.withdrawable_gems || 0);
           }
         }
         setMembersWithdrawable(totalWithdrawable);
