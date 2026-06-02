@@ -310,11 +310,40 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileProp]);
 
+  const ownerUserId = profile?.id || null;
+
+  const reportRows = useMemo(() => {
+    return (members || [])
+      .filter((m) => m.user_id !== ownerUserId)
+      .map((m) => {
+        const before = toNumber(m.gems_before_join);
+        const after = toNumber(m.gems_after_join);
+        const agentShare = toNumber(m.agent_share_gems);
+        const withdrawable = toNumber(m.withdrawable_gems);
+        return {
+          user_id: m.user_id,
+          name: m.profile?.name || 'Unknown',
+          profile_id: m.profile?.profile_id || null,
+          method: m.withdrawal_method || 'agent',
+          before,
+          after,
+          total: toNumber(m.current_gems),
+          agentShare,
+          withdrawable,
+          memberUsd: withdrawable * 0.0005,
+          agentUsd: agentShare * 0.0005,
+        };
+      })
+      .sort((a, b) => b.total - a.total);
+  }, [members, ownerUserId]);
+
   const reportText = useMemo(() => {
-    return (snapshotRows || [])
-      .map((r) => `Member: ${r.name || 'Unknown'} | Gems: ${formatGems(r.gems)} | USD: $${formatUsd(r.usd)}`)
+    return (reportRows || [])
+      .map((r) =>
+        `${r.name} (#${r.profile_id}) | Before: ${formatGems(r.before)} | After: ${formatGems(r.after)} | Total: ${formatGems(r.total)} | Agent share: ${formatGems(r.agentShare)} | Withdrawable: ${formatGems(r.withdrawable)} = $${formatUsd(r.memberUsd)}`
+      )
       .join('\n');
-  }, [snapshotRows]);
+  }, [reportRows]);
 
   const handleCopyReport = async () => {
     try {
@@ -810,34 +839,106 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
             <DialogTitle>Full Earnings Report</DialogTitle>
           </DialogHeader>
 
+          <div className="text-xs text-slate-500 mb-3">
+            <span className="inline-flex items-center gap-1 mr-3">
+              <span className="w-2 h-2 rounded-full bg-slate-400 inline-block" />
+              Before = أرباح قبل الانضمام (للعضو، بدون نسبة وكيل)
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+              After = أرباح بعد الانضمام (الوكيل ياخد 20%)
+            </span>
+          </div>
+
           <div className="border rounded-xl overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Member</TableHead>
-                  <TableHead>Gems</TableHead>
-                  <TableHead>USD</TableHead>
+                  <TableHead className="text-right">Before</TableHead>
+                  <TableHead className="text-right">After</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead className="text-right">Agent Share</TableHead>
+                  <TableHead className="text-right">Withdrawable</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {snapshotRows.length === 0 ? (
+                {reportRows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={3} className="text-center p-5 text-slate-500">
-                      No snapshot data found.
+                    <TableCell colSpan={6} className="text-center p-5 text-slate-500">
+                      No members with earnings yet.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  snapshotRows.map((row, idx) => (
-                    <TableRow key={`${row.user_id || 'row'}-${idx}`}>
-                      <TableCell>{row.name || 'Unknown'}</TableCell>
-                      <TableCell>{formatGems(row.gems)}</TableCell>
-                      <TableCell>${formatUsd(row.usd)}</TableCell>
+                  reportRows.map((row) => (
+                    <TableRow key={row.user_id}>
+                      <TableCell>
+                        <p className="font-medium text-slate-900">{row.name}</p>
+                        <p className="text-xs text-slate-500">#{row.profile_id || '—'}</p>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                          row.method === 'self'
+                            ? 'bg-slate-100 text-slate-600'
+                            : 'bg-emerald-50 text-emerald-700'
+                        }`}>
+                          {row.method === 'self' ? 'Self' : 'Via Agent'}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right text-slate-600">
+                        {formatGems(row.before)}
+                      </TableCell>
+                      <TableCell className="text-right text-emerald-700 font-medium">
+                        {formatGems(row.after)}
+                      </TableCell>
+                      <TableCell className="text-right font-semibold text-slate-900">
+                        {formatGems(row.total)}
+                      </TableCell>
+                      <TableCell className="text-right text-purple-700 font-medium">
+                        {formatGems(row.agentShare)}
+                        <span className="block text-[10px] text-slate-400">
+                          ${formatUsd(row.agentUsd)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right text-blue-700 font-semibold">
+                        {formatGems(row.withdrawable)}
+                        <span className="block text-[10px] text-slate-400">
+                          ${formatUsd(row.memberUsd)}
+                        </span>
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
               </TableBody>
             </Table>
           </div>
+
+          {reportRows.length > 0 && (
+            <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+              <div className="rounded-xl bg-purple-50 border border-purple-100 p-3">
+                <p className="text-xs text-purple-600">Agent Total Share</p>
+                <p className="text-lg font-bold text-purple-800">
+                  💎 {formatGems(reportRows.reduce((s, r) => s + r.agentShare, 0))}
+                </p>
+                <p className="text-xs text-purple-500">
+                  ${formatUsd(reportRows.reduce((s, r) => s + r.agentUsd, 0))}
+                </p>
+              </div>
+              <div className="rounded-xl bg-blue-50 border border-blue-100 p-3">
+                <p className="text-xs text-blue-600">Members Withdrawable</p>
+                <p className="text-lg font-bold text-blue-800">
+                  💎 {formatGems(reportRows.reduce((s, r) => s + r.withdrawable, 0))}
+                </p>
+                <p className="text-xs text-blue-500">
+                  ${formatUsd(reportRows.reduce((s, r) => s + r.memberUsd, 0))}
+                </p>
+              </div>
+              <div className="rounded-xl bg-emerald-50 border border-emerald-100 p-3">
+                <p className="text-xs text-emerald-600">Total Gems</p>
+                <p className="text-lg font-bold text-emerald-800">
+                  💎 {formatGems(reportRows.reduce((s, r) => s + r.total, 0))}
+                </p>
+              </div>
+            </div>
+          )}
 
           <DialogFooter className="flex flex-col sm:flex-row gap-2">
             <Button variant="outline" onClick={handleCopyReport} className="flex items-center gap-2">
