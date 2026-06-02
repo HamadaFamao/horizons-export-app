@@ -121,27 +121,27 @@ export default function AgencyMembersSection({
       let data = null;
       let error = null;
 
-      // (A) Try view (source of truth عندك)
-      const resView = await supabase
-        .from('v_agency_members_list')
-        .select('agency_id, user_id, name, avatar_url, profile_id, gems')
-        .eq('agency_id', agencyId)
-        .limit(limit);
-
-      if (!resView.error) {
-        data = resView.data;
-      } else {
-        // (B) Try RPC fallback (optional)
-        const resRpc = await supabase.rpc('get_agency_members_list', {
+      // ✅ NEW: استخدم get_agency_members_breakdown للوكيل (فيه gems breakdown كامل)
+      // لو مش الوكيل، استخدم الـ view العادي (gems بس)
+      if (isOwner) {
+        const resBreakdown = await supabase.rpc('get_agency_members_breakdown', {
           p_agency_id: agencyId,
-          // p_viewer_id موجود في الدالة عندك - لو احتاجته
-          p_viewer_id: currentUserId || null,
         });
-
-        if (!resRpc.error) {
-          data = resRpc.data;
+        if (!resBreakdown.error) {
+          data = resBreakdown.data;
         } else {
-          error = resView.error || resRpc.error;
+          error = resBreakdown.error;
+        }
+      } else {
+        const resView = await supabase
+          .from('v_agency_members_list')
+          .select('agency_id, user_id, name, avatar_url, profile_id, gems')
+          .eq('agency_id', agencyId)
+          .limit(limit);
+        if (!resView.error) {
+          data = resView.data;
+        } else {
+          error = resView.error;
         }
       }
 
@@ -149,32 +149,7 @@ export default function AgencyMembersSection({
 
       const baseRows = Array.isArray(data) ? data : [];
 
-      // Enrich members with withdrawal preferences from active membership row.
-      const memberIds = baseRows.map((r) => r?.user_id).filter(Boolean);
-      let prefMap = {};
-
-      if (memberIds.length > 0) {
-        const { data: prefs, error: prefErr } = await supabase
-          .from('agency_memberships')
-          .select('user_id, withdrawal_method, withdrawal_note')
-          .eq('agency_id', agencyId)
-          .is('left_at', null)
-          .in('user_id', memberIds);
-
-        if (prefErr) throw prefErr;
-
-        (prefs || []).forEach((p) => {
-          prefMap[p.user_id] = p;
-        });
-      }
-
-      setRows(
-        baseRows.map((r) => ({
-          ...r,
-          withdrawal_method: prefMap[r.user_id]?.withdrawal_method || null,
-          withdrawal_note: prefMap[r.user_id]?.withdrawal_note || null,
-        }))
-      );
+      setRows(baseRows);
     } catch (e) {
       console.error('[AgencyMembersSection] load error:', e);
       setErr(e?.message || 'Failed to load members');
@@ -194,7 +169,7 @@ export default function AgencyMembersSection({
       mounted = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agencyId, limit]);
+  }, [agencyId, limit, isOwner]);
 
   const filtered = useMemo(() => {
     const s = (q || '').trim().toLowerCase();
@@ -658,10 +633,26 @@ export default function AgencyMembersSection({
                         </span>
                       )}
 
-                      {/* gems: على حسب الview هيكون null لغير المسموح */}
-                      {m?.gems !== null && m?.gems !== undefined ? (
+                      {/* gems breakdown (للوكيل): إجمالي + قابل للسحب + نصيب الوكيل */}
+                      {m?.total_gems !== null && m?.total_gems !== undefined ? (
+                        <span className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
+                          💎 {m.total_gems} total
+                        </span>
+                      ) : m?.gems !== null && m?.gems !== undefined ? (
                         <span className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
                           💎 {m.gems}
+                        </span>
+                      ) : null}
+
+                      {m?.withdrawable_gems !== null && m?.withdrawable_gems !== undefined && isOwner ? (
+                        <span className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-2 py-0.5">
+                          ✅ {m.withdrawable_gems} withdrawable (${Number(m.payout_usd || 0).toFixed(2)})
+                        </span>
+                      ) : null}
+
+                      {isOwner && m?.user_id !== ownerUserId && m?.agent_share_gems ? (
+                        <span className="text-xs text-purple-700 bg-purple-50 border border-purple-200 rounded-full px-2 py-0.5">
+                          🤝 Agent share: {m.agent_share_gems}
                         </span>
                       ) : null}
                     </div>
