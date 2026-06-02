@@ -257,28 +257,20 @@ export default function WithdrawalRequestModal({ isOpen, onClose, availableGems,
     setAgentsError(false);
 
     try {
-      const { data, error } = await supabase
-        .from('recharge_agents')
-        .select(`
-          id,
-          name,
-          country_code,
-          contact_info,
-          is_active,
-          user_id,
-          profiles:user_id (
-            id,
-            name,
-            avatar_url,
-            profile_id
-          )
-        `)
-        .eq('is_active', true);
+      const { data, error } = await supabase.rpc('get_active_recharge_agents_for_user');
       if (error) throw error;
 
       const mapped = (data || []).map((agent) => ({
-        ...agent,
-        profiles: Array.isArray(agent.profiles) ? agent.profiles[0] || null : agent.profiles || null,
+        id: agent.id,
+        name: agent.name,
+        country_code: agent.country_code,
+        user_id: agent.user_id,
+        profiles: {
+          id: agent.user_id,
+          name: agent.name,
+          avatar_url: agent.avatar_url,
+          profile_id: agent.profile_id,
+        },
       }));
 
       setRechargeAgents(mapped);
