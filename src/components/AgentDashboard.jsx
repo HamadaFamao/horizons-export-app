@@ -785,14 +785,16 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
             <TableHeader>
               <TableRow>
                 <TableHead>Member</TableHead>
-                <TableHead>Withdrawal Method</TableHead>
+                <TableHead>Method</TableHead>
+                <TableHead className="text-right">Total Gems</TableHead>
+                <TableHead className="text-right">Withdrawable</TableHead>
                 <TableHead>Joined</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {members.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center text-slate-500 p-6">
+                  <TableCell colSpan={5} className="text-center text-slate-500 p-6">
                     No members found.
                   </TableCell>
                 </TableRow>
@@ -824,6 +826,15 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
                           Self
                         </Badge>
                       )}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold text-slate-900">
+                      💎 {formatGems(m.current_gems)}
+                    </TableCell>
+                    <TableCell className="text-right text-blue-700 font-semibold">
+                      💎 {formatGems(m.withdrawable_gems)}
+                      <span className="block text-[10px] text-slate-400">
+                        ${formatUsd(toNumber(m.withdrawable_gems) * 0.0005)}
+                      </span>
                     </TableCell>
                     <TableCell className="text-sm text-slate-600">
                       {m.joined_at ? new Date(m.joined_at).toLocaleDateString() : '—'}
