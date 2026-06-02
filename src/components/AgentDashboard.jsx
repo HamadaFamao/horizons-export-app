@@ -140,6 +140,7 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
           withdrawal_note: r.withdrawal_note,
           current_gems: r.total_gems,
           gems_before_join: r.gems_before_join,
+          carried_over_gems: r.carried_over_gems,
           gems_after_join: r.gems_after_join,
           agent_share_gems: r.agent_share_gems,
           withdrawable_gems: r.withdrawable_gems,
@@ -317,6 +318,7 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
       .filter((m) => m.user_id !== ownerUserId)
       .map((m) => {
         const before = toNumber(m.gems_before_join);
+        const carried = toNumber(m.carried_over_gems);
         const after = toNumber(m.gems_after_join);
         const agentShare = toNumber(m.agent_share_gems);
         const withdrawable = toNumber(m.withdrawable_gems);
@@ -326,6 +328,7 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
           profile_id: m.profile?.profile_id || null,
           method: m.withdrawal_method || 'agent',
           before,
+          carried,
           after,
           total: toNumber(m.current_gems),
           agentShare,
@@ -340,7 +343,7 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
   const reportText = useMemo(() => {
     return (reportRows || [])
       .map((r) =>
-        `${r.name} (#${r.profile_id}) | Before: ${formatGems(r.before)} | After: ${formatGems(r.after)} | Total: ${formatGems(r.total)} | Agent share: ${formatGems(r.agentShare)} | Withdrawable: ${formatGems(r.withdrawable)} = $${formatUsd(r.memberUsd)}`
+        `${r.name} (#${r.profile_id}) | Before: ${formatGems(r.before)} | Carried: ${formatGems(r.carried)} | After: ${formatGems(r.after)} | Total: ${formatGems(r.total)} | Agent share: ${formatGems(r.agentShare)} | Withdrawable: ${formatGems(r.withdrawable)} = $${formatUsd(r.memberUsd)}`
       )
       .join('\n');
   }, [reportRows]);
@@ -844,6 +847,10 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
               <span className="w-2 h-2 rounded-full bg-slate-400 inline-block" />
               Before = أرباح قبل الانضمام (للعضو، بدون نسبة وكيل)
             </span>
+            <span className="inline-flex items-center gap-1 mr-3">
+              <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
+              Carried = مرحّلة من دورة سابقة (بدون نسبة وكيل)
+            </span>
             <span className="inline-flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
               After = أرباح بعد الانضمام (الوكيل ياخد 20%)
@@ -856,6 +863,7 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
                 <TableRow>
                   <TableHead>Member</TableHead>
                   <TableHead className="text-right">Before</TableHead>
+                  <TableHead className="text-right">Carried</TableHead>
                   <TableHead className="text-right">After</TableHead>
                   <TableHead className="text-right">Total</TableHead>
                   <TableHead className="text-right">Agent Share</TableHead>
@@ -865,7 +873,7 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
               <TableBody>
                 {reportRows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center p-5 text-slate-500">
+                    <TableCell colSpan={7} className="text-center p-5 text-slate-500">
                       No members with earnings yet.
                     </TableCell>
                   </TableRow>
@@ -885,6 +893,9 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
                       </TableCell>
                       <TableCell className="text-right text-slate-600">
                         {formatGems(row.before)}
+                      </TableCell>
+                      <TableCell className="text-right text-amber-700 font-medium">
+                        {formatGems(row.carried)}
                       </TableCell>
                       <TableCell className="text-right text-emerald-700 font-medium">
                         {formatGems(row.after)}
