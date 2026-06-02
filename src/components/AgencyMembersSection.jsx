@@ -133,15 +133,13 @@ export default function AgencyMembersSection({
           error = resBreakdown.error;
         }
       } else {
-        const resView = await supabase
-          .from('v_agency_members_list')
-          .select('agency_id, user_id, name, avatar_url, profile_id, gems')
-          .eq('agency_id', agencyId)
-          .limit(limit);
-        if (!resView.error) {
-          data = resView.data;
+        const resPublic = await supabase.rpc('get_agency_members_public', {
+          p_agency_id: agencyId,
+        });
+        if (!resPublic.error) {
+          data = resPublic.data;
         } else {
-          error = resView.error;
+          error = resPublic.error;
         }
       }
 
