@@ -256,11 +256,20 @@ export default function AdminWithdrawals() {
          * هنعمله في خطوة تانية بعد ما نعرف اسم الـ RPC عندك أو المنطق اللي محتاجه.
          */
 
+      } else if (type === 'approve') {
+        // ✅ النظام الجديد: موافقة على طلب cycle (تعلّم الـ splits approved)
+        const { data, error } = await supabase.rpc('admin_approve_cycle_withdrawal', {
+          p_request_id: request.id
+        });
+
+        if (error) throw error;
+        if (data && data.success === false) throw new Error(data.error);
+
       } else {
-        // Standard Approve/Reject
+        // Reject (نسيب القديم)
         const { error } = await supabase.rpc('admin_update_gem_withdrawal_status', {
           p_request_id: request.id,
-          p_new_status: type === 'approve' ? 'approved' : 'rejected',
+          p_new_status: 'rejected',
           p_admin_note: adminNote.trim() || null,
           p_payout_usd: null,
           p_payout_coins: null
