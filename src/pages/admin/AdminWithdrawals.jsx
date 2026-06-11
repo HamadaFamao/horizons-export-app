@@ -79,6 +79,12 @@ export default function AdminWithdrawals() {
 
   // Cycle Modal State
   const [isCycleModalOpen, setIsCycleModalOpen] = useState(false);
+  // Tabs + Batch state
+  const [activeTab, setActiveTab] = useState('requests'); // 'requests' | 'batches'
+  const [pendingSplits, setPendingSplits] = useState([]);
+  const [loadingSplits, setLoadingSplits] = useState(false);
+  const [selectedSplitIds, setSelectedSplitIds] = useState(new Set());
+  const [finalizingAgent, setFinalizingAgent] = useState(null);
 
   const abortControllerRef = useRef(null);
 
@@ -127,11 +133,77 @@ export default function AdminWithdrawals() {
     }
   }, [statusFilter, toast, canView, permLoading]);
 
+  const fetchPendingSplits = useCallback(async () => {
+    setLoadingSplits(true);
+    try {
+      const { data, error } = await supabase.rpc('admin_list_pending_agent_splits');
+      if (error) throw error;
+      setPendingSplits(data || []);
+    } catch (err) {
+      console.error('[fetchPendingSplits]', err);
+      toast({ title: 'Error', description: 'Failed to load agent splits.', variant: 'destructive' });
+    } finally {
+      setLoadingSplits(false);
+    }
+  }, [toast]);
+
+  const toggleSplit = (splitId) => {
+    setSelectedSplitIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(splitId)) next.delete(splitId);
+      else next.add(splitId);
+      return next;
+    });
+  };
+
+  const handleFinalizeBatch = async (agentId, agentSplitIds) => {
+    // ناخد بس الـ splits المختارة لهذا الوكيل
+    const idsToFinalize = agentSplitIds.filter((id) => selectedSplitIds.has(id));
+    if (idsToFinalize.length === 0) {
+      toast({ title: 'No splits selected', description: 'Select at least one paid split.', variant: 'destructive' });
+      return;
+    }
+
+    if (!window.confirm(`Finalize ${idsToFinalize.length} split(s) for this agent? This will deduct gems and compensate the agent in coins.`)) return;
+
+    setFinalizingAgent(agentId);
+    try {
+      const { data, error } = await supabase.rpc('admin_finalize_recharge_agent_batch', {
+        p_recharge_agent_id: agentId,
+        p_split_ids: idsToFinalize,
+        p_note: null,
+      });
+
+      if (error) throw error;
+      if (data && data.success === false) throw new Error(data.error);
+
+      toast({
+        title: '✅ Batch finalized',
+        description: `Paid ${data.splits_paid} split(s) • ${Number(data.total_gems).toLocaleString()} gems • $${Number(data.total_usd).toFixed(2)} • Bonus ${data.bonus_pct}% • ${Number(data.payout_coins).toLocaleString()} coins`,
+        className: 'bg-green-50 border-green-200 text-green-800',
+      });
+
+      setSelectedSplitIds(new Set());
+      await fetchPendingSplits();
+      await fetchRequests(true);
+    } catch (err) {
+      console.error('[handleFinalizeBatch]', err);
+      toast({ title: 'Finalize failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setFinalizingAgent(null);
+    }
+  };
+
   useEffect(() => {
     if (permLoading) return;
     fetchRequests();
     return () => abortControllerRef.current?.abort();
   }, [fetchRequests, permLoading]);
+
+  useEffect(() => {
+    if (permLoading || !canView) return;
+    if (activeTab === 'batches') fetchPendingSplits();
+  }, [activeTab, permLoading, canView, fetchPendingSplits]);
 
   const toggleRow = (id) => {
     const newSet = new Set(expandedRows);
