@@ -156,11 +156,10 @@ export default function AgentWithdrawals() {
            <Table>
                <TableHeader>
                    <TableRow>
-                       <TableHead>Request ID</TableHead>
-                       <TableHead>User</TableHead>
-                       <TableHead>Amount (Gems)</TableHead>
-                       <TableHead>Payout Value</TableHead>
-                       <TableHead>Compensation</TableHead>
+                       <TableHead>Split</TableHead>
+                       <TableHead>Agency / Agent</TableHead>
+                       <TableHead>Amount</TableHead>
+                       <TableHead>Payout</TableHead>
                        <TableHead>Status</TableHead>
                        <TableHead className="text-right">Action</TableHead>
                    </TableRow>
@@ -168,81 +167,57 @@ export default function AgentWithdrawals() {
                <TableBody>
                    {loading ? (
                        <TableRow>
-                           <TableCell colSpan={7} className="h-24 text-center">
+                           <TableCell colSpan={6} className="h-24 text-center">
                                <Loader2 className="w-6 h-6 animate-spin mx-auto text-gray-400" />
                            </TableCell>
                        </TableRow>
                    ) : requests.length === 0 ? (
                        <TableRow>
-                           <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
-                               No active withdrawal assignments found.
+                           <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                               No assigned withdrawals found.
                            </TableCell>
                        </TableRow>
                    ) : (
-                       requests.map((req) => (
-                           <TableRow key={req.id}>
+                       requests.map((req) => {
+                           const statusStyles = {
+                             approved: 'bg-blue-50 text-blue-700 border-blue-200',
+                             proof_submitted: 'bg-purple-50 text-purple-700 border-purple-200',
+                             paid: 'bg-green-50 text-green-700 border-green-200',
+                           };
+                           const statusLabels = {
+                             approved: 'Awaiting Payment',
+                             proof_submitted: 'Proof Submitted',
+                             paid: 'Paid',
+                           };
+                           return (
+                           <TableRow key={req.split_id}>
                                <TableCell className="font-mono text-xs text-muted-foreground">
-                                   #{req.id}
-                               </TableCell>
-                               <TableCell>
-                                   <div className="flex items-center gap-2">
-                                       <Avatar className="w-8 h-8">
-                                           <AvatarImage src={req.user_avatar_url} />
-                                           <AvatarFallback>{req.user_name?.substring(0,2).toUpperCase()}</AvatarFallback>
-                                       </Avatar>
-                                       <div className="flex flex-col">
-                                           <span className="text-sm font-medium">{req.user_name}</span>
-                                           <span className="text-xs text-muted-foreground">ID: {req.user_profile_id}</span>
-                                       </div>
-                                   </div>
-                               </TableCell>
-                               <TableCell className="font-medium">
-                                   {req.gems_requested?.toLocaleString()}
+                                   #{req.split_id}
+                                   <span className="block text-[10px] text-gray-400">req {req.request_id}</span>
                                </TableCell>
                                <TableCell>
                                    <div className="flex flex-col">
-                                       <span className="font-bold text-green-700">
-                                            ${calculateUsdEstimate(req.gems_requested)} USD
-                                       </span>
-                                       <span className="text-[10px] text-gray-400">
-                                            (Est. Value)
+                                       <span className="text-sm font-medium">{req.agency_name || '—'}</span>
+                                       <span className="text-xs text-muted-foreground">
+                                         {req.agent_name || '—'} • ID: {req.agent_profile_id || '—'}
                                        </span>
                                    </div>
                                </TableCell>
-                               <TableCell>
-                                   <div className="flex items-center gap-1 text-amber-600 font-medium">
-                                       <DollarSign className="w-3 h-3" />
-                                       {calculateCompensationCoins(req.gems_requested).toLocaleString()} coins
-                                   </div>
+                               <TableCell className="font-medium">
+                                   💎 {req.gems_amount?.toLocaleString()}
                                </TableCell>
                                <TableCell>
-                                    <div className="flex flex-col gap-1">
-                                        <Badge variant="outline" className="w-fit capitalize">
-                                            {req.status?.replace('_', ' ')}
-                                        </Badge>
-                                        {req.agent_paid_status === 'submitted' && (
-                                            <span className="text-[10px] text-purple-600 flex items-center gap-0.5">
-                                                <ShieldCheck className="w-3 h-3" /> Proof Submitted
-                                            </span>
-                                        )}
-                                        {req.agent_paid_status === 'confirmed' && (
-                                            <span className="text-[10px] text-green-600 flex items-center gap-0.5">
-                                                <CheckCircle2 className="w-3 h-3" /> Confirmed
-                                            </span>
-                                        )}
-                                        {req.agent_paid_status === 'rejected_by_admin' && (
-                                            <span className="text-[10px] text-red-600 font-medium">
-                                                Proof Rejected
-                                            </span>
-                                        )}
-                                    </div>
+                                   <span className="font-bold text-green-700">
+                                        ${Number(req.payout_usd || 0).toFixed(2)}
+                                   </span>
+                               </TableCell>
+                               <TableCell>
+                                   <Badge variant="outline" className={cn('w-fit', statusStyles[req.status] || '')}>
+                                       {statusLabels[req.status] || req.status}
+                                   </Badge>
                                </TableCell>
                                <TableCell className="text-right">
-                                   {req.agent_paid_status === 'submitted' || req.agent_paid_status === 'confirmed' ? (
-                                       <Button size="sm" variant="secondary" disabled className="opacity-70">
-                                           {req.agent_paid_status === 'submitted' ? 'Under Review' : 'Completed'}
-                                       </Button>
-                                   ) : (
+                                   {req.status === 'approved' ? (
                                        <Button 
                                            size="sm" 
                                            className="bg-indigo-600 hover:bg-indigo-700"
@@ -251,10 +226,19 @@ export default function AgentWithdrawals() {
                                            <Upload className="w-4 h-4 mr-2" />
                                            Submit Proof
                                        </Button>
+                                   ) : req.status === 'proof_submitted' ? (
+                                       <Button size="sm" variant="secondary" disabled className="opacity-70">
+                                           Under Review
+                                       </Button>
+                                   ) : (
+                                       <Button size="sm" variant="secondary" disabled className="opacity-70">
+                                           Completed
+                                       </Button>
                                    )}
                                </TableCell>
                            </TableRow>
-                       ))
+                           );
+                       })
                    )}
                </TableBody>
            </Table>
