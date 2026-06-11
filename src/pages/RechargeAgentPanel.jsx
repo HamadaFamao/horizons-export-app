@@ -322,13 +322,14 @@ export default function RechargeAgentPanel() {
             </Button>
             
             <Button 
-               variant="outline" 
-               size="sm" 
-               onClick={() => navigate('/recharge-agent/withdrawals')}
-               className="text-indigo-600 border-indigo-200 hover:bg-indigo-50 hidden md:flex items-center gap-2"
+              variant="outline" 
+              size="sm" 
+              onClick={() => navigate('/recharge-agent/withdrawals')}
+              className="text-indigo-600 border-indigo-200 hover:bg-indigo-50 flex items-center gap-1.5"
             >
-               <span>Assigned Withdrawals</span>
-               <ArrowRight className="w-4 h-4" />
+              <span className="hidden sm:inline">Assigned</span>
+              <span>Withdrawals</span>
+              <ArrowRight className="w-4 h-4" />
             </Button>
         </div>
       </div>
