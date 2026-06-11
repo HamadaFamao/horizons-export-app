@@ -36,40 +36,28 @@ export default function AgentWithdrawals() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Submit Dialog State
-  const [submitDialog, setSubmitDialog] = useState({ open: false, requestId: null });
+    const [submitDialog, setSubmitDialog] = useState({ open: false, splitId: null });
   const [proofFile, setProofFile] = useState(null);
   const [proofNote, setProofNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [rates, setRates] = useState({ gems_to_usd: 0.01, usd_to_coins: 100 });
 
-  const fetchAssignedRequests = useCallback(async () => {
-    try {
-      // 1. Fetch Requests
-      const { data, error } = await supabase.rpc('get_recharge_agent_assigned_withdrawals');
-      if (error) throw error;
-      setRequests(data || []);
-
-      // 2. Fetch Rates
-      const { data: ratesData } = await supabase.rpc('get_withdrawal_rates');
-      if (ratesData) {
-          setRates({
-            gems_to_usd: ratesData.gems_to_usd || 0.01,
-            usd_to_coins: ratesData.usd_to_coins || 100
-          });
-      }
-
-    } catch (err) {
-      console.error('Fetch error:', err);
-      toast({
-        title: "Error",
-        description: "Failed to load assigned withdrawals.",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-      setIsRefreshing(false);
-    }
-  }, [toast]);
+    const fetchAssignedRequests = useCallback(async () => {
+        try {
+            const { data, error } = await supabase.rpc('get_recharge_agent_assigned_splits');
+            if (error) throw error;
+            setRequests(data || []);
+        } catch (err) {
+            console.error('Fetch error:', err);
+            toast({
+                title: "Error",
+                description: "Failed to load assigned withdrawals.",
+                variant: "destructive"
+            });
+        } finally {
+            setLoading(false);
+            setIsRefreshing(false);
+        }
+    }, [toast]);
 
   useEffect(() => {
     fetchAssignedRequests();
@@ -80,11 +68,11 @@ export default function AgentWithdrawals() {
     fetchAssignedRequests();
   };
 
-  const openSubmitDialog = (req) => {
-    setSubmitDialog({ open: true, requestId: req.id });
-    setProofFile(null);
-    setProofNote('');
-  };
+    const openSubmitDialog = (split) => {
+        setSubmitDialog({ open: true, splitId: split.split_id });
+        setProofFile(null);
+        setProofNote('');
+    };
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
@@ -101,7 +89,7 @@ export default function AgentWithdrawals() {
     setIsSubmitting(true);
     try {
         const fileExt = proofFile.name.split('.').pop();
-        const fileName = `${submitDialog.requestId}_${Date.now()}.${fileExt}`;
+        const fileName = `split_${submitDialog.splitId}_${Date.now()}.${fileExt}`;
         const filePath = `${fileName}`;
 
         // 1. Upload to storage
@@ -111,14 +99,15 @@ export default function AgentWithdrawals() {
 
         if (uploadError) throw uploadError;
 
-        // 2. Call RPC to update status
-        const { error: rpcError } = await supabase.rpc('recharge_agent_submit_withdrawal_payment', {
-            p_request_id: submitDialog.requestId,
+        // 2. Call RPC to update split status
+        const { data: rpcData, error: rpcError } = await supabase.rpc('recharge_agent_submit_split_proof', {
+            p_split_id: submitDialog.splitId,
             p_proof_url: filePath,
             p_note: proofNote
         });
 
         if (rpcError) throw rpcError;
+        if (rpcData && rpcData.success === false) throw new Error(rpcData.error);
 
         toast({
             title: "Proof Submitted",
@@ -126,7 +115,7 @@ export default function AgentWithdrawals() {
             className: "bg-green-50 border-green-200 text-green-800"
         });
         
-        setSubmitDialog({ open: false, requestId: null });
+        setSubmitDialog({ open: false, splitId: null });
         fetchAssignedRequests();
 
     } catch (err) {
@@ -139,15 +128,6 @@ export default function AgentWithdrawals() {
     } finally {
         setIsSubmitting(false);
     }
-  };
-
-  const calculateUsdEstimate = (gems) => {
-     return (gems * rates.gems_to_usd).toFixed(2);
-  };
-  
-  const calculateCompensationCoins = (gems) => {
-     const usd = gems * rates.gems_to_usd;
-     return Math.round(usd * rates.usd_to_coins);
   };
 
   return (
