@@ -109,7 +109,7 @@ export default function AdminAgencies() {
     try {
       const { data: memberships, error: memErr } = await supabase
         .from('agency_memberships')
-        .select('user_id, role, joined_at, left_at')
+        .select('user_id, role, joined_at, left_at, withdrawal_method')
         .eq('agency_id', agencyId)
         .is('left_at', null)
         .order('joined_at', { ascending: true });
@@ -122,7 +122,7 @@ export default function AdminAgencies() {
       if (memberIds.length > 0) {
         const { data: profiles, error: profErr } = await supabase
           .from('profiles')
-          .select('id, name, profile_id, avatar_url, withdrawal_method')
+          .select('id, name, profile_id, avatar_url')
           .in('id', memberIds);
 
         if (profErr) throw profErr;
@@ -624,7 +624,7 @@ export default function AdminAgencies() {
                             Joined: {m.joined_at ? new Date(m.joined_at).toLocaleDateString() : '—'}
                           </p>
                           <p className="text-xs text-slate-500">
-                            Withdrawal: {m.profile?.withdrawal_method || '—'}
+                            Withdrawal: {m.withdrawal_method || '—'}
                           </p>
                         </div>
                         <Button
