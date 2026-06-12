@@ -483,6 +483,30 @@ export default function AdminWithdrawals() {
         ))}
       </div>
 
+      <div className="flex items-center gap-2 border-b pb-2">
+        <Button
+          variant={activeTab === 'requests' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => setActiveTab('requests')}
+        >
+          📋 Requests
+        </Button>
+        <Button
+          variant={activeTab === 'batches' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => setActiveTab('batches')}
+          className="relative"
+        >
+          💰 Agent Batches
+          {pendingSplits.length > 0 && (
+            <span className="ml-2 bg-purple-600 text-white text-xs px-1.5 py-0.5 rounded-full">
+              {pendingSplits.length}
+            </span>
+          )}
+        </Button>
+      </div>
+
+      {activeTab === 'requests' && (
       <Card className="border-t-4 border-t-rose-500 shadow-sm">
         <CardContent className="p-0">
           <div className="rounded-md">
@@ -723,6 +747,108 @@ export default function AdminWithdrawals() {
           </div>
         </CardContent>
       </Card>
+      )}
+
+      {activeTab === 'batches' && (
+        <Card className="border-t-4 border-t-purple-500 shadow-sm">
+          <CardContent className="p-4">
+            {loadingSplits ? (
+              <div className="py-12 text-center">
+                <Loader2 className="w-8 h-8 animate-spin mx-auto text-purple-500" />
+              </div>
+            ) : pendingSplits.length === 0 ? (
+              <div className="py-12 text-center text-muted-foreground">
+                No splits awaiting finalization.
+              </div>
+            ) : (
+              (() => {
+                // نجمّع الـ splits حسب وكيل الشحن
+                const byAgent = {};
+                pendingSplits.forEach((s) => {
+                  if (!byAgent[s.recharge_agent_id]) {
+                    byAgent[s.recharge_agent_id] = { agent_name: s.agent_name, splits: [] };
+                  }
+                  byAgent[s.recharge_agent_id].splits.push(s);
+                });
+
+                return Object.entries(byAgent).map(([agentId, group]) => {
+                  const agentSplitIds = group.splits.map((s) => s.split_id);
+                  const selectedForAgent = agentSplitIds.filter((id) => selectedSplitIds.has(id));
+                  const selectedTotal = group.splits
+                    .filter((s) => selectedSplitIds.has(s.split_id))
+                    .reduce((sum, s) => sum + Number(s.payout_usd || 0), 0);
+
+                  return (
+                    <div key={agentId} className="mb-6 border rounded-xl overflow-hidden">
+                      <div className="bg-purple-50 px-4 py-3 flex items-center justify-between border-b">
+                        <div>
+                          <p className="font-bold text-purple-900">{group.agent_name}</p>
+                          <p className="text-xs text-purple-600">
+                            {group.splits.length} split(s) awaiting • Selected: {selectedForAgent.length} (${selectedTotal.toFixed(2)})
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          className="bg-purple-600 hover:bg-purple-700 text-white"
+                          disabled={selectedForAgent.length === 0 || finalizingAgent === agentId}
+                          onClick={() => handleFinalizeBatch(Number(agentId), agentSplitIds)}
+                        >
+                          {finalizingAgent === Number(agentId) ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            `✅ Finalize Batch (${selectedForAgent.length})`
+                          )}
+                        </Button>
+                      </div>
+
+                      <div className="divide-y">
+                        {group.splits.map((s) => (
+                          <div key={s.split_id} className="px-4 py-3 flex items-center gap-3 hover:bg-gray-50">
+                            <input
+                              type="checkbox"
+                              className="w-4 h-4 accent-purple-600 cursor-pointer"
+                              checked={selectedSplitIds.has(s.split_id)}
+                              onChange={() => toggleSplit(s.split_id)}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium">
+                                {s.agency_name || '—'} <span className="text-xs text-gray-400">• {s.family_agent_name}</span>
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                Split #{s.split_id} • req {s.request_id}
+                                {s.proof_note ? ` • "${s.proof_note}"` : ''}
+                              </p>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="font-bold text-sm">💎 {s.gems_amount?.toLocaleString()}</p>
+                              <p className="text-xs text-green-700 font-semibold">${Number(s.payout_usd || 0).toFixed(2)}</p>
+                            </div>
+                            {s.proof_url && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-indigo-600 shrink-0"
+                                onClick={async () => {
+                                  const { data: signedData } = await supabase.storage
+                                    .from('withdrawal-proofs')
+                                    .createSignedUrl(s.proof_url, 3600);
+                                  if (signedData?.signedUrl) window.open(signedData.signedUrl, '_blank');
+                                }}
+                              >
+                                <FileText className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                });
+              })()
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Action Dialog */}
       <Dialog open={actionDialog.open} onOpenChange={closeActionDialog}>
