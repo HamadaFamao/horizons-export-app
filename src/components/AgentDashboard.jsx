@@ -557,7 +557,7 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
             </p>
             <button
               onClick={() => setShowWithdrawModal(true)}
-              disabled={!!pendingRequest || agentEarnedGems === 0}
+              disabled={!!pendingRequest || lockedGems === 0}
               className="mt-3 w-full py-3 rounded-xl bg-white text-indigo-600 font-bold disabled:opacity-50 disabled:cursor-not-allowed transition"
             >
               {pendingRequest ? '⏳ Request Pending' : 'Withdraw My Earnings'}
@@ -978,7 +978,7 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
       <WithdrawalRequestModal
         isOpen={showWithdrawModal}
         onClose={() => setShowWithdrawModal(false)}
-        availableGems={agentEarnedGems + membersWithdrawable}
+        availableGems={lockedGems}
         onSuccess={() => {
           toast({
             title: 'Withdrawal request submitted',
