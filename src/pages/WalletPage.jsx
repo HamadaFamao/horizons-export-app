@@ -44,8 +44,8 @@ import React from 'react';
       return (
         <>
           <Helmet>
-            <title>My Wallet - Singles Dating App</title>
-            <meta name="description" content="Manage your Singles Coins, view transaction history, and purchase more coins." />
+            <title>My Wallet - Famo</title>
+            <meta name="description" content="Manage your Famo Coins, view transaction history, and purchase more coins." />
           </Helmet>
 
           <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-orange-50">
@@ -68,7 +68,7 @@ import React from 'react';
                     <Gem className="w-10 h-10 text-blue-500" />
                     <motion.p initial={{ scale: 0.8 }} animate={{ scale: 1 }} transition={{ type: "spring" }} className="text-6xl font-bold gradient-text">{balance}</motion.p>
                   </div>
-                  <p className="text-gray-500 mt-1">Singles Coins</p>
+                  <p className="text-gray-500 mt-1">Famo Coins</p>
                   <div className="flex gap-4 justify-center mt-6">
                     <Dialog>
                         <DialogTrigger asChild>

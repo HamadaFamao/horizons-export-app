@@ -30,8 +30,8 @@ const ContactUs = () => {
   return (
     <>
       <Helmet>
-        <title>Contact Us - Singles Dating App</title>
-        <meta name="description" content="Get in touch with Singles support team. We're here to help with any questions or concerns." />
+        <title>Contact Us - Famo</title>
+        <meta name="description" content="Get in touch with the Famo support team. We're here to help with any questions or concerns." />
       </Helmet>
 
       <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-orange-50">
@@ -44,7 +44,7 @@ const ContactUs = () => {
               </Button>
               <div className="flex items-center gap-2">
                 <Heart className="w-6 h-6 text-rose-500 fill-rose-500" />
-                <span className="text-xl font-bold gradient-text">Singles</span>
+                <span className="text-xl font-bold gradient-text">Famo</span>
               </div>
               <div className="w-20"></div>
             </div>

@@ -213,7 +213,7 @@ const DiscoverPage = () => {
   return (
     <>
       <Helmet>
-        <title>{t('discover_page_title', 'Discover')} - Singles</title>
+        <title>{t('discover_page_title', 'Discover')} - Famo</title>
         <meta name="description" content={t('discover_page_meta_description', 'Find people near you')} />
       </Helmet>
 

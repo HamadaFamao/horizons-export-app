@@ -60,7 +60,7 @@ const HomePage = () => {
     return (
         <>
             <Helmet>
-                <title>{t('home_page_title')} - Singles</title>
+                <title>{t('home_page_title')} - Famo</title>
                 <meta name="description" content={t('home_page_meta_description')} />
             </Helmet>
             <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-orange-50">

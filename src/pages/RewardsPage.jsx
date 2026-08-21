@@ -53,8 +53,8 @@ import React, { useState } from 'react';
       const shareLink = () => {
         if (navigator.share) {
           navigator.share({
-            title: 'Join me on Singles!',
-            text: `Sign up on Singles with my link and we both get rewards!`,
+            title: 'Join me on Famo!',
+            text: `Sign up on Famo with my link and we both get rewards!`,
             url: referralLink,
           });
         } else {
@@ -65,7 +65,7 @@ import React, { useState } from 'react';
 
       return (
         <>
-          <Helmet><title>Rewards - Singles</title></Helmet>
+          <Helmet><title>Rewards - Famo</title></Helmet>
           <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-orange-50">
             <header className="bg-white/80 backdrop-blur-md border-b border-pink-100 sticky top-0 z-40">
               <div className="container mx-auto px-4 py-4 flex items-center justify-between">

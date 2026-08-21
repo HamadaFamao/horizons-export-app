@@ -163,8 +163,8 @@ const AuthPage = () => {
   return (
     <>
       <Helmet>
-        <title>Sign In - Singles</title>
-        <meta name="description" content="Sign in to your Singles account to connect with people." />
+        <title>Sign In - Famo</title>
+        <meta name="description" content="Sign in to your Famo account to connect with people." />
       </Helmet>
 
       <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-rose-50 via-pink-50 to-orange-50 p-4">
@@ -173,7 +173,7 @@ const AuthPage = () => {
             <Logo size="xl" className="mb-2" />
             <div className="space-y-1">
               <CardTitle className="text-2xl font-bold text-gray-900">Welcome Back</CardTitle>
-              <CardDescription className="text-base">Sign in to find your perfect match</CardDescription>
+              <CardDescription className="text-base">Sign in to Famo</CardDescription>
             </div>
           </CardHeader>
 

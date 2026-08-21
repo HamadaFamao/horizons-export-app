@@ -70,7 +70,7 @@ const BlockedUsersPage = () => {
 
   return (
     <>
-        <Helmet><title>Blocked Users - Singles</title></Helmet>
+        <Helmet><title>Blocked Users - Famo</title></Helmet>
         <AppHeader />
         <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-orange-50 py-8">
             <div className="container mx-auto px-4 max-w-2xl">

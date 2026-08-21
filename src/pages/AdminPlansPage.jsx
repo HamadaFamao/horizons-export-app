@@ -33,8 +33,8 @@ const AdminPlansPage = () => {
   return (
     <>
       <Helmet>
-        <title>Admin: Manage Plans - Singles</title>
-        <meta name="description" content="Manage subscription plan pricing for Singles." />
+        <title>Admin: Manage Plans - Famo</title>
+        <meta name="description" content="Manage subscription plan pricing for Famo." />
       </Helmet>
 
       <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-orange-50">

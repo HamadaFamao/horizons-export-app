@@ -46,7 +46,7 @@ const Logo = ({ className, textClassName, showText = true, size = "default" }) =
             textSizes[size] || textSizes.default, 
             textClassName
         )}>
-          Singles
+          Famo
         </span>
       )}
     </div>

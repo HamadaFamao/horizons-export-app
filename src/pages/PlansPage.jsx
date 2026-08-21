@@ -287,7 +287,7 @@ export default function PlansPage() {
   return (
     <>
       <Helmet>
-        <title>{activeTab === 'coins' ? 'Top Up Coins' : 'Choose Your Plan'} - Singles App</title>
+        <title>{activeTab === 'coins' ? 'Top Up Coins' : 'Choose Your Plan'} - Famo</title>
       </Helmet>
       
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex flex-col">

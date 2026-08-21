@@ -38,8 +38,8 @@ const SettingsPage = () => {
   return (
     <>
       <Helmet>
-        <title>Settings - Singles Dating App</title>
-        <meta name="description" content="Manage your Singles account settings, privacy preferences, and notifications." />
+        <title>Settings - Famo</title>
+        <meta name="description" content="Manage your Famo account settings, privacy preferences, and notifications." />
       </Helmet>
 
       <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-orange-50">

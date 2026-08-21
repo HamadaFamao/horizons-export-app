@@ -1,21 +1,21 @@
 ## Pages
-- [- Singles](/discover): No description available
-- [- Singles](/home): No description available
-- [- Singles](/inbox): No description available
-- [- Singles](/matches): No description available
-- [- Singles App](/plans): No description available
-- [Admin Dashboard - Singles Dating App](/admindashboard): Admin dashboard for Singles dating app. Manage users, subscriptions, and reported profiles.
-- [Admin: Manage Plans - Singles](/adminplans): Manage subscription plan pricing for Singles.
-- [Blocked Users - Singles](/blockedusers): No description available
-- [Contact Us - Singles Dating App](/contactus): Get in touch with Singles support team. We
-- [Dashboard - Singles Dating App](/dashboard): Your Singles dashboard. View your matches, messages, and profile statistics.
-- [Debug Session - Singles](/debugsession): No description available
-- [Login - Singles](/login): Login to your Singles account
-- [Messages - Singles](/messages): No description available
-- [My Wallet - Singles Dating App](/wallet): Manage your Singles Coins, view transaction history, and purchase more coins.
-- [Privacy Policy - Singles Dating App](/privacypolicy): Read Singles privacy policy. Learn how we protect your data and respect your privacy.
-- [Rewards - Singles](/rewards): No description available
-- [Settings - Singles Dating App](/settings): Manage your Singles account settings, privacy preferences, and notifications.
-- [Sign In - Singles](/auth): Sign in to your Singles account to connect with people.
-- [Subscription Plans - Singles Dating App](/subscription): Choose your Singles subscription plan. Upgrade to Premium for unlimited features and better matches.
-- [Terms of Service - Singles Dating App](/termsofservice): Read Singles terms of service. Understand the rules and guidelines for using our dating platform.
+- [- Famo](/discover): No description available
+- [- Famo](/home): No description available
+- [- Famo](/inbox): No description available
+- [- Famo](/matches): No description available
+- [- Famo](/plans): No description available
+- [Admin Dashboard - Famo](/admindashboard): Admin dashboard for Famo. Manage users, subscriptions, and reported profiles.
+- [Admin: Manage Plans - Famo](/adminplans): Manage subscription plan pricing for Famo.
+- [Blocked Users - Famo](/blockedusers): No description available
+- [Contact Us - Famo](/contactus): Get in touch with the Famo support team.
+- [Dashboard - Famo](/dashboard): Your Famo dashboard. View your matches, messages, and profile statistics.
+- [Debug Session - Famo](/debugsession): No description available
+- [Login - Famo](/login): Login to your Famo account
+- [Messages - Famo](/messages): No description available
+- [My Wallet - Famo](/wallet): Manage your Famo Coins, view transaction history, and purchase more coins.
+- [Privacy Policy - Famo](/privacypolicy): Read the Famo privacy policy. Learn how we protect your data and respect your privacy.
+- [Rewards - Famo](/rewards): No description available
+- [Settings - Famo](/settings): Manage your Famo account settings, privacy preferences, and notifications.
+- [Sign In - Famo](/auth): Sign in to your Famo account to connect with people.
+- [Subscription Plans - Famo](/subscription): Choose your Famo subscription plan. Upgrade to Premium for unlimited features and better connections.
+- [Terms of Service - Famo](/termsofservice): Read the Famo terms of service. Understand the rules and guidelines for using our platform.

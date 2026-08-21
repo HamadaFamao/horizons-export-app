@@ -75,8 +75,8 @@ const SubscriptionPage = () => {
   return (
     <>
       <Helmet>
-        <title>Subscription Plans - Singles Dating App</title>
-        <meta name="description" content="Choose your Singles subscription plan. Upgrade to Premium for unlimited features and better matches." />
+        <title>Subscription Plans - Famo</title>
+        <meta name="description" content="Choose your Famo subscription plan. Upgrade to Premium for unlimited features and better connections." />
       </Helmet>
 
       <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-orange-50">
@@ -103,7 +103,7 @@ const SubscriptionPage = () => {
             <h2 className="text-4xl font-bold mb-4">
               Choose Your <span className="gradient-text">Perfect Plan</span>
             </h2>
-            <p className="text-xl text-gray-600">Unlock premium features and find your match faster!</p>
+            <p className="text-xl text-gray-600">Unlock premium features and grow your Endless Connections.</p>
           </motion.div>
 
           <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">

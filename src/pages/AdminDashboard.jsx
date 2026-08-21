@@ -34,8 +34,8 @@ const AdminDashboard = () => {
   return (
     <>
       <Helmet>
-        <title>Admin Dashboard - Singles Dating App</title>
-        <meta name="description" content="Admin dashboard for Singles dating app. Manage users, subscriptions, and reported profiles." />
+        <title>Admin Dashboard - Famo</title>
+        <meta name="description" content="Admin dashboard for Famo. Manage users, subscriptions, and reported profiles." />
       </Helmet>
 
       <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-orange-50">

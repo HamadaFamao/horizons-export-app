@@ -56,7 +56,7 @@ const LoadingFallback = () => (
   <div className="min-h-screen w-full flex items-center justify-center bg-rose-50">
     <div className="flex flex-col items-center gap-4">
       <Loader2 className="w-12 h-12 animate-spin text-rose-500" />
-      <p className="text-xl text-rose-600">Loading Singles...</p>
+      <p className="text-xl text-rose-600">Loading Famo...</p>
     </div>
   </div>
 );

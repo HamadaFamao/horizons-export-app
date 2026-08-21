@@ -43,7 +43,7 @@ const InboxPage = () => {
     if (authLoading) {
         return (
             <>
-                <Helmet><title>{t('inbox')} - Singles</title></Helmet>
+                <Helmet><title>{t('inbox')} - Famo</title></Helmet>
                 <AppHeader />
                 <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-gradient-to-br from-rose-50 via-pink-50 to-orange-50">
                     <Loader2 className="w-12 h-12 animate-spin text-rose-500" />
@@ -55,7 +55,7 @@ const InboxPage = () => {
     if (!user) {
          return (
              <>
-                 <Helmet><title>{t('inbox')} - Singles</title></Helmet>
+                 <Helmet><title>{t('inbox')} - Famo</title></Helmet>
                  <AppHeader />
                  <main className="container mx-auto px-4 py-8 text-center">
                      <h1 className="text-3xl font-bold gradient-text mb-4">{t('inbox')}</h1>
@@ -71,7 +71,7 @@ const InboxPage = () => {
     return (
         <>
             <Helmet>
-                <title>{t('inbox')} - Singles</title>
+                <title>{t('inbox')} - Famo</title>
                 <meta name="description" content={t('inbox_description')} />
             </Helmet>
             <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-orange-50">

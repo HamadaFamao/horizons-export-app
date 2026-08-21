@@ -29,8 +29,8 @@ const Dashboard = () => {
   return (
     <>
       <Helmet>
-        <title>Dashboard - Singles Dating App</title>
-        <meta name="description" content="Your Singles dashboard. View your matches, messages, and profile statistics." />
+        <title>Dashboard - Famo</title>
+        <meta name="description" content="Your Famo dashboard. View your matches, messages, and profile statistics." />
       </Helmet>
 
       <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-orange-50">
@@ -40,7 +40,7 @@ const Dashboard = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Heart className="w-8 h-8 text-rose-500 fill-rose-500" />
-                <span className="text-2xl font-bold gradient-text">Singles</span>
+                <span className="text-2xl font-bold gradient-text">Famo</span>
               </div>
 
               <div className="flex items-center gap-4">
@@ -80,7 +80,7 @@ const Dashboard = () => {
             <h1 className="text-4xl font-bold mb-2">
               Welcome back, <span className="gradient-text">{user?.name?.split(' ')[0]}</span>! 👋
             </h1>
-            <p className="text-gray-600 text-lg">Ready to find your perfect match today?</p>
+            <p className="text-gray-600 text-lg">Ready for Endless Connections?</p>
           </motion.div>
 
           {/* Stats Grid */}

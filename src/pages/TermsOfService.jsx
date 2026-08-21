@@ -11,8 +11,8 @@ const TermsOfService = () => {
   return (
     <>
       <Helmet>
-        <title>Terms of Service - Singles Dating App</title>
-        <meta name="description" content="Read Singles terms of service. Understand the rules and guidelines for using our dating platform." />
+        <title>Terms of Service - Famo</title>
+        <meta name="description" content="Read Famo terms of service. Understand the rules and guidelines for using our platform." />
       </Helmet>
 
       <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-orange-50">
@@ -25,7 +25,7 @@ const TermsOfService = () => {
               </Button>
               <div className="flex items-center gap-2">
                 <Heart className="w-6 h-6 text-rose-500 fill-rose-500" />
-                <span className="text-xl font-bold gradient-text">Singles</span>
+                <span className="text-xl font-bold gradient-text">Famo</span>
               </div>
               <div className="w-20"></div>
             </div>
@@ -44,17 +44,17 @@ const TermsOfService = () => {
             <div className="space-y-6 text-gray-700">
               <section>
                 <h2 className="text-2xl font-bold mb-3">1. Acceptance of Terms</h2>
-                <p>By accessing and using Singles, you accept and agree to be bound by the terms and provision of this agreement.</p>
+                <p>By accessing and using Famo, you accept and agree to be bound by the terms and provision of this agreement.</p>
               </section>
 
               <section>
                 <h2 className="text-2xl font-bold mb-3">2. Use License</h2>
-                <p>Permission is granted to temporarily use Singles for personal, non-commercial purposes. This is the grant of a license, not a transfer of title.</p>
+                <p>Permission is granted to temporarily use Famo for personal, non-commercial purposes. This is the grant of a license, not a transfer of title.</p>
               </section>
 
               <section>
                 <h2 className="text-2xl font-bold mb-3">3. User Conduct</h2>
-                <p>You agree not to use Singles to upload, post, or transmit any content that is unlawful, harmful, threatening, abusive, harassing, defamatory, vulgar, obscene, or otherwise objectionable.</p>
+                <p>You agree not to use Famo to upload, post, or transmit any content that is unlawful, harmful, threatening, abusive, harassing, defamatory, vulgar, obscene, or otherwise objectionable.</p>
               </section>
 
               <section>
@@ -64,12 +64,12 @@ const TermsOfService = () => {
 
               <section>
                 <h2 className="text-2xl font-bold mb-3">5. Disclaimer</h2>
-                <p>Singles is provided "as is" without any representations or warranties. We do not warrant that the service will be uninterrupted or error-free.</p>
+                <p>Famo is provided "as is" without any representations or warranties. We do not warrant that the service will be uninterrupted or error-free.</p>
               </section>
 
               <section>
                 <h2 className="text-2xl font-bold mb-3">6. Limitation of Liability</h2>
-                <p>In no event shall Singles be liable for any damages arising out of the use or inability to use our services.</p>
+                <p>In no event shall Famo be liable for any damages arising out of the use or inability to use our services.</p>
               </section>
 
               <section>

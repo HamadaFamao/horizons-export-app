@@ -77,15 +77,15 @@ const LoginPage = () => {
   return (
     <>
       <Helmet>
-        <title>Login - Singles</title>
-        <meta name="description" content="Login to your Singles account" />
+        <title>Login - Famo</title>
+        <meta name="description" content="Login to your Famo account" />
       </Helmet>
       
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-rose-50 via-pink-50 to-orange-50 p-4">
         <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 border border-pink-100">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome Back</h1>
-            <p className="text-gray-500">Sign in to continue to Singles</p>
+            <p className="text-gray-500">Sign in to continue to Famo</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-6">

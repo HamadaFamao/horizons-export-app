@@ -11,8 +11,8 @@ const PrivacyPolicy = () => {
   return (
     <>
       <Helmet>
-        <title>Privacy Policy - Singles Dating App</title>
-        <meta name="description" content="Read Singles privacy policy. Learn how we protect your data and respect your privacy." />
+        <title>Privacy Policy - Famo</title>
+        <meta name="description" content="Read Famo privacy policy. Learn how we protect your data and respect your privacy." />
       </Helmet>
 
       <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-orange-50">
@@ -25,7 +25,7 @@ const PrivacyPolicy = () => {
               </Button>
               <div className="flex items-center gap-2">
                 <Heart className="w-6 h-6 text-rose-500 fill-rose-500" />
-                <span className="text-xl font-bold gradient-text">Singles</span>
+                <span className="text-xl font-bold gradient-text">Famo</span>
               </div>
               <div className="w-20"></div>
             </div>
@@ -49,7 +49,7 @@ const PrivacyPolicy = () => {
 
               <section>
                 <h2 className="text-2xl font-bold mb-3">2. How We Use Your Information</h2>
-                <p>We use the information we collect to provide, maintain, and improve our services, to develop new features, and to protect Singles and our users.</p>
+                <p>We use the information we collect to provide, maintain, and improve our services, to develop new features, and to protect Famo and our users.</p>
               </section>
 
               <section>

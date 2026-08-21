@@ -82,7 +82,7 @@ export default function MatchesPage() {
     return (
         <>
             <Helmet>
-                <title>{t('matches_page_title')} - Singles</title>
+                <title>{t('matches_page_title')} - Famo</title>
                 <meta name="description" content={t('matches_page_meta_description')} />
             </Helmet>
             <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-orange-50 flex flex-col">
