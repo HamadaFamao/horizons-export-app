@@ -49,6 +49,7 @@ import WebsiteLayout from '@/components/WebsiteLayout';
 import AdminErrorBoundary from '@/components/AdminErrorBoundary';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import MiniRoomBar from '@/components/MiniRoomBar';
+import PwaInstallButton from '@/components/PwaInstallButton';
 
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/contexts/AuthContext';
@@ -170,6 +171,7 @@ function AppContent() {
 
   return (
     <div className="flex min-h-[100dvh] flex-col relative overflow-visible">
+      <PwaInstallButton />
       {!isChatRoute && <MiniRoomBar />}
       <Routes>
         {/* Website Layout */}
