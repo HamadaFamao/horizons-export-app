@@ -1,6 +1,7 @@
 import path from 'node:path';
 import react from '@vitejs/plugin-react';
 import { createLogger, defineConfig } from 'vite';
+import { VitePWA } from 'vite-plugin-pwa';
 import inlineEditPlugin from './plugins/visual-editor/vite-plugin-react-inline-editor.js';
 import editModeDevPlugin from './plugins/visual-editor/vite-plugin-edit-mode.js';
 import iframeRouteRestorationPlugin from './plugins/vite-plugin-iframe-route-restoration.js';
@@ -282,7 +283,118 @@ export default defineConfig({
 	plugins: [
 		...(isDev ? [inlineEditPlugin(), editModeDevPlugin(), iframeRouteRestorationPlugin(), selectionModePlugin()] : []),
 		react(),
-		addTransformIndexHtml
+		addTransformIndexHtml,
+		VitePWA({
+			registerType: 'autoUpdate',
+			injectRegister: 'auto',
+			// favicon.ico/-96x96.png/apple-touch-icon.png are already picked up by the
+			// workbox globPatterns below (ico/png extensions); favicon.svg is deliberately
+			// excluded there (see globIgnores) since it is an oversized asset unsuited to
+			// eager precaching, so it is intentionally left out of includeAssets too.
+			manifest: {
+				name: 'Famo',
+				short_name: 'Famo',
+				description: 'Meet new people, make friends, and discover meaningful connections with Famo.',
+				display: 'standalone',
+				orientation: 'portrait',
+				theme_color: '#ffffff',
+				background_color: '#ffffff',
+				scope: '/',
+				start_url: '/',
+				icons: [
+					{
+						src: '/favicon-96x96.png',
+						sizes: '96x96',
+						type: 'image/png',
+					},
+					{
+						src: '/apple-touch-icon.png',
+						sizes: '180x180',
+						type: 'image/png',
+						purpose: 'apple touch icon',
+					},
+					{
+						src: '/web-app-manifest-192x192.png',
+						sizes: '192x192',
+						type: 'image/png',
+						purpose: 'any',
+					},
+					{
+						src: '/web-app-manifest-192x192.png',
+						sizes: '192x192',
+						type: 'image/png',
+						purpose: 'maskable',
+					},
+					{
+						src: '/web-app-manifest-512x512.png',
+						sizes: '512x512',
+						type: 'image/png',
+						purpose: 'any',
+					},
+					{
+						src: '/web-app-manifest-512x512.png',
+						sizes: '512x512',
+						type: 'image/png',
+						purpose: 'maskable',
+					},
+				],
+			},
+			workbox: {
+				globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg,gif,webp,woff,woff2,ttf,eot}'],
+				// Oversized, non-critical assets (marketing branding art, an unoptimized
+				// favicon.svg) are excluded from eager precaching so the SW install stays
+				// fast; they're still cached on first use via the runtime "images" rule below.
+				globIgnores: ['**/favicon.svg', '**/branding/**'],
+				maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MiB, covers the main app bundle
+				navigateFallbackDenylist: [/^\/api\//],
+				runtimeCaching: [
+					{
+						// Never cache Supabase API requests (auth, rest, storage, realtime)
+						urlPattern: /^https:\/\/[^/]+\.supabase\.co\/.*/i,
+						handler: 'NetworkOnly',
+					},
+					{
+						urlPattern: ({ request }) => request.destination === 'image',
+						handler: 'CacheFirst',
+						options: {
+							cacheName: 'images-cache',
+							expiration: {
+								maxEntries: 200,
+								maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
+							},
+						},
+					},
+					{
+						urlPattern: ({ request }) => request.destination === 'font',
+						handler: 'CacheFirst',
+						options: {
+							cacheName: 'fonts-cache',
+							expiration: {
+								maxEntries: 50,
+								maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
+							},
+						},
+					},
+					{
+						urlPattern: ({ request }) => request.destination === 'style',
+						handler: 'StaleWhileRevalidate',
+						options: {
+							cacheName: 'css-cache',
+						},
+					},
+					{
+						urlPattern: ({ request }) => request.destination === 'script',
+						handler: 'StaleWhileRevalidate',
+						options: {
+							cacheName: 'js-cache',
+						},
+					},
+				],
+			},
+			devOptions: {
+				enabled: false,
+			},
+		}),
 	],
 	server: {
 		cors: true,
