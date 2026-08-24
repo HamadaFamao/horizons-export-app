@@ -43,6 +43,8 @@ import AdminSeed from '@/pages/admin/AdminSeed';
 import ProfileIdTool from '@/pages/admin/ProfileIdTool';
 import AdminWithdrawals from '@/pages/admin/AdminWithdrawals';
 import AdminReports from '@/pages/admin/AdminReports';
+import AccountMigrationPage from '@/pages/admin/AccountMigrationPage';
+import MigrationHistoryPage from '@/pages/admin/MigrationHistoryPage';
 import AdminGiftsPage from '@/pages/AdminGiftsPage'; // ✅ ADDED
 
 import WebsiteLayout from '@/components/WebsiteLayout';
@@ -387,6 +389,8 @@ function AppContent() {
           <Route index element={<Navigate to="dashboard" />} />
           <Route path="dashboard" element={<AdminOverview />} />
           <Route path="users" element={<AdminUsers />} />
+          <Route path="users/migration" element={<AccountMigrationPage />} />
+          <Route path="users/migration-history" element={<MigrationHistoryPage />} />
           <Route path="rooms" element={<AdminRooms />} />
           <Route path="/admin/agencies" element={<AdminAgencies />} />
           <Route path="reports" element={<AdminReports />} />

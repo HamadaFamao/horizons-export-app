@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { LayoutGrid, Users, CreditCard, ShieldAlert, Database, Settings, Home, Gem, Award, Wrench, ArrowDownLeftFromCircle, Building, Mic } from 'lucide-react';
+import { LayoutGrid, Users, CreditCard, ShieldAlert, Database, Settings, Home, Gem, Award, Wrench, ArrowDownLeftFromCircle, Building, Mic, ArrowRightLeft, History } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAdminPermissions } from '@/contexts/AdminPermissionsContext';
 import { supabase } from '@/lib/supabaseClient';
@@ -22,6 +22,8 @@ const AdminLayout = () => {
   const allNavItems = [
     { name: 'Overview',     href: 'dashboard',        icon: LayoutGrid,               permission: null },
     { name: 'Users',        href: 'users',             icon: Users,                    permission: 'can_manage_users' },
+    { name: 'Account Migration', href: 'users/migration', icon: ArrowRightLeft,         permission: 'can_manage_users' },
+    { name: 'Migration History', href: 'users/migration-history', icon: History,        permission: 'can_manage_users' },
     { name: 'Rooms',        href: 'rooms',             icon: Mic,                      permission: 'can_manage_rooms' },
     { name: 'Agencies',     href: '/admin/agencies',   icon: Building, iconEmoji: '🏢', permission: 'can_manage_agencies' },
     { name: 'Withdrawals',  href: 'withdrawals',       icon: ArrowDownLeftFromCircle,  permission: 'can_manage_withdrawals' },
