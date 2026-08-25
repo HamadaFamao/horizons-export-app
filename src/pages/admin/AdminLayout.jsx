@@ -38,14 +38,17 @@ const AdminLayout = () => {
     { name: 'Settings',     href: 'settings',          icon: Settings,                 permission: 'can_manage_banners' },
   ];
 
-  const hasManageUsersAccess = !!permissions?.can_manage_users || !!staffRole || user?.isadmin === true;
+  const hasManageUsersAccess =
+    permissions?.can_manage_users === true ||
+    staffRole === 'manager' ||
+    user?.isadmin === true;
 
   const navItems = allNavItems.filter((item) => {
     if (!item.permission) return true;
     if (item.permission === 'can_manage_users') {
       return hasManageUsersAccess;
     }
-    return !!permissions?.[item.permission];
+    return permissions?.[item.permission] === true;
   });
 
   useEffect(() => {
