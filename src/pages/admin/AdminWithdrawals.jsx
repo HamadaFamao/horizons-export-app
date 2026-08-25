@@ -586,9 +586,14 @@ export default function AdminWithdrawals() {
                         </TableCell>
 
                         <TableCell className="font-medium">
-                          <div className="flex items-center gap-1">
-                            <span className="text-rose-600 font-bold">{req.gems_requested?.toLocaleString()}</span>
-                            <span className="text-xs text-gray-500">gems</span>
+                          <div className="flex flex-col">
+                            <div className="flex items-center gap-1">
+                              <span className="text-rose-600 font-bold">{req.gems_requested?.toLocaleString()}</span>
+                              <span className="text-xs text-gray-500">💎</span>
+                            </div>
+                            <span className="text-xs text-green-700 font-semibold">
+                              ${(Number(req.gems_requested || 0) * 0.0005).toFixed(2)}
+                            </span>
                           </div>
                         </TableCell>
 
@@ -597,12 +602,17 @@ export default function AdminWithdrawals() {
                             <span className="capitalize font-medium">{req.payout_method?.replace('_', ' ')}</span>
 
                             {req.payout_method === 'recharge_agent' && (
-                              <span
-                                className="text-xs text-gray-500 truncate max-w-[120px]"
-                                title={`Agent ID: ${req.recharge_agent_id}`}
+                              <a
+                                href={`/user/${req.recharge_agent_profile_id || req.recharge_agent_id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-indigo-600 hover:underline truncate max-w-[120px] flex items-center gap-1"
+                                title="View agent profile"
+                                onClick={(e) => e.stopPropagation()}
                               >
                                 {req.recharge_agent_name || `Agent #${req.recharge_agent_id}`}
-                              </span>
+                                <ExternalLink className="w-3 h-3 shrink-0" />
+                              </a>
                             )}
 
                             {req.agent_paid_status === 'submitted' && (

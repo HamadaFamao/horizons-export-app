@@ -18,6 +18,7 @@ const AdminLayout = () => {
   const [pendingPath, setPendingPath] = useState(null);
   const [pendingReportsCount, setPendingReportsCount] = useState(0);
   const [bannedAgenciesCount, setBannedAgenciesCount] = useState(0);
+  const [pendingWithdrawalsCount, setPendingWithdrawalsCount] = useState(0);
 
   const allNavItems = [
     { name: 'Overview',     href: 'dashboard',        icon: LayoutGrid,               permission: null },
@@ -104,6 +105,28 @@ const AdminLayout = () => {
     return () => {
       supabase.removeChannel(channel);
     };
+  }, []);
+
+  useEffect(() => {
+    const fetchPendingWithdrawals = async () => {
+      const { count } = await supabase
+        .from('gem_withdrawal_requests')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending');
+      setPendingWithdrawalsCount(count || 0);
+    };
+
+    fetchPendingWithdrawals();
+
+    const channel = supabase
+      .channel('withdrawals-pending-count')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'gem_withdrawal_requests' },
+        () => fetchPendingWithdrawals()
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   // Intercept navigation
@@ -225,6 +248,11 @@ const AdminLayout = () => {
                           {bannedAgenciesCount}
                         </span>
                       )}
+                      {item.href === 'withdrawals' && pendingWithdrawalsCount > 0 && (
+                        <span className="ml-auto bg-amber-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                          {pendingWithdrawalsCount}
+                        </span>
+                      )}
                     </NavLink>
                   </li>
                 ))}
@@ -283,6 +311,11 @@ const AdminLayout = () => {
                   {(item.href === '/admin/agencies' || item.href === 'agencies') && bannedAgenciesCount > 0 && (
                     <span className="ml-auto bg-rose-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">
                       {bannedAgenciesCount}
+                    </span>
+                  )}
+                  {item.href === 'withdrawals' && pendingWithdrawalsCount > 0 && (
+                    <span className="ml-auto bg-amber-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                      {pendingWithdrawalsCount}
                     </span>
                   )}
                 </NavLink>
