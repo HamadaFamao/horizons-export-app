@@ -118,15 +118,18 @@ function isDuplicateEmailError(error: { message?: string; code?: string } | null
   return DUPLICATE_EMAIL_PATTERNS.some((re) => re.test(error.message ?? ''))
 }
 
-// ── Admin check (mirrors admin-account-migration's isCallerAdmin / the
-// same fallback order AdminPermissionsContext uses on the client). Kept as
-// a local copy since admin-account-migration must not be modified. ────────
+// ── Admin check (manager users are allowed when they are recognized as staff
+// managers, even if the v_staff_users.can_manage_users flag is not set).
+// This keeps the function aligned with the app's Manager-role checks without
+// changing any other auth or email logic. ─────────────────────────────────
 async function isCallerAdmin(supabase: SupabaseClient, callerId: string): Promise<boolean> {
   const { data: staffRow } = await supabase
     .from('v_staff_users')
-    .select('can_manage_users')
+    .select('can_manage_users, staff_role')
     .eq('id', callerId)
     .maybeSingle()
+
+  if (staffRow?.staff_role === 'manager') return true
   if (staffRow?.can_manage_users) return true
 
   const { data: profileRow } = await supabase

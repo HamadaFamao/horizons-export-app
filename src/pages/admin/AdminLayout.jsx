@@ -43,6 +43,11 @@ const AdminLayout = () => {
     staffRole === 'manager' ||
     user?.isadmin === true;
 
+  console.log('USER', user);
+  console.log('STAFF ROLE', staffRole);
+  console.log('PERMISSIONS', permissions);
+  console.log('HAS MANAGE USERS', hasManageUsersAccess);
+
   const navItems = allNavItems.filter((item) => {
     if (!item.permission) return true;
     if (item.permission === 'can_manage_users') {
