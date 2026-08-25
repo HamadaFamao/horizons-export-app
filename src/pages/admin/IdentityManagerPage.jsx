@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAdminPermissions } from '@/contexts/AdminPermissionsContext';
 import { invokeMigrationFn } from '@/lib/accountMigration';
+import { invokeIdentityFn } from '@/lib/identityManager';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -10,17 +11,27 @@ import {
   Search,
   Loader2,
   AlertCircle,
+  CheckCircle2,
   ShieldAlert,
   ShieldCheck,
   Mic,
   Lock,
+  KeyRound,
+  Mail,
 } from 'lucide-react';
 
 // Step 1 of Identity Manager: a read-only account lookup panel. Search logic
 // is intentionally identical to Account Migration's — both pages call the
 // same `admin-account-migration` edge function action ('lookup') so the
 // account-resolution logic lives in exactly one place (see index.ts).
-// No identity-editing functionality lives here yet.
+//
+// Step 2 adds two more cards, backed by a separate `admin-identity-manager`
+// edge function that only ever reads/writes `auth.users` — never account
+// migration, never application data:
+//   - "Login Identity": read-only auth.users fields for the looked-up account.
+//   - "Replace Login Identity": lets an admin change the account's login
+//     email. The Auth User ID never changes and the new email only takes
+//     effect once the user confirms it (see admin-identity-manager/index.ts).
 
 const SEARCH_OPTIONS = [
   { label: 'Email', value: 'email' },
@@ -55,20 +66,76 @@ export default function IdentityManagerPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Step 2 — Login Identity (auth.users, read-only)
+  const [identity, setIdentity] = useState(null);
+  const [identityLoading, setIdentityLoading] = useState(false);
+  const [identityError, setIdentityError] = useState('');
+
+  // Step 2 — Replace Login Identity
+  const [newEmail, setNewEmail] = useState('');
+  const [changeLoading, setChangeLoading] = useState(false);
+  const [changeError, setChangeError] = useState('');
+  const [changeSuccess, setChangeSuccess] = useState('');
+
+  const loadIdentity = async (userId) => {
+    setIdentityLoading(true);
+    setIdentityError('');
+    try {
+      const data = await invokeIdentityFn({ action: 'get_login_identity', userId });
+      setIdentity(data.identity);
+    } catch (err) {
+      setIdentity(null);
+      setIdentityError(err.message);
+    } finally {
+      setIdentityLoading(false);
+    }
+  };
+
   const handleSearch = async (e) => {
     e.preventDefault();
     if (!query.trim()) return;
     setLoading(true);
     setError('');
+    setIdentity(null);
+    setIdentityError('');
+    setNewEmail('');
+    setChangeError('');
+    setChangeSuccess('');
     try {
       const data = await invokeMigrationFn({ action: 'lookup', searchBy, query: query.trim() });
       setAccount(data.account);
+      loadIdentity(data.account.id);
     } catch (err) {
       setAccount(null);
       setError(err.message);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleChangeEmail = async (e) => {
+    e.preventDefault();
+    const target = newEmail.trim();
+    if (!account || !target) return;
+    setChangeLoading(true);
+    setChangeError('');
+    setChangeSuccess('');
+    try {
+      const data = await invokeIdentityFn({ action: 'change_login_email', userId: account.id, newEmail: target });
+      setChangeSuccess(data.message || 'Verification email sent.');
+      setNewEmail('');
+    } catch (err) {
+      setChangeError(err.message);
+    } finally {
+      setChangeLoading(false);
+    }
+  };
+
+  const formatDateTime = (value) => {
+    if (!value) return 'Never';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '—';
+    return d.toLocaleString();
   };
 
   if (!permLoading && !canAccess) {
@@ -268,6 +335,113 @@ export default function IdentityManagerPage() {
           )}
         </CardContent>
       </Card>
+
+      {account && (
+        <Card className="border-t-4 border-t-rose-500">
+          <CardContent className="p-4 md:p-6">
+            <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+              <KeyRound className="w-5 h-5 text-rose-500" />
+              Login Identity
+            </h2>
+
+            {identityLoading && (
+              <p className="text-sm text-slate-400 inline-flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading login identity...
+              </p>
+            )}
+
+            {!identityLoading && identityError && (
+              <div className="flex items-start gap-2 text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg p-3">
+                <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                <span>{identityError}</span>
+              </div>
+            )}
+
+            {!identityLoading && !identityError && identity && (
+              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                <dt className="text-slate-500">Current Auth User ID</dt>
+                <dd className="font-mono text-xs text-slate-800 break-all">{identity.authUserId}</dd>
+
+                <dt className="text-slate-500">Current Provider</dt>
+                <dd className="text-slate-800 capitalize">{identity.provider || '—'}</dd>
+
+                <dt className="text-slate-500">Current Email</dt>
+                <dd className="text-slate-800 break-all">{identity.email || '—'}</dd>
+
+                <dt className="text-slate-500">Email Confirmed</dt>
+                <dd className="text-slate-800">
+                  {identity.emailConfirmed ? (
+                    <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full text-xs font-semibold">
+                      <CheckCircle2 className="h-3 w-3" /> Confirmed
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full text-xs font-semibold">
+                      Unconfirmed
+                    </span>
+                  )}
+                </dd>
+
+                <dt className="text-slate-500">Last Sign In</dt>
+                <dd className="text-slate-800">{formatDateTime(identity.lastSignInAt)}</dd>
+              </dl>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {account && (
+        <Card className="border-t-4 border-t-amber-500">
+          <CardContent className="p-4 md:p-6">
+            <h2 className="text-lg font-bold mb-1 flex items-center gap-2">
+              <Mail className="w-5 h-5 text-amber-500" />
+              Replace Login Identity
+            </h2>
+            <p className="text-sm text-slate-500 mb-4">
+              Sends a verification email to the new address. The login email only changes once the user confirms it —
+              the Auth User ID stays the same, and no profile, wallet, room, VIP, or agency data is touched.
+            </p>
+
+            <form onSubmit={handleChangeEmail} className="flex flex-col sm:flex-row gap-2 mb-4">
+              <Input
+                type="email"
+                placeholder="New email address"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                className="sm:flex-1"
+              />
+              <Button
+                type="submit"
+                disabled={changeLoading || !newEmail.trim() || !identity}
+                className="sm:min-w-[13rem]"
+              >
+                {changeLoading ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Sending...
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-2">
+                    <Mail className="h-4 w-4" /> Send Verification Email
+                  </span>
+                )}
+              </Button>
+            </form>
+
+            {changeError && (
+              <div className="flex items-start gap-2 text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg p-3">
+                <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                <span>{changeError}</span>
+              </div>
+            )}
+
+            {changeSuccess && (
+              <div className="flex items-start gap-2 text-emerald-700 text-sm bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+                <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
+                <span>{changeSuccess}</span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
