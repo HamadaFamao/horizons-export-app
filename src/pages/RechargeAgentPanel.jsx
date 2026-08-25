@@ -38,6 +38,7 @@ export default function RechargeAgentPanel() {
   
   // History State
   const [recentTransfers, setRecentTransfers] = useState([]);
+  const [pendingSplitsCount, setPendingSplitsCount] = useState(0);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
   // Check if user is an agent and load initial data
@@ -68,7 +69,8 @@ export default function RechargeAgentPanel() {
         // Initial data fetch
         await Promise.all([
           fetchAgentBalance(),
-          fetchTransfers()
+          fetchTransfers(),
+          fetchPendingSplitsCount()
         ]);
         
       } catch (err) {
@@ -166,6 +168,16 @@ export default function RechargeAgentPanel() {
       console.error('Error fetching transfers:', err);
     } finally {
       setLoadingHistory(false);
+    }
+  };
+
+  const fetchPendingSplitsCount = async () => {
+    try {
+      const { data } = await supabase.rpc('get_recharge_agent_assigned_splits');
+      const approvedCount = (data || []).filter(s => s.status === 'approved').length;
+      setPendingSplitsCount(approvedCount);
+    } catch (err) {
+      console.error('Error fetching splits count:', err);
     }
   };
 
@@ -325,11 +337,16 @@ export default function RechargeAgentPanel() {
               variant="outline" 
               size="sm" 
               onClick={() => navigate('/recharge-agent/withdrawals')}
-              className="text-indigo-600 border-indigo-200 hover:bg-indigo-50 flex items-center gap-1.5"
+              className="text-indigo-600 border-indigo-200 hover:bg-indigo-50 flex items-center gap-1.5 relative"
             >
               <span className="hidden sm:inline">Assigned</span>
               <span>Withdrawals</span>
               <ArrowRight className="w-4 h-4" />
+              {pendingSplitsCount > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                  {pendingSplitsCount}
+                </span>
+              )}
             </Button>
         </div>
       </div>
