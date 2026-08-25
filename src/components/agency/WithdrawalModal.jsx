@@ -285,7 +285,7 @@ export default function WithdrawalRequestModalNew({ isOpen, onClose, availableGe
   // ✅ Duplicate guard for same cycle_month
   const [checkingExisting, setCheckingExisting] = useState(false);
   const [existingRequest, setExistingRequest] = useState(null);
-  const cycleMonth = useMemo(() => getCurrentCycleMonth(), []);
+  const [cycleMonth, setCycleMonth] = useState(getCurrentCycleMonth());
 
   const fetchAgents = useCallback(async () => {
     setLoadingAgents(true);
@@ -317,32 +317,44 @@ export default function WithdrawalRequestModalNew({ isOpen, onClose, availableGe
     try {
       const { data: userData, error: userErr } = await supabase.auth.getUser();
       if (userErr) throw userErr;
-
       const userId = userData?.user?.id;
-      if (!userId) {
+      if (!userId) { setExistingRequest(null); return; }
+
+      // ✅ نجيب الـ cycle المفتوح الفعلي (مش بشرط الشهر الحالي)
+      const { data: cycleData } = await supabase
+        .from('agency_withdrawal_cycles')
+        .select('id, cycle_month')
+        .eq('agency_user_id', userId)
+        .eq('status', 'open')
+        .order('cycle_month', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!cycleData) {
         setExistingRequest(null);
         return;
       }
 
+      // نتحقق من طلبات مرتبطة بالـ cycle ده
       const { data, error } = await supabase
         .from('gem_withdrawal_requests')
         .select('id, status, cycle_month, created_at')
         .eq('user_id', userId)
-        .eq('cycle_month', cycleMonth)
-        .in('status', ['pending', 'approved', 'paid'])
+        .eq('cycle_id', cycleData.id)
+        .in('status', ['pending', 'approved', 'proof_submitted'])
         .order('created_at', { ascending: false })
-        .limit(1);
+        .limit(1)
+        .maybeSingle();
 
       if (error) throw error;
-
-      setExistingRequest(data?.[0] || null);
+      setExistingRequest(data || null);
     } catch (err) {
       console.error('[WithdrawalModal] checkExistingRequestThisCycle error:', err);
       setExistingRequest(null);
     } finally {
       setCheckingExisting(false);
     }
-  }, [cycleMonth]);
+  }, []);
 
   // On open
   useEffect(() => {
