@@ -15,8 +15,15 @@ import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-
 //
 // Request body — selected by `action`:
 //
-//   'lookup' (read-only, used by the Account Migration search panels):
+//   'lookup' (read-only, used by the Account Migration search panels AND the
+//   Identity Manager account lookup panel — one shared implementation so
+//   neither page duplicates the account-resolution logic):
 //     { action: 'lookup', searchBy: 'email' | 'profile_id' | 'user_id', query: string }
+//     Returns everything the Account Migration panels display (avatar, name,
+//     email, ids, plan, agency, wallet, ban/migration status) plus the extra
+//     read-only identity fields the Identity Manager page displays
+//     (adminRole, staffRole, isAdmin, and the account's live room if it owns
+//     one) — Account Migration simply ignores the fields it doesn't use.
 //
 //   'migration_status' (read-only, rollback protection):
 //     { action: 'migration_status', oldUserId: string (uuid) }
@@ -171,6 +178,33 @@ async function getBanStatus(
   }
 }
 
+// Best-effort: does this user currently own an active ("live") room, and if
+// so, its display fields. A missing/inactive room is not an error — most
+// accounts don't own one.
+async function getOwnedLiveRoom(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<Record<string, unknown> | null> {
+  const { data } = await supabase
+    .from('live_rooms')
+    .select('id, title, avatar_url, is_active, is_locked, public_room_id')
+    .eq('owner_user_id', userId)
+    .eq('is_active', true)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (!data) return null
+  return {
+    id: data.id,
+    title: data.title ?? null,
+    coverUrl: data.avatar_url ?? null,
+    isActive: !!data.is_active,
+    isLocked: !!data.is_locked,
+    publicRoomId: data.public_room_id ?? null,
+  }
+}
+
 async function lookupAccount(
   supabase: SupabaseClient,
   searchBy: SearchBy,
@@ -212,7 +246,7 @@ async function lookupAccount(
   // already treat as the source of truth for agency membership).
   const { data: profile, error: profileErr } = await supabase
     .from('profiles')
-    .select('id, profile_id, name, avatar_url, is_vip, vip_number, vip_until')
+    .select('id, profile_id, name, avatar_url, is_vip, vip_number, vip_until, isadmin, admin_role, staff_role')
     .eq('id', userId)
     .maybeSingle()
   if (profileErr || !profile) {
@@ -236,6 +270,7 @@ async function lookupAccount(
 
   const ban = await getBanStatus(supabase, userId)
   const migrationStatus = await checkAlreadyMigrated(supabase, userId)
+  const room = await getOwnedLiveRoom(supabase, userId)
 
   return {
     success: true,
@@ -259,6 +294,13 @@ async function lookupAccount(
       alreadyMigrated: migrationStatus.alreadyMigrated,
       migratedTo: migrationStatus.migratedTo ?? null,
       migratedAt: migrationStatus.migratedAt ?? null,
+      // Read-only identity fields (used by the Identity Manager page; Account
+      // Migration's UI does not read these).
+      isAdmin: !!profile.isadmin,
+      adminRole: profile.admin_role ?? null,
+      staffRole: profile.staff_role ?? null,
+      isRoomOwner: !!room,
+      room,
     },
   }
 }
