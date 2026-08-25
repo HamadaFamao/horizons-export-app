@@ -217,6 +217,16 @@ async function changeLoginEmail(
   const { error: updateErr } = await supabase.auth.admin.updateUserById(userId, { email: newEmail })
 
   if (updateErr) {
+    console.error('[admin-identity-manager] updateUserById failed', {
+      status: updateErr.status,
+      code: updateErr.code,
+      name: updateErr.name,
+      message: updateErr.message,
+      error: updateErr,
+      userId,
+      newEmail,
+    })
+
     if (isDuplicateEmailError(updateErr)) {
       return { success: false, error: 'That email is already in use by another account' }
     }
@@ -240,7 +250,7 @@ async function changeLoginEmail(
     }).then(({ error }) => {
       if (error) console.warn('[admin-identity-manager] Failure audit log insert skipped:', error.message)
     })
-    return { success: false, error: `Failed to start email change: ${updateErr.message}` }
+    return { success: false, error: updateErr.message || 'Error updating user' }
   }
 
   // Best-effort audit entry — never blocks the response if it fails.
