@@ -45,6 +45,7 @@ import AdminWithdrawals from '@/pages/admin/AdminWithdrawals';
 import AdminReports from '@/pages/admin/AdminReports';
 import AccountMigrationPage from '@/pages/admin/AccountMigrationPage';
 import MigrationHistoryPage from '@/pages/admin/MigrationHistoryPage';
+import IdentityManagerPage from '@/pages/admin/IdentityManagerPage';
 import AdminGiftsPage from '@/pages/AdminGiftsPage'; // ✅ ADDED
 
 import WebsiteLayout from '@/components/WebsiteLayout';
@@ -391,6 +392,7 @@ function AppContent() {
           <Route path="users" element={<AdminUsers />} />
           <Route path="users/migration" element={<AccountMigrationPage />} />
           <Route path="users/migration-history" element={<MigrationHistoryPage />} />
+          <Route path="users/identity-manager" element={<IdentityManagerPage />} />
           <Route path="rooms" element={<AdminRooms />} />
           <Route path="/admin/agencies" element={<AdminAgencies />} />
           <Route path="reports" element={<AdminReports />} />
