@@ -313,6 +313,9 @@ export default function WithdrawalRequestModal({ isOpen, onClose, availableGems,
         return;
       }
 
+      console.log('[CYCLE CHECK] cycleData:', cycleData);
+      setCycleMonth(cycleData.cycle_month);
+
       // نتحقق من طلبات مرتبطة بالـ cycle ده
       const { data, error } = await supabase
         .from('gem_withdrawal_requests')
@@ -326,6 +329,7 @@ export default function WithdrawalRequestModal({ isOpen, onClose, availableGems,
 
       if (error) throw error;
       setExistingRequest(data || null);
+            console.log('[CYCLE CHECK] existingRequest:', data);
     } catch (err) {
       console.error('[WithdrawalModal] checkExistingRequestThisCycle error:', err);
       setExistingRequest(null);
