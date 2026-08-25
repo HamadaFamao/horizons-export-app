@@ -38,9 +38,15 @@ const AdminLayout = () => {
     { name: 'Settings',     href: 'settings',          icon: Settings,                 permission: 'can_manage_banners' },
   ];
 
-  const navItems = allNavItems.filter(item => 
-    !item.permission || (permissions && !!permissions[item.permission])
-  );
+  const hasManageUsersAccess = !!permissions?.can_manage_users || !!staffRole || user?.isadmin === true;
+
+  const navItems = allNavItems.filter((item) => {
+    if (!item.permission) return true;
+    if (item.permission === 'can_manage_users') {
+      return hasManageUsersAccess;
+    }
+    return !!permissions?.[item.permission];
+  });
 
   useEffect(() => {
     const fetchPendingCount = async () => {
