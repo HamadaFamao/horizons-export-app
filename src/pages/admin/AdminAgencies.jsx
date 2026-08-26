@@ -129,36 +129,13 @@ export default function AdminAgencies() {
   const fetchMembers = async (agencyId) => {
     setLoadingMembers(true);
     try {
-      const { data: memberships, error: memErr } = await supabase
-        .from('agency_memberships')
-        .select('user_id, role, joined_at, left_at, withdrawal_method')
-        .eq('agency_id', agencyId)
-        .is('left_at', null)
-        .order('joined_at', { ascending: true });
+      const { data, error } = await supabase.rpc('admin_get_agency_members', {
+        p_agency_id: agencyId
+      });
 
-      if (memErr) throw memErr;
+      if (error) throw error;
 
-      const memberIds = (memberships || []).map((m) => m.user_id).filter(Boolean);
-      let profilesMap = {};
-
-      if (memberIds.length > 0) {
-        const { data: profiles, error: profErr } = await supabase
-          .from('profiles')
-          .select('id, name, profile_id, avatar_url')
-          .in('id', memberIds);
-
-        if (profErr) throw profErr;
-        (profiles || []).forEach((p) => {
-          profilesMap[p.id] = p;
-        });
-      }
-
-      setMembers(
-        (memberships || []).map((m) => ({
-          ...m,
-          profile: profilesMap[m.user_id] || null,
-        }))
-      );
+      setMembers(data || []);
     } catch (e) {
       toast({ title: 'Error', description: e.message || 'Failed to fetch members.', variant: 'destructive' });
     } finally {
@@ -651,8 +628,8 @@ export default function AdminAgencies() {
                     {members.map((m) => (
                       <div key={m.user_id} className="flex items-center gap-3 border rounded-lg p-3">
                         <img
-                          src={m.profile?.avatar_url || DEFAULT_AVATAR}
-                          alt={m.profile?.name || 'member'}
+                          src={m.avatar_url || DEFAULT_AVATAR}
+                          alt={m.name || 'member'}
                           onError={(e) => {
                             e.currentTarget.onerror = null;
                             e.currentTarget.src = DEFAULT_AVATAR;
@@ -660,8 +637,8 @@ export default function AdminAgencies() {
                           className="w-10 h-10 rounded-full object-cover bg-slate-100"
                         />
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm truncate">{m.profile?.name || 'Unknown'}</p>
-                          <p className="text-xs text-slate-500">#{m.profile?.profile_id || '—'}</p>
+                          <p className="font-medium text-sm truncate">{m.name || 'Unknown'}</p>
+                          <p className="text-xs text-slate-500">#{m.profile_id || '—'}</p>
                           <p className="text-xs text-slate-500">
                             Joined: {m.joined_at ? new Date(m.joined_at).toLocaleDateString() : '—'}
                           </p>
