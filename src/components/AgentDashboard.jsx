@@ -566,29 +566,6 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
 
         </div>
 
-        {/* Open Cycle Button - يظهر لو مفيش gems في الـ cycle */}
-        {lockedGems === 0 && !pendingRequest && (
-          <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-            <p className="text-sm text-amber-800 font-semibold mb-1">
-              📊 Ready to collect gems?
-            </p>
-            <p className="text-xs text-amber-600 mb-3">
-              Open a new cycle to collect all gems from your members 
-              and lock them for withdrawal.
-            </p>
-            <Button
-              onClick={handleOpenCycle}
-              disabled={openingCycle}
-              className="w-full bg-amber-500 hover:bg-amber-600 text-white"
-            >
-              {openingCycle 
-                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Opening...</>
-                : '🔒 Open New Cycle & Collect Gems'
-              }
-            </Button>
-          </div>
-        )}
-
         {pendingRequest && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-2 mt-3">
             <span className="text-amber-600 text-lg">⏳</span>
