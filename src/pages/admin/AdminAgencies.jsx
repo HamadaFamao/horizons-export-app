@@ -47,6 +47,25 @@ export default function AdminAgencies() {
 
   const [updating, setUpdating] = useState(false);
   const [openCycles, setOpenCycles] = useState({});
+
+  // Create Agency
+  const [showCreateAgency, setShowCreateAgency] = useState(false);
+  const [newAgencyOwnerProfileId, setNewAgencyOwnerProfileId] = useState('');
+  const [creatingAgency, setCreatingAgency] = useState(false);
+
+  // Create Recharge Agent
+  const [showCreateAgent, setShowCreateAgent] = useState(false);
+  const [newAgentName, setNewAgentName] = useState('');
+  const [newAgentProfileId, setNewAgentProfileId] = useState('');
+  const [newAgentCountry, setNewAgentCountry] = useState('');
+  const [newAgentContact, setNewAgentContact] = useState('');
+  const [creatingAgent, setCreatingAgent] = useState(false);
+
+  // Open Cycle for Selected
+  const [selectedAgencyOwners, setSelectedAgencyOwners] = useState(new Set());
+  const [openingCycleForAll, setOpeningCycleForAll] = useState(false);
+  const [batchCycleDeadline, setBatchCycleDeadline] = useState('');
+
   const [newAgencyName, setNewAgencyName] = useState('');
   const [newOwnerProfileId, setNewOwnerProfileId] = useState('');
   const [banReason, setBanReason] = useState('');
@@ -124,6 +143,99 @@ export default function AdminAgencies() {
     } catch (e) {
       console.error('fetchOpenCycles error:', e);
     }
+  };
+
+  const handleCreateAgency = async () => {
+    if (!newAgencyName.trim() || !newAgencyOwnerProfileId.trim()) {
+      toast({ title: 'Validation', description: 'Name and owner profile ID required.', variant: 'destructive' });
+      return;
+    }
+    setCreatingAgency(true);
+    try {
+      const { data, error } = await supabase.rpc('admin_create_agency_by_profile_id', {
+        p_name: newAgencyName.trim(),
+        p_owner_profile_id: Number(newAgencyOwnerProfileId.trim()),
+      });
+      if (error) throw error;
+      if (data?.success === false) throw new Error(data.error);
+      toast({ title: '✅ Agency created!', className: 'bg-green-50 border-green-200 text-green-800' });
+      setShowCreateAgency(false);
+      setNewAgencyName('');
+      setNewAgencyOwnerProfileId('');
+      fetchAgencies(0);
+    } catch (e) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } finally {
+      setCreatingAgency(false);
+    }
+  };
+
+  const handleCreateRechargeAgent = async () => {
+    if (!newAgentName.trim() || !newAgentProfileId.trim()) {
+      toast({ title: 'Validation', description: 'Name and profile ID required.', variant: 'destructive' });
+      return;
+    }
+    setCreatingAgent(true);
+    try {
+      const { data, error } = await supabase.rpc('admin_create_recharge_agent', {
+        p_name: newAgentName.trim(),
+        p_owner_profile_id: Number(newAgentProfileId.trim()),
+        p_country_code: newAgentCountry.trim() || null,
+        p_contact_info: newAgentContact.trim() || null,
+      });
+      if (error) throw error;
+      if (data?.success === false) throw new Error(data.error);
+      toast({ title: '✅ Recharge agent created!', className: 'bg-green-50 border-green-200 text-green-800' });
+      setShowCreateAgent(false);
+      setNewAgentName(''); setNewAgentProfileId('');
+      setNewAgentCountry(''); setNewAgentContact('');
+    } catch (e) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } finally {
+      setCreatingAgent(false);
+    }
+  };
+
+  const toggleAgencySelection = (ownerUserId) => {
+    setSelectedAgencyOwners((prev) => {
+      const next = new Set(prev);
+      if (next.has(ownerUserId)) next.delete(ownerUserId);
+      else next.add(ownerUserId);
+      return next;
+    });
+  };
+
+  const handleOpenCycleForSelected = async () => {
+    if (selectedAgencyOwners.size === 0) {
+      toast({ title: 'No agencies selected', variant: 'destructive' });
+      return;
+    }
+    if (!window.confirm(`Open withdrawal cycle for ${selectedAgencyOwners.size} agency/agencies?`)) return;
+
+    setOpeningCycleForAll(true);
+    let success = 0, failed = 0;
+    for (const ownerUserId of selectedAgencyOwners) {
+      try {
+        const { data, error } = await supabase.rpc('open_agency_cycle_for', {
+          p_agency_user_id: ownerUserId,
+          p_note: null,
+          p_deadline: batchCycleDeadline ? new Date(batchCycleDeadline).toISOString() : null,
+        });
+        if (error || data?.success === false) failed++;
+        else success++;
+      } catch {
+        failed++;
+      }
+    }
+    toast({
+      title: `Done: ${success} opened, ${failed} failed`,
+      className: success > 0 ? 'bg-green-50 border-green-200 text-green-800' : undefined,
+      variant: failed > 0 && success === 0 ? 'destructive' : undefined,
+    });
+    setSelectedAgencyOwners(new Set());
+    fetchAgencies(0);
+    fetchOpenCycles();
+    setOpeningCycleForAll(false);
   };
 
   const fetchMembers = async (agencyId) => {
@@ -400,9 +512,19 @@ export default function AdminAgencies() {
     <div className="p-4 md:p-6">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold">Agencies Management</h1>
-        <Button variant="outline" size="sm" onClick={() => fetchAgencies(page)}>
-          <RefreshCw className="h-4 w-4 mr-1" /> Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setShowCreateAgent(true)}
+            className="text-purple-600 border-purple-200 hover:bg-purple-50">
+            ➕ Recharge Agent
+          </Button>
+          <Button size="sm" onClick={() => setShowCreateAgency(true)}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white">
+            ➕ Create Agency
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => fetchAgencies(page)}>
+            <RefreshCw className="h-4 w-4 mr-1" /> Refresh
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col md:flex-row gap-4 mb-6">
@@ -429,10 +551,54 @@ export default function AdminAgencies() {
         </Select>
       </div>
 
+      {selectedAgencyOwners.size > 0 && (
+        <div className="flex items-center gap-3 p-3 bg-indigo-50 border border-indigo-200 rounded-xl mb-4">
+          <span className="text-sm font-semibold text-indigo-800">
+            {selectedAgencyOwners.size} selected
+          </span>
+          <Input
+            type="datetime-local"
+            className="h-8 text-xs w-48"
+            value={batchCycleDeadline}
+            onChange={(e) => setBatchCycleDeadline(e.target.value)}
+            placeholder="Deadline (optional)"
+          />
+          <Button
+            size="sm"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white"
+            disabled={openingCycleForAll}
+            onClick={handleOpenCycleForSelected}
+          >
+            {openingCycleForAll ? (
+              <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Opening...</>
+            ) : (
+              `🔓 Open Cycle for ${selectedAgencyOwners.size}`
+            )}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setSelectedAgencyOwners(new Set())}>
+            Clear
+          </Button>
+        </div>
+      )}
+
       <div className="bg-white rounded-lg shadow-md overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-10">
+                <input
+                  type="checkbox"
+                  className="accent-indigo-600"
+                  checked={selectedAgencyOwners.size === agencies.length && agencies.length > 0}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setSelectedAgencyOwners(new Set(agencies.map(a => a.owner_user_id).filter(Boolean)));
+                    } else {
+                      setSelectedAgencyOwners(new Set());
+                    }
+                  }}
+                />
+              </TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Owner</TableHead>
               <TableHead>Members</TableHead>
@@ -458,6 +624,15 @@ export default function AdminAgencies() {
             ) : (
               agencies.map((agency) => (
                 <TableRow key={agency.id} className={!agency.is_active ? 'bg-red-50' : ''}>
+                  <TableCell>
+                    <input
+                      type="checkbox"
+                      className="accent-indigo-600 cursor-pointer"
+                      checked={selectedAgencyOwners.has(agency.owner_user_id)}
+                      onChange={() => toggleAgencySelection(agency.owner_user_id)}
+                      disabled={!agency.owner_user_id}
+                    />
+                  </TableCell>
                   <TableCell className="font-medium">{agency.name || '—'}</TableCell>
                   <TableCell>
                     <div className="text-sm">
@@ -534,6 +709,86 @@ export default function AdminAgencies() {
           </Button>
         </div>
       </div>
+
+      <Dialog open={showCreateAgency} onOpenChange={setShowCreateAgency}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create New Agency</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Agency Name</Label>
+              <Input
+                value={newAgencyName}
+                onChange={(e) => setNewAgencyName(e.target.value)}
+                placeholder="Agency name..."
+                disabled={creatingAgency}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Owner Profile ID</Label>
+              <Input
+                type="number"
+                value={newAgencyOwnerProfileId}
+                onChange={(e) => setNewAgencyOwnerProfileId(e.target.value)}
+                placeholder="e.g. 200163"
+                disabled={creatingAgency}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowCreateAgency(false)} disabled={creatingAgency}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateAgency} disabled={creatingAgency}
+              className="bg-indigo-600 hover:bg-indigo-700">
+              {creatingAgency ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create Agency'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showCreateAgent} onOpenChange={setShowCreateAgent}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Recharge Agent</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Agent Name</Label>
+              <Input value={newAgentName} onChange={(e) => setNewAgentName(e.target.value)}
+                placeholder="Agent name..." disabled={creatingAgent} />
+            </div>
+            <div className="space-y-2">
+              <Label>Profile ID</Label>
+              <Input type="number" value={newAgentProfileId}
+                onChange={(e) => setNewAgentProfileId(e.target.value)}
+                placeholder="e.g. 200150" disabled={creatingAgent} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Country Code</Label>
+                <Input value={newAgentCountry} onChange={(e) => setNewAgentCountry(e.target.value)}
+                  placeholder="e.g. EG" disabled={creatingAgent} />
+              </div>
+              <div className="space-y-2">
+                <Label>Contact Info</Label>
+                <Input value={newAgentContact} onChange={(e) => setNewAgentContact(e.target.value)}
+                  placeholder="WhatsApp/Phone..." disabled={creatingAgent} />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowCreateAgent(false)} disabled={creatingAgent}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateRechargeAgent} disabled={creatingAgent}
+              className="bg-purple-600 hover:bg-purple-700">
+              {creatingAgent ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Add Agent'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!managingAgency} onOpenChange={(open) => !open && setManagingAgency(null)}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
