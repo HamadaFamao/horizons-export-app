@@ -90,17 +90,15 @@ export default function OpenWithdrawalCycleModal({ isOpen, onClose, onRefresh })
     
     setIsSubmitting(true);
     try {
-      // Three-parameter version only - do not use two-parameter or opened_by variants
       const rpcParams = { 
-        p_agency_user_id: selectedAgency.id, 
-        p_cycle_month: cycleMonthString,
+        p_agency_user_id: selectedAgency.id,
         p_note: note.trim() || null,
         p_deadline: deadline ? new Date(deadline).toISOString() : null
       };
 
-      console.log("Opening cycle with EXACTLY 3 params:", rpcParams);
+      console.log("Opening cycle with open_agency_cycle_for:", rpcParams);
 
-      const { data, error } = await supabase.rpc('admin_open_withdrawal_cycle', rpcParams);
+      const { data, error } = await supabase.rpc('open_agency_cycle_for', rpcParams);
 
       if (error) throw error;
       

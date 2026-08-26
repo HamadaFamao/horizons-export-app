@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
 import { useAdminPermissions } from '@/contexts/AdminPermissionsContext';
+import CycleCountdown from '@/components/CycleCountdown';
 import { Loader2, RefreshCw, Search } from 'lucide-react';
 import {
   Select,
@@ -45,6 +46,7 @@ export default function AdminAgencies() {
   const [loadingMembers, setLoadingMembers] = useState(false);
 
   const [updating, setUpdating] = useState(false);
+  const [openCycles, setOpenCycles] = useState({});
   const [newAgencyName, setNewAgencyName] = useState('');
   const [newOwnerProfileId, setNewOwnerProfileId] = useState('');
   const [banReason, setBanReason] = useState('');
@@ -104,6 +106,26 @@ export default function AdminAgencies() {
     }
   };
 
+  const fetchOpenCycles = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('agency_withdrawal_cycles')
+        .select('agency_user_id, id, cycle_month, locked_gems, deadline, status')
+        .eq('status', 'open');
+
+      if (error) throw error;
+
+      // نعمل map: agency_user_id → cycle
+      const map = {};
+      (data || []).forEach((c) => {
+        map[c.agency_user_id] = c;
+      });
+      setOpenCycles(map);
+    } catch (e) {
+      console.error('fetchOpenCycles error:', e);
+    }
+  };
+
   const fetchMembers = async (agencyId) => {
     setLoadingMembers(true);
     try {
@@ -146,6 +168,7 @@ export default function AdminAgencies() {
 
   useEffect(() => {
     fetchAgencies(0);
+    fetchOpenCycles();
   }, [statusFilter, searchTerm]);
 
   useEffect(() => {
@@ -438,19 +461,20 @@ export default function AdminAgencies() {
               <TableHead>Members</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Created</TableHead>
+              <TableHead>Cycle</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center">
+                <TableCell colSpan={7} className="text-center">
                   <Loader2 className="mx-auto animate-spin" />
                 </TableCell>
               </TableRow>
             ) : agencies.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center p-4 text-slate-500">
+                <TableCell colSpan={7} className="text-center p-4 text-slate-500">
                   No agencies found.
                 </TableCell>
               </TableRow>
@@ -474,6 +498,24 @@ export default function AdminAgencies() {
                   </TableCell>
                   <TableCell className="text-xs text-slate-500">
                     {agency.created_at ? new Date(agency.created_at).toLocaleDateString() : '—'}
+                  </TableCell>
+                  <TableCell>
+                    {openCycles[agency.owner_user_id] ? (
+                      <div className="flex flex-col gap-1">
+                        <span className="text-xs text-emerald-600 font-semibold">
+                          🔓 Open ({openCycles[agency.owner_user_id].locked_gems?.toLocaleString()} 💎)
+                        </span>
+                        {openCycles[agency.owner_user_id].deadline ? (
+                          <CycleCountdown
+                            deadline={openCycles[agency.owner_user_id].deadline}
+                          />
+                        ) : (
+                          <span className="text-xs text-gray-400">No deadline</span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-gray-400">—</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Button

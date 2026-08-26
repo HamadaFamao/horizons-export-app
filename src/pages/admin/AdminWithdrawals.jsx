@@ -85,6 +85,9 @@ export default function AdminWithdrawals() {
   const [loadingSplits, setLoadingSplits] = useState(false);
   const [selectedSplitIds, setSelectedSplitIds] = useState(new Set());
   const [finalizingAgent, setFinalizingAgent] = useState(null);
+  const [directSplits, setDirectSplits] = useState([]);
+  const [loadingDirect, setLoadingDirect] = useState(false);
+  const [markingPaid, setMarkingPaid] = useState(null);
 
   const abortControllerRef = useRef(null);
 
@@ -194,6 +197,38 @@ export default function AdminWithdrawals() {
     }
   };
 
+  const fetchDirectSplits = useCallback(async () => {
+    setLoadingDirect(true);
+    try {
+      const { data, error } = await supabase.rpc('admin_list_direct_payment_splits');
+      if (error) throw error;
+      setDirectSplits(data || []);
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to load direct splits.', variant: 'destructive' });
+    } finally {
+      setLoadingDirect(false);
+    }
+  }, [toast]);
+
+  const handleMarkDirectPaid = async (splitId) => {
+    if (!window.confirm('Mark this split as paid?')) return;
+    setMarkingPaid(splitId);
+    try {
+      const { data, error } = await supabase.rpc('admin_mark_direct_split_paid', {
+        p_split_id: splitId,
+      });
+      if (error) throw error;
+      if (data?.success === false) throw new Error(data.error);
+      toast({ title: '✅ Marked as paid', className: 'bg-green-50 border-green-200 text-green-800' });
+      await fetchDirectSplits();
+      await fetchRequests(true);
+    } catch (err) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setMarkingPaid(null);
+    }
+  };
+
   useEffect(() => {
     if (permLoading) return;
     fetchRequests();
@@ -203,7 +238,8 @@ export default function AdminWithdrawals() {
   useEffect(() => {
     if (permLoading || !canView) return;
     if (activeTab === 'batches') fetchPendingSplits();
-  }, [activeTab, permLoading, canView, fetchPendingSplits]);
+    if (activeTab === 'direct') fetchDirectSplits();
+  }, [activeTab, permLoading, canView, fetchPendingSplits, fetchDirectSplits]);
 
   const toggleRow = (id) => {
     const newSet = new Set(expandedRows);
@@ -501,6 +537,19 @@ export default function AdminWithdrawals() {
           {pendingSplits.length > 0 && (
             <span className="ml-2 bg-purple-600 text-white text-xs px-1.5 py-0.5 rounded-full">
               {pendingSplits.length}
+            </span>
+          )}
+        </Button>
+        <Button
+          variant={activeTab === 'direct' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => setActiveTab('direct')}
+          className="relative"
+        >
+          💳 Direct Payments
+          {directSplits.filter(s => s.status === 'approved').length > 0 && (
+            <span className="ml-2 bg-blue-600 text-white text-xs px-1.5 py-0.5 rounded-full">
+              {directSplits.filter(s => s.status === 'approved').length}
             </span>
           )}
         </Button>
@@ -855,6 +904,75 @@ export default function AdminWithdrawals() {
                   );
                 });
               })()
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab === 'direct' && (
+        <Card className="border-t-4 border-t-blue-500 shadow-sm">
+          <CardContent className="p-4">
+            {loadingDirect ? (
+              <div className="py-12 text-center">
+                <Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-500" />
+              </div>
+            ) : directSplits.length === 0 ? (
+              <div className="py-12 text-center text-muted-foreground">
+                No direct payment splits found.
+              </div>
+            ) : (
+              <div className="divide-y border rounded-xl overflow-hidden">
+                {directSplits.map((s) => (
+                  <div key={s.split_id} className="px-4 py-3 flex items-center gap-3 hover:bg-gray-50">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                          s.payout_method === 'bank_transfer' ? 'bg-blue-50 text-blue-700' :
+                          s.payout_method === 'paypal' ? 'bg-sky-50 text-sky-700' :
+                          s.payout_method === 'crypto' ? 'bg-purple-50 text-purple-700' :
+                          'bg-gray-50 text-gray-700'
+                        }`}>
+                          {s.payout_method?.replace('_', ' ')}
+                        </span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                          s.status === 'approved' ? 'bg-blue-50 text-blue-700' : 'bg-green-50 text-green-700'
+                        }`}>
+                          {s.status}
+                        </span>
+                      </div>
+                      <p className="text-sm font-medium">
+                        {s.agency_name || '—'}
+                        <span className="text-xs text-gray-400 ml-1">• {s.agent_name}</span>
+                      </p>
+                      {s.note && (
+                        <p className="text-xs text-gray-500 mt-0.5">"{s.note}"</p>
+                      )}
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="font-bold text-sm">💎 {s.gems_amount?.toLocaleString()}</p>
+                      <p className="text-xs text-green-700 font-semibold">
+                        ${Number(s.payout_usd || 0).toFixed(2)}
+                      </p>
+                    </div>
+                    {s.status === 'approved' ? (
+                      <Button
+                        size="sm"
+                        className="bg-blue-600 hover:bg-blue-700 text-white shrink-0"
+                        disabled={markingPaid === s.split_id}
+                        onClick={() => handleMarkDirectPaid(s.split_id)}
+                      >
+                        {markingPaid === s.split_id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          '✅ Mark Paid'
+                        )}
+                      </Button>
+                    ) : (
+                      <span className="text-xs text-green-600 font-bold shrink-0">✅ Done</span>
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>
