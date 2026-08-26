@@ -69,8 +69,6 @@ export default function AdminAgencies() {
   const [newAgencyName, setNewAgencyName] = useState('');
   const [newOwnerProfileId, setNewOwnerProfileId] = useState('');
   const [banReason, setBanReason] = useState('');
-  const [openingCycle, setOpeningCycle] = useState(false);
-  const [cycleNote, setCycleNote] = useState('');
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(totalCount / PAGE_SIZE)), [totalCount]);
 
@@ -441,45 +439,6 @@ export default function AdminAgencies() {
       toast({ title: 'Error', description: e.message, variant: 'destructive' });
     } finally {
       setUpdating(false);
-    }
-  };
-
-  const handleOpenCycle = async () => {
-    if (!managingAgency || openingCycle) return;
-    if (!managingAgency.owner_user_id) {
-      toast({ title: 'Error', description: 'Agency has no owner.', variant: 'destructive' });
-      return;
-    }
-    if (!window.confirm(
-      `Open a withdrawal cycle for "${managingAgency.name}"? This will collect and lock all withdrawable gems from members.`
-    )) return;
-
-    setOpeningCycle(true);
-    try {
-      const { data, error } = await supabase.rpc('open_agency_cycle_for', {
-        p_agency_user_id: managingAgency.owner_user_id,
-        p_note: cycleNote.trim() || null,
-      });
-
-      if (error) throw error;
-
-      if (data?.success) {
-        toast({
-          title: '✅ Cycle opened',
-          description: `Locked ${Number(data.locked_total_gems || 0).toLocaleString()} gems (Members: ${Number(data.members_locked || 0).toLocaleString()}, Agent: ${Number(data.agent_locked || 0).toLocaleString()})`,
-        });
-        setCycleNote('');
-      } else {
-        toast({
-          title: 'Could not open cycle',
-          description: data?.error || 'Unknown error',
-          variant: 'destructive',
-        });
-      }
-    } catch (e) {
-      toast({ title: 'Error', description: e.message, variant: 'destructive' });
-    } finally {
-      setOpeningCycle(false);
     }
   };
 
@@ -917,39 +876,6 @@ export default function AdminAgencies() {
                 )}
               </div>
 
-              <div className="space-y-3 border rounded-lg p-4 bg-indigo-50/40 border-indigo-100">
-                <h3 className="font-semibold">5. Withdrawal Cycle</h3>
-                <p className="text-xs text-slate-500">
-                  Opening a cycle collects and locks all withdrawable gems from members
-                  (Via Agent) plus the agent's own share, ready for payout.
-                </p>
-                <Label className="text-xs">Note (optional)</Label>
-                <Textarea
-                  value={cycleNote}
-                  onChange={(e) => setCycleNote(e.target.value)}
-                  placeholder="Optional note for this cycle..."
-                  disabled={openingCycle}
-                  maxLength={300}
-                  className="min-h-[60px]"
-                />
-                <Button
-                  onClick={handleOpenCycle}
-                  disabled={openingCycle || !isManager}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white"
-                >
-                  {openingCycle ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Opening...
-                    </>
-                  ) : (
-                    '🔓 Open Withdrawal Cycle'
-                  )}
-                </Button>
-                {!isManager && (
-                  <p className="text-xs text-amber-600">Only manager can open cycles.</p>
-                )}
-              </div>
             </div>
           )}
 
