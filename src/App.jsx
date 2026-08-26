@@ -47,6 +47,7 @@ import AccountMigrationPage from '@/pages/admin/AccountMigrationPage';
 import MigrationHistoryPage from '@/pages/admin/MigrationHistoryPage';
 import IdentityManagerPage from '@/pages/admin/IdentityManagerPage';
 import AdminGiftsPage from '@/pages/AdminGiftsPage'; // ✅ ADDED
+import AdminStaff from '@/pages/admin/AdminStaff';
 
 import WebsiteLayout from '@/components/WebsiteLayout';
 import AdminErrorBoundary from '@/components/AdminErrorBoundary';
@@ -399,6 +400,7 @@ function AppContent() {
           <Route path="seed" element={<AdminSeed />} />
           <Route path="tools/profile-id" element={<ProfileIdTool />} />
           <Route path="withdrawals" element={<AdminWithdrawals />} />
+          <Route path="staff" element={<AdminStaff />} />
           <Route path="gifts" element={<AdminGiftsPage />} />  {/* ✅ ADDED */}
         </Route>
       </Routes>

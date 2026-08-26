@@ -28,6 +28,7 @@ const AdminLayout = () => {
     { name: 'Migration History', href: 'users/migration-history', icon: History,        permission: 'can_manage_users' },
     { name: 'Rooms',        href: 'rooms',             icon: Mic,                      permission: 'can_manage_rooms' },
     { name: 'Agencies',     href: '/admin/agencies',   icon: Building, iconEmoji: '🏢', permission: 'can_manage_agencies' },
+    { name: 'Staff',        href: 'staff',             icon: Users, iconEmoji: '👥',    permission: null },
     { name: 'Withdrawals',  href: 'withdrawals',       icon: ArrowDownLeftFromCircle,  permission: 'can_manage_withdrawals' },
     { name: 'Plans',        href: 'plans',             icon: CreditCard,               permission: 'can_manage_finance' },
     { name: 'Coins',        href: 'coins',             icon: Gem,                      permission: 'can_manage_finance' },
