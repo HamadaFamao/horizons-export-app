@@ -1,133 +1,273 @@
-import React, { useState, useEffect } from 'react';
-    import { motion } from 'framer-motion';
-    import { Gem, PlusCircle, MinusCircle, Edit, Save } from 'lucide-react';
-    import { Button } from '@/components/ui/button';
-    import { Input } from '@/components/ui/input';
-    import { Label } from '@/components/ui/label';
-    import { toast } from '@/components/ui/use-toast';
+import React, { useState } from 'react';
+import { supabase } from '@/lib/supabaseClient';
+import { useToast } from '@/components/ui/use-toast';
+import { useAdminPermissions } from '@/contexts/AdminPermissionsContext';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Loader2, Coins, Search, CheckCircle2, AlertCircle } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
-    const mockCoinConfig = {
-        packs: [
-            { amount: 100, price: 1.99 },
-            { amount: 500, price: 8.99 },
-            { amount: 1000, price: 16.99 },
-            { amount: 5000, price: 79.99 },
-        ],
-        gifts: [
-            { name: "Heart", cost: 50, emoji: "❤️" },
-            { name: "Rose", cost: 100, emoji: "🌹" },
-            { name: "Diamond", cost: 500, emoji: "💎" },
-            { name: "Luxury Gift", cost: 2000, emoji: "🎁" },
-        ],
-    };
+const TABS = [
+  { key: 'user',  label: '👤 User Wallet',          desc: 'Add coins to a regular user wallet' },
+  { key: 'agent', label: '🔄 Recharge Agent Balance', desc: 'Add coins to recharge agent balance' },
+];
 
-    const AdminCoins = () => {
-      const [allUsers, setAllUsers] = useState([]);
-      const [selectedUser, setSelectedUser] = useState(null);
-      const [amount, setAmount] = useState('');
-      const [coinConfig, setCoinConfig] = useState(mockCoinConfig);
+export default function AdminCoins() {
+  const { toast } = useToast();
+  const { staffRole } = useAdminPermissions();
+  const canManage = staffRole === 'manager' || staffRole === 'admin';
 
-      useEffect(() => {
-        const users = JSON.parse(localStorage.getItem('singlesDemoUsers') || '[]');
-        setAllUsers(users.map(u => ({...u, balance: parseInt(localStorage.getItem(`coins_balance_${u.id}`) || '100')})));
-      }, []);
+  const [activeTab, setActiveTab] = useState('user');
+  const [profileId, setProfileId] = useState('');
+  const [amount, setAmount] = useState('');
+  const [reason, setReason] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-      const handleUserSelect = (user) => {
-        setSelectedUser(user);
-        setAmount('');
-      };
+  // Profile preview
+  const [preview, setPreview] = useState(null);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState('');
 
-      const adjustBalance = (operation) => {
-        if (!selectedUser || !amount) return;
+  const handleSearch = async () => {
+    if (!profileId.trim()) return;
+    setSearching(true);
+    setPreview(null);
+    setSearchError('');
+    try {
+      if (activeTab === 'user') {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, name, profile_id, avatar_url')
+          .eq('profile_id', Number(profileId.trim()))
+          .maybeSingle();
+        if (error) throw error;
+        if (!data) { setSearchError('User not found.'); return; }
 
-        const numAmount = parseInt(amount, 10);
-        if (isNaN(numAmount)) return;
+        // نجيب رصيده
+        const { data: wallet } = await supabase
+          .from('wallets')
+          .select('coins, gems')
+          .eq('user_id', data.id)
+          .maybeSingle();
 
-        const newBalance = operation === 'add' ? selectedUser.balance + numAmount : selectedUser.balance - numAmount;
-        
-        localStorage.setItem(`coins_balance_${selectedUser.id}`, newBalance);
-        
-        const updatedUsers = allUsers.map(u => u.id === selectedUser.id ? {...u, balance: newBalance} : u);
-        setAllUsers(updatedUsers);
-        setSelectedUser({...selectedUser, balance: newBalance});
+        setPreview({ ...data, coins: wallet?.coins || 0, gems: wallet?.gems || 0 });
+      } else {
+        const { data, error } = await supabase
+          .from('recharge_agents')
+          .select('id, name, country_code, user_id, profile_id, profiles:user_id(name, avatar_url)')
+          .eq('profile_id', Number(profileId.trim()))
+          .eq('is_active', true)
+          .maybeSingle();
+        if (error) throw error;
+        if (!data) { setSearchError('Active recharge agent not found.'); return; }
 
-        toast({ title: "Balance Updated!", description: `User ${selectedUser.name}'s balance is now ${newBalance}.`});
-        setAmount('');
-      };
+        // نجيب رصيده
+        const { data: bal } = await supabase
+          .rpc('get_recharge_agent_balance_for_current_user');
 
-      const handleConfigChange = (type, index, field, value) => {
-        const newConfig = JSON.parse(JSON.stringify(coinConfig));
-        newConfig[type][index][field] = value;
-        setCoinConfig(newConfig);
-      };
+        setPreview({
+          id: data.user_id,
+          name: data.name,
+          profile_id: data.profile_id,
+          avatar_url: data.profiles?.avatar_url,
+          country_code: data.country_code,
+          agent_balance: bal || 0,
+        });
+      }
+    } catch (e) {
+      setSearchError(e.message);
+    } finally {
+      setSearching(false);
+    }
+  };
 
-      const saveConfig = () => {
-        localStorage.setItem('singlesCoinConfig', JSON.stringify(coinConfig));
-        toast({ title: "Coin Config Saved!" });
-      };
+  const handleSubmit = async () => {
+    if (!preview) {
+      toast({ title: 'Search for a user first', variant: 'destructive' });
+      return;
+    }
+    if (!amount || Number(amount) <= 0) {
+      toast({ title: 'Enter a valid amount', variant: 'destructive' });
+      return;
+    }
+    if (!window.confirm(`Add ${Number(amount).toLocaleString()} coins to ${preview.name}?`)) return;
 
+    setSubmitting(true);
+    try {
+      const fn = activeTab === 'user'
+        ? 'admin_add_coins_to_user'
+        : 'admin_add_coins_to_recharge_agent';
 
-      return (
-        <div>
-          <h1 className="text-3xl font-bold mb-6">Coin & Gift Economy</h1>
-          <div className="grid lg:grid-cols-3 gap-8">
-            
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="lg:col-span-1 card-gradient p-6 rounded-xl shadow-lg">
-                <h2 className="text-xl font-bold mb-4">Manage User Coins</h2>
-                <div className="space-y-2 mb-4">
-                    <Label>Select User</Label>
-                    <select className="w-full p-2 border rounded-md" onChange={e => handleUserSelect(allUsers.find(u => u.id === e.target.value))}>
-                        <option>-- Select a user --</option>
-                        {allUsers.map(u => <option key={u.id} value={u.id}>{u.name} ({u.email})</option>)}
-                    </select>
-                </div>
+      const { data, error } = await supabase.rpc(fn, {
+        p_profile_id: Number(profileId.trim()),
+        p_amount: Number(amount),
+        p_reason: reason.trim() || null,
+      });
 
-                {selectedUser && (
-                    <div className="mt-4 border-t border-rose-200 pt-4">
-                        <p className="font-semibold">Selected: {selectedUser.name}</p>
-                        <p className="flex items-center gap-2">Current Balance: <Gem className="w-4 h-4 text-blue-500"/> {selectedUser.balance}</p>
-                        <div className="space-y-2 mt-4">
-                            <Label htmlFor="amount">Amount</Label>
-                            <Input id="amount" type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="e.g., 100" />
-                        </div>
-                        <div className="flex gap-2 mt-2">
-                            <Button size="sm" onClick={() => adjustBalance('add')} className="bg-green-500 hover:bg-green-600 text-white"><PlusCircle className="mr-2 h-4 w-4"/> Add</Button>
-                            <Button size="sm" variant="destructive" onClick={() => adjustBalance('remove')}><MinusCircle className="mr-2 h-4 w-4"/> Remove</Button>
-                        </div>
-                    </div>
-                )}
-            </motion.div>
+      if (error) throw error;
+      if (data?.success === false) throw new Error(data.error);
 
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="lg:col-span-2 card-gradient p-6 rounded-xl shadow-lg">
-                <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-bold">Economy Settings</h2>
-                    <Button onClick={saveConfig}><Save className="mr-2 h-4 w-4"/> Save Config</Button>
-                </div>
-                <div className="grid md:grid-cols-2 gap-6">
-                    <div>
-                        <h3 className="font-semibold mb-2">Coin Packs</h3>
-                        {coinConfig.packs.map((pack, i) => (
-                            <div key={i} className="flex gap-2 items-center mb-2 bg-white/50 p-2 rounded-md">
-                                <Input type="number" value={pack.amount} onChange={e => handleConfigChange('packs', i, 'amount', e.target.value)} className="w-1/2"/>
-                                <Input type="number" step="0.01" value={pack.price} onChange={e => handleConfigChange('packs', i, 'price', e.target.value)} className="w-1/2"/>
-                            </div>
-                        ))}
-                    </div>
-                    <div>
-                        <h3 className="font-semibold mb-2">Gifts</h3>
-                         {coinConfig.gifts.map((gift, i) => (
-                            <div key={i} className="flex gap-2 items-center mb-2 bg-white/50 p-2 rounded-md">
-                                <span className="text-2xl">{gift.emoji}</span>
-                                <Input value={gift.name} onChange={e => handleConfigChange('gifts', i, 'name', e.target.value)} className="w-1/2"/>
-                                <Input type="number" value={gift.cost} onChange={e => handleConfigChange('gifts', i, 'cost', e.target.value)} className="w-1/2"/>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </motion.div>
+      toast({
+        title: `✅ ${Number(amount).toLocaleString()} coins added to ${preview.name}!`,
+        className: 'bg-green-50 border-green-200 text-green-800',
+      });
+
+      // Reset
+      setAmount('');
+      setReason('');
+      setPreview(null);
+      setProfileId('');
+    } catch (e) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6 max-w-2xl">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight text-gray-900">Coins Management</h1>
+        <p className="text-muted-foreground mt-1">Manually add coins to user or recharge agent wallets</p>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-2 border-b pb-2">
+        {TABS.map(tab => (
+          <Button
+            key={tab.key}
+            variant={activeTab === tab.key ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => {
+              setActiveTab(tab.key);
+              setPreview(null);
+              setProfileId('');
+              setAmount('');
+              setReason('');
+              setSearchError('');
+            }}
+          >
+            {tab.label}
+          </Button>
+        ))}
+      </div>
+
+      <p className="text-sm text-gray-500">
+        {TABS.find(t => t.key === activeTab)?.desc}
+      </p>
+
+      {/* Form */}
+      <div className="bg-white rounded-2xl border shadow-sm p-6 space-y-5">
+
+        {/* Profile ID + Search */}
+        <div className="space-y-2">
+          <Label>{activeTab === 'user' ? 'User Profile ID' : 'Recharge Agent Profile ID'}</Label>
+          <div className="flex gap-2">
+            <Input
+              type="number"
+              placeholder="e.g. 200150"
+              value={profileId}
+              onChange={(e) => { setProfileId(e.target.value); setPreview(null); setSearchError(''); }}
+              disabled={submitting}
+            />
+            <Button variant="outline" onClick={handleSearch}
+              disabled={searching || !profileId.trim()}>
+              {searching
+                ? <Loader2 className="w-4 h-4 animate-spin" />
+                : <Search className="w-4 h-4" />}
+            </Button>
           </div>
-        </div>
-      );
-    };
 
-    export default AdminCoins;
+          {searchError && (
+            <p className="text-sm text-red-500 flex items-center gap-1">
+              <AlertCircle className="w-4 h-4" /> {searchError}
+            </p>
+          )}
+        </div>
+
+        {/* Preview */}
+        {preview && (
+          <div className="flex items-center gap-4 p-4 bg-indigo-50 border border-indigo-100 rounded-xl">
+            <img
+              src={preview.avatar_url || ''}
+              alt={preview.name}
+              className="w-12 h-12 rounded-full object-cover border bg-gray-100"
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+            />
+            <div className="flex-1">
+              <p className="font-bold text-gray-900">{preview.name}</p>
+              <p className="text-xs text-gray-500">#{preview.profile_id}
+                {preview.country_code && ` • ${preview.country_code}`}
+              </p>
+              <div className="flex gap-3 mt-1">
+                {activeTab === 'user' ? (
+                  <>
+                    <span className="text-xs text-amber-600 font-semibold">
+                      🪙 {Number(preview.coins || 0).toLocaleString()} coins
+                    </span>
+                    <span className="text-xs text-emerald-600 font-semibold">
+                      💎 {Number(preview.gems || 0).toLocaleString()} gems
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-xs text-amber-600 font-semibold">
+                    🪙 {Number(preview.agent_balance || 0).toLocaleString()} recharge balance
+                  </span>
+                )}
+              </div>
+            </div>
+            <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
+          </div>
+        )}
+
+        {/* Amount */}
+        <div className="space-y-2">
+          <Label>Amount (Coins)</Label>
+          <Input
+            type="number"
+            placeholder="e.g. 1000"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            disabled={submitting}
+            min="1"
+          />
+          {amount && Number(amount) > 0 && (
+            <p className="text-xs text-gray-500">
+              ≈ ${(Number(amount) * 0.01).toFixed(2)} USD
+            </p>
+          )}
+        </div>
+
+        {/* Reason */}
+        <div className="space-y-2">
+          <Label>Reason <span className="text-gray-400 text-xs">(Optional)</span></Label>
+          <Textarea
+            placeholder="e.g. Competition reward, compensation..."
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            disabled={submitting}
+            className="min-h-[80px]"
+          />
+        </div>
+
+        {/* Submit */}
+        <Button
+          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white h-12"
+          disabled={submitting || !preview || !amount || Number(amount) <= 0}
+          onClick={handleSubmit}
+        >
+          {submitting ? (
+            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Processing...</>
+          ) : (
+            <><Coins className="w-4 h-4 mr-2" />
+              Add {amount ? Number(amount).toLocaleString() : '0'} Coins
+              {preview ? ` to ${preview.name}` : ''}
+            </>
+          )}
+        </Button>
+      </div>
+    </div>
+  );
+}
