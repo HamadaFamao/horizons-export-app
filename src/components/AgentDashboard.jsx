@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import { Loader2, RefreshCw, Users, Wallet, Copy, Share2 } from 'lucide-react';
+import CycleCountdown from '@/components/CycleCountdown';
 import WithdrawalRequestModal from '@/components/modals/WithdrawalRequestModal';
 
 const DEFAULT_AVATAR =
@@ -55,6 +56,7 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
   const [payoutTiers, setPayoutTiers] = useState([]);
   const [copiedReferral, setCopiedReferral] = useState(false);
   const [openingCycle, setOpeningCycle] = useState(false);
+  const [cycleDeadline, setCycleDeadline] = useState(null);
 
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
@@ -172,7 +174,7 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
 
       const { data: activeCycle, error: cycleErr } = await supabase
         .from('agency_withdrawal_cycles')
-        .select('id, locked_gems, locked_usd, agent_earned_gems, agent_earned_usd, members_gems, status, cycle_month')
+        .select('id, locked_gems, locked_usd, agent_earned_gems, agent_earned_usd, members_gems, status, cycle_month, deadline')
         .eq('agency_user_id', user.id)
         .eq('status', 'open')
         .order('cycle_month', { ascending: false })
@@ -187,6 +189,7 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
       setAgentEarnedUsd(activeCycle?.agent_earned_usd || 0);
       setMembersGems(activeCycle?.members_gems || 0);
       setActiveCycleId(activeCycle?.id || null);
+      setCycleDeadline(activeCycle?.deadline || null);
 
       // احسب tier الوكيل نفسه
       const { data: agentTier } = await supabase
@@ -478,6 +481,9 @@ export default function AgentDashboard({ profile: profileProp = null, embedded =
                 Won't change
               </span>
             </div>
+            {cycleDeadline && (
+              <CycleCountdown deadline={cycleDeadline} className="mt-1" />
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-white rounded-lg p-3">
                 <p className="text-xs text-slate-500">Gems Earned</p>

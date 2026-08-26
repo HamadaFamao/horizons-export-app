@@ -17,6 +17,7 @@ export default function OpenWithdrawalCycleModal({ isOpen, onClose, onRefresh })
   // State
   const [selectedAgency, setSelectedAgency] = useState(null);
   const [note, setNote] = useState('');
+  const [deadline, setDeadline] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Search State
@@ -34,6 +35,7 @@ export default function OpenWithdrawalCycleModal({ isOpen, onClose, onRefresh })
   useEffect(() => {
     if (isOpen) {
       setNote('');
+      setDeadline('');
       setSelectedAgency(null);
       setSearchQuery('');
       setSearchResults([]);
@@ -92,7 +94,8 @@ export default function OpenWithdrawalCycleModal({ isOpen, onClose, onRefresh })
       const rpcParams = { 
         p_agency_user_id: selectedAgency.id, 
         p_cycle_month: cycleMonthString,
-        p_note: note.trim() || null 
+        p_note: note.trim() || null,
+        p_deadline: deadline ? new Date(deadline).toISOString() : null
       };
 
       console.log("Opening cycle with EXACTLY 3 params:", rpcParams);
@@ -245,6 +248,25 @@ export default function OpenWithdrawalCycleModal({ isOpen, onClose, onRefresh })
                     onChange={(e) => setNote(e.target.value)}
                     disabled={isSubmitting}
                 />
+            </div>
+
+            {/* Deadline */}
+            <div className="space-y-2">
+                <Label htmlFor="deadline">
+                  Withdrawal Deadline 
+                  <span className="text-xs text-gray-400 ml-1">(Optional)</span>
+                </Label>
+                <Input
+                  id="deadline"
+                  type="datetime-local"
+                  value={deadline}
+                  onChange={(e) => setDeadline(e.target.value)}
+                  disabled={isSubmitting}
+                  min={new Date().toISOString().slice(0, 16)}
+                />
+                <p className="text-[10px] text-gray-400">
+                  Set a deadline for agents to submit withdrawal requests.
+                </p>
             </div>
         </div>
 
