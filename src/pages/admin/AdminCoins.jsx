@@ -23,6 +23,7 @@ export default function AdminCoins() {
   const [profileId, setProfileId] = useState('');
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
+  const [operation, setOperation] = useState('add'); // 'add' | 'deduct'
   const [submitting, setSubmitting] = useState(false);
 
   // Profile preview
@@ -36,46 +37,14 @@ export default function AdminCoins() {
     setPreview(null);
     setSearchError('');
     try {
-      if (activeTab === 'user') {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('id, name, profile_id, avatar_url')
-          .eq('profile_id', Number(profileId.trim()))
-          .maybeSingle();
-        if (error) throw error;
-        if (!data) { setSearchError('User not found.'); return; }
+      const { data, error } = await supabase.rpc('admin_get_wallet_info', {
+        p_profile_id: Number(profileId.trim()),
+      });
 
-        // نجيب رصيده
-        const { data: wallet } = await supabase
-          .from('wallets')
-          .select('coins, gems')
-          .eq('user_id', data.id)
-          .maybeSingle();
+      if (error) throw error;
+      if (data?.success === false) throw new Error(data.error);
 
-        setPreview({ ...data, coins: wallet?.coins || 0, gems: wallet?.gems || 0 });
-      } else {
-        const { data, error } = await supabase
-          .from('recharge_agents')
-          .select('id, name, country_code, user_id, profile_id, profiles:user_id(name, avatar_url)')
-          .eq('profile_id', Number(profileId.trim()))
-          .eq('is_active', true)
-          .maybeSingle();
-        if (error) throw error;
-        if (!data) { setSearchError('Active recharge agent not found.'); return; }
-
-        // نجيب رصيده
-        const { data: bal } = await supabase
-          .rpc('get_recharge_agent_balance_for_current_user');
-
-        setPreview({
-          id: data.user_id,
-          name: data.name,
-          profile_id: data.profile_id,
-          avatar_url: data.profiles?.avatar_url,
-          country_code: data.country_code,
-          agent_balance: bal || 0,
-        });
-      }
+      setPreview(data);
     } catch (e) {
       setSearchError(e.message);
     } finally {
@@ -92,29 +61,43 @@ export default function AdminCoins() {
       toast({ title: 'Enter a valid amount', variant: 'destructive' });
       return;
     }
-    if (!window.confirm(`Add ${Number(amount).toLocaleString()} coins to ${preview.name}?`)) return;
+
+    const finalAmount = operation === 'deduct' ? -Number(amount) : Number(amount);
+    const action = operation === 'add' ? 'Add' : 'Deduct';
+
+    if (!window.confirm(`${action} ${Number(amount).toLocaleString()} coins ${operation === 'add' ? 'to' : 'from'} ${preview.agent_name || 'this user'}?`)) return;
 
     setSubmitting(true);
     try {
-      const fn = activeTab === 'user'
-        ? 'admin_add_coins_to_user'
-        : 'admin_add_coins_to_recharge_agent';
+      let data, error;
 
-      const { data, error } = await supabase.rpc(fn, {
-        p_profile_id: Number(profileId.trim()),
-        p_amount: Number(amount),
-        p_reason: reason.trim() || null,
-      });
+      if (activeTab === 'user') {
+        // للمستخدم العادي: نستخدم amount موجب أو سالب
+        ({ data, error } = await supabase.rpc('admin_add_coins_to_user', {
+          p_profile_id: Number(profileId.trim()),
+          p_amount: Math.abs(Number(amount)) * (operation === 'deduct' ? -1 : 1),
+          p_reason: reason.trim() || null,
+        }));
+      } else {
+        if (operation === 'deduct') {
+          toast({ title: 'Deduct not supported for recharge agents yet', variant: 'destructive' });
+          return;
+        }
+        ({ data, error } = await supabase.rpc('admin_add_coins_to_recharge_agent', {
+          p_profile_id: Number(profileId.trim()),
+          p_amount: Number(amount),
+          p_reason: reason.trim() || null,
+        }));
+      }
 
       if (error) throw error;
       if (data?.success === false) throw new Error(data.error);
 
       toast({
-        title: `✅ ${Number(amount).toLocaleString()} coins added to ${preview.name}!`,
+        title: `✅ ${Number(amount).toLocaleString()} coins ${operation === 'add' ? 'added to' : 'deducted from'} ${preview.agent_name || 'user'}!`,
         className: 'bg-green-50 border-green-200 text-green-800',
       });
 
-      // Reset
       setAmount('');
       setReason('');
       setPreview(null);
@@ -190,18 +173,12 @@ export default function AdminCoins() {
         {/* Preview */}
         {preview && (
           <div className="flex items-center gap-4 p-4 bg-indigo-50 border border-indigo-100 rounded-xl">
-            <img
-              src={preview.avatar_url || ''}
-              alt={preview.name}
-              className="w-12 h-12 rounded-full object-cover border bg-gray-100"
-              onError={(e) => { e.currentTarget.style.display = 'none'; }}
-            />
             <div className="flex-1">
-              <p className="font-bold text-gray-900">{preview.name}</p>
-              <p className="text-xs text-gray-500">#{preview.profile_id}
-                {preview.country_code && ` • ${preview.country_code}`}
+              <p className="font-bold text-gray-900">{preview.agent_name || preview.name || 'User'}</p>
+              <p className="text-xs text-gray-500">#{profileId}
+                {preview.agent_country && ` • ${preview.agent_country}`}
               </p>
-              <div className="flex gap-3 mt-1">
+              <div className="flex gap-3 mt-1 flex-wrap">
                 {activeTab === 'user' ? (
                   <>
                     <span className="text-xs text-amber-600 font-semibold">
@@ -221,6 +198,37 @@ export default function AdminCoins() {
             <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
           </div>
         )}
+
+        {/* Operation */}
+        <div className="space-y-2">
+          <Label>Operation</Label>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setOperation('add')}
+              className={cn(
+                'px-4 py-2 rounded-lg border text-sm font-medium transition',
+                operation === 'add'
+                  ? 'bg-green-600 text-white border-green-600'
+                  : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+              )}
+            >
+              ➕ Add Coins
+            </button>
+            <button
+              type="button"
+              onClick={() => setOperation('deduct')}
+              className={cn(
+                'px-4 py-2 rounded-lg border text-sm font-medium transition',
+                operation === 'deduct'
+                  ? 'bg-red-600 text-white border-red-600'
+                  : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+              )}
+            >
+              ➖ Deduct Coins
+            </button>
+          </div>
+        </div>
 
         {/* Amount */}
         <div className="space-y-2">
@@ -262,8 +270,7 @@ export default function AdminCoins() {
             <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Processing...</>
           ) : (
             <><Coins className="w-4 h-4 mr-2" />
-              Add {amount ? Number(amount).toLocaleString() : '0'} Coins
-              {preview ? ` to ${preview.name}` : ''}
+              {operation === 'add' ? '➕ Add' : '➖ Deduct'} {amount ? Number(amount).toLocaleString() : '0'} Coins
             </>
           )}
         </Button>
