@@ -80,14 +80,18 @@ export default function AdminCoins() {
         }));
       } else {
         if (operation === 'deduct') {
-          toast({ title: 'Deduct not supported for recharge agents yet', variant: 'destructive' });
-          return;
+          ({ data, error } = await supabase.rpc('admin_deduct_coins_from_recharge_agent', {
+            p_profile_id: Number(profileId.trim()),
+            p_amount: Number(amount),
+            p_reason: reason.trim() || null,
+          }));
+        } else {
+          ({ data, error } = await supabase.rpc('admin_add_coins_to_recharge_agent', {
+            p_profile_id: Number(profileId.trim()),
+            p_amount: Number(amount),
+            p_reason: reason.trim() || null,
+          }));
         }
-        ({ data, error } = await supabase.rpc('admin_add_coins_to_recharge_agent', {
-          p_profile_id: Number(profileId.trim()),
-          p_amount: Number(amount),
-          p_reason: reason.trim() || null,
-        }));
       }
 
       if (error) throw error;
