@@ -10,10 +10,53 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useToast } from '@/components/ui/use-toast';
+import { cn } from '@/lib/utils';
 import { Pencil, Trash2, Plus, Loader2, Upload } from 'lucide-react';
+
+const TABS = [
+  {
+    key: 'gifts',
+    label: '🎁 Gifts',
+    desc: 'Regular sendable gifts',
+    filter: (g) => g.category === 'general' && !g.is_lucky && !g.is_vip_only && !g.is_exclusive && !g.bag_only,
+  },
+  {
+    key: 'vip',
+    label: '👑 VIP',
+    desc: 'VIP-only gifts',
+    filter: (g) => g.is_vip_only,
+  },
+  {
+    key: 'lucky',
+    label: '🍀 Lucky',
+    desc: 'Lucky gifts with multipliers',
+    filter: (g) => g.is_lucky,
+  },
+  {
+    key: 'exclusive',
+    label: '💎 Exclusive',
+    desc: 'Exclusive gifts for specific users',
+    filter: (g) => g.is_exclusive,
+  },
+  {
+    key: 'bag',
+    label: '🎒 Bag',
+    desc: 'Game & competition prizes (slot)',
+    filter: (g) => g.bag_only || g.category === 'slot',
+  },
+  {
+    key: 'all',
+    label: '📋 All',
+    desc: 'All gifts',
+    filter: () => true,
+  },
+];
 
 const AdminGiftsPage = () => {
   const [gifts, setGifts] = useState([]);
+  const [activeTab, setActiveTab] = useState('gifts');
+  const activeTabConfig = TABS.find(t => t.key === activeTab) || TABS[0];
+  const filteredGifts = gifts.filter(activeTabConfig.filter);
   const [loading, setLoading] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -607,6 +650,31 @@ const AdminGiftsPage = () => {
           </Dialog>
         </CardHeader>
         <CardContent>
+          {/* Tab Banner */}
+          <div className="mb-6 bg-white rounded-2xl border shadow-sm overflow-hidden">
+            <div className="flex overflow-x-auto">
+              {TABS.map(tab => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={cn(
+                    'flex-shrink-0 px-5 py-3.5 text-sm font-medium border-b-2 transition-all',
+                    activeTab === tab.key
+                      ? 'border-rose-500 text-rose-600 bg-rose-50'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                  )}
+                >
+                  {tab.label}
+                  <span className="ml-2 text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full">
+                    {gifts.filter(tab.filter).length}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <div className="px-5 py-2.5 bg-gray-50 border-t">
+              <p className="text-xs text-gray-500">{activeTabConfig.desc}</p>
+            </div>
+          </div>
           <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
@@ -630,7 +698,7 @@ const AdminGiftsPage = () => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  gifts.map((gift) => (
+                  filteredGifts.map((gift) => (
                     <TableRow key={gift.id}>
                       <TableCell className="font-mono text-sm">{gift.code}</TableCell>
                       <TableCell>{gift.name_en}</TableCell>
