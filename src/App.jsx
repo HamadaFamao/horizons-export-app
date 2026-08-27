@@ -26,6 +26,7 @@ import AgencyChatGate from '@/pages/AgencyChatGate';
 
 import RechargeAgentPanel from '@/pages/RechargeAgentPanel';
 import RechargeAgentPage from '@/pages/recharge/RechargeAgentPage';
+import RechargeAgentActivityPage from '@/pages/recharge-agent/RechargeAgentActivityPage';
 import AgentWithdrawals from '@/pages/recharge-agent/AgentWithdrawals';
 
 import SearchPage from '@/pages/SearchPage';
@@ -352,10 +353,26 @@ function AppContent() {
             }
           />
           <Route
+            path="/recharge-agent/activity"
+            element={
+              <ProtectedRoute>
+                <RechargeAgentActivityPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/recharge-agent/withdrawals"
             element={
               <ProtectedRoute>
                 <AgentWithdrawals />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/recharge-agent/activity"
+            element={
+              <ProtectedRoute>
+                <RechargeAgentActivityPage />
               </ProtectedRoute>
             }
           />

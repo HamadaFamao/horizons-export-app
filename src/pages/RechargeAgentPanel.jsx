@@ -332,7 +332,26 @@ export default function RechargeAgentPanel() {
               <PlusCircle className="w-4 h-4" />
               <span>Buy Coins</span>
             </Button>
+
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => navigate('/recharge-agent/activity')}
+              className="text-indigo-600 border-indigo-200 hover:bg-indigo-50 flex items-center gap-1.5"
+            >
+              <History className="w-4 h-4" />
+              <span>Activity</span>
+            </Button>
             
+            <Button 
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate('/recharge-agent/activity')}
+              className="text-indigo-600 hover:bg-indigo-50 flex items-center gap-1.5"
+            >
+              <span>Activity</span>
+            </Button>
+
             <Button 
               variant="outline" 
               size="sm" 
