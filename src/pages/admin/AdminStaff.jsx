@@ -11,13 +11,22 @@ import { Loader2, RefreshCw, Plus, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const PERMISSIONS = [
-  { key: 'can_manage_agencies', label: 'Agencies' },
-  { key: 'can_manage_withdrawals', label: 'Withdrawals' },
-  { key: 'can_manage_rooms', label: 'Rooms' },
-  { key: 'can_manage_users', label: 'Users' },
-  { key: 'can_manage_banners', label: 'Banners' },
-  { key: 'can_send_notifications', label: 'Notifications' },
-  { key: 'can_manage_finance', label: 'Finance' },
+  { key: 'can_manage_agencies',    label: '🏢 Agencies' },
+  { key: 'can_manage_withdrawals', label: '💰 Withdrawals' },
+  { key: 'can_manage_rooms',       label: '🎙️ Rooms' },
+  { key: 'can_manage_users',       label: '👥 Users' },
+  { key: 'can_manage_gifts',       label: '🎁 Gifts' },
+  { key: 'can_manage_rewards',     label: '🏆 Rewards' },
+  { key: 'can_manage_plans',       label: '📋 Plans' },
+  { key: 'can_manage_coins',       label: '🪙 Coins' },
+  { key: 'can_manage_finance',     label: '💳 Finance' },
+  { key: 'can_manage_reports',     label: '📊 Reports' },
+  { key: 'can_manage_banners',     label: '🖼️ Banners' },
+  { key: 'can_send_notifications', label: '🔔 Notifications' },
+  { key: 'can_manage_settings',    label: '⚙️ Settings' },
+  { key: 'can_manage_seed',        label: '🌱 Seed Data' },
+  { key: 'can_manage_tools',       label: '🔧 Tools' },
+  { key: 'can_manage_staff',       label: '👤 Staff' },
 ];
 
 const ROLES = ['moderator', 'manager', 'admin'];
@@ -96,13 +105,22 @@ export default function AdminStaff() {
       const perms = edits[userId];
       const { data, error } = await supabase.rpc('admin_update_staff_permissions', {
         p_user_id: userId,
-        p_can_manage_agencies: perms.can_manage_agencies,
+        p_can_manage_agencies:    perms.can_manage_agencies,
         p_can_manage_withdrawals: perms.can_manage_withdrawals,
-        p_can_manage_rooms: perms.can_manage_rooms,
-        p_can_manage_users: perms.can_manage_users,
-        p_can_manage_banners: perms.can_manage_banners,
+        p_can_manage_rooms:       perms.can_manage_rooms,
+        p_can_manage_users:       perms.can_manage_users,
+        p_can_manage_banners:     perms.can_manage_banners,
         p_can_send_notifications: perms.can_send_notifications,
-        p_can_manage_finance: perms.can_manage_finance,
+        p_can_manage_finance:     perms.can_manage_finance,
+        p_can_manage_gifts:       perms.can_manage_gifts,
+        p_can_manage_rewards:     perms.can_manage_rewards,
+        p_can_manage_plans:       perms.can_manage_plans,
+        p_can_manage_coins:       perms.can_manage_coins,
+        p_can_manage_reports:     perms.can_manage_reports,
+        p_can_manage_settings:    perms.can_manage_settings,
+        p_can_manage_seed:        perms.can_manage_seed,
+        p_can_manage_tools:       perms.can_manage_tools,
+        p_can_manage_staff:       perms.can_manage_staff,
       });
       if (error) throw error;
       if (data?.success === false) throw new Error(data.error);
