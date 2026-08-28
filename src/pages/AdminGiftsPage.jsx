@@ -17,32 +17,38 @@ const TABS = [
   {
     key: 'gifts',
     label: '🎁 Gifts',
-    desc: 'Regular sendable gifts',
-    filter: (g) => g.category === 'general' && !g.is_lucky && !g.is_vip_only && !g.is_exclusive && !g.bag_only,
+    desc: 'Regular sendable gifts — category: general, not lucky/vip/exclusive',
+    filter: (g) => g.category === 'general' && !g.is_lucky && !g.is_vip_only && !g.is_exclusive,
   },
   {
     key: 'vip',
     label: '👑 VIP',
-    desc: 'VIP-only gifts',
-    filter: (g) => g.is_vip_only,
+    desc: 'VIP-only gifts — is_vip_only: true',
+    filter: (g) => g.is_vip_only === true,
   },
   {
     key: 'lucky',
     label: '🍀 Lucky',
-    desc: 'Lucky gifts with multipliers',
-    filter: (g) => g.is_lucky,
+    desc: 'Lucky gifts with multipliers — is_lucky: true',
+    filter: (g) => g.is_lucky === true,
   },
   {
     key: 'exclusive',
     label: '💎 Exclusive',
-    desc: 'Exclusive gifts for specific users',
-    filter: (g) => g.is_exclusive,
+    desc: 'Exclusive gifts for specific users — is_exclusive: true',
+    filter: (g) => g.is_exclusive === true,
   },
   {
     key: 'bag',
     label: '🎒 Bag',
-    desc: 'Game & competition prizes (slot)',
-    filter: (g) => g.bag_only || g.category === 'slot',
+    desc: 'Game & competition prizes — category: slot',
+    filter: (g) => g.category === 'slot',
+  },
+  {
+    key: 'store',
+    label: '🏪 Store',
+    desc: 'Vehicles, frames & profile decorations — category: store',
+    filter: (g) => g.category === 'store',
   },
   {
     key: 'all',
@@ -71,6 +77,10 @@ const AdminGiftsPage = () => {
       code: '',
       name_en: '',
       name_ar: '',
+      category: 'general',
+      is_vip_only: false,
+      is_lucky: false,
+      is_exclusive: false,
       cost: 0,
       gems_awarded: 0,
       reward_level: 0,
@@ -311,6 +321,10 @@ const AdminGiftsPage = () => {
       code: gift.code || '',
       name_en: gift.name_en || '',
       name_ar: gift.name_ar || '',
+      category: gift.category || 'general',
+      is_vip_only: !!gift.is_vip_only,
+      is_lucky: !!gift.is_lucky,
+      is_exclusive: !!gift.is_exclusive,
       cost: gift.cost || 0,
       gems_awarded: gift.gems_awarded || 0,
       reward_level: gift.reward_level || 0,
@@ -382,6 +396,46 @@ const AdminGiftsPage = () => {
             placeholder="وردة"
           />
         </div>
+      </div>
+
+      <div className="space-y-1">
+        <Label>Category</Label>
+        <select
+          className="w-full border rounded-lg px-3 py-2 text-sm"
+          value={formData.category || 'general'}
+          onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+        >
+          <option value="general">🎁 Gifts (General)</option>
+          <option value="slot">🎒 Bag (Slot/Game prizes)</option>
+          <option value="store">🏪 Store (Decorations)</option>
+        </select>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2">
+        <label className="flex items-center gap-2 text-sm cursor-pointer p-2 border rounded-lg hover:bg-gray-50">
+          <input
+            type="checkbox"
+            checked={!!formData.is_vip_only}
+            onChange={(e) => setFormData({ ...formData, is_vip_only: e.target.checked })}
+          />
+          👑 VIP Only
+        </label>
+        <label className="flex items-center gap-2 text-sm cursor-pointer p-2 border rounded-lg hover:bg-gray-50">
+          <input
+            type="checkbox"
+            checked={!!formData.is_lucky}
+            onChange={(e) => setFormData({ ...formData, is_lucky: e.target.checked })}
+          />
+          🍀 Lucky
+        </label>
+        <label className="flex items-center gap-2 text-sm cursor-pointer p-2 border rounded-lg hover:bg-gray-50">
+          <input
+            type="checkbox"
+            checked={!!formData.is_exclusive}
+            onChange={(e) => setFormData({ ...formData, is_exclusive: e.target.checked })}
+          />
+          💎 Exclusive
+        </label>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
