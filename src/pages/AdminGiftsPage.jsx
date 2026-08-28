@@ -13,6 +13,58 @@ import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
 import { Pencil, Trash2, Plus, Loader2, Upload } from 'lucide-react';
 
+const TAB_RULES = {
+  gifts: {
+    category: 'general',
+    is_lucky: false,
+    is_vip_only: false,
+    is_exclusive: false,
+    bag_only: false,
+    gems_formula: (cost) => cost, // 100%
+  },
+  vip: {
+    category: 'general',
+    is_lucky: false,
+    is_vip_only: true,
+    is_exclusive: false,
+    bag_only: false,
+    gems_formula: (cost) => cost, // 100%
+  },
+  lucky: {
+    category: 'general',
+    is_lucky: true,
+    is_vip_only: false,
+    is_exclusive: false,
+    bag_only: false,
+    gems_formula: (cost) => Math.round(cost * 0.10), // 10%
+  },
+  exclusive: {
+    category: 'general',
+    is_lucky: false,
+    is_vip_only: false,
+    is_exclusive: true,
+    bag_only: false,
+    gems_formula: (cost) => cost, // 100%
+  },
+  bag: {
+    category: 'slot',
+    is_lucky: false,
+    is_vip_only: false,
+    is_exclusive: false,
+    bag_only: true,
+    gems_formula: (cost) => cost, // manual
+  },
+  store: {
+    category: 'store',
+    is_lucky: false,
+    is_vip_only: false,
+    is_exclusive: false,
+    bag_only: false,
+    gems_formula: (cost) => 0, // مش هدايا
+  },
+  all: null, // مفيش rules
+};
+
 const TABS = [
   {
     key: 'gifts',
@@ -81,6 +133,7 @@ const AdminGiftsPage = () => {
       is_vip_only: false,
       is_lucky: false,
       is_exclusive: false,
+      bag_only: false,
       cost: 0,
       gems_awarded: 0,
       reward_level: 0,
@@ -139,12 +192,67 @@ const AdminGiftsPage = () => {
     }
   };
 
+  const handleOpenCreate = () => {
+    const rules = TAB_RULES[activeTab];
+
+    setFormData({
+      code: '',
+      name_en: '',
+      name_ar: '',
+      category: rules?.category || 'general',
+      is_lucky: rules?.is_lucky || false,
+      is_vip_only: rules?.is_vip_only || false,
+      is_exclusive: rules?.is_exclusive || false,
+      bag_only: rules?.bag_only || false,
+      cost: '',
+      gems_awarded: '',
+      reward_level: 0,
+      icon_url: '',
+      animation_asset_url: '',
+      animation_type: 'floating',
+      animation_asset_type: '',
+      animation_duration_ms: 1000,
+      effect_level: 'small',
+      show_in_room_overlay: false,
+      show_in_room_chat: false,
+      show_in_global_ticker: false,
+      overlay_image_url: '',
+      ticker_image_url: '',
+      sound_key: '',
+      is_room_gift_enabled: false,
+      is_active: true,
+      sort_order: 0,
+      chat_unlock_hours: 0,
+    });
+    setSelectedGift(null);
+    setIsCreateModalOpen(true);
+  };
+
   const handleCreateGift = async () => {
-    console.log('[AdminGiftsPage] Creating new gift:', formData);
+    const rules = TAB_RULES[activeTab];
+    const cost = Number(formData.cost) || 0;
+    const gems_awarded = rules?.gems_formula
+      ? rules.gems_formula(cost)
+      : Number(formData.gems_awarded) || 0;
+
+    const giftData = {
+      ...formData,
+      cost,
+      gems_awarded,
+      ...(rules && activeTab !== 'all' ? {
+        category: rules.category,
+        is_lucky: rules.is_lucky,
+        is_vip_only: rules.is_vip_only,
+        is_exclusive: rules.is_exclusive,
+        bag_only: rules.bag_only,
+      } : {}),
+    };
+
+    console.log('[AdminGiftsPage] Creating new gift:', giftData);
     try {
       const { data, error } = await supabase
         .from('gift_catalog')
-        .insert([formData])
+        .insert([giftData])
         .select();
 
       if (error) {
@@ -175,11 +283,30 @@ const AdminGiftsPage = () => {
   };
 
   const handleEditGift = async () => {
-    console.log('[AdminGiftsPage] Updating gift:', selectedGift.id, formData);
+    const rules = TAB_RULES[activeTab];
+    const cost = Number(formData.cost) || 0;
+    const gems_awarded = rules?.gems_formula
+      ? rules.gems_formula(cost)
+      : Number(formData.gems_awarded) || 0;
+
+    const giftData = {
+      ...formData,
+      cost,
+      gems_awarded,
+      ...(rules && activeTab !== 'all' ? {
+        category: rules.category,
+        is_lucky: rules.is_lucky,
+        is_vip_only: rules.is_vip_only,
+        is_exclusive: rules.is_exclusive,
+        bag_only: rules.bag_only,
+      } : {}),
+    };
+
+    console.log('[AdminGiftsPage] Updating gift:', selectedGift.id, giftData);
     try {
       const { data, error } = await supabase
         .from('gift_catalog')
-        .update(formData)
+        .update(giftData)
         .eq('id', selectedGift.id)
         .select();
 
@@ -468,6 +595,15 @@ const AdminGiftsPage = () => {
         </div>
       </div>
 
+      {TAB_RULES[activeTab]?.gems_formula && formData.cost && (
+        <p className="text-xs text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg">
+          💡 Auto gems:
+          {activeTab === 'lucky'
+            ? ` ${Math.round(Number(formData.cost) * 0.10)} gems (10% of cost)`
+            : ` ${Number(formData.cost)} gems (100% of cost)`}
+        </p>
+      )}
+
       <div>
         <Label htmlFor="icon_url">Icon URL</Label>
         <div className="flex gap-2 items-center mt-1">
@@ -682,7 +818,7 @@ const AdminGiftsPage = () => {
           <CardTitle>Gift Catalog Management</CardTitle>
           <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
             <DialogTrigger asChild>
-              <Button onClick={() => setFormData(getEmptyFormData())}>
+              <Button onClick={handleOpenCreate}>
                 <Plus className="h-4 w-4 mr-2" />
                 Create Gift
               </Button>
