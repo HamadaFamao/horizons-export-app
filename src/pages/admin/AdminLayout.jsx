@@ -16,6 +16,7 @@ import {
   Trophy,
   BarChart,
   Gift,
+  Home,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAdminPermissions } from '@/contexts/AdminPermissionsContext';
