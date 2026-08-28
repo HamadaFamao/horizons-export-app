@@ -1,6 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { LayoutGrid, Users, CreditCard, ShieldAlert, Database, Settings, Home, Gem, Award, Wrench, ArrowDownLeftFromCircle, Building, Mic, ArrowRightLeft, History, Fingerprint } from 'lucide-react';
+import {
+  LayoutDashboard,
+  Users,
+  CreditCard,
+  Database,
+  Settings,
+  Gem,
+  Building,
+  History,
+  ArrowLeftRight,
+  Shield,
+  Video,
+  Wallet,
+  Trophy,
+  BarChart,
+  Gift,
+} from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAdminPermissions } from '@/contexts/AdminPermissionsContext';
 import { supabase } from '@/lib/supabaseClient';
@@ -21,22 +37,22 @@ const AdminLayout = () => {
   const [pendingWithdrawalsCount, setPendingWithdrawalsCount] = useState(0);
 
   const allNavItems = [
-    { name: 'Overview',           href: 'overview',          icon: LayoutGrid,      iconEmoji: '📊', permission: null },
-    { name: 'Users',              href: 'users',             icon: Users,           iconEmoji: '👥', permission: 'can_manage_users' },
-    { name: 'Account Migration',  href: 'account-migration', icon: ArrowRightLeft, iconEmoji: '🔄', permission: 'can_manage_tools' },
-    { name: 'Identity Manager',   href: 'identity-manager',  icon: Fingerprint,     iconEmoji: '🪪', permission: 'can_manage_tools' },
-    { name: 'Migration History',  href: 'migration-history', icon: History,         iconEmoji: '📜', permission: 'can_manage_tools' },
-    { name: 'Rooms',              href: 'rooms',             icon: Mic,             iconEmoji: '🎙️', permission: 'can_manage_rooms' },
-    { name: 'Agencies',           href: 'agencies',          icon: Building,        iconEmoji: '🏢', permission: 'can_manage_agencies' },
-    { name: 'Staff',              href: 'staff',             icon: Users,           iconEmoji: '👤', permission: 'can_manage_staff' },
-    { name: 'Withdrawals',        href: 'withdrawals',       icon: ArrowDownLeftFromCircle, iconEmoji: '💰', permission: 'can_manage_withdrawals' },
-    { name: 'Plans',              href: 'plans',             icon: CreditCard,      iconEmoji: '📋', permission: 'can_manage_plans' },
-    { name: 'Coins',              href: 'coins',             icon: Gem,             iconEmoji: '🪙', permission: 'can_manage_coins' },
-    { name: 'Rewards',            href: 'rewards',           icon: Award,           iconEmoji: '🏆', permission: 'can_manage_rewards' },
-    { name: 'Reports',            href: 'reports',           icon: ShieldAlert,     iconEmoji: '📊', permission: 'can_manage_reports' },
-    { name: 'Gifts',              href: 'gifts',             icon: Gem,             iconEmoji: '🎁', permission: 'can_manage_gifts' },
-    { name: 'Seed Data',          href: 'seed',              icon: Database,        iconEmoji: '🌱', permission: 'can_manage_seed' },
-    { name: 'Settings',           href: 'settings',          icon: Settings,        iconEmoji: '⚙️', permission: 'can_manage_settings' },
+    { name: 'Overview',          href: 'dashboard',              icon: LayoutDashboard, iconEmoji: '📊', permission: null },
+    { name: 'Users',             href: 'users',                  icon: Users,           iconEmoji: '👥', permission: 'can_manage_users' },
+    { name: 'Account Migration', href: 'users/migration',        icon: ArrowLeftRight,  iconEmoji: '🔄', permission: 'can_manage_tools' },
+    { name: 'Identity Manager',  href: 'users/identity-manager', icon: Shield,          iconEmoji: '🪪', permission: 'can_manage_tools' },
+    { name: 'Migration History', href: 'users/migration-history',icon: History,         iconEmoji: '📜', permission: 'can_manage_tools' },
+    { name: 'Rooms',             href: 'rooms',                  icon: Video,           iconEmoji: '🎙️', permission: 'can_manage_rooms' },
+    { name: 'Agencies',          href: '/admin/agencies',        icon: Building,        iconEmoji: '🏢', permission: 'can_manage_agencies' },
+    { name: 'Staff',             href: 'staff',                  icon: Users,           iconEmoji: '👤', permission: 'can_manage_staff' },
+    { name: 'Withdrawals',       href: 'withdrawals',            icon: Wallet,          iconEmoji: '💰', permission: 'can_manage_withdrawals' },
+    { name: 'Plans',             href: 'plans',                  icon: CreditCard,      iconEmoji: '📋', permission: 'can_manage_plans' },
+    { name: 'Coins',             href: 'coins',                  icon: Gem,             iconEmoji: '🪙', permission: 'can_manage_coins' },
+    { name: 'Rewards',           href: 'rewards',                icon: Trophy,          iconEmoji: '🏆', permission: 'can_manage_rewards' },
+    { name: 'Reports',           href: 'reports',                icon: BarChart,        iconEmoji: '📊', permission: 'can_manage_reports' },
+    { name: 'Gifts',             href: 'gifts',                  icon: Gift,            iconEmoji: '🎁', permission: 'can_manage_gifts' },
+    { name: 'Seed Data',         href: 'seed',                   icon: Database,        iconEmoji: '🌱', permission: 'can_manage_seed' },
+    { name: 'Settings',          href: 'settings',               icon: Settings,        iconEmoji: '⚙️', permission: 'can_manage_settings' },
   ];
 
   const hasManageUsersAccess =
