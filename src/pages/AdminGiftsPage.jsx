@@ -444,7 +444,7 @@ const AdminGiftsPage = () => {
   const openEditModal = (gift) => {
     console.log('[AdminGiftsPage] Opening edit modal for gift:', gift.id);
     setSelectedGift(gift);
-    setFormData({
+    const nextForm = {
       code: gift.code || '',
       name_en: gift.name_en || '',
       name_ar: gift.name_ar || '',
@@ -471,7 +471,14 @@ const AdminGiftsPage = () => {
       is_active: gift.is_active !== undefined ? gift.is_active : true,
       sort_order: gift.sort_order || 0,
       chat_unlock_hours: gift.chat_unlock_hours || 0
-    });
+    };
+
+    const rules = TAB_RULES[activeTab];
+    if (rules?.gems_formula && gift.cost > 0) {
+      nextForm.gems_awarded = rules.gems_formula(gift.cost);
+    }
+
+    setFormData(nextForm);
     setIsEditModalOpen(true);
   };
 
@@ -572,7 +579,12 @@ const AdminGiftsPage = () => {
             id="cost"
             type="number"
             value={formData.cost}
-            onChange={(e) => setFormData({ ...formData, cost: parseInt(e.target.value) || 0 })}
+            onChange={(e) => {
+              const cost = Number(e.target.value) || 0;
+              const rules = TAB_RULES[activeTab];
+              const gems = rules?.gems_formula ? rules.gems_formula(cost) : cost;
+              setFormData({ ...formData, cost: e.target.value, gems_awarded: gems });
+            }}
           />
         </div>
         <div>
