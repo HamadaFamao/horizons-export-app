@@ -65,17 +65,12 @@ function parseInvitedSeatNo(note) {
 }
 
 const isSmallRoomGift = (effect) => {
-  // لو effect_level محدد صراحةً كـ medium أو global، مش small
-  if (effect?.effect_level === 'medium' || effect?.effect_level === 'global') {
-    return false;
-  }
-  // لو effect_level = small صراحةً
-  if (effect?.effect_level === 'small') {
-    return true;
-  }
-  // fallback: حسب السعر
+  const level = effect?.effect_level;
+  if (level === 'medium' || level === 'global') return false;
+  if (level === 'small') return true;
+  // fallback بالسعر لو مفيش effect_level
   const price = Number(effect?.price || effect?.coins_spent || effect?.gift_cost || effect?.cost || 0);
-  return price > 0 && price <= 500;
+  return price <= 500;
 };
 
 const getEventTotalCoins = (event, fallbackQuantity = 1) => {
@@ -8880,9 +8875,10 @@ useEffect(() => {
       {room?.background_url ? <div className="fixed inset-0 bg-black/40 pointer-events-none z-0" style={{ opacity: bgVisible ? 1 : 0, transition: 'opacity 0.3s ease' }} /> : null}
       {roomGiftEffects.length > 0 ? (
         <div className="fixed inset-0 z-[65] pointer-events-none flex flex-col items-center justify-start pt-24 gap-4">
-          {roomGiftEffects.map((effect) => {
+          {roomGiftEffects.map((effect, idx) => {
             const isSmall = isSmallRoomGift(effect);
             console.log('[EFFECT_IN_ARRAY]', {
+              idx,
               id: effect?.id,
               effect_level: effect?.effect_level,
               animation_type: effect?.animation_type,
