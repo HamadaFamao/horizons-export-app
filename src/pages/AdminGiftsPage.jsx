@@ -116,6 +116,10 @@ const AdminGiftsPage = () => {
   const activeTabConfig = TABS.find(t => t.key === activeTab) || TABS[0];
   const filteredGifts = gifts.filter(activeTabConfig.filter);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [uploadingIcon, setUploadingIcon] = useState(false);
+  const [uploadingAnimation, setUploadingAnimation] = useState(false);
+  const [uploadingSound, setUploadingSound] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -482,6 +486,30 @@ const AdminGiftsPage = () => {
     setIsEditModalOpen(true);
   };
 
+  const handleUploadFile = async (file, bucket, folder, onSuccess, setLoading) => {
+    if (!file) return;
+    setLoading(true);
+    try {
+      const ext = file.name.split('.').pop().toLowerCase();
+      const fileName = `${folder}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from(bucket)
+        .upload(fileName, file, { upsert: true });
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from(bucket)
+        .getPublicUrl(fileName);
+
+      onSuccess(urlData.publicUrl);
+      toast({ title: '✅ Uploaded successfully!', className: 'bg-green-50 border-green-200 text-green-800' });
+    } catch (e) {
+      toast({ title: 'Upload Error', description: e.message, variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const openDeleteDialog = (gift) => {
     console.log('[AdminGiftsPage] Opening delete dialog for gift:', gift.id);
     setSelectedGift(gift);
@@ -616,30 +644,42 @@ const AdminGiftsPage = () => {
         </p>
       )}
 
-      <div>
-        <Label htmlFor="icon_url">Icon URL</Label>
-        <div className="flex gap-2 items-center mt-1">
+      <div className="space-y-1">
+        <Label>Icon URL</Label>
+        <div className="flex gap-2 items-center">
           <Input
-            id="icon_url"
-            value={formData.icon_url}
+            value={formData.icon_url || ''}
             onChange={(e) => setFormData({ ...formData, icon_url: e.target.value })}
             placeholder="https://..."
             className="flex-1"
           />
-          <div className="relative">
-            <Input
+          <label className="cursor-pointer">
+            <input
               type="file"
-              accept="image/*"
-              onChange={(e) => handleFileUpload(e, 'icon')}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-              disabled={uploading}
+              accept="image/*,.gif"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleUploadFile(
+                  file, 'Gifts', 'icons',
+                  (url) => setFormData(f => ({ ...f, icon_url: url })),
+                  setUploadingIcon
+                );
+              }}
             />
-            <Button type="button" variant="secondary" disabled={uploading}>
-              {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
-              Upload Icon
+            <Button type="button" variant="outline" size="sm" disabled={uploadingIcon} asChild>
+              <span>
+                {uploadingIcon
+                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : <><Upload className="w-4 h-4 mr-1" /> Upload</>}
+              </span>
             </Button>
-          </div>
+          </label>
         </div>
+        {formData.icon_url && (
+          <img src={formData.icon_url} alt="icon preview"
+            className="w-16 h-16 object-contain rounded-lg border mt-1 bg-gray-50" />
+        )}
       </div>
 
       <div className="space-y-2">
@@ -680,30 +720,48 @@ const AdminGiftsPage = () => {
           </div>
         </div>
 
-        <div>
-          <Label htmlFor="animation_asset_url">Animation Asset URL</Label>
-          <div className="flex gap-2 items-center mt-1">
+        <div className="space-y-1">
+          <Label>Animation Asset URL</Label>
+          <div className="flex gap-2 items-center">
             <Input
-              id="animation_asset_url"
-              value={formData.animation_asset_url}
+              value={formData.animation_asset_url || ''}
               onChange={(e) => setFormData({ ...formData, animation_asset_url: e.target.value })}
               placeholder="https://..."
               className="flex-1"
             />
-            <div className="relative">
-              <Input
+            <label className="cursor-pointer">
+              <input
                 type="file"
-                accept="image/gif,video/*,application/json"
-                onChange={(e) => handleFileUpload(e, 'anim')}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                disabled={uploading}
+                accept="image/*,.gif,video/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleUploadFile(
+                    file, 'Gifts', 'animations',
+                    (url) => setFormData(f => ({ ...f, animation_asset_url: url })),
+                    setUploadingAnimation
+                  );
+                }}
               />
-              <Button type="button" variant="secondary" disabled={uploading}>
-                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
-                Upload GIF
+              <Button type="button" variant="outline" size="sm" disabled={uploadingAnimation} asChild>
+                <span>
+                  {uploadingAnimation
+                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                    : <><Upload className="w-4 h-4 mr-1" /> Upload</>}
+                </span>
               </Button>
-            </div>
+            </label>
           </div>
+          {formData.animation_asset_url && (
+            <div className="mt-1">
+              {formData.animation_asset_url.match(/\.(mp4|webm|mov)$/i) ? (
+                <video src={formData.animation_asset_url} className="w-32 h-32 rounded-lg border object-contain bg-gray-50" autoPlay loop muted />
+              ) : (
+                <img src={formData.animation_asset_url} alt="animation preview"
+                  className="w-32 h-32 object-contain rounded-lg border bg-gray-50" />
+              )}
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -748,14 +806,41 @@ const AdminGiftsPage = () => {
             placeholder="https://..."
           />
         </div>
-        <div>
-          <Label htmlFor="sound_key">Sound Key</Label>
-          <Input
-            id="sound_key"
-            value={formData.sound_key}
-            onChange={(e) => setFormData({ ...formData, sound_key: e.target.value })}
-            placeholder="gift_sound_1"
-          />
+        <div className="space-y-1">
+          <Label>Sound</Label>
+          <div className="flex gap-2 items-center">
+            <Input
+              value={formData.sound_key || ''}
+              onChange={(e) => setFormData({ ...formData, sound_key: e.target.value })}
+              placeholder="Sound URL or key..."
+              className="flex-1"
+            />
+            <label className="cursor-pointer">
+              <input
+                type="file"
+                accept="audio/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleUploadFile(
+                    file, 'room-songs', 'gift-sounds',
+                    (url) => setFormData(f => ({ ...f, sound_key: url })),
+                    setUploadingSound
+                  );
+                }}
+              />
+              <Button type="button" variant="outline" size="sm" disabled={uploadingSound} asChild>
+                <span>
+                  {uploadingSound
+                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                    : <><Upload className="w-4 h-4 mr-1" /> Upload</>}
+                </span>
+              </Button>
+            </label>
+          </div>
+          {formData.sound_key && formData.sound_key.startsWith('http') && (
+            <audio controls src={formData.sound_key} className="w-full mt-1 h-8" />
+          )}
         </div>
       </div>
 
