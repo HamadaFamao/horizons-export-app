@@ -2257,6 +2257,8 @@ useEffect(() => {
                   room_id: roomId,
                   sender_id: user.id,
                   quantity: displayQuantity,
+                  effect_level: result.effect_level || null,
+                  animation_type: result.animation_type || null,
                   ts: Date.now()
                 }
               });
@@ -6482,6 +6484,8 @@ useEffect(() => {
           const eventId = payload?.event_id;
           const payloadRoomId = payload?.room_id;
           const qty = payload?.quantity || 1;
+          const broadcastEffectLevel = payload?.effect_level || null;
+          const broadcastAnimationType = payload?.animation_type || null;
 
           if (!eventId) return;
           if (payloadRoomId && String(payloadRoomId) !== String(roomId)) return;
