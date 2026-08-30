@@ -401,41 +401,6 @@ const AdminGiftsPage = () => {
     }
   };
 
-  const handleDeleteGift = async () => {
-    console.log('[AdminGiftsPage] Deleting gift:', selectedGift.id);
-    try {
-      const { error } = await supabase
-        .from('gift_catalog')
-        .delete()
-        .eq('id', selectedGift.id);
-
-      if (error) {
-        console.error('[AdminGiftsPage] Error deleting gift:', error);
-        toast({
-          title: 'Error',
-          description: `Failed to delete gift: ${error.message}`,
-          variant: 'destructive'
-        });
-      } else {
-        console.log('[AdminGiftsPage] Successfully deleted gift:', selectedGift.id);
-        toast({
-          title: 'Success',
-          description: 'Gift deleted successfully'
-        });
-        setIsDeleteDialogOpen(false);
-        setSelectedGift(null);
-        fetchGifts();
-      }
-    } catch (err) {
-      console.error('[AdminGiftsPage] Exception while deleting gift:', err);
-      toast({
-        title: 'Error',
-        description: 'An unexpected error occurred while deleting gift',
-        variant: 'destructive'
-      });
-    }
-  };
-
   const handleFileUpload = async (event, type) => {
     const file = event.target.files[0];
     if (!file) return;
