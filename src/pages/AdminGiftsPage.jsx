@@ -481,9 +481,10 @@ const AdminGiftsPage = () => {
       name_en: gift.name_en || '',
       name_ar: gift.name_ar || '',
       category: gift.category || 'general',
-      is_vip_only: !!gift.is_vip_only,
-      is_lucky: !!gift.is_lucky,
-      is_exclusive: !!gift.is_exclusive,
+      is_vip_only: gift.is_vip_only || false,
+      is_lucky: gift.is_lucky || false,
+      is_exclusive: gift.is_exclusive || false,
+      bag_only: gift.bag_only || false,
       cost: gift.cost || 0,
       gems_awarded: gift.gems_awarded || 0,
       reward_level: gift.reward_level || 0,
@@ -500,7 +501,7 @@ const AdminGiftsPage = () => {
       ticker_image_url: gift.ticker_image_url || '',
       sound_key: gift.sound_key || '',
       is_room_gift_enabled: gift.is_room_gift_enabled !== false,
-      is_active: gift.is_active !== undefined ? gift.is_active : true,
+      is_active: gift.is_active !== false,
       sort_order: gift.sort_order || 0,
       chat_unlock_hours: gift.chat_unlock_hours || 0
     };
@@ -606,7 +607,7 @@ const AdminGiftsPage = () => {
           <input
             type="checkbox"
             checked={!!formData.is_vip_only}
-            onChange={(e) => setFormData({ ...formData, is_vip_only: e.target.checked })}
+            onChange={(e) => setFormData({ ...formData, is_vip_only: e.target.checked, is_lucky: false, is_exclusive: false })}
           />
           👑 VIP Only
         </label>
@@ -614,7 +615,7 @@ const AdminGiftsPage = () => {
           <input
             type="checkbox"
             checked={!!formData.is_lucky}
-            onChange={(e) => setFormData({ ...formData, is_lucky: e.target.checked })}
+            onChange={(e) => setFormData({ ...formData, is_lucky: e.target.checked, is_vip_only: false, is_exclusive: false })}
           />
           🍀 Lucky
         </label>
@@ -622,7 +623,7 @@ const AdminGiftsPage = () => {
           <input
             type="checkbox"
             checked={!!formData.is_exclusive}
-            onChange={(e) => setFormData({ ...formData, is_exclusive: e.target.checked })}
+            onChange={(e) => setFormData({ ...formData, is_exclusive: e.target.checked, is_vip_only: false, is_lucky: false })}
           />
           💎 Exclusive
         </label>
