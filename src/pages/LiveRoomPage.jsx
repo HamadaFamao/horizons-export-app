@@ -2067,6 +2067,11 @@ useEffect(() => {
         effect.targetPosition = seatTarget || null;
         effect.startMotion = false;
 
+        console.log('[ADDING_TO_ROOM_GIFT_EFFECTS]', {
+          id: effect.id,
+          effect_level: effect.effect_level,
+          animation_type: effect.animation_type,
+        });
         setRoomGiftEffects((prev) => {
           if (prev.some((item) => String(item.id) === String(effect.id))) return prev;
           return [...prev, effect];
