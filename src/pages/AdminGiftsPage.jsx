@@ -156,6 +156,9 @@ const AdminGiftsPage = () => {
   const [uploadingIcon, setUploadingIcon] = useState(false);
   const [uploadingAnimation, setUploadingAnimation] = useState(false);
   const [uploadingSound, setUploadingSound] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [giftToDelete, setGiftToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -567,10 +570,33 @@ const AdminGiftsPage = () => {
     }
   };
 
+  const openEditModal = (gift) => {
+    handleOpenEdit(gift);
+  };
+
   const openDeleteDialog = (gift) => {
-    console.log('[AdminGiftsPage] Opening delete dialog for gift:', gift.id);
-    setSelectedGift(gift);
-    setIsDeleteDialogOpen(true);
+    setGiftToDelete(gift);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteGift = async () => {
+    if (!giftToDelete) return;
+    setDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('gift_catalog')
+        .delete()
+        .eq('id', giftToDelete.id);
+      if (error) throw error;
+      toast({ title: '✅ Gift deleted', className: 'bg-green-50 border-green-200 text-green-800' });
+      setDeleteDialogOpen(false);
+      setGiftToDelete(null);
+      await fetchGifts();
+    } catch (e) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const renderGiftForm = () => (
@@ -1097,19 +1123,22 @@ const AdminGiftsPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>Delete Gift</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the gift "{selectedGift?.name_en}". This action cannot be undone.
+              Are you sure you want to delete "{giftToDelete?.name_en}"? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteGift} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteGift}
+              disabled={deleting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Delete'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
