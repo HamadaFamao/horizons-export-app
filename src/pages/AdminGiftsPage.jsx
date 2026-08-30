@@ -537,10 +537,6 @@ const AdminGiftsPage = () => {
     }
   };
 
-  const openEditModal = (gift) => {
-    handleOpenEdit(gift);
-  };
-
   const openDeleteDialog = (gift) => {
     setGiftToDelete(gift);
     setDeleteDialogOpen(true);
