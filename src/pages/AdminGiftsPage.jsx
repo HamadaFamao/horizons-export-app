@@ -13,6 +13,8 @@ import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
 import { Pencil, Trash2, Plus, Loader2, Upload } from 'lucide-react';
 
+// Updated: gift management with upload support
+
 const TAB_RULES = {
   gifts: {
     category: 'general',
