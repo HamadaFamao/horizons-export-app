@@ -153,7 +153,7 @@ const AdminGiftsPage = () => {
       overlay_image_url: '',
       ticker_image_url: '',
       sound_key: '',
-      is_room_gift_enabled: false,
+      is_room_gift_enabled: true,
       is_active: true,
       sort_order: 0,
       chat_unlock_hours: 0
@@ -223,7 +223,7 @@ const AdminGiftsPage = () => {
       overlay_image_url: '',
       ticker_image_url: '',
       sound_key: '',
-      is_room_gift_enabled: false,
+      is_room_gift_enabled: true,
       is_active: true,
       sort_order: 0,
       chat_unlock_hours: 0,
@@ -240,16 +240,30 @@ const AdminGiftsPage = () => {
       : Number(formData.gems_awarded) || 0;
 
     const giftData = {
-      ...formData,
+      code: formData.code?.trim(),
+      name_en: formData.name_en?.trim(),
+      name_ar: formData.name_ar?.trim() || null,
       cost,
       gems_awarded,
-      ...(rules && activeTab !== 'all' ? {
-        category: rules.category,
-        is_lucky: rules.is_lucky,
-        is_vip_only: rules.is_vip_only,
-        is_exclusive: rules.is_exclusive,
-        bag_only: rules.bag_only,
-      } : {}),
+      sort_order: Number(formData.sort_order) || 0,
+      reward_level: Number(formData.reward_level) || 0,
+      is_active: formData.is_active !== false,
+      is_room_gift_enabled: formData.is_room_gift_enabled !== false,
+      icon_url: formData.icon_url || null,
+      animation_type: formData.animation_type || 'floating',
+      animation_asset_url: formData.animation_asset_url || null,
+      animation_asset_type: formData.animation_asset_type || null,
+      animation_duration_ms: Number(formData.animation_duration_ms) || 3000,
+      effect_level: formData.effect_level || 'small',
+      sound_key: formData.sound_key || null,
+      show_in_room_chat: formData.show_in_room_chat !== false,
+      show_in_room_overlay: formData.show_in_room_overlay !== false,
+      show_in_global_ticker: !!formData.show_in_global_ticker,
+      category: formData.category || 'general',
+      is_vip_only: !!formData.is_vip_only,
+      is_lucky: !!formData.is_lucky,
+      is_exclusive: !!formData.is_exclusive,
+      bag_only: !!formData.bag_only,
     };
 
     console.log('[AdminGiftsPage] Creating new gift:', giftData);
@@ -294,16 +308,30 @@ const AdminGiftsPage = () => {
       : Number(formData.gems_awarded) || 0;
 
     const giftData = {
-      ...formData,
+      code: formData.code?.trim(),
+      name_en: formData.name_en?.trim(),
+      name_ar: formData.name_ar?.trim() || null,
       cost,
       gems_awarded,
-      ...(rules && activeTab !== 'all' ? {
-        category: rules.category,
-        is_lucky: rules.is_lucky,
-        is_vip_only: rules.is_vip_only,
-        is_exclusive: rules.is_exclusive,
-        bag_only: rules.bag_only,
-      } : {}),
+      sort_order: Number(formData.sort_order) || 0,
+      reward_level: Number(formData.reward_level) || 0,
+      is_active: formData.is_active !== false,
+      is_room_gift_enabled: formData.is_room_gift_enabled !== false,
+      icon_url: formData.icon_url || null,
+      animation_type: formData.animation_type || 'floating',
+      animation_asset_url: formData.animation_asset_url || null,
+      animation_asset_type: formData.animation_asset_type || null,
+      animation_duration_ms: Number(formData.animation_duration_ms) || 3000,
+      effect_level: formData.effect_level || 'small',
+      sound_key: formData.sound_key || null,
+      show_in_room_chat: formData.show_in_room_chat !== false,
+      show_in_room_overlay: formData.show_in_room_overlay !== false,
+      show_in_global_ticker: !!formData.show_in_global_ticker,
+      category: formData.category || 'general',
+      is_vip_only: !!formData.is_vip_only,
+      is_lucky: !!formData.is_lucky,
+      is_exclusive: !!formData.is_exclusive,
+      bag_only: !!formData.bag_only,
     };
 
     console.log('[AdminGiftsPage] Updating gift:', selectedGift.id, giftData);
@@ -471,7 +499,7 @@ const AdminGiftsPage = () => {
       overlay_image_url: gift.overlay_image_url || '',
       ticker_image_url: gift.ticker_image_url || '',
       sound_key: gift.sound_key || '',
-      is_room_gift_enabled: gift.is_room_gift_enabled || false,
+      is_room_gift_enabled: gift.is_room_gift_enabled !== false,
       is_active: gift.is_active !== undefined ? gift.is_active : true,
       sort_order: gift.sort_order || 0,
       chat_unlock_hours: gift.chat_unlock_hours || 0
@@ -872,19 +900,22 @@ const AdminGiftsPage = () => {
         </div>
         <div className="flex items-center space-x-2">
           <Checkbox
-            id="is_room_gift_enabled"
-            checked={formData.is_room_gift_enabled}
-            onCheckedChange={(checked) => setFormData({ ...formData, is_room_gift_enabled: checked })}
-          />
-          <Label htmlFor="is_room_gift_enabled" className="cursor-pointer">Enable as Room Gift</Label>
-        </div>
-        <div className="flex items-center space-x-2">
-          <Checkbox
             id="is_active"
             checked={formData.is_active}
             onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
           />
           <Label htmlFor="is_active" className="cursor-pointer">Active</Label>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="is_room_gift_enabled"
+            checked={formData.is_room_gift_enabled !== false}
+            onChange={(e) => setFormData({ ...formData, is_room_gift_enabled: e.target.checked })}
+          />
+          <Label htmlFor="is_room_gift_enabled" className="cursor-pointer">
+            🎙️ Show in Room Gift Panel
+          </Label>
         </div>
       </div>
 
