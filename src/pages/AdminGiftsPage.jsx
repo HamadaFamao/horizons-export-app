@@ -548,10 +548,10 @@ const AdminGiftsPage = () => {
     try {
       const { error } = await supabase
         .from('gift_catalog')
-        .delete()
+        .update({ is_active: false, is_room_gift_enabled: false })
         .eq('id', giftToDelete.id);
       if (error) throw error;
-      toast({ title: '✅ Gift deleted', className: 'bg-green-50 border-green-200 text-green-800' });
+      toast({ title: '✅ Gift deactivated', description: 'Gift hidden from users and disabled.', className: 'bg-green-50 border-green-200 text-green-800' });
       setDeleteDialogOpen(false);
       setGiftToDelete(null);
       await fetchGifts();
