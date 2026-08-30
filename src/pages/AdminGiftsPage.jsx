@@ -716,36 +716,29 @@ const AdminGiftsPage = () => {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <Label htmlFor="animation_type">Animation Type</Label>
-            <Select
+            <select
+              className="w-full border rounded-lg px-3 py-2 text-sm"
               value={form.animation_type || 'floating'}
-              onValueChange={(value) => setForm({ ...form, animation_type: value })}
+              onChange={(e) => setForm({ ...form, animation_type: e.target.value })}
             >
-              <SelectTrigger>
-                <SelectValue placeholder="Select type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="floating">Floating</SelectItem>
-                <SelectItem value="burst">Burst</SelectItem>
-                <SelectItem value="sparkle">Sparkle</SelectItem>
-                <SelectItem value="fullscreen">Fullscreen</SelectItem>
-              </SelectContent>
-            </Select>
+              <option value="floating">Floating</option>
+              <option value="burst">Burst</option>
+              <option value="sparkle">Sparkle</option>
+              <option value="fullscreen">Fullscreen</option>
+            </select>
           </div>
           <div>
             <Label htmlFor="effect_level">Effect Level</Label>
-            <Select
+            <select
+              className="w-full border rounded-lg px-3 py-2 text-sm"
               value={form.effect_level || 'small'}
-              onValueChange={(value) => setForm({ ...form, effect_level: value })}
+              onChange={(e) => setForm({ ...form, effect_level: e.target.value })}
             >
-              <SelectTrigger>
-                <SelectValue placeholder="Select level" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="small">Small</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="global">Global</SelectItem>
-              </SelectContent>
-            </Select>
+              <option value="small">Small</option>
+              <option value="medium">Medium</option>
+              <option value="large">Large</option>
+              <option value="global">Global</option>
+            </select>
           </div>
         </div>
 
