@@ -65,11 +65,14 @@ function parseInvitedSeatNo(note) {
 }
 
 const isSmallRoomGift = (effect) => {
-  // ✅ نعتمد على effect_level من الـ DB مش على السعر
+  console.log('[GIFT_EFFECT_LEVEL]', {
+    effect_level: effect?.effect_level,
+    coins_spent: effect?.coins_spent,
+    animation_type: effect?.animation_type,
+  });
   if (effect?.effect_level) {
     return effect.effect_level === 'small';
   }
-  // fallback للسعر لو مفيش effect_level
   const price = Number(effect?.price || effect?.coins_spent || effect?.gift_cost || effect?.cost || 0);
   return price > 0 && price <= 500;
 };
