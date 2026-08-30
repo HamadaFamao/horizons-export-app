@@ -2063,18 +2063,21 @@ useEffect(() => {
       });
 
       if (effect && !skipEffects) {
-        effect.quantity = finalQty;
-        effect.targetPosition = seatTarget || null;
-        effect.startMotion = false;
+        const effectToAdd = {
+          ...effect,
+          quantity: finalQty,
+          targetPosition: seatTarget || null,
+          startMotion: false,
+        };
 
         console.log('[ADDING_TO_ROOM_GIFT_EFFECTS]', {
-          id: effect.id,
-          effect_level: effect.effect_level,
-          animation_type: effect.animation_type,
+          id: effectToAdd.id,
+          effect_level: effectToAdd.effect_level,
+          animation_type: effectToAdd.animation_type,
         });
         setRoomGiftEffects((prev) => {
-          if (prev.some((item) => String(item.id) === String(effect.id))) return prev;
-          return [...prev, effect];
+          if (prev.some((item) => String(item.id) === String(effectToAdd.id))) return prev;
+          return [...prev, effectToAdd];
         });
 
         if (seatTarget) {
@@ -2082,7 +2085,7 @@ useEffect(() => {
             if (!mountedRef.current) return;
             setRoomGiftEffects((prev) =>
               prev.map((item) =>
-                String(item.id) === String(effect.id)
+                String(item.id) === String(effectToAdd.id)
                   ? { ...item, startMotion: true }
                   : item
               )
@@ -2091,8 +2094,8 @@ useEffect(() => {
         }
 
         setTimeout(() => {
-          setRoomGiftEffects((prev) => prev.filter((item) => String(item.id) !== String(effect.id)));
-        }, effect.animation_duration_ms || 4000);
+          setRoomGiftEffects((prev) => prev.filter((item) => String(item.id) !== String(effectToAdd.id)));
+        }, effectToAdd.animation_duration_ms || 4000);
       }
 
       const giftMsg = {
