@@ -124,7 +124,7 @@ const AdminGiftsPage = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedGift, setSelectedGift] = useState(null);
-  const [formData, setFormData] = useState(getEmptyFormData());
+  const [form, setForm] = useState(getEmptyFormData());
   const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
 
@@ -199,7 +199,7 @@ const AdminGiftsPage = () => {
   const handleOpenCreate = () => {
     const rules = TAB_RULES[activeTab];
 
-    setFormData({
+    setForm({
       code: '',
       name_en: '',
       name_ar: '',
@@ -234,36 +234,36 @@ const AdminGiftsPage = () => {
 
   const handleCreateGift = async () => {
     const rules = TAB_RULES[activeTab];
-    const cost = Number(formData.cost) || 0;
+    const cost = Number(form.cost) || 0;
     const gems_awarded = rules?.gems_formula
       ? rules.gems_formula(cost)
-      : Number(formData.gems_awarded) || 0;
+      : Number(form.gems_awarded) || 0;
 
     const giftData = {
-      code: formData.code?.trim(),
-      name_en: formData.name_en?.trim(),
-      name_ar: formData.name_ar?.trim() || null,
+      code: form.code?.trim(),
+      name_en: form.name_en?.trim(),
+      name_ar: form.name_ar?.trim() || null,
       cost,
       gems_awarded,
-      sort_order: Number(formData.sort_order) || 0,
-      reward_level: Number(formData.reward_level) || 0,
-      is_active: formData.is_active !== false,
-      is_room_gift_enabled: formData.is_room_gift_enabled !== false,
-      icon_url: formData.icon_url || null,
-      animation_type: formData.animation_type || 'floating',
-      animation_asset_url: formData.animation_asset_url || null,
-      animation_asset_type: formData.animation_asset_type || null,
-      animation_duration_ms: Number(formData.animation_duration_ms) || 3000,
-      effect_level: formData.effect_level || 'small',
-      sound_key: formData.sound_key || null,
-      show_in_room_chat: formData.show_in_room_chat !== false,
-      show_in_room_overlay: formData.show_in_room_overlay !== false,
-      show_in_global_ticker: !!formData.show_in_global_ticker,
-      category: formData.category || 'general',
-      is_vip_only: !!formData.is_vip_only,
-      is_lucky: !!formData.is_lucky,
-      is_exclusive: !!formData.is_exclusive,
-      bag_only: !!formData.bag_only,
+      sort_order: Number(form.sort_order) || 0,
+      reward_level: Number(form.reward_level) || 0,
+      is_active: form.is_active !== false,
+      is_room_gift_enabled: form.is_room_gift_enabled !== false,
+      icon_url: form.icon_url || null,
+      animation_type: form.animation_type || 'floating',
+      animation_asset_url: form.animation_asset_url || null,
+      animation_asset_type: form.animation_asset_type || null,
+      animation_duration_ms: Number(form.animation_duration_ms) || 3000,
+      effect_level: form.effect_level || 'small',
+      sound_key: form.sound_key || null,
+      show_in_room_chat: form.show_in_room_chat !== false,
+      show_in_room_overlay: form.show_in_room_overlay !== false,
+      show_in_global_ticker: !!form.show_in_global_ticker,
+      category: form.category || 'general',
+      is_vip_only: !!form.is_vip_only,
+      is_lucky: !!form.is_lucky,
+      is_exclusive: !!form.is_exclusive,
+      bag_only: !!form.bag_only,
     };
 
     console.log('[AdminGiftsPage] Creating new gift:', giftData);
@@ -287,7 +287,7 @@ const AdminGiftsPage = () => {
           description: 'Gift created successfully'
         });
         setIsCreateModalOpen(false);
-        setFormData(getEmptyFormData());
+        setForm(getEmptyFormData());
         fetchGifts();
       }
     } catch (err) {
@@ -302,36 +302,36 @@ const AdminGiftsPage = () => {
 
   const handleEditGift = async () => {
     const rules = TAB_RULES[activeTab];
-    const cost = Number(formData.cost) || 0;
+    const cost = Number(form.cost) || 0;
     const gems_awarded = rules?.gems_formula
       ? rules.gems_formula(cost)
-      : Number(formData.gems_awarded) || 0;
+      : Number(form.gems_awarded) || 0;
 
     const giftData = {
-      code: formData.code?.trim(),
-      name_en: formData.name_en?.trim(),
-      name_ar: formData.name_ar?.trim() || null,
+      code: form.code?.trim(),
+      name_en: form.name_en?.trim(),
+      name_ar: form.name_ar?.trim() || null,
       cost,
       gems_awarded,
-      sort_order: Number(formData.sort_order) || 0,
-      reward_level: Number(formData.reward_level) || 0,
-      is_active: formData.is_active !== false,
-      is_room_gift_enabled: formData.is_room_gift_enabled !== false,
-      icon_url: formData.icon_url || null,
-      animation_type: formData.animation_type || 'floating',
-      animation_asset_url: formData.animation_asset_url || null,
-      animation_asset_type: formData.animation_asset_type || null,
-      animation_duration_ms: Number(formData.animation_duration_ms) || 3000,
-      effect_level: formData.effect_level || 'small',
-      sound_key: formData.sound_key || null,
-      show_in_room_chat: formData.show_in_room_chat !== false,
-      show_in_room_overlay: formData.show_in_room_overlay !== false,
-      show_in_global_ticker: !!formData.show_in_global_ticker,
-      category: formData.category || 'general',
-      is_vip_only: !!formData.is_vip_only,
-      is_lucky: !!formData.is_lucky,
-      is_exclusive: !!formData.is_exclusive,
-      bag_only: !!formData.bag_only,
+      sort_order: Number(form.sort_order) || 0,
+      reward_level: Number(form.reward_level) || 0,
+      is_active: form.is_active !== false,
+      is_room_gift_enabled: form.is_room_gift_enabled !== false,
+      icon_url: form.icon_url || null,
+      animation_type: form.animation_type || 'floating',
+      animation_asset_url: form.animation_asset_url || null,
+      animation_asset_type: form.animation_asset_type || null,
+      animation_duration_ms: Number(form.animation_duration_ms) || 3000,
+      effect_level: form.effect_level || 'small',
+      sound_key: form.sound_key || null,
+      show_in_room_chat: form.show_in_room_chat !== false,
+      show_in_room_overlay: form.show_in_room_overlay !== false,
+      show_in_global_ticker: !!form.show_in_global_ticker,
+      category: form.category || 'general',
+      is_vip_only: !!form.is_vip_only,
+      is_lucky: !!form.is_lucky,
+      is_exclusive: !!form.is_exclusive,
+      bag_only: !!form.bag_only,
     };
 
     console.log('[AdminGiftsPage] Updating gift:', selectedGift.id, giftData);
@@ -357,7 +357,7 @@ const AdminGiftsPage = () => {
         });
         setIsEditModalOpen(false);
         setSelectedGift(null);
-        setFormData(getEmptyFormData());
+        setForm(getEmptyFormData());
         fetchGifts();
       }
     } catch (err) {
@@ -409,7 +409,7 @@ const AdminGiftsPage = () => {
     const file = event.target.files[0];
     if (!file) return;
 
-    if (!formData.code) {
+    if (!form.code) {
       toast({
         title: 'Missing Code',
         description: 'Please enter a Gift Code before uploading files.',
@@ -421,7 +421,7 @@ const AdminGiftsPage = () => {
     setUploading(true);
     const isIcon = type === 'icon';
     const fileName = isIcon ? `icon-${Date.now()}.png` : `anim-${Date.now()}.gif`;
-    const filePath = `${formData.code}/${fileName}`;
+    const filePath = `${form.code}/${fileName}`;
 
     try {
       const { data, error } = await supabase.storage
@@ -450,10 +450,10 @@ const AdminGiftsPage = () => {
 
       if (isIcon) {
         console.log('[ADMIN_GIFT_UPLOAD_ICON_SUCCESS]', publicUrl);
-        setFormData(prev => ({ ...prev, icon_url: publicUrl }));
+        setForm(prev => ({ ...prev, icon_url: publicUrl }));
       } else {
         console.log('[ADMIN_GIFT_UPLOAD_GIF_SUCCESS]', publicUrl);
-        setFormData(prev => ({ ...prev, animation_asset_url: publicUrl }));
+        setForm(prev => ({ ...prev, animation_asset_url: publicUrl }));
       }
 
       toast({
@@ -511,7 +511,7 @@ const AdminGiftsPage = () => {
       nextForm.gems_awarded = rules.gems_formula(gift.cost);
     }
 
-    setFormData(nextForm);
+    setForm(nextForm);
     setIsEditModalOpen(true);
   };
 
@@ -552,8 +552,8 @@ const AdminGiftsPage = () => {
           <Label htmlFor="code">Code *</Label>
           <Input
             id="code"
-            value={formData.code}
-            onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+            value={form.code}
+            onChange={(e) => setForm({ ...form, code: e.target.value })}
             placeholder="gift_rose"
           />
         </div>
@@ -562,8 +562,8 @@ const AdminGiftsPage = () => {
           <Input
             id="sort_order"
             type="number"
-            value={formData.sort_order}
-            onChange={(e) => setFormData({ ...formData, sort_order: parseInt(e.target.value) || 0 })}
+            value={form.sort_order}
+            onChange={(e) => setForm({ ...form, sort_order: parseInt(e.target.value) || 0 })}
           />
         </div>
       </div>
@@ -573,8 +573,8 @@ const AdminGiftsPage = () => {
           <Label htmlFor="name_en">Name (English) *</Label>
           <Input
             id="name_en"
-            value={formData.name_en}
-            onChange={(e) => setFormData({ ...formData, name_en: e.target.value })}
+            value={form.name_en}
+            onChange={(e) => setForm({ ...form, name_en: e.target.value })}
             placeholder="Rose"
           />
         </div>
@@ -582,8 +582,8 @@ const AdminGiftsPage = () => {
           <Label htmlFor="name_ar">Name (Arabic)</Label>
           <Input
             id="name_ar"
-            value={formData.name_ar}
-            onChange={(e) => setFormData({ ...formData, name_ar: e.target.value })}
+            value={form.name_ar}
+            onChange={(e) => setForm({ ...form, name_ar: e.target.value })}
             placeholder="وردة"
           />
         </div>
@@ -593,8 +593,8 @@ const AdminGiftsPage = () => {
         <Label>Category</Label>
         <select
           className="w-full border rounded-lg px-3 py-2 text-sm"
-          value={formData.category || 'general'}
-          onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+          value={form.category || 'general'}
+          onChange={(e) => setForm({ ...form, category: e.target.value })}
         >
           <option value="general">🎁 Gifts (General)</option>
           <option value="slot">🎒 Bag (Slot/Game prizes)</option>
@@ -606,24 +606,24 @@ const AdminGiftsPage = () => {
         <label className="flex items-center gap-2 text-sm cursor-pointer p-2 border rounded-lg hover:bg-gray-50">
           <input
             type="checkbox"
-            checked={!!formData.is_vip_only}
-            onChange={(e) => setFormData({ ...formData, is_vip_only: e.target.checked, is_lucky: false, is_exclusive: false })}
+            checked={!!form.is_vip_only}
+            onChange={(e) => setForm({ ...form, is_vip_only: e.target.checked, is_lucky: false, is_exclusive: false })}
           />
           👑 VIP Only
         </label>
         <label className="flex items-center gap-2 text-sm cursor-pointer p-2 border rounded-lg hover:bg-gray-50">
           <input
             type="checkbox"
-            checked={!!formData.is_lucky}
-            onChange={(e) => setFormData({ ...formData, is_lucky: e.target.checked, is_vip_only: false, is_exclusive: false })}
+            checked={!!form.is_lucky}
+            onChange={(e) => setForm({ ...form, is_lucky: e.target.checked, is_vip_only: false, is_exclusive: false })}
           />
           🍀 Lucky
         </label>
         <label className="flex items-center gap-2 text-sm cursor-pointer p-2 border rounded-lg hover:bg-gray-50">
           <input
             type="checkbox"
-            checked={!!formData.is_exclusive}
-            onChange={(e) => setFormData({ ...formData, is_exclusive: e.target.checked, is_vip_only: false, is_lucky: false })}
+            checked={!!form.is_exclusive}
+            onChange={(e) => setForm({ ...form, is_exclusive: e.target.checked, is_vip_only: false, is_lucky: false })}
           />
           💎 Exclusive
         </label>
@@ -635,12 +635,12 @@ const AdminGiftsPage = () => {
           <Input
             id="cost"
             type="number"
-            value={formData.cost}
+            value={form.cost}
             onChange={(e) => {
               const cost = Number(e.target.value) || 0;
               const rules = TAB_RULES[activeTab];
               const gems = rules?.gems_formula ? rules.gems_formula(cost) : cost;
-              setFormData({ ...formData, cost: e.target.value, gems_awarded: gems });
+              setForm({ ...form, cost: e.target.value, gems_awarded: gems });
             }}
           />
         </div>
@@ -649,8 +649,8 @@ const AdminGiftsPage = () => {
           <Input
             id="gems_awarded"
             type="number"
-            value={formData.gems_awarded}
-            onChange={(e) => setFormData({ ...formData, gems_awarded: parseInt(e.target.value) || 0 })}
+            value={form.gems_awarded}
+            onChange={(e) => setForm({ ...form, gems_awarded: parseInt(e.target.value) || 0 })}
           />
         </div>
         <div>
@@ -658,18 +658,18 @@ const AdminGiftsPage = () => {
           <Input
             id="reward_level"
             type="number"
-            value={formData.reward_level}
-            onChange={(e) => setFormData({ ...formData, reward_level: parseInt(e.target.value) || 0 })}
+            value={form.reward_level}
+            onChange={(e) => setForm({ ...form, reward_level: parseInt(e.target.value) || 0 })}
           />
         </div>
       </div>
 
-      {TAB_RULES[activeTab]?.gems_formula && formData.cost && (
+      {TAB_RULES[activeTab]?.gems_formula && form.cost && (
         <p className="text-xs text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg">
           💡 Auto gems:
           {activeTab === 'lucky'
-            ? ` ${Math.round(Number(formData.cost) * 0.10)} gems (10% of cost)`
-            : ` ${Number(formData.cost)} gems (100% of cost)`}
+            ? ` ${Math.round(Number(form.cost) * 0.10)} gems (10% of cost)`
+            : ` ${Number(form.cost)} gems (100% of cost)`}
         </p>
       )}
 
@@ -677,8 +677,8 @@ const AdminGiftsPage = () => {
         <Label>Icon URL</Label>
         <div className="flex gap-2 items-center">
           <Input
-            value={formData.icon_url || ''}
-            onChange={(e) => setFormData({ ...formData, icon_url: e.target.value })}
+            value={form.icon_url || ''}
+            onChange={(e) => setForm({ ...form, icon_url: e.target.value })}
             placeholder="https://..."
             className="flex-1"
           />
@@ -691,7 +691,7 @@ const AdminGiftsPage = () => {
                 const file = e.target.files?.[0];
                 if (file) handleUploadFile(
                   file, 'Gifts', 'icons',
-                  (url) => setFormData(f => ({ ...f, icon_url: url })),
+                  (url) => setForm(f => ({ ...f, icon_url: url })),
                   setUploadingIcon
                 );
               }}
@@ -705,8 +705,8 @@ const AdminGiftsPage = () => {
             </Button>
           </label>
         </div>
-        {formData.icon_url && (
-          <img src={formData.icon_url} alt="icon preview"
+        {form.icon_url && (
+          <img src={form.icon_url} alt="icon preview"
             className="w-16 h-16 object-contain rounded-lg border mt-1 bg-gray-50" />
         )}
       </div>
@@ -717,8 +717,8 @@ const AdminGiftsPage = () => {
           <div>
             <Label htmlFor="animation_type">Animation Type</Label>
             <Select
-              value={formData.animation_type}
-              onValueChange={(value) => setFormData({ ...formData, animation_type: value })}
+              value={form.animation_type || 'floating'}
+              onValueChange={(value) => setForm({ ...form, animation_type: value })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select type" />
@@ -734,8 +734,8 @@ const AdminGiftsPage = () => {
           <div>
             <Label htmlFor="effect_level">Effect Level</Label>
             <Select
-              value={formData.effect_level}
-              onValueChange={(value) => setFormData({ ...formData, effect_level: value })}
+              value={form.effect_level || 'small'}
+              onValueChange={(value) => setForm({ ...form, effect_level: value })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select level" />
@@ -753,8 +753,8 @@ const AdminGiftsPage = () => {
           <Label>Animation Asset URL</Label>
           <div className="flex gap-2 items-center">
             <Input
-              value={formData.animation_asset_url || ''}
-              onChange={(e) => setFormData({ ...formData, animation_asset_url: e.target.value })}
+              value={form.animation_asset_url || ''}
+              onChange={(e) => setForm({ ...form, animation_asset_url: e.target.value })}
               placeholder="https://..."
               className="flex-1"
             />
@@ -767,7 +767,7 @@ const AdminGiftsPage = () => {
                   const file = e.target.files?.[0];
                   if (file) handleUploadFile(
                     file, 'Gifts', 'animations',
-                    (url) => setFormData(f => ({ ...f, animation_asset_url: url })),
+                    (url) => setForm(f => ({ ...f, animation_asset_url: url })),
                     setUploadingAnimation
                   );
                 }}
@@ -781,12 +781,12 @@ const AdminGiftsPage = () => {
               </Button>
             </label>
           </div>
-          {formData.animation_asset_url && (
+          {form.animation_asset_url && (
             <div className="mt-1">
-              {formData.animation_asset_url.match(/\.(mp4|webm|mov)$/i) ? (
-                <video src={formData.animation_asset_url} className="w-32 h-32 rounded-lg border object-contain bg-gray-50" autoPlay loop muted />
+              {form.animation_asset_url.match(/\.(mp4|webm|mov)$/i) ? (
+                <video src={form.animation_asset_url} className="w-32 h-32 rounded-lg border object-contain bg-gray-50" autoPlay loop muted />
               ) : (
-                <img src={formData.animation_asset_url} alt="animation preview"
+                <img src={form.animation_asset_url} alt="animation preview"
                   className="w-32 h-32 object-contain rounded-lg border bg-gray-50" />
               )}
             </div>
@@ -798,8 +798,8 @@ const AdminGiftsPage = () => {
             <Label htmlFor="animation_asset_type">Animation Asset Type</Label>
             <Input
               id="animation_asset_type"
-              value={formData.animation_asset_type}
-              onChange={(e) => setFormData({ ...formData, animation_asset_type: e.target.value })}
+              value={form.animation_asset_type}
+              onChange={(e) => setForm({ ...form, animation_asset_type: e.target.value })}
               placeholder="lottie, gif, webm"
             />
           </div>
@@ -808,8 +808,8 @@ const AdminGiftsPage = () => {
             <Input
               id="animation_duration_ms"
               type="number"
-              value={formData.animation_duration_ms}
-              onChange={(e) => setFormData({ ...formData, animation_duration_ms: parseInt(e.target.value) || 1000 })}
+              value={form.animation_duration_ms}
+              onChange={(e) => setForm({ ...form, animation_duration_ms: parseInt(e.target.value) || 1000 })}
             />
           </div>
         </div>
@@ -821,8 +821,8 @@ const AdminGiftsPage = () => {
           <Label htmlFor="overlay_image_url">Overlay Image URL</Label>
           <Input
             id="overlay_image_url"
-            value={formData.overlay_image_url}
-            onChange={(e) => setFormData({ ...formData, overlay_image_url: e.target.value })}
+            value={form.overlay_image_url}
+            onChange={(e) => setForm({ ...form, overlay_image_url: e.target.value })}
             placeholder="https://..."
           />
         </div>
@@ -830,8 +830,8 @@ const AdminGiftsPage = () => {
           <Label htmlFor="ticker_image_url">Ticker Image URL</Label>
           <Input
             id="ticker_image_url"
-            value={formData.ticker_image_url}
-            onChange={(e) => setFormData({ ...formData, ticker_image_url: e.target.value })}
+            value={form.ticker_image_url}
+            onChange={(e) => setForm({ ...form, ticker_image_url: e.target.value })}
             placeholder="https://..."
           />
         </div>
@@ -839,8 +839,8 @@ const AdminGiftsPage = () => {
           <Label>Sound</Label>
           <div className="flex gap-2 items-center">
             <Input
-              value={formData.sound_key || ''}
-              onChange={(e) => setFormData({ ...formData, sound_key: e.target.value })}
+              value={form.sound_key || ''}
+              onChange={(e) => setForm({ ...form, sound_key: e.target.value })}
               placeholder="Sound URL or key..."
               className="flex-1"
             />
@@ -853,7 +853,7 @@ const AdminGiftsPage = () => {
                   const file = e.target.files?.[0];
                   if (file) handleUploadFile(
                     file, 'room-songs', 'gift-sounds',
-                    (url) => setFormData(f => ({ ...f, sound_key: url })),
+                    (url) => setForm(f => ({ ...f, sound_key: url })),
                     setUploadingSound
                   );
                 }}
@@ -867,8 +867,8 @@ const AdminGiftsPage = () => {
               </Button>
             </label>
           </div>
-          {formData.sound_key && formData.sound_key.startsWith('http') && (
-            <audio controls src={formData.sound_key} className="w-full mt-1 h-8" />
+          {form.sound_key && form.sound_key.startsWith('http') && (
+            <audio controls src={form.sound_key} className="w-full mt-1 h-8" />
           )}
         </div>
       </div>
@@ -878,32 +878,32 @@ const AdminGiftsPage = () => {
         <div className="flex items-center space-x-2">
           <Checkbox
             id="show_in_room_overlay"
-            checked={formData.show_in_room_overlay}
-            onCheckedChange={(checked) => setFormData({ ...formData, show_in_room_overlay: checked })}
+            checked={form.show_in_room_overlay}
+            onCheckedChange={(checked) => setForm({ ...form, show_in_room_overlay: checked })}
           />
           <Label htmlFor="show_in_room_overlay" className="cursor-pointer">Show in Room Overlay</Label>
         </div>
         <div className="flex items-center space-x-2">
           <Checkbox
             id="show_in_room_chat"
-            checked={formData.show_in_room_chat}
-            onCheckedChange={(checked) => setFormData({ ...formData, show_in_room_chat: checked })}
+            checked={form.show_in_room_chat}
+            onCheckedChange={(checked) => setForm({ ...form, show_in_room_chat: checked })}
           />
           <Label htmlFor="show_in_room_chat" className="cursor-pointer">Show in Room Chat</Label>
         </div>
         <div className="flex items-center space-x-2">
           <Checkbox
             id="show_in_global_ticker"
-            checked={formData.show_in_global_ticker}
-            onCheckedChange={(checked) => setFormData({ ...formData, show_in_global_ticker: checked })}
+            checked={form.show_in_global_ticker}
+            onCheckedChange={(checked) => setForm({ ...form, show_in_global_ticker: checked })}
           />
           <Label htmlFor="show_in_global_ticker" className="cursor-pointer">Show in Global Ticker</Label>
         </div>
         <div className="flex items-center space-x-2">
           <Checkbox
             id="is_active"
-            checked={formData.is_active}
-            onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+            checked={form.is_active}
+            onCheckedChange={(checked) => setForm({ ...form, is_active: checked })}
           />
           <Label htmlFor="is_active" className="cursor-pointer">Active</Label>
         </div>
@@ -911,8 +911,8 @@ const AdminGiftsPage = () => {
           <input
             type="checkbox"
             id="is_room_gift_enabled"
-            checked={formData.is_room_gift_enabled !== false}
-            onChange={(e) => setFormData({ ...formData, is_room_gift_enabled: e.target.checked })}
+            checked={form.is_room_gift_enabled !== false}
+            onChange={(e) => setForm({ ...form, is_room_gift_enabled: e.target.checked })}
           />
           <Label htmlFor="is_room_gift_enabled" className="cursor-pointer">
             🎙️ Show in Room Gift Panel
@@ -925,8 +925,8 @@ const AdminGiftsPage = () => {
         <Input
           id="chat_unlock_hours"
           type="number"
-          value={formData.chat_unlock_hours}
-          onChange={(e) => setFormData({ ...formData, chat_unlock_hours: parseInt(e.target.value) || 0 })}
+          value={form.chat_unlock_hours}
+          onChange={(e) => setForm({ ...form, chat_unlock_hours: parseInt(e.target.value) || 0 })}
         />
       </div>
     </div>
