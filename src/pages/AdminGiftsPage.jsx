@@ -20,7 +20,13 @@ const TAB_RULES = {
     is_vip_only: false,
     is_exclusive: false,
     bag_only: false,
-    gems_formula: (cost) => cost, // 100%
+    gems_formula: (cost) => cost,
+    animation_type: 'floating',
+    effect_level: 'small',
+    show_in_room_overlay: true,
+    show_in_room_chat: true,
+    show_in_global_ticker: false,
+    is_room_gift_enabled: true,
   },
   vip: {
     category: 'general',
@@ -28,7 +34,13 @@ const TAB_RULES = {
     is_vip_only: true,
     is_exclusive: false,
     bag_only: false,
-    gems_formula: (cost) => cost, // 100%
+    gems_formula: (cost) => cost,
+    animation_type: 'burst',
+    effect_level: 'medium',
+    show_in_room_overlay: true,
+    show_in_room_chat: true,
+    show_in_global_ticker: true,
+    is_room_gift_enabled: true,
   },
   lucky: {
     category: 'general',
@@ -36,7 +48,13 @@ const TAB_RULES = {
     is_vip_only: false,
     is_exclusive: false,
     bag_only: false,
-    gems_formula: (cost) => Math.round(cost * 0.10), // 10%
+    gems_formula: (cost) => Math.round(cost * 0.10),
+    animation_type: 'sparkle',
+    effect_level: 'medium',
+    show_in_room_overlay: true,
+    show_in_room_chat: true,
+    show_in_global_ticker: false,
+    is_room_gift_enabled: true,
   },
   exclusive: {
     category: 'general',
@@ -44,7 +62,13 @@ const TAB_RULES = {
     is_vip_only: false,
     is_exclusive: true,
     bag_only: false,
-    gems_formula: (cost) => cost, // 100%
+    gems_formula: (cost) => cost,
+    animation_type: 'fullscreen',
+    effect_level: 'global',
+    show_in_room_overlay: true,
+    show_in_room_chat: true,
+    show_in_global_ticker: true,
+    is_room_gift_enabled: true,
   },
   bag: {
     category: 'slot',
@@ -52,7 +76,13 @@ const TAB_RULES = {
     is_vip_only: false,
     is_exclusive: false,
     bag_only: true,
-    gems_formula: (cost) => cost, // manual
+    gems_formula: (cost) => cost,
+    animation_type: 'burst',
+    effect_level: 'medium',
+    show_in_room_overlay: true,
+    show_in_room_chat: true,
+    show_in_global_ticker: false,
+    is_room_gift_enabled: false,
   },
   store: {
     category: 'store',
@@ -60,9 +90,15 @@ const TAB_RULES = {
     is_vip_only: false,
     is_exclusive: false,
     bag_only: false,
-    gems_formula: (cost) => 0, // مش هدايا
+    gems_formula: (cost) => 0,
+    animation_type: 'floating',
+    effect_level: 'small',
+    show_in_room_overlay: false,
+    show_in_room_chat: false,
+    show_in_global_ticker: false,
+    is_room_gift_enabled: false,
   },
-  all: null, // مفيش rules
+  all: null,
 };
 
 const TABS = [
@@ -198,35 +234,27 @@ const AdminGiftsPage = () => {
 
   const handleOpenCreate = () => {
     const rules = TAB_RULES[activeTab];
-
     setForm({
-      code: '',
       name_en: '',
       name_ar: '',
+      code: '',
+      cost: '',
+      gems_awarded: '',
+      sort_order: 0,
+      reward_level: 0,
+      is_active: true,
       category: rules?.category || 'general',
       is_lucky: rules?.is_lucky || false,
       is_vip_only: rules?.is_vip_only || false,
       is_exclusive: rules?.is_exclusive || false,
       bag_only: rules?.bag_only || false,
-      cost: '',
-      gems_awarded: '',
-      reward_level: 0,
-      icon_url: '',
-      animation_asset_url: '',
-      animation_type: 'floating',
-      animation_asset_type: '',
-      animation_duration_ms: 1000,
-      effect_level: 'small',
-      show_in_room_overlay: false,
-      show_in_room_chat: false,
-      show_in_global_ticker: false,
-      overlay_image_url: '',
-      ticker_image_url: '',
-      sound_key: '',
-      is_room_gift_enabled: true,
-      is_active: true,
-      sort_order: 0,
-      chat_unlock_hours: 0,
+      animation_type: rules?.animation_type || 'floating',
+      effect_level: rules?.effect_level || 'small',
+      animation_duration_ms: 3000,
+      show_in_room_overlay: rules?.show_in_room_overlay !== false,
+      show_in_room_chat: rules?.show_in_room_chat !== false,
+      show_in_global_ticker: rules?.show_in_global_ticker || false,
+      is_room_gift_enabled: rules?.is_room_gift_enabled !== false,
     });
     setSelectedGift(null);
     setIsCreateModalOpen(true);
