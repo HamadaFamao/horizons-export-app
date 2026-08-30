@@ -65,14 +65,15 @@ function parseInvitedSeatNo(note) {
 }
 
 const isSmallRoomGift = (effect) => {
-  console.log('[GIFT_EFFECT_LEVEL]', {
-    effect_level: effect?.effect_level,
-    coins_spent: effect?.coins_spent,
-    animation_type: effect?.animation_type,
-  });
-  if (effect?.effect_level) {
-    return effect.effect_level === 'small';
+  // لو effect_level محدد صراحةً كـ medium أو global، مش small
+  if (effect?.effect_level === 'medium' || effect?.effect_level === 'global') {
+    return false;
   }
+  // لو effect_level = small صراحةً
+  if (effect?.effect_level === 'small') {
+    return true;
+  }
+  // fallback: حسب السعر
   const price = Number(effect?.price || effect?.coins_spent || effect?.gift_cost || effect?.cost || 0);
   return price > 0 && price <= 500;
 };
@@ -8877,6 +8878,12 @@ useEffect(() => {
         <div className="fixed inset-0 z-[65] pointer-events-none flex flex-col items-center justify-start pt-24 gap-4">
           {roomGiftEffects.map((effect) => {
             const isSmall = isSmallRoomGift(effect);
+            console.log('[EFFECT_IN_ARRAY]', {
+              id: effect?.id,
+              effect_level: effect?.effect_level,
+              animation_type: effect?.animation_type,
+              coins_spent: effect?.coins_spent,
+            });
             console.log('[ROOM_GIFT_EFFECT_RENDER_MODE]', {
               giftName: effect?.gift_name,
               price: effect?.price || effect?.coins_spent || effect?.gift_cost || effect?.cost || 0,
