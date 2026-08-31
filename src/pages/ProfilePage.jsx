@@ -9,6 +9,7 @@ import { getVipInfo, getVipStyle } from '@/utils/vip';
 import AgencySection from '@/components/AgencySection';
 import AgentDashboard from '@/components/AgentDashboard';
 import AgencyMembersSection from '@/components/AgencyMembersSection';
+import LevelBadge from '@/components/LevelBadge';
 import { useToast } from '@/components/ui/use-toast';
 import { useAdminPermissions } from '@/contexts/AdminPermissionsContext';
 import {
@@ -495,10 +496,7 @@ export default function ProfilePage() {
 
               <div className="flex flex-wrap items-start gap-2">
                 {typeof computedLevel === 'number' && (
-                  <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium bg-blue-50 text-blue-700">
-                    <span className="mr-1">⭐</span>
-                    <span>Level {computedLevel}</span>
-                  </span>
+                  <LevelBadge level={computedLevel} size="md" showName={true} />
                 )}
 
                 {vipInfo.isVip && vipStyle.badgeClassName && (

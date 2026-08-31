@@ -16,7 +16,7 @@ export function getLevelFromXp(totalXp) {
     xpToNextLevel: stats.xpToNext,
     totalXp: totalXp || 0,
     progressPercentage: stats.progress * 100,
-    isMaxLevel: false, // No max level with infinite system
+    isMaxLevel: stats.level >= 200,
   };
 }
 
