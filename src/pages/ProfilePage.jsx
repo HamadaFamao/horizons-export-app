@@ -417,7 +417,7 @@ export default function ProfilePage() {
       </div>
     );
 
-  const computedLevel = profile?.xp !== undefined ? getLevelFromXp(profile.xp)?.currentLevel : null;
+  const computedLevel = getLevelFromXp(profile?.xp || 0)?.currentLevel || 1;
   const vipInfo = getVipInfo(profile);
   const vipStyle = getVipStyle(profile?.vip_number);
   const canManagePhotos = Boolean(authUser?.id && profile?.id && authUser.id === profile.id);
