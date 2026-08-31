@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRewards } from '@/contexts/RewardsContext';
 import { getLevelFromXp } from '@/lib/xpLevelUtils';
 import { getLevelStats, formatXp } from '@/utils/levels';
 import { getVipInfo, getVipStyle } from '@/utils/vip';
@@ -22,33 +21,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, History, Zap, Gift, MessageSquare } from 'lucide-react';
-
-// ============================================
-// REWARD NAME MAPPING
-// ============================================
-const REWARD_NAMES = {
-  daily_login: 'Daily Login',
-  profile_complete: 'Profile Complete',
-  level_up: 'Level Up',
-  gift_received: 'Gift Received',
-  gift_sent: 'Gift Sent',
-  achievement_unlocked: 'Achievement Unlocked',
-  bonus_reward: 'Bonus Reward',
-  special_event: 'Special Event',
-  referral_bonus: 'Referral Bonus',
-  vip_bonus: 'VIP Bonus',
-  signup_bonus: 'Welcome Bonus',
-};
-
-const getRewardName = (rewardType) => {
-  if (!rewardType) return 'Reward';
-  if (REWARD_NAMES[rewardType]) return REWARD_NAMES[rewardType];
-  return rewardType
-    .split('_')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-};
+import { Loader2, History, Zap, MessageSquare } from 'lucide-react';
 
 export default function ProfilePage() {
   const navigate = useNavigate();
@@ -57,13 +30,10 @@ export default function ProfilePage() {
   const { isAdmin: isStaffMember, staffRole, loading: permLoading } = useAdminPermissions();
   console.log('[STAFF_CHECK]', { isStaffMember, staffRole, permLoading });
 
-  const { rewards, claimDailyReward, loading: rewardsLoading } = useRewards();
-
   const fileInputRef = useRef(null);
 
   const [profile, setProfile] = useState(null);
   const [galleryPhotos, setGalleryPhotos] = useState([]);
-  const [recentRewards, setRecentRewards] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
@@ -209,32 +179,6 @@ export default function ProfilePage() {
       }
     };
     fetchGalleryPhotos();
-  }, [authUser?.id]);
-
-  // ============================================
-  // EFFECT: Fetch recent rewards
-  // ============================================
-  useEffect(() => {
-    const fetchRecentRewards = async () => {
-      try {
-        if (!authUser?.id) {
-          setRecentRewards([]);
-          return;
-        }
-        const { data: rewardsData, error: rewardsError } = await supabase
-          .from('reward_history')
-          .select('*')
-          .eq('user_id', authUser.id)
-          .order('created_at', { ascending: false })
-          .limit(5);
-
-        if (rewardsError) throw rewardsError;
-        setRecentRewards(rewardsData || []);
-      } catch (err) {
-        setRecentRewards([]);
-      }
-    };
-    fetchRecentRewards();
   }, [authUser?.id]);
 
   // ============================================
@@ -384,21 +328,6 @@ export default function ProfilePage() {
       setIsConverting(false);
     }
   };
-
-  const formatRewardDate = (dateString) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now - date;
-    const diffMins = Math.floor(diffMs / 60000);
-    if (diffMins < 60) return `${diffMins}m ago`;
-    const diffHours = Math.floor(diffMs / 3600000);
-    if (diffHours < 24) return `${diffHours}h ago`;
-    return date.toLocaleDateString();
-  };
-
-  const today = new Date().toISOString().split('T')[0];
-  const isClaimedToday = rewards?.last_streak_at === today;
 
   // ============================================
   // RENDER
@@ -590,25 +519,6 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            <div className="mb-4">
-              <Button
-                onClick={claimDailyReward}
-                disabled={isClaimedToday || rewardsLoading}
-                variant={isClaimedToday ? 'outline' : 'default'}
-                className={`w-full ${isClaimedToday
-                    ? 'border-green-200 text-green-700 bg-green-50'
-                    : 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg hover:from-indigo-600 hover:to-purple-700'
-                  }`}
-              >
-                {rewardsLoading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Gift className="mr-2 h-4 w-4" />
-                )}
-                {isClaimedToday ? 'Daily Reward Claimed ✅' : 'Claim Daily Reward 🎁'}
-              </Button>
-            </div>
-
             <div className="flex flex-wrap justify-end mb-4 gap-2">
               {isRechargeAgent && (
                 <Button
@@ -637,28 +547,6 @@ export default function ProfilePage() {
               <p className="text-sm text-gray-600">Total XP Earned</p>
               <p className="text-2xl font-bold text-gray-900">{formatXp(profile.xp || 0)}</p>
             </div>
-
-            {recentRewards.length > 0 && (
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="text-sm font-semibold text-gray-700 mb-3">Recent Rewards</h4>
-                <div className="space-y-3">
-                  {recentRewards.map((reward, idx) => (
-                    <div key={idx} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg">💎</span>
-                        <span className="text-gray-700 font-medium">{getRewardName(reward.type)}</span>
-                      </div>
-                      <div className="flex flex-col items-end gap-0.5">
-                        <span className="text-sm font-semibold text-indigo-600">
-                          +{reward.gems_delta || reward.delta || 0} 💎
-                        </span>
-                        <span className="text-xs text-gray-500">{formatRewardDate(reward.created_at)}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
 
           <div className="flex gap-3">
