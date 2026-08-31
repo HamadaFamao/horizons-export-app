@@ -1,5 +1,7 @@
 import { supabase } from '@/lib/supabaseClient';
 
+// v2: display_size support for gift effects
+
 /**
  * إرسال هدية داخل الروم فقط
  * هذا المسار يجب أن يستخدم RPC الخاص بالروم
