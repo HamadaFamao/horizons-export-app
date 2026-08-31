@@ -2071,6 +2071,11 @@ useEffect(() => {
           animation_type: effectToAdd.animation_type,
         });
         setRoomGiftEffects((prev) => {
+          console.log('[SET_ROOM_GIFT_EFFECTS_CALLED]', {
+            newId: effectToAdd.id,
+            display_size: effectToAdd.display_size,
+            stack: new Error().stack?.split('\n').slice(1, 4).join(' | ')
+          });
           // نشيل أي effect قديم بنفس الـ gift_id أو event_id
           const filtered = prev.filter((item) =>
             String(item.id) !== String(effectToAdd.id) &&
