@@ -4,7 +4,6 @@ import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRewards } from '@/contexts/RewardsContext';
 import { getLevelFromXp } from '@/lib/xpLevelUtils';
-import LevelBadge from '@/components/LevelBadge';
 import { getLevelStats, formatXp } from '@/utils/levels';
 import { getVipInfo, getVipStyle } from '@/utils/vip';
 import AgencySection from '@/components/AgencySection';
