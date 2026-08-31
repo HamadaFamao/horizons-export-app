@@ -65,14 +65,12 @@ function parseInvitedSeatNo(note) {
 }
 
 const isSmallRoomGift = (effect) => {
-  // ✅ نعتمد على display_size من الـ DB مباشرة
-  if (effect?.display_size === 'large' || effect?.display_size === 'fullscreen') {
-    return false;
-  }
-  if (effect?.display_size === 'small') {
-    return true;
-  }
-  // fallback بالسعر لو مفيش display_size
+  console.log('[IS_SMALL_CHECK]', {
+    display_size: effect?.display_size,
+    effect_level: effect?.effect_level,
+  });
+  if (effect?.display_size === 'large' || effect?.display_size === 'fullscreen') return false;
+  if (effect?.display_size === 'small') return true;
   const price = Number(effect?.price || effect?.coins_spent || effect?.gift_cost || effect?.cost || 0);
   return price <= 500;
 };
