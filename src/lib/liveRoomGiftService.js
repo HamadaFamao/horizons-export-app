@@ -95,6 +95,7 @@ export function buildLiveRoomGiftEffect(eventRow, language = 'en') {
     animation_asset_type: (eventRow.animation_asset_type || '').toString().trim().toLowerCase(),
     animation_duration_ms: Number(eventRow.animation_duration_ms || 3000),
     effect_level: eventRow.effect_level || 'small',
+    display_size: eventRow.display_size || 'small',
 
     show_in_room_overlay: eventRow.show_in_room_overlay !== false,
     show_in_room_chat: eventRow.show_in_room_chat !== false,
