@@ -33,7 +33,8 @@ import {
   Trash2,
   Mic,
   X,
-  Power
+  Power,
+  Heart
 } from "lucide-react";
 
 import { GLOBAL_MESSAGE_TEMPLATES, GLOBAL_MESSAGE_COST } from "@/lib/globalMessageTemplates";
@@ -8887,31 +8888,243 @@ useEffect(() => {
         />
       ) : null}
       {room?.background_url ? <div className="fixed inset-0 bg-black/40 pointer-events-none z-0" style={{ opacity: bgVisible ? 1 : 0, transition: 'opacity 0.3s ease' }} /> : null}
-      {roomGiftEffects.length > 0 ? (
-        <div className="fixed inset-0 z-[65] pointer-events-none flex flex-col items-center justify-start pt-24 gap-4">
-          {roomGiftEffects.map((effect, idx) => {
-            const isSmall = isSmallRoomGift(effect);
-            console.log('[EFFECT_IN_ARRAY]', {
-              idx,
-              id: effect?.id,
-              effect_level: effect?.effect_level,
-              display_size: effect?.display_size,
-              targetPosition: effect?.targetPosition,
-              startMotion: effect?.startMotion,
-            });
-            console.log('[ROOM_GIFT_EFFECT_RENDER_MODE]', {
-              giftName: effect?.gift_name,
-              price: effect?.price || effect?.coins_spent || effect?.gift_cost || effect?.cost || 0,
-              small: isSmall,
-            });
+      {roomGiftEffects.length > 0 ? (() => {
+        const seen = new Map();
+        roomGiftEffects.forEach((e) => {
+          const key = e.event_id || e.id;
+          if (!seen.has(key) || e.display_size) {
+            seen.set(key, e);
+          }
+        });
+        const dedupedEffects = Array.from(seen.values());
 
-            const assetUrl = effect?.animation_asset_url?.toString().trim() || effect?.overlay_image_url?.toString().trim() || effect?.icon_url?.toString().trim() || '';
-            const animationType = effect?.animation_type?.toString().trim().toLowerCase() || 'floating';
-            const hasAsset = !!assetUrl;
+        return (
+          <div className="fixed inset-0 z-[65] pointer-events-none flex flex-col items-center justify-start pt-24 gap-4">
+            {dedupedEffects.map((effect, idx) => {
+              const isSmall = isSmallRoomGift(effect);
+              console.log('[EFFECT_IN_ARRAY]', {
+                idx,
+                id: effect?.id,
+                effect_level: effect?.effect_level,
+                display_size: effect?.display_size,
+                targetPosition: effect?.targetPosition,
+                startMotion: effect?.startMotion,
+              });
+              console.log('[ROOM_GIFT_EFFECT_RENDER_MODE]', {
+                giftName: effect?.gift_name,
+                price: effect?.price || effect?.coins_spent || effect?.gift_cost || effect?.cost || 0,
+                small: isSmall,
+              });
 
-            const levelClass = effect.effect_level === "global" ? "scale-125" : effect.effect_level === "medium" ? "scale-110" : "scale-90";
+              const assetUrl = effect?.animation_asset_url?.toString().trim() || effect?.overlay_image_url?.toString().trim() || effect?.icon_url?.toString().trim() || '';
+              const animationType = effect?.animation_type?.toString().trim().toLowerCase() || 'floating';
+              const hasAsset = !!assetUrl;
+              const levelClass = effect.effect_level === "global" ? "scale-125" : effect.effect_level === "medium" ? "scale-110" : "scale-90";
 
-            if (isSmall) {
+              if (isSmall) {
+                if (effect.targetPosition) {
+                  const isMoving = effect.startMotion;
+                  return (
+                    <div
+                      key={effect.id}
+                      style={{
+                        position: 'fixed',
+                        left: isMoving ? effect.targetPosition.x : '50%',
+                        top: isMoving ? effect.targetPosition.y : 'calc(100vh - 140px)',
+                        transform: isMoving ? 'translate(-50%, -50%) scale(1)' : 'translate(-50%, -50%) scale(0.5)',
+                        opacity: isMoving ? 1 : 0,
+                        transition: 'all 900ms cubic-bezier(0.22, 1, 0.36, 1)',
+                        zIndex: 9999,
+                        pointerEvents: 'none'
+                      }}
+                    >
+                      <div className="animate-[bounce_1s_ease-in-out_infinite]">
+                        {hasAsset ? (
+                          <img
+                            src={assetUrl}
+                            alt={effect?.gift_name || 'gift animation'}
+                            className="w-16 h-16 object-contain cursor-pointer pointer-events-auto drop-shadow-lg"
+                            onClick={() => {
+                              const user = activeParticipantsRef.current?.find(
+                                (x) => String(x.user_id) === String(effect.sender_id)
+                              ) || null;
+                              openUserCard(effect.sender_id, user);
+                            }}
+                          />
+                        ) : (
+                          <span
+                            className="text-4xl cursor-pointer pointer-events-auto drop-shadow-lg"
+                            onClick={() => {
+                              const user = activeParticipantsRef.current?.find(
+                                (x) => String(x.user_id) === String(effect.sender_id)
+                              ) || null;
+                              openUserCard(effect.sender_id, user);
+                            }}
+                          >🌹</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div key={effect.id} className={`animate-in slide-in-from-bottom-12 fade-in duration-1000 shrink-0 pointer-events-none ${levelClass}`}>
+                    <div className="animate-[bounce_2s_ease-in-out_infinite]">
+                      {hasAsset ? (
+                        <img
+                          src={assetUrl}
+                          alt={effect?.gift_name || 'gift animation'}
+                          className="w-20 h-20 object-contain cursor-pointer pointer-events-auto drop-shadow-lg"
+                          onClick={() => openUserCard(effect.sender_id)}
+                        />
+                      ) : (
+                        <span
+                          className="text-5xl cursor-pointer pointer-events-auto drop-shadow-lg"
+                          onClick={() => openUserCard(effect.sender_id)}
+                        >🌹</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              }
+
+              if (animationType === 'fullscreen' && hasAsset) {
+                return (
+                  <div
+                    key={effect.id}
+                    className="fixed inset-0 z-[9999] pointer-events-none flex items-center justify-center"
+                  >
+                    <div className="absolute inset-0 bg-black/20" />
+                    <img
+                      src={assetUrl}
+                      alt={effect?.gift_name || 'gift animation'}
+                      className="relative max-w-[90vw] max-h-[90vh] object-contain"
+                    />
+                  </div>
+                );
+              }
+
+              if (animationType === "burst") {
+                return (
+                  <div key={effect.id} className={`animate-in zoom-in-50 fade-in duration-500 shrink-0 pointer-events-none mt-8 ${levelClass}`}>
+                    <div className="bg-gradient-to-r from-rose-500 via-pink-500 to-rose-500 p-[3px] rounded-full shadow-[0_0_40px_rgba(244,63,94,0.5)]">
+                      <div className="bg-white/95 backdrop-blur-md rounded-full px-8 py-4 flex items-center gap-4">
+                        <div className="animate-[ping_1.5s_ease-in-out_infinite]">
+                          {hasAsset ? (
+                            <img
+                              src={assetUrl}
+                              alt={effect?.gift_name || 'gift animation'}
+                              className="w-24 h-24 object-contain drop-shadow-md cursor-pointer pointer-events-auto"
+                              onClick={() => openUserCard(effect.sender_id)}
+                            />
+                          ) : (
+                            <span
+                              className="text-5xl cursor-pointer pointer-events-auto"
+                              onClick={() => openUserCard(effect.sender_id)}
+                            >💖</span>
+                          )}
+                        </div>
+                        <div className="flex flex-col justify-center">
+                          <div
+                            className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-rose-600 to-pink-600 cursor-pointer pointer-events-auto"
+                            onClick={() => openUserCard(effect.sender_id)}
+                          >
+                            {effect.sender_name} sent {effect.gift_name} ×{effect.quantity || 1}
+                          </div>
+                          {effect.recipient_name && (
+                            <div
+                              className="text-sm font-bold text-slate-500 uppercase tracking-wider cursor-pointer pointer-events-auto"
+                              onClick={() => openUserCard(effect.receiver_id)}
+                            >
+                              to {effect.recipient_name}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              if (animationType === "sparkle") {
+                console.log('[MEDIUM_GIFT_SPARKLE_RENDER]', {
+                  sender: effect.sender_name,
+                  receiver: effect.recipient_name,
+                  gift: effect.gift_name,
+                  quantity: effect.quantity
+                });
+
+                return (
+                  <div key={effect.id} className={`animate-in slide-in-from-bottom-8 fade-in duration-700 shrink-0 pointer-events-none ${levelClass}`}>
+                    <div className="relative bg-gradient-to-br from-amber-100 to-orange-50 shadow-[0_10px_30px_rgba(245,158,11,0.3)] border-2 border-amber-300 rounded-3xl px-5 py-4 flex items-center justify-between gap-4 min-w-[320px] max-w-[90vw]">
+                      <div className="absolute -top-3 -left-3 text-amber-500 animate-[spin_3s_linear_infinite] text-2xl drop-shadow-md">✨</div>
+                      <div className="absolute -bottom-3 -right-3 text-amber-500 animate-[spin_2s_linear_infinite_reverse] text-2xl drop-shadow-md">✨</div>
+                      <div className="absolute top-1/2 -right-5 text-amber-400 animate-pulse text-xl delay-150">✨</div>
+                      <div className="absolute -top-5 left-1/2 text-amber-400 animate-bounce text-3xl delay-300">✨</div>
+
+                      <div className="relative z-10 flex items-center justify-between gap-4 w-full">
+                        <button
+                          onClick={() => openUserCard(effect.sender_id)}
+                          className="pointer-events-auto flex flex-col items-center gap-1 min-w-[72px]"
+                        >
+                          <img
+                            src={effect.sender_avatar_url || effect.sender_avatar || FALLBACK_AVATAR}
+                            alt={effect.sender_name || 'sender'}
+                            onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
+                            className="w-14 h-14 rounded-full object-cover border-2 border-white shadow-md ring-2 ring-amber-300"
+                          />
+                          <span className="text-xs font-bold text-amber-800 text-center leading-tight max-w-[72px] truncate">
+                            {effect.sender_name || 'Sender'}
+                          </span>
+                        </button>
+
+                        <div className="flex-1 flex items-center justify-center gap-3 min-w-0">
+                          <div className="text-amber-500 text-xl font-bold arrow-anim">→</div>
+
+                          <div className="relative flex flex-col items-center justify-center min-w-[90px]">
+                            {hasAsset ? (
+                              <img
+                                src={assetUrl}
+                                alt={effect?.gift_name || 'gift animation'}
+                                className="w-20 h-20 object-contain drop-shadow-lg pointer-events-auto gift-bounce"
+                                onClick={() => openUserCard(effect.sender_id)}
+                              />
+                            ) : (
+                              <span className="text-4xl gift-bounce">✨</span>
+                            )}
+
+                            <div className="text-sm font-extrabold text-amber-700 text-center leading-tight mt-1">
+                              {effect.gift_name || 'Gift'}
+                            </div>
+
+                            <div className="mt-1 px-2 py-0.5 rounded-full bg-amber-500 text-white text-xs font-black shadow">
+                              ×{effect.quantity || 1}
+                            </div>
+                          </div>
+
+                          <div className="text-amber-500 text-xl font-bold arrow-anim">→</div>
+                        </div>
+
+                        <button
+                          onClick={() => openUserCard(effect.receiver_id)}
+                          className="pointer-events-auto flex flex-col items-center gap-1 min-w-[72px]"
+                        >
+                          <img
+                            src={effect.receiver_avatar_url || effect.receiver_avatar || FALLBACK_AVATAR}
+                            alt={effect.recipient_name || 'receiver'}
+                            onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
+                            className="w-14 h-14 rounded-full object-cover border-2 border-white shadow-md ring-2 ring-pink-300"
+                          />
+                          <span className="text-xs font-bold text-amber-800 text-center leading-tight max-w-[72px] truncate">
+                            {effect.receiver_name || effect.recipient_name || 'User'}
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
               if (effect.targetPosition) {
                 const isMoving = effect.startMotion;
                 return (
@@ -8928,106 +9141,32 @@ useEffect(() => {
                       pointerEvents: 'none'
                     }}
                   >
-                    <div className="animate-[bounce_1s_ease-in-out_infinite]">
-                      {hasAsset ? (
-                        <img
-                          src={assetUrl}
-                          alt={effect?.gift_name || 'gift animation'}
-                          className="w-16 h-16 object-contain cursor-pointer pointer-events-auto drop-shadow-lg"
-                          onClick={() => {
-  const user =
-    activeParticipantsRef.current?.find(
-      (x) => String(x.user_id) === String(effect.sender_id)
-    ) || null;
-
-  openUserCard(effect.sender_id, user);
-}}
-                        />
-                      ) : (
-                        <span
-                          className="text-4xl cursor-pointer pointer-events-auto drop-shadow-lg"
-                          onClick={() => {
-  const user =
-    activeParticipantsRef.current?.find(
-      (x) => String(x.user_id) === String(effect.sender_id)
-    ) || null;
-
-  openUserCard(effect.sender_id, user);
-}}
-                        >🌹</span>
-                      )}
-                    </div>
-                  </div>
-                );
-              }
-
-              return (
-                <div key={effect.id} className={`animate-in slide-in-from-bottom-12 fade-in duration-1000 shrink-0 pointer-events-none ${levelClass}`}>
-                  <div className="animate-[bounce_2s_ease-in-out_infinite]">
-                    {hasAsset ? (
-                      <img
-                        src={assetUrl}
-                        alt={effect?.gift_name || 'gift animation'}
-                        className="w-20 h-20 object-contain cursor-pointer pointer-events-auto drop-shadow-lg"
-                        onClick={() => openUserCard(effect.sender_id)}
-                      />
-                    ) : (
-                      <span
-                        className="text-5xl cursor-pointer pointer-events-auto drop-shadow-lg"
-                        onClick={() => openUserCard(effect.sender_id)}
-                      >🌹</span>
-                    )}
-                  </div>
-                </div>
-              );
-            }
-
-            if (animationType === 'fullscreen' && hasAsset) {
-              return (
-                <div
-                  key={effect.id}
-                  className="fixed inset-0 z-[9999] pointer-events-none flex items-center justify-center"
-                >
-                  <div className="absolute inset-0 bg-black/20" />
-                  <img
-                    src={assetUrl}
-                    alt={effect?.gift_name || 'gift animation'}
-                    className="relative max-w-[90vw] max-h-[90vh] object-contain"
-                  />
-                </div>
-              );
-            }
-
-            if (animationType === "burst") {
-              return (
-                <div key={effect.id} className={`animate-in zoom-in-50 fade-in duration-500 shrink-0 pointer-events-none mt-8 ${levelClass}`}>
-                  <div className="bg-gradient-to-r from-rose-500 via-pink-500 to-rose-500 p-[3px] rounded-full shadow-[0_0_40px_rgba(244,63,94,0.5)]">
-                    <div className="bg-white/95 backdrop-blur-md rounded-full px-8 py-4 flex items-center gap-4">
-                      <div className="animate-[ping_1.5s_ease-in-out_infinite]">
+                    <div className="bg-white/95 backdrop-blur-sm shadow-xl border border-rose-200 rounded-full px-4 py-2 flex items-center gap-3">
+                      <div className="animate-[bounce_1s_ease-in-out_infinite]">
                         {hasAsset ? (
                           <img
                             src={assetUrl}
                             alt={effect?.gift_name || 'gift animation'}
-                            className="w-24 h-24 object-contain drop-shadow-md cursor-pointer pointer-events-auto"
+                            className="w-16 h-16 object-contain cursor-pointer pointer-events-auto"
                             onClick={() => openUserCard(effect.sender_id)}
                           />
                         ) : (
                           <span
-                            className="text-5xl cursor-pointer pointer-events-auto"
+                            className="text-2xl cursor-pointer pointer-events-auto"
                             onClick={() => openUserCard(effect.sender_id)}
-                          >💖</span>
+                          >🌹</span>
                         )}
                       </div>
-                      <div className="flex flex-col justify-center">
+                      <div className="flex flex-col pr-2 whitespace-nowrap">
                         <div
-                          className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-rose-600 to-pink-600 cursor-pointer pointer-events-auto"
+                          className="text-sm font-bold text-slate-700 cursor-pointer pointer-events-auto"
                           onClick={() => openUserCard(effect.sender_id)}
                         >
-                          {effect.sender_name} sent {effect.gift_name} ×{effect.quantity || 1}
+                          <span className="text-rose-500">{effect.sender_name}</span> sent {effect.gift_name} <span className="text-rose-500 font-black">×{effect.quantity || 1}</span>
                         </div>
                         {effect.recipient_name && (
                           <div
-                            className="text-sm font-bold text-slate-500 uppercase tracking-wider cursor-pointer pointer-events-auto"
+                            className="text-[10px] text-slate-500 font-medium cursor-pointer pointer-events-auto"
                             onClick={() => openUserCard(effect.receiver_id)}
                           >
                             to {effect.recipient_name}
@@ -9036,112 +9175,18 @@ useEffect(() => {
                       </div>
                     </div>
                   </div>
-                </div>
-              );
-            }
-
-            if (animationType === "sparkle") {
-              console.log('[MEDIUM_GIFT_SPARKLE_RENDER]', {
-                sender: effect.sender_name,
-                receiver: effect.recipient_name,
-                gift: effect.gift_name,
-                quantity: effect.quantity
-              });
+                );
+              }
 
               return (
-                <div key={effect.id} className={`animate-in slide-in-from-bottom-8 fade-in duration-700 shrink-0 pointer-events-none ${levelClass}`}>
-                  <div className="relative bg-gradient-to-br from-amber-100 to-orange-50 shadow-[0_10px_30px_rgba(245,158,11,0.3)] border-2 border-amber-300 rounded-3xl px-5 py-4 flex items-center justify-between gap-4 min-w-[320px] max-w-[90vw]">
-                    <div className="absolute -top-3 -left-3 text-amber-500 animate-[spin_3s_linear_infinite] text-2xl drop-shadow-md">✨</div>
-                    <div className="absolute -bottom-3 -right-3 text-amber-500 animate-[spin_2s_linear_infinite_reverse] text-2xl drop-shadow-md">✨</div>
-                    <div className="absolute top-1/2 -right-5 text-amber-400 animate-pulse text-xl delay-150">✨</div>
-                    <div className="absolute -top-5 left-1/2 text-amber-400 animate-bounce text-3xl delay-300">✨</div>
-
-                    <div className="relative z-10 flex items-center justify-between gap-4 w-full">
-                      <button
-                        onClick={() => openUserCard(effect.sender_id)}
-                        className="pointer-events-auto flex flex-col items-center gap-1 min-w-[72px]"
-                      >
-                        <img
-                          src={effect.sender_avatar_url || effect.sender_avatar || FALLBACK_AVATAR}
-                          alt={effect.sender_name || 'sender'}
-                          onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
-                          className="w-14 h-14 rounded-full object-cover border-2 border-white shadow-md ring-2 ring-amber-300"
-                        />
-                        <span className="text-xs font-bold text-amber-800 text-center leading-tight max-w-[72px] truncate">
-                          {effect.sender_name || 'Sender'}
-                        </span>
-                      </button>
-
-                      <div className="flex-1 flex items-center justify-center gap-3 min-w-0">
-                        <div className="text-amber-500 text-xl font-bold arrow-anim">→</div>
-
-                        <div className="relative flex flex-col items-center justify-center min-w-[90px]">
-                          {hasAsset ? (
-                            <img
-                              src={assetUrl}
-                              alt={effect?.gift_name || 'gift animation'}
-                              className="w-20 h-20 object-contain drop-shadow-lg pointer-events-auto gift-bounce"
-                              onClick={() => openUserCard(effect.sender_id)}
-                            />
-                          ) : (
-                            <span className="text-4xl gift-bounce">✨</span>
-                          )}
-
-                          <div className="text-sm font-extrabold text-amber-700 text-center leading-tight mt-1">
-                            {effect.gift_name || 'Gift'}
-                          </div>
-
-                          <div className="mt-1 px-2 py-0.5 rounded-full bg-amber-500 text-white text-xs font-black shadow">
-                            ×{effect.quantity || 1}
-                          </div>
-                        </div>
-
-                        <div className="text-amber-500 text-xl font-bold arrow-anim">→</div>
-                      </div>
-
-                      <button
-                        onClick={() => openUserCard(effect.receiver_id)}
-                        className="pointer-events-auto flex flex-col items-center gap-1 min-w-[72px]"
-                      >
-                        <img
-                          src={effect.receiver_avatar_url || effect.receiver_avatar || FALLBACK_AVATAR}
-                          alt={effect.recipient_name || 'receiver'}
-                          onError={(e) => (e.currentTarget.src = FALLBACK_AVATAR)}
-                          className="w-14 h-14 rounded-full object-cover border-2 border-white shadow-md ring-2 ring-pink-300"
-                        />
-                        <span className="text-xs font-bold text-amber-800 text-center leading-tight max-w-[72px] truncate">
-                          {effect.receiver_name || effect.recipient_name || 'User'}
-                        </span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            }
-
-            if (effect.targetPosition) {
-              const isMoving = effect.startMotion;
-              return (
-                <div
-                  key={effect.id}
-                  style={{
-                    position: 'fixed',
-                    left: isMoving ? effect.targetPosition.x : '50%',
-                    top: isMoving ? effect.targetPosition.y : 'calc(100vh - 140px)',
-                    transform: isMoving ? 'translate(-50%, -50%) scale(1)' : 'translate(-50%, -50%) scale(0.5)',
-                    opacity: isMoving ? 1 : 0,
-                    transition: 'all 900ms cubic-bezier(0.22, 1, 0.36, 1)',
-                    zIndex: 9999,
-                    pointerEvents: 'none'
-                  }}
-                >
-                  <div className="bg-white/95 backdrop-blur-sm shadow-xl border border-rose-200 rounded-full px-4 py-2 flex items-center gap-3">
-                    <div className="animate-[bounce_1s_ease-in-out_infinite]">
+                <div key={effect.id} className={`animate-in slide-in-from-bottom-12 fade-in duration-1000 shrink-0 pointer-events-none ${levelClass}`}>
+                  <div className="bg-white/80 backdrop-blur-md shadow-lg border border-white/60 rounded-2xl px-4 py-2 flex items-center gap-3 opacity-95 hover:scale-[1.02] transition">
+                    <div className="animate-[bounce_2s_ease-in-out_infinite]">
                       {hasAsset ? (
                         <img
                           src={assetUrl}
                           alt={effect?.gift_name || 'gift animation'}
-                          className="w-16 h-16 object-contain cursor-pointer pointer-events-auto"
+                          className="w-20 h-20 object-contain cursor-pointer pointer-events-auto"
                           onClick={() => openUserCard(effect.sender_id)}
                         />
                       ) : (
@@ -9151,7 +9196,7 @@ useEffect(() => {
                         >🌹</span>
                       )}
                     </div>
-                    <div className="flex flex-col pr-2 whitespace-nowrap">
+                    <div className="flex flex-col">
                       <div
                         className="text-sm font-bold text-slate-700 cursor-pointer pointer-events-auto"
                         onClick={() => openUserCard(effect.sender_id)}
@@ -9170,48 +9215,10 @@ useEffect(() => {
                   </div>
                 </div>
               );
-            }
-
-            return (
-              <div key={effect.id} className={`animate-in slide-in-from-bottom-12 fade-in duration-1000 shrink-0 pointer-events-none ${levelClass}`}>
-                <div className="bg-white/80 backdrop-blur-md shadow-lg border border-white/60 rounded-2xl px-4 py-2 flex items-center gap-3 opacity-95 hover:scale-[1.02] transition">
-                  <div className="animate-[bounce_2s_ease-in-out_infinite]">
-                    {hasAsset ? (
-                      <img
-                        src={assetUrl}
-                        alt={effect?.gift_name || 'gift animation'}
-                        className="w-20 h-20 object-contain cursor-pointer pointer-events-auto"
-                        onClick={() => openUserCard(effect.sender_id)}
-                      />
-                    ) : (
-                      <span
-                        className="text-2xl cursor-pointer pointer-events-auto"
-                        onClick={() => openUserCard(effect.sender_id)}
-                      >🌹</span>
-                    )}
-                  </div>
-                  <div className="flex flex-col">
-                    <div
-                      className="text-sm font-bold text-slate-700 cursor-pointer pointer-events-auto"
-                      onClick={() => openUserCard(effect.sender_id)}
-                    >
-                      <span className="text-rose-500">{effect.sender_name}</span> sent {effect.gift_name} <span className="text-rose-500 font-black">×{effect.quantity || 1}</span>
-                    </div>
-                    {effect.recipient_name && (
-                      <div
-                        className="text-[10px] text-slate-500 font-medium cursor-pointer pointer-events-auto"
-                        onClick={() => openUserCard(effect.receiver_id)}
-                      >
-                        to {effect.recipient_name}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      ) : null}
+            })()}
+          </div>
+        );
+      })() : null}
 
       <div className="relative z-10 flex flex-col h-full overflow-hidden">
       {joinNotifs.length > 0 ? (
