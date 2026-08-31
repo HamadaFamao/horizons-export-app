@@ -2071,8 +2071,12 @@ useEffect(() => {
           animation_type: effectToAdd.animation_type,
         });
         setRoomGiftEffects((prev) => {
-          if (prev.some((item) => String(item.id) === String(effectToAdd.id))) return prev;
-          return [...prev, effectToAdd];
+          // نشيل أي effect قديم بنفس الـ gift_id أو event_id
+          const filtered = prev.filter((item) =>
+            String(item.id) !== String(effectToAdd.id) &&
+            String(item.event_id) !== String(effectToAdd.event_id)
+          );
+          return [...filtered, effectToAdd];
         });
 
         if (seatTarget) {
