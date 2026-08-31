@@ -9086,7 +9086,8 @@ useEffect(() => {
                               <img
                                 src={assetUrl}
                                 alt={effect?.gift_name || 'gift animation'}
-                                className="w-20 h-20 object-contain drop-shadow-lg pointer-events-auto gift-bounce"
+                                className="w-32 h-32 object-contain pointer-events-auto gift-bounce"
+                                style={{ background: 'transparent', mixBlendMode: 'normal' }}
                                 onClick={() => openUserCard(effect.sender_id)}
                               />
                             ) : (
