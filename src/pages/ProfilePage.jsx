@@ -496,6 +496,9 @@ export default function ProfilePage() {
               {profile.location && <p className="text-lg text-gray-600 mb-4">📍 {profile.location}</p>}
 
               <div className="flex flex-wrap items-start gap-2">
+                <div style={{background:'red', color:'white', padding:'4px 8px', borderRadius:'8px'}}>
+                  TEST Level {computedLevel}
+                </div>
                 {typeof computedLevel === 'number' && (
                   <LevelBadge level={computedLevel} size="md" showName={true} />
                 )}
