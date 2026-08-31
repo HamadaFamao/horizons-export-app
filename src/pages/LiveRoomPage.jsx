@@ -65,18 +65,9 @@ function parseInvitedSeatNo(note) {
 }
 
 const isSmallRoomGift = (effect) => {
-  const level = effect?.effect_level;
-  const size = effect?.display_size;
-  
-  // لو display_size موجود نستخدمه
-  if (size === 'large' || size === 'fullscreen') return false;
-  if (size === 'small') return true;
-  
-  // لو effect_level موجود نستخدمه
-  if (level === 'medium' || level === 'large' || level === 'global') return false;
-  if (level === 'small') return true;
-  
-  // fallback: السعر
+  if (effect?.display_size === 'large' || effect?.display_size === 'fullscreen') return false;
+  if (effect?.display_size === 'small') return true;
+  if (effect?.effect_level === 'medium' || effect?.effect_level === 'large' || effect?.effect_level === 'global') return false;
   const price = Number(effect?.price || effect?.coins_spent || effect?.gift_cost || effect?.cost || 0);
   return price <= 500;
 };
@@ -2087,6 +2078,12 @@ useEffect(() => {
         if (seatTarget) {
           setTimeout(() => {
             if (!mountedRef.current) return;
+            console.log('[START_MOTION_EFFECT]', {
+              id: effectToAdd.id,
+              effect_level: effectToAdd.effect_level,
+              animation_type: effectToAdd.animation_type,
+              targetPosition: seatTarget,
+            });
             setRoomGiftEffects((prev) =>
               prev.map((item) =>
                 String(item.id) === String(effectToAdd.id)
