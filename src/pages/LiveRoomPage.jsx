@@ -8886,8 +8886,9 @@ useEffect(() => {
               idx,
               id: effect?.id,
               effect_level: effect?.effect_level,
-              animation_type: effect?.animation_type,
-              coins_spent: effect?.coins_spent,
+              display_size: effect?.display_size,
+              targetPosition: effect?.targetPosition,
+              startMotion: effect?.startMotion,
             });
             console.log('[ROOM_GIFT_EFFECT_RENDER_MODE]', {
               giftName: effect?.gift_name,
