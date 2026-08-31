@@ -15,6 +15,7 @@ import ReportModal from '@/components/ReportModal';
 import { getOnlineStatus } from '@/lib/lastSeenUtils';
 import { getOrCreateThread } from '@/lib/messagingUtils';
 import { getLevelFromXp } from '@/lib/xpLevelUtils';
+import LevelBadge from '@/components/LevelBadge';
 import { getVipInfo, getVipStyle } from '@/utils/vip';
 
 export default function UserProfilePage() {
