@@ -410,10 +410,7 @@ export default function UserProfilePage() {
 
                       {/* Level */}
                       {typeof displayLevel === 'number' && (
-                        <div className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-semibold border border-blue-200 shadow-sm">
-                          <span>⭐</span>
-                          <span>{language === 'ar' ? 'مستوى' : 'Level'} {displayLevel}</span>
-                        </div>
+                        <LevelBadge level={displayLevel} size="md" showName={true} />
                       )}
 
                       {/* VIP badge */}
