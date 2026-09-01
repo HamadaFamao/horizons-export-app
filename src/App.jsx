@@ -227,6 +227,7 @@ function AppContent() {
               </ProtectedRoute>
             }
           />
+          <Route path="/saved" element={<ProtectedRoute><SavedPostsPage /></ProtectedRoute>} />
           <Route
             path="/profile/edit"
             element={
@@ -257,14 +258,6 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <MatchesPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/saved"
-            element={
-              <ProtectedRoute>
-                <SavedPostsPage />
               </ProtectedRoute>
             }
           />
