@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabaseClient';
+import PostGiftPanel from '@/components/PostGiftPanel';
 import { Heart, MessageCircle, Share2, Bookmark, Gift, Eye, Play, X } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -13,8 +14,11 @@ export default function PostCard({ post, currentUserId, onUpdate }) {
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
+  const [replyTo, setReplyTo] = useState(null);
+  const [replyContent, setReplyContent] = useState('');
   const [loadingComments, setLoadingComments] = useState(false);
   const [submittingComment, setSubmittingComment] = useState(false);
+  const [showGiftPanel, setShowGiftPanel] = useState(false);
   const videoRef = useRef(null);
   const [playing, setPlaying] = useState(false);
   const [viewed, setViewed] = useState(false);
@@ -106,6 +110,24 @@ export default function PostCard({ post, currentUserId, onUpdate }) {
       }
     } finally {
       setSubmittingComment(false);
+    }
+  };
+
+  const handleSubmitReply = async (parentId) => {
+    if (!replyContent.trim() || !currentUserId) return;
+    try {
+      const { data } = await supabase.rpc('add_post_comment', {
+        p_post_id: post.id,
+        p_content: replyContent.trim(),
+        p_parent_id: parentId,
+      });
+      if (data?.success) {
+        setReplyContent('');
+        setReplyTo(null);
+        fetchComments();
+      }
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -237,8 +259,11 @@ export default function PostCard({ post, currentUserId, onUpdate }) {
             </button>
 
             {/* Gift (فيديو بس) */}
-            {post.type === 'video' && (
-              <button className="group">
+            {post.type === 'video' && currentUserId && currentUserId !== post.user_id && (
+              <button
+                onClick={() => setShowGiftPanel(true)}
+                className="group"
+              >
                 <Gift className="w-6 h-6 text-gray-400 group-hover:text-purple-400 transition" />
               </button>
             )}
@@ -271,9 +296,40 @@ export default function PostCard({ post, currentUserId, onUpdate }) {
                     className="w-7 h-7 rounded-full object-cover shrink-0 cursor-pointer"
                     onClick={() => navigate(`/user/${c.profiles?.profile_id}`)}
                   />
-                  <div className="bg-gray-50 rounded-2xl px-3 py-2 flex-1">
-                    <p className="text-xs font-semibold text-gray-900">{c.profiles?.name}</p>
-                    <p className="text-sm text-gray-700">{c.content}</p>
+                  <div className="flex-1">
+                    <div className="bg-gray-50 rounded-2xl px-3 py-2">
+                      <p className="text-xs font-semibold text-gray-900">{c.profiles?.name}</p>
+                      <p className="text-sm text-gray-700">{c.content}</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setReplyTo((prev) => (prev === c.id ? null : c.id));
+                        setReplyContent('');
+                      }}
+                      className="text-xs text-gray-400 hover:text-indigo-500 mt-1 ml-2 transition"
+                    >
+                      Reply
+                    </button>
+
+                    {replyTo === c.id && currentUserId && (
+                      <div className="flex gap-2 mt-2 ml-2">
+                        <input
+                          type="text"
+                          value={replyContent}
+                          onChange={(e) => setReplyContent(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleSubmitReply(c.id)}
+                          placeholder={`Reply to ${c.profiles?.name}...`}
+                          className="flex-1 bg-gray-100 rounded-full px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-indigo-300"
+                        />
+                        <button
+                          onClick={() => handleSubmitReply(c.id)}
+                          disabled={!replyContent.trim()}
+                          className="bg-indigo-500 text-white px-3 py-1.5 rounded-full text-xs font-medium disabled:opacity-50"
+                        >
+                          Reply
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))
@@ -302,6 +358,16 @@ export default function PostCard({ post, currentUserId, onUpdate }) {
           </div>
         )}
       </div>
+
+      {showGiftPanel && (
+        <PostGiftPanel
+          postId={post.id}
+          onClose={() => setShowGiftPanel(false)}
+          onGiftSent={() => {
+            if (onUpdate) onUpdate();
+          }}
+        />
+      )}
     </div>
   );
 }
