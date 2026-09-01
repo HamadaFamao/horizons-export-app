@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { getLevelFromXp } from '@/lib/xpLevelUtils';
@@ -431,6 +432,19 @@ export default function ProfilePage() {
                     size="md"
                     showName={true}
                   />
+                )}
+
+                {staffRole && (
+                  <div className={cn(
+                    'inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold border shadow-sm',
+                    staffRole === 'manager' ? 'bg-purple-100 text-purple-800 border-purple-200' :
+                    staffRole === 'admin' ? 'bg-red-100 text-red-800 border-red-200' :
+                    'bg-blue-100 text-blue-800 border-blue-200'
+                  )}>
+                    {staffRole === 'manager' ? '🛡️ Manager' :
+                     staffRole === 'admin' ? '🛡️ Admin' :
+                     '🛡️ Moderator'}
+                  </div>
                 )}
 
                 {vipInfo.isVip && vipStyle.badgeClassName && (
