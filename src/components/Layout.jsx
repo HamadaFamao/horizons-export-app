@@ -17,7 +17,8 @@ const Layout = ({ children }) => {
     '/matches',
     '/messages',
     '/profile',
-    '/search'
+    '/search',
+    '/saved'
   ];
 
   // Check if current route is one of the main routes

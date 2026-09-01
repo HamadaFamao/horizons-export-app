@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, History, Zap, MessageSquare } from 'lucide-react';
+import { Loader2, History, Zap, MessageSquare, Bookmark, Heart } from 'lucide-react';
 
 export default function ProfilePage() {
   const navigate = useNavigate();
@@ -564,16 +564,30 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={() => navigate('/saved?tab=saved')}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-50 text-indigo-700 text-sm font-medium hover:bg-indigo-100 transition"
+            >
+              <Bookmark className="w-4 h-4" />
+              Saved
+            </button>
+            <button
+              onClick={() => navigate('/saved?tab=liked')}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-50 text-rose-600 text-sm font-medium hover:bg-rose-100 transition"
+            >
+              <Heart className="w-4 h-4" />
+              Liked
+            </button>
             <button
               onClick={() => navigate('/profile/edit')}
-              className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 rounded-lg transition-colors"
+              className="flex-1 min-w-[140px] bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 rounded-lg transition-colors"
             >
               Edit Profile
             </button>
             <button
               onClick={() => navigate('/settings')}
-              className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-900 font-semibold py-3 rounded-lg transition-colors"
+              className="flex-1 min-w-[140px] bg-gray-200 hover:bg-gray-300 text-gray-900 font-semibold py-3 rounded-lg transition-colors"
             >
               Settings
             </button>
