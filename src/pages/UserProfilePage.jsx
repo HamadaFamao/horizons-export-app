@@ -293,22 +293,29 @@ export default function UserProfilePage() {
   const getAdminBadge = () => {
     if (!profile) return null;
     
-    // Check specific roles first
-    if (profile.admin_role === 'admin') {
-      return { 
-        label: language === 'ar' ? 'مسؤول' : 'Admin', 
-        icon: Shield, 
-        className: 'bg-red-100 text-red-800 border-red-200' 
-      };
-    }
-    if (profile.admin_role === 'manager') {
+    const role = profile.staff_role || profile.admin_role;
+    
+    if (role === 'manager') {
       return { 
         label: language === 'ar' ? 'مدير' : 'Manager', 
         icon: ShieldCheck, 
         className: 'bg-purple-100 text-purple-800 border-purple-200' 
       };
     }
-    // Fallback for generic admins
+    if (role === 'admin') {
+      return { 
+        label: language === 'ar' ? 'مسؤول' : 'Admin', 
+        icon: Shield, 
+        className: 'bg-red-100 text-red-800 border-red-200' 
+      };
+    }
+    if (role === 'moderator') {
+      return { 
+        label: language === 'ar' ? 'مشرف' : 'Moderator', 
+        icon: Shield, 
+        className: 'bg-blue-100 text-blue-800 border-blue-200' 
+      };
+    }
     if (profile.isadmin) {
       return { 
         label: language === 'ar' ? 'مسؤول' : 'Admin', 
@@ -522,7 +529,6 @@ export default function UserProfilePage() {
                     <div className="flex flex-wrap justify-center gap-4 mb-6">
                         {(profile.living_in_code || profile.country) && (
                             <div className="flex items-center gap-2 bg-gray-50 px-4 py-2 rounded-full">
-                                <span className="text-sm text-gray-500">{language === 'ar' ? 'يعيش في' : 'Lives in'}</span>
                                 <CountryDisplay code={profile.living_in_code || profile.country} />
                             </div>
                         )}
