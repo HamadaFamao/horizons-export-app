@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next';
 import WalletBadge from '@/components/WalletBadge';
 import { DEFAULT_AVATAR } from '@/lib/constants';
 import Logo from '@/components/Logo';
+import NotificationBell from '@/components/NotificationBell';
 import { useUnread } from '@/context/UnreadContext';
 
 // ✅ CHANGE THIS IF YOUR ROUTE IS DIFFERENT
@@ -433,6 +434,8 @@ const AppHeader = () => {
               <UserHeaderSkeleton />
             ) : isAuthed ? (
               <>
+                <NotificationBell className="hidden sm:block" />
+
                 <div className="hidden sm:block">
                   <WalletBadge />
                 </div>
