@@ -94,9 +94,6 @@ export default function SavedPostsPage() {
 
   useEffect(() => {
     if (!user?.id) return;
-    setPosts([]);
-    offsetRef.current = 0;
-    setHasMore(true);
     fetchPosts(true);
   }, [activeTab, user?.id]);
 
