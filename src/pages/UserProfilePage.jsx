@@ -526,12 +526,6 @@ export default function UserProfilePage() {
                                 <CountryDisplay code={profile.living_in_code || profile.country} />
                             </div>
                         )}
-                        {(profile.from_code || profile.from_country) && (
-                            <div className="flex items-center gap-2 bg-gray-50 px-4 py-2 rounded-full">
-                                <span className="text-sm text-gray-500">{language === 'ar' ? 'من' : 'From'}</span>
-                                <CountryDisplay code={profile.from_code || profile.from_country} />
-                            </div>
-                        )}
                     </div>
 
                     {profile.bio && (
@@ -554,14 +548,6 @@ export default function UserProfilePage() {
                      <div className="space-y-1">
                         <p className="text-xs font-semibold text-gray-500 uppercase">{language === 'ar' ? 'المهنة' : 'Occupation'}</p>
                         <p className="font-medium text-gray-900">{profile.occupation || '—'}</p>
-                     </div>
-                     <div className="space-y-1">
-                        <p className="text-xs font-semibold text-gray-500 uppercase">{language === 'ar' ? 'الحالة الاجتماعية' : 'Marital Status'}</p>
-                        <p className="font-medium text-gray-900 capitalize">{profile.marital_status || '—'}</p>
-                     </div>
-                     <div className="space-y-1">
-                        <p className="text-xs font-semibold text-gray-500 uppercase">{language === 'ar' ? 'يبحث عن' : 'Looking For'}</p>
-                        <p className="font-medium text-gray-900 capitalize">{profile.lookingfor || '—'}</p>
                      </div>
                      <div className="space-y-1">
                         <p className="text-xs font-semibold text-gray-500 uppercase">{language === 'ar' ? 'الجنس' : 'Gender'}</p>
