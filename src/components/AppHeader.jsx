@@ -434,7 +434,7 @@ const AppHeader = () => {
               <UserHeaderSkeleton />
             ) : isAuthed ? (
               <>
-                <NotificationBell className="hidden sm:block" />
+                <NotificationBell />
 
                 <div className="hidden sm:block">
                   <WalletBadge />
@@ -476,6 +476,11 @@ const AppHeader = () => {
 
                     <div className="sm:hidden p-2">
                       <WalletBadge />
+                    </div>
+                    <DropdownMenuSeparator className="sm:hidden" />
+
+                    <div className="sm:hidden px-3 py-2">
+                      <NotificationBell />
                     </div>
                     <DropdownMenuSeparator className="sm:hidden" />
 
