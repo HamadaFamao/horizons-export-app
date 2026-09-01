@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabaseClient';
 import PostGiftPanel from '@/components/PostGiftPanel';
-import { Heart, MessageCircle, Share2, Bookmark, Gift, Eye, Play, X } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Bookmark, Gift, Eye, Play, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 
