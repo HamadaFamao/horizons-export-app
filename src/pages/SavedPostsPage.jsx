@@ -29,51 +29,77 @@ export default function SavedPostsPage() {
 
   const fetchPosts = useCallback(async (reset = false) => {
     if (!user?.id) return;
-    const currentOffset = reset ? 0 : offsetRef.current;
-    if (reset) {
-      setLoading(true);
-      offsetRef.current = 0;
-    } else {
-      setLoadingMore(true);
-    }
+    if (reset) setLoading(true);
+    else setLoadingMore(true);
 
     try {
+      const currentOffset = reset ? 0 : offsetRef.current;
       const tab = TABS.find(t => t.key === activeTab);
-      if (!tab) return;
-      
-      console.log('[SavedPosts] fetching:', tab.fn, 'offset:', currentOffset);
-      
-      const { data, error } = await supabase.rpc(tab.fn, {
-        p_limit: LIMIT,
-        p_offset: currentOffset,
-      });
 
+      let query;
+      if (activeTab === 'saved') {
+        query = supabase
+          .from('post_saves')
+          .select(`
+            post_id,
+            posts!inner (
+              id, user_id, type, caption, media_url,
+              thumbnail_url, duration_seconds, view_count,
+              is_active, is_public, created_at,
+              profiles!inner (name, avatar_url, profile_id)
+            )
+          `)
+          .eq('user_id', user.id)
+          .eq('posts.is_active', true)
+          .order('created_at', { ascending: false })
+          .range(currentOffset, currentOffset + LIMIT - 1);
+      } else {
+        query = supabase
+          .from('post_likes')
+          .select(`
+            post_id,
+            posts!inner (
+              id, user_id, type, caption, media_url,
+              thumbnail_url, duration_seconds, view_count,
+              is_active, is_public, created_at,
+              profiles!inner (name, avatar_url, profile_id)
+            )
+          `)
+          .eq('user_id', user.id)
+          .eq('posts.is_active', true)
+          .order('created_at', { ascending: false })
+          .range(currentOffset, currentOffset + LIMIT - 1);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
-      
-      console.log('[SavedPosts] data count:', data?.length);
 
-      const mapped = (data || []).map((p) => ({
-        id: p.post_id,
-        user_id: p.post_user_id,
-        user_name: p.post_user_name,
-        user_avatar: p.post_user_avatar,
-        user_profile_id: p.post_user_profile_id,
-        type: p.post_type,
-        caption: p.post_caption,
-        media_url: p.post_media_url,
-        thumbnail_url: p.post_thumbnail_url,
-        duration_seconds: p.post_duration_seconds,
-        view_count: p.post_view_count,
-        like_count: p.like_count,
-        comment_count: p.comment_count,
-        save_count: p.save_count,
-        share_count: p.share_count,
-        gift_count: p.gift_count,
-        total_gems_from_gifts: p.total_gems_from_gifts,
-        is_liked: p.is_liked,
-        is_saved: p.is_saved,
-        created_at: p.post_created_at,
+      console.log('[SavedPosts] raw data:', data?.length, data?.[0]);
+
+      const mapped = (data || []).map(item => ({
+        id: item.posts.id,
+        user_id: item.posts.user_id,
+        user_name: item.posts.profiles?.name,
+        user_avatar: item.posts.profiles?.avatar_url,
+        user_profile_id: item.posts.profiles?.profile_id,
+        type: item.posts.type,
+        caption: item.posts.caption,
+        media_url: item.posts.media_url,
+        thumbnail_url: item.posts.thumbnail_url,
+        duration_seconds: item.posts.duration_seconds,
+        view_count: item.posts.view_count,
+        like_count: 0,
+        comment_count: 0,
+        save_count: 0,
+        share_count: 0,
+        gift_count: 0,
+        total_gems_from_gifts: 0,
+        is_liked: activeTab === 'liked',
+        is_saved: activeTab === 'saved',
+        created_at: item.posts.created_at,
       }));
+
+      console.log('[SavedPosts] mapped:', mapped.length);
 
       if (reset) {
         setPosts(mapped);
@@ -82,10 +108,9 @@ export default function SavedPostsPage() {
         setPosts(prev => [...prev, ...mapped]);
         offsetRef.current += mapped.length;
       }
-
       setHasMore((data || []).length === LIMIT);
     } catch (err) {
-      console.error('[SavedPostsPage]', err);
+      console.error('[SavedPostsPage] error:', err);
     } finally {
       setLoading(false);
       setLoadingMore(false);
