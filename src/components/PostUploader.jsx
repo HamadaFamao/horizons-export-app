@@ -141,24 +141,52 @@ export default function PostUploader({ onPostCreated }) {
 
       {/* File Upload Area */}
       {!preview ? (
-        <label className="block cursor-pointer">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept={type === 'photo' ? 'image/*' : 'video/*'}
-            onChange={handleFileSelect}
-            className="hidden"
-          />
-          <div className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center hover:border-indigo-300 hover:bg-indigo-50/30 transition">
-            <Upload className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-            <p className="text-sm text-gray-500 font-medium">
-              {type === 'photo' ? 'Upload Photo' : 'Upload Video'}
-            </p>
-            <p className="text-xs text-gray-400 mt-1">
-              {type === 'photo' ? 'JPG, PNG, WEBP (max 10MB)' : 'MP4, WEBM (max 100MB)'}
-            </p>
+        type === 'video' ? (
+          <div className="space-y-3">
+            <div className="flex gap-2">
+              <label className="flex-1 cursor-pointer">
+                <input
+                  type="file"
+                  accept="video/*"
+                  capture="environment"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+                <div className="flex items-center justify-center gap-2 bg-purple-100 text-purple-700 py-2.5 rounded-xl text-sm font-medium hover:bg-purple-200 transition">
+                  📹 Record Video
+                </div>
+              </label>
+
+              <label className="flex-1 cursor-pointer">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="video/*"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+                <div className="flex items-center justify-center gap-2 bg-gray-100 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-200 transition">
+                  📂 Upload Video
+                </div>
+              </label>
+            </div>
           </div>
-        </label>
+        ) : (
+          <label className="block cursor-pointer">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+            <div className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center hover:border-indigo-300 hover:bg-indigo-50/30 transition">
+              <Upload className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+              <p className="text-sm text-gray-500 font-medium">Upload Photo</p>
+              <p className="text-xs text-gray-400 mt-1">JPG, PNG, WEBP (max 10MB)</p>
+            </div>
+          </label>
+        )
       ) : (
         <div className="relative rounded-xl overflow-hidden mb-4">
           {type === 'photo' ? (

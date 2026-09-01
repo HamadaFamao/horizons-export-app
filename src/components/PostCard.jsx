@@ -404,34 +404,48 @@ export default function PostCard({ post, currentUserId, onUpdate }) {
               <p className="text-xs text-gray-400 text-center py-2">No gifts yet</p>
             ) : (
               <div className="space-y-2">
-                {postGifts.map((g) => (
-                  <div key={g.id} className="flex items-center gap-2">
-                    <img
-                      src={g.sender?.avatar_url || '/default-avatar.svg'}
-                      className="w-7 h-7 rounded-full object-cover cursor-pointer"
-                      onClick={() => navigate(`/user/${g.sender?.profile_id}`)}
-                    />
-                    <div className="flex-1">
-                      <p
-                        className="text-xs font-semibold text-gray-900 cursor-pointer hover:underline"
+                {/* صاحب المحتوى يشوف كل التفاصيل */}
+                {currentUserId === post.user_id ? (
+                  postGifts.map((g) => (
+                    <div key={g.id} className="flex items-center gap-2">
+                      <img
+                        src={g.sender?.avatar_url || '/default-avatar.svg'}
+                        className="w-7 h-7 rounded-full object-cover cursor-pointer"
                         onClick={() => navigate(`/user/${g.sender?.profile_id}`)}
-                      >
-                        {g.sender?.name}
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        sent {g.gift?.name_en}
+                      />
+                      <div className="flex-1">
+                        <p
+                          className="text-xs font-semibold text-gray-900 cursor-pointer hover:underline"
+                          onClick={() => navigate(`/user/${g.sender?.profile_id}`)}
+                        >
+                          {g.sender?.name}
+                        </p>
+                        <p className="text-xs text-gray-400">sent {g.gift?.name_en}</p>
+                      </div>
+                      <div className="text-right">
+                        {g.gift?.icon_url && (
+                          <img src={g.gift.icon_url} className="w-8 h-8 object-contain" />
+                        )}
+                        <p className="text-xs text-green-600 font-semibold">
+                          +{g.gems_awarded} 💎
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  /* الزائر يشوف الإجمالي بس */
+                  <div className="flex items-center justify-between bg-purple-50 rounded-xl p-3">
+                    <div className="flex items-center gap-2">
+                      <Gift className="w-5 h-5 text-purple-500" />
+                      <p className="text-sm font-semibold text-purple-700">
+                        {postGifts.length} gift{postGifts.length !== 1 ? 's' : ''} sent
                       </p>
                     </div>
-                    <div className="text-right">
-                      {g.gift?.icon_url && (
-                        <img src={g.gift.icon_url} className="w-8 h-8 object-contain" />
-                      )}
-                      <p className="text-xs text-green-600 font-semibold">
-                        +{g.gems_awarded} 💎
-                      </p>
-                    </div>
+                    <p className="text-sm font-bold text-green-600">
+                      +{postGifts.reduce((sum, g) => sum + (g.gems_awarded || 0), 0).toLocaleString()} 💎
+                    </p>
                   </div>
-                ))}
+                )}
               </div>
             )}
           </div>
