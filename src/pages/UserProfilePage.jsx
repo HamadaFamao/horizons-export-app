@@ -1,647 +1,501 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/contexts/AuthContext';
 import Layout from '@/components/Layout';
-import PhotoGallery from '@/components/PhotoGallery';
-import CountryDisplay from '@/components/CountryDisplay';
-import { Button } from '@/components/ui/button';
-import { Loader2, MessageCircle, Gift, ArrowLeft, Copy, Shield, ShieldCheck } from 'lucide-react';
+import { Loader2, MessageCircle, Gift, ArrowLeft, MoreVertical, Users, UserPlus, UserCheck, UserMinus, Home, Navigation, Shield, ShieldCheck } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import { useLanguage } from '@/contexts/LanguageContext';
-import GiftPanel from '@/components/GiftPanel';
-import WalletDisplay from '@/components/WalletDisplay';
-import ReportModal from '@/components/ReportModal';
-import { getOnlineStatus } from '@/lib/lastSeenUtils';
-import { getOrCreateThread } from '@/lib/messagingUtils';
 import { getLevelFromXp } from '@/lib/xpLevelUtils';
 import LevelBadge from '@/components/LevelBadge';
-import UserWall from '@/components/UserWall';
 import { getVipInfo, getVipStyle } from '@/utils/vip';
+import { getOnlineStatus } from '@/lib/lastSeenUtils';
+import { getOrCreateThread } from '@/lib/messagingUtils';
+import GiftPanel from '@/components/GiftPanel';
+import ReportModal from '@/components/ReportModal';
+import UserWall from '@/components/UserWall';
+import PhotoGallery from '@/components/PhotoGallery';
+import CountryDisplay from '@/components/CountryDisplay';
+import { cn } from '@/lib/utils';
 
 export default function UserProfilePage() {
   const { profileId } = useParams();
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
-  const { language } = useLanguage();
 
   const [profile, setProfile] = useState(null);
-  const [currentUserProfile, setCurrentUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
-  // UI states
   const [showGiftPanel, setShowGiftPanel] = useState(false);
-  const [walletRefresh, setWalletRefresh] = useState(0);
-  const [creatingThread, setCreatingThread] = useState(false);
-  const [isSendingGift, setIsSendingGift] = useState(false);
-  const [profileRefreshTrigger, setProfileRefreshTrigger] = useState(0);
-  const [isBlocked, setIsBlocked] = useState(false);
-  const [blocking, setBlocking] = useState(false);
   const [showReport, setShowReport] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [creatingThread, setCreatingThread] = useState(false);
+  const [walletRefresh, setWalletRefresh] = useState(0);
 
-  // Scroll to top when page opens
+  // Social state
+  const [socialStats, setSocialStats] = useState(null);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [friendStatus, setFriendStatus] = useState('none');
+  const [followLoading, setFollowLoading] = useState(false);
+  const [friendLoading, setFriendLoading] = useState(false);
+
+  // Room state
+  const [activeRoom, setActiveRoom] = useState(null);
+
+  // Active tab
+  const [activeTab, setActiveTab] = useState('posts');
+
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'auto' });
   }, [profileId]);
 
-  // ============================================
-  // EFFECT 1: Fetch current user's profile
-  // ============================================
-  useEffect(() => {
-    const fetchCurrentUserProfile = async () => {
-      if (!currentUser?.id) {
-        setCurrentUserProfile(null);
-        return;
-      }
-
-      try {
-        const { data: currentProfile, error } = await supabase
-          .from('v_user_profile_with_wallet')
-          .select('profile_id, user_id')
-          .eq('user_id', currentUser.id)
-          .single();
-
-        if (!error && currentProfile) {
-          setCurrentUserProfile(currentProfile);
-        }
-      } catch (err) {
-        console.error('Error fetching current user profile:', err);
-      }
-    };
-
-    fetchCurrentUserProfile();
-  }, [currentUser?.id]);
-
-  // ============================================
-  // EFFECT 2: Fetch visited PROFILE + WALLET from VIEW
-  // ============================================
+  // Fetch profile
   useEffect(() => {
     const fetchProfile = async () => {
       try {
         setLoading(true);
         setError(null);
+        if (!profileId) { setError('User ID not provided'); return; }
 
-        // Validate route param
-        if (!profileId) {
-          setError('User ID not provided');
-          setLoading(false);
-          return;
-        }
-
-        // Determine if input is a numeric Public ID or a UUID
         const isNumeric = /^\d+$/.test(profileId);
-        const publicId = Number(profileId);
-
         let query = supabase.from('v_user_profile_with_wallet').select('*');
-        
-        if (isNumeric) {
-           query = query.eq('profile_id', publicId);
-        } else {
-           query = query.eq('id', profileId);
-        }
+        if (isNumeric) query = query.eq('profile_id', Number(profileId));
+        else query = query.eq('id', profileId);
 
-        const { data: profileData, error: profileError } = await query.single();
-
-        // If profile not found, show error
-        if (profileError || !profileData) {
-          console.warn('Profile not found for ID:', profileId);
-          setError('User not found');
-          setLoading(false);
-          return;
-        }
-
-        // Fetch photos for this profile
-        const { data: photosData } = await supabase
-          .from('photos')
-          .select('url')
-          .eq('user_id', profileData.id) 
-          .eq('is_public', true)
-          .order('is_primary', { ascending: false });
-
-        if (photosData) {
-          profileData.photos = photosData.map(p => p.url);
-        }
-
-        setProfile(profileData);
+        const { data, error } = await query.maybeSingle();
+        if (error) throw error;
+        if (!data) { setError('Profile not found'); return; }
+        setProfile(data);
       } catch (err) {
-        console.error('Unexpected error fetching profile:', err);
-        setError('Failed to load user profile');
+        setError(err.message);
       } finally {
         setLoading(false);
       }
     };
-
     fetchProfile();
-  }, [profileId, profileRefreshTrigger]);
+  }, [profileId]);
 
+  // Fetch social stats + room
   useEffect(() => {
-    const checkBlockStatus = async () => {
-      if (!currentUser?.id || !profile?.id) return;
-      try {
-        const { data } = await supabase
-          .from('blocks')
-          .select('id')
-          .eq('blocker', currentUser.id)
-          .eq('blocked', profile.id)
-          .maybeSingle();
-        setIsBlocked(!!data);
-      } catch (err) {
-        console.error('Error checking block status:', err);
+    if (!profile?.profile_id) return;
+    const fetchExtra = async () => {
+      const [socialRes, roomRes] = await Promise.all([
+        supabase.rpc('get_profile_social_stats', { p_profile_id: profile.profile_id }),
+        supabase.rpc('get_user_active_room', { p_profile_id: profile.profile_id }),
+      ]);
+      if (socialRes.data?.success) {
+        setSocialStats(socialRes.data);
+        setIsFollowing(socialRes.data.is_following);
+        setFriendStatus(socialRes.data.friend_status || 'none');
       }
+      if (roomRes.data?.success) setActiveRoom(roomRes.data);
     };
+    fetchExtra();
+  }, [profile?.profile_id]);
 
-    checkBlockStatus();
-  }, [currentUser?.id, profile?.id]);
+  const isOwnProfile = currentUser?.id === profile?.id;
 
-  const handleMessageClick = async () => {
-      if (!currentUser || !profile) {
-        toast({ title: "Error", description: "You must be logged in to send messages.", variant: "destructive" });
-        return;
-      }
-      setCreatingThread(true);
-      
-      try {
-          const threadId = await getOrCreateThread(currentUser.id, profile.id);
-          if (threadId) {
-              navigate(`/messages/${threadId}`);
-          }
-      } catch (err) {
-          console.error("Error starting chat:", err);
-          toast({ title: "Error", description: "Could not start chat", variant: "destructive" });
-      } finally {
-          setCreatingThread(false);
-      }
-  };
-
-  const handleSendGift = async (giftData) => {
-    if (isSendingGift || !currentUser || !profile) return;
-    if (!giftData || !giftData.gift_id) {
-        toast({ title: "Error", description: "Invalid gift data", variant: 'destructive' });
-        return;
-    }
-
-    setIsSendingGift(true);
-
-    try {
-      // 1. Call RPC directly
-      const { data, error } = await supabase.rpc('send_gift_secure', {
-        p_sender_id: currentUser.id,
-        p_recipient_id: profile.id,
-        p_gift_id: giftData.gift_id
-      });
-
-      // 2. Error handling
-      if (error) {
-        toast({
-            title: language === 'ar' ? 'خطأ' : 'Transaction Failed',
-            description: error.message || 'Failed to send gift',
-            variant: 'destructive',
-        });
-        setIsSendingGift(false);
-        return;
-      }
-
-      // 3. Success handling
-      toast({
-        title: language === 'ar' ? 'تم الإرسال!' : 'Gift Sent! 🎁',
-        description: language === 'ar' ? 'تم إرسال الهدية بنجاح' : `Successfully sent gift to ${profile.name}`,
-        className: 'bg-green-50 border-green-200 text-green-800',
-      });
-
-      // 4. Close modal
-      setShowGiftPanel(false);
-
-      // 5. Refresh sender wallet
-      setWalletRefresh(prev => prev + 1);
-
-      // 6. Refresh recipient profile/gems
-      setProfileRefreshTrigger(prev => prev + 1);
-
-    } catch (error) {
-      console.error('❌ Exception in handleSendGift:', error);
-      toast({
-          title: 'Error',
-          description: error.message || 'An unexpected error occurred.',
-          variant: 'destructive',
-      });
-    } finally {
-      setIsSendingGift(false);
-    }
-  };
-
-  const handleBlock = async () => {
-    if (!currentUser?.id || !profile?.id) return;
-    setBlocking(true);
-    try {
-      const { error } = await supabase
-        .from('blocks')
-        .insert({ blocker: currentUser.id, blocked: profile.id });
-      if (error) throw error;
-      setIsBlocked(true);
-      toast({
-        title: '🚫 User Blocked',
-        description: `${profile?.name} has been blocked.`,
-      });
-    } catch (err) {
-      toast({
-        title: 'Error',
-        description: err.message,
-        variant: 'destructive',
-      });
-    } finally {
-      setBlocking(false);
-    }
-  };
-
-  const handleUnblock = async () => {
-    if (!currentUser?.id || !profile?.id) return;
-    setBlocking(true);
-    try {
-      await supabase
-        .from('blocks')
-        .delete()
-        .eq('blocker', currentUser.id)
-        .eq('blocked', profile.id);
-      setIsBlocked(false);
-      toast({
-        title: '✅ Unblocked',
-        description: `${profile?.name} has been unblocked.`,
-      });
-    } catch (err) {
-      toast({
-        title: 'Error',
-        description: err.message,
-        variant: 'destructive',
-      });
-    } finally {
-      setBlocking(false);
-    }
-  };
-
-  const handleCopyId = () => {
-    if (profile?.profile_id) {
-      navigator.clipboard.writeText(String(profile.profile_id));
-      toast({
-        description: "ID copied to clipboard",
-        className: "bg-gray-800 text-white border-none h-10 px-4",
-        duration: 2000,
-      });
-    }
-  };
+  const vipInfo = getVipInfo(profile);
+  const vipStyle = getVipStyle(profile?.vip_number);
+  const displayLevel = profile?.xp ? getLevelFromXp(profile.xp)?.currentLevel : profile?.level;
+  const onlineStatus = profile ? getOnlineStatus(profile) : null;
 
   const getAdminBadge = () => {
     if (!profile) return null;
-    
     const role = profile.staff_role || profile.admin_role;
-    
-    if (role === 'manager') {
-      return { 
-        label: language === 'ar' ? 'مدير' : 'Manager', 
-        icon: ShieldCheck, 
-        className: 'bg-purple-100 text-purple-800 border-purple-200' 
-      };
-    }
-    if (role === 'admin') {
-      return { 
-        label: language === 'ar' ? 'مسؤول' : 'Admin', 
-        icon: Shield, 
-        className: 'bg-red-100 text-red-800 border-red-200' 
-      };
-    }
-    if (role === 'moderator') {
-      return { 
-        label: language === 'ar' ? 'مشرف' : 'Moderator', 
-        icon: Shield, 
-        className: 'bg-blue-100 text-blue-800 border-blue-200' 
-      };
-    }
-    if (profile.isadmin) {
-      return { 
-        label: language === 'ar' ? 'مسؤول' : 'Admin', 
-        icon: Shield, 
-        className: 'bg-red-100 text-red-800 border-red-200' 
-      };
-    }
+    if (role === 'manager') return { label: 'Manager', icon: ShieldCheck, className: 'bg-purple-100 text-purple-800 border-purple-200' };
+    if (role === 'admin') return { label: 'Admin', icon: Shield, className: 'bg-red-100 text-red-800 border-red-200' };
+    if (role === 'moderator') return { label: 'Mod', icon: Shield, className: 'bg-blue-100 text-blue-800 border-blue-200' };
+    if (profile.isadmin) return { label: 'Admin', icon: Shield, className: 'bg-red-100 text-red-800 border-red-200' };
     return null;
   };
+  const adminBadge = getAdminBadge();
 
-  // ============================================
-  // RENDER
-  // ============================================
+  const handleMessage = async () => {
+    if (!currentUser?.id || !profile?.id) return;
+    setCreatingThread(true);
+    try {
+      const thread = await getOrCreateThread(currentUser.id, profile.id);
+      navigate(`/messages/${thread.id}`);
+    } catch { toast({ title: 'Error', variant: 'destructive' }); }
+    finally { setCreatingThread(false); }
+  };
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center min-h-[calc(100vh-100px)]">
-          <Loader2 className="h-12 w-12 animate-spin text-rose-500" />
-        </div>
-      </Layout>
-    );
-  }
+  const handleGiftSent = async () => {
+    setShowGiftPanel(false);
+    setWalletRefresh(w => w + 1);
+  };
 
-  if (error || !profile) {
-    return (
-      <Layout>
-         <div className="flex flex-col items-center justify-center min-h-[60vh]">
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Profile Not Found</h2>
-          <p className="text-gray-500 mb-6">{error || 'This user does not exist or has been removed.'}</p>
-          <Button onClick={() => navigate('/')}>Back to Home</Button>
-        </div>
-      </Layout>
-    );
-  }
+  const handleFollow = async () => {
+    if (!currentUser?.id || !profile?.id) return;
+    setFollowLoading(true);
+    try {
+      const { data } = await supabase.rpc('toggle_follow', { p_target_id: profile.id });
+      if (data?.success) {
+        setIsFollowing(data.following);
+        setSocialStats(prev => prev ? { ...prev, followers: data.follower_count } : prev);
+      }
+    } finally { setFollowLoading(false); }
+  };
 
-  // Determine if this is the logged-in user's own profile
-  const isOwnProfile = 
-    (currentUser?.id === profile.id) || 
-    (currentUserProfile && Number(profileId) === currentUserProfile.profile_id);
-  
-  const vipInfo = getVipInfo(profile);
-  const isVip = vipInfo.isVip;
-  const vipStyle = getVipStyle(profile?.vip_number);
+  const handleFriendAction = async (action) => {
+    if (!currentUser?.id || !profile?.id) return;
+    setFriendLoading(true);
+    try {
+      const { data } = await supabase.rpc('handle_friend_request', {
+        p_target_id: profile.id,
+        p_action: action,
+      });
+      if (data?.success) setFriendStatus(data.status === 'pending' ? 'pending_sent' : data.status);
+    } finally { setFriendLoading(false); }
+  };
 
-  const calculatedLevelInfo = profile?.xp !== undefined ? getLevelFromXp(profile.xp) : null;
-  const displayLevel = calculatedLevelInfo?.currentLevel ?? profile?.level;
-  const staffRole = profile?.staff_role || profile?.admin_role;
+  const handleBlock = async () => {
+    setShowMoreMenu(false);
+    if (!window.confirm('Block this user?')) return;
+    await supabase.from('blocks').insert({ blocker: currentUser.id, blocked: profile.id }).catch(() => {});
+    toast({ title: 'User blocked' });
+    navigate(-1);
+  };
 
-  const interests = Array.isArray(profile?.interests) ? profile.interests : [];
-  const photos = Array.isArray(profile?.photos) ? profile.photos : [];
-  
-  const adminBadgeData = getAdminBadge();
+  const TABS = [
+    { key: 'posts', label: '📝 Posts' },
+    { key: 'photos', label: '🖼️ Photos' },
+    { key: 'achievements', label: '🏆 Achievements' },
+  ];
+
+  if (loading) return (
+    <Layout><div className="flex items-center justify-center min-h-screen"><Loader2 className="w-8 h-8 animate-spin text-rose-500" /></div></Layout>
+  );
+  if (error || !profile) return (
+    <Layout><div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+      <p className="text-gray-500">{error || 'Profile not found'}</p>
+      <button onClick={() => navigate(-1)} className="text-rose-500 font-medium">Go Back</button>
+    </div></Layout>
+  );
 
   return (
     <Layout>
       <div className="min-h-screen bg-gray-50 pb-20">
+
+        {/* Cover + Back */}
         <div className="relative">
-            <div className="h-48 md:h-64 bg-gradient-to-br from-rose-400 via-pink-400 to-orange-400 rounded-b-[3rem] shadow-md overflow-hidden">
-                <div className="absolute inset-0 bg-black/10"></div>
-            </div>
-            
-            <button 
-                onClick={() => navigate(-1)} 
-                className="absolute top-4 left-4 md:hidden bg-white/20 backdrop-blur-md p-2 rounded-full text-white hover:bg-white/30"
-            >
-                <ArrowLeft size={24} />
-            </button>
+          <div className="h-40 bg-gradient-to-br from-rose-400 via-pink-400 to-orange-400" />
+          <button
+            onClick={() => navigate(-1)}
+            className="absolute top-4 left-4 bg-white/20 backdrop-blur-md p-2 rounded-full text-white hover:bg-white/30 transition"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
 
-            <div className="max-w-3xl mx-auto px-4 -mt-20 relative z-10">
-                <div className="bg-white rounded-3xl shadow-xl overflow-hidden p-6 md:p-8 text-center">
-                    
-                    <div className="relative inline-block mb-4">
-                        <img
-                            src={profile.avatar_url || '/default-avatar.svg'}
-                            alt={profile.name}
-                            className={`w-32 h-32 rounded-full border-4 border-white shadow-lg object-cover mx-auto ${vipStyle.avatarRingClassName}`}
-                        />
-                        {(() => {
-                            const status = getOnlineStatus(profile);
-                            return status.isOnline && (
-                                <div className="absolute bottom-2 right-2 w-4 h-4 bg-green-500 border-2 border-white rounded-full" title="Online"></div>
-                            );
-                        })()}
-                    </div>
-
-                    <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                        {profile.name}, <span className="text-gray-500 text-2xl font-normal">{profile.age}</span>
-                    </h1>
-                    
-                    {/* Public Profile Stats - Show Level, VIP, and Admin Badge */}
-                    <div className="mb-4 flex flex-wrap justify-center gap-2">
-                      {/* Admin/Manager Badge */}
-                      {adminBadgeData && (
-                        <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold border shadow-sm ${adminBadgeData.className}`}>
-                           <adminBadgeData.icon className="w-3.5 h-3.5" />
-                           <span>{adminBadgeData.label}</span>
-                        </div>
-                      )}
-
-                      {/* Level */}
-                      {typeof displayLevel === 'number' && (
-                        <LevelBadge level={displayLevel} size="md" showName={true} />
-                      )}
-
-                      {/* Staff Badge */}
-                      {staffRole && (
-                        <div className={
-                          'inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold border shadow-sm ' +
-                          (staffRole === 'manager' ? 'bg-purple-100 text-purple-800 border-purple-200' :
-                            staffRole === 'admin' ? 'bg-red-100 text-red-800 border-red-200' :
-                            'bg-blue-100 text-blue-800 border-blue-200')
-                        }>
-                          {staffRole === 'manager' ? '🛡️ Manager' :
-                            staffRole === 'admin' ? '🛡️ Admin' :
-                            '🛡️ Moderator'}
-                        </div>
-                      )}
-
-                      {/* VIP badge */}
-                      {vipInfo.isVip && vipStyle.badgeClassName && (
-                        <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${vipStyle.badgeClassName} border-0 shadow-sm`}>
-                          <span className="mr-1">{vipInfo.label}</span>
-                          <span>👑</span>
-                        </span>
-                      )}
-                    </div>
-                    
-                    {/* ID chip - clickable to copy */}
-                    {profile?.profile_id && (
-                        <div className="mb-6">
-                            <button
-                                onClick={handleCopyId}
-                                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600 cursor-pointer hover:bg-gray-200 transition-colors active:scale-95"
-                                title="Click to copy ID"
-                            >
-                                <span className="font-mono">ID: {profile.profile_id}</span>
-                                <Copy size={10} className="opacity-70" />
-                            </button>
-                        </div>
-                    )}
-
-                    {!isOwnProfile && currentUser && (
-                        <div className="flex justify-center gap-4 mt-2 mb-6">
-
-                            {/* Message Button */}
-                            <div className="flex flex-col items-center gap-1">
-                              <button
-                                onClick={handleMessageClick}
-                                disabled={creatingThread}
-                                className="w-14 h-14 rounded-full bg-blue-500 hover:bg-blue-600 text-white shadow-lg flex items-center justify-center transition active:scale-95 disabled:opacity-60"
-                                title="Message"
-                              >
-                                {creatingThread
-                                  ? <Loader2 className="w-6 h-6 animate-spin" />
-                                  : <MessageCircle className="w-6 h-6" />
-                                }
-                              </button>
-                              <span className="text-xs font-medium text-gray-500">
-                                {language === 'ar' ? 'مراسلة' : 'Message'}
-                              </span>
-                            </div>
-
-                            {/* Send Gift Button */}
-                            <div className="flex flex-col items-center gap-1">
-                              <button
-                                onClick={() => setShowGiftPanel(true)}
-                                disabled={isSendingGift}
-                                className="w-14 h-14 rounded-full bg-rose-500 hover:bg-rose-600 text-white shadow-lg flex items-center justify-center transition active:scale-95 disabled:opacity-60"
-                                title="Send Gift"
-                              >
-                                {isSendingGift
-                                  ? <Loader2 className="w-6 h-6 animate-spin" />
-                                  : <Gift className="w-6 h-6" />
-                                }
-                              </button>
-                              <span className="text-xs font-medium text-gray-500">
-                                {language === 'ar' ? 'هدية' : 'Gift'}
-                              </span>
-                            </div>
-
-                            {/* Block/Unblock Button */}
-                            <div className="flex flex-col items-center gap-1">
-                              <button
-                                onClick={isBlocked ? handleUnblock : handleBlock}
-                                disabled={blocking}
-                                className={`w-14 h-14 rounded-full text-white shadow-lg flex items-center justify-center transition active:scale-95 disabled:opacity-60 ${
-                                  isBlocked
-                                    ? 'bg-emerald-500 hover:bg-emerald-600'
-                                    : 'bg-slate-400 hover:bg-slate-500'
-                                }`}
-                                title={isBlocked ? 'Unblock' : 'Block'}
-                              >
-                                {blocking
-                                  ? <Loader2 className="w-6 h-6 animate-spin" />
-                                  : isBlocked
-                                    ? <ShieldCheck className="w-6 h-6" />
-                                    : <Shield className="w-6 h-6" />
-                                }
-                              </button>
-                              <span className="text-xs font-medium text-gray-500">
-                                {isBlocked
-                                  ? (language === 'ar' ? 'إلغاء الحظر' : 'Unblock')
-                                  : (language === 'ar' ? 'حظر' : 'Block')
-                                }
-                              </span>
-                            </div>
-
-                            <div className="flex flex-col items-center gap-1">
-                              <button
-                                onClick={() => setShowReport(true)}
-                                className="w-14 h-14 rounded-full bg-amber-500 hover:bg-amber-600 text-white shadow-lg flex items-center justify-center transition active:scale-95"
-                                title="Report"
-                              >
-                                🚩
-                              </button>
-                              <span className="text-xs font-medium text-gray-500">Report</span>
-                            </div>
-
-                        </div>
-                    )}
-                    {!currentUser && (
-                      <div className="text-sm text-gray-500 mb-4">Log in to message or send gifts!</div>
-                    )}
-
-                    <div className="flex flex-wrap justify-center gap-4 mb-6">
-                        {(profile.living_in_code || profile.country) && (
-                            <div className="flex items-center gap-2 bg-gray-50 px-4 py-2 rounded-full">
-                                <CountryDisplay code={profile.living_in_code || profile.country} />
-                            </div>
-                        )}
-                    </div>
-
-                    {profile.bio && (
-                        <div className="text-left border-t border-gray-100 pt-6 mt-2">
-                            <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-3">
-                                {language === 'ar' ? 'نبذة عني' : 'About Me'}
-                            </h3>
-                            <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{profile.bio}</p>
-                        </div>
-                    )}
-
+          {/* More Menu */}
+          {!isOwnProfile && (
+            <div className="absolute top-4 right-4">
+              <button
+                onClick={() => setShowMoreMenu(!showMoreMenu)}
+                className="bg-white/20 backdrop-blur-md p-2 rounded-full text-white hover:bg-white/30 transition"
+              >
+                <MoreVertical className="w-5 h-5" />
+              </button>
+              {showMoreMenu && (
+                <div className="absolute right-0 top-12 bg-white rounded-2xl shadow-xl border overflow-hidden w-40 z-50">
+                  <button
+                    onClick={() => { setShowMoreMenu(false); setShowReport(true); }}
+                    className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    🚩 Report
+                  </button>
+                  <button
+                    onClick={handleBlock}
+                    className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50"
+                  >
+                    🚫 Block
+                  </button>
                 </div>
+              )}
             </div>
+          )}
+
+          {/* Profile Card */}
+          <div className="max-w-lg mx-auto px-4 -mt-16 relative z-10">
+            <div className="bg-white rounded-3xl shadow-xl p-5">
+              {/* Avatar + Info */}
+              <div className="flex items-start gap-4">
+                <div className="relative shrink-0">
+                  <img
+                    src={profile.avatar_url || '/default-avatar.svg'}
+                    alt={profile.name}
+                    className={cn(
+                      'w-20 h-20 rounded-full object-cover border-4 border-white shadow-md',
+                      vipStyle.avatarRingClassName
+                    )}
+                    onError={(e) => { e.currentTarget.src = '/default-avatar.svg'; }}
+                  />
+                  {onlineStatus?.isOnline && (
+                    <div className="absolute bottom-1 right-1 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full" />
+                  )}
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <h1 className="text-xl font-bold text-gray-900 truncate">
+                    {profile.name}{profile.age ? `, ${profile.age}` : ''}
+                  </h1>
+
+                  {/* Badges Row */}
+                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                    {displayLevel > 0 && (
+                      <LevelBadge level={displayLevel} size="sm" showName={false} />
+                    )}
+                    {adminBadge && (
+                      <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border', adminBadge.className)}>
+                        <adminBadge.icon className="w-3 h-3" />
+                        {adminBadge.label}
+                      </span>
+                    )}
+                    {vipInfo.isVip && (
+                      <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold', vipStyle.badgeClassName)}>
+                        {vipInfo.label} 👑
+                      </span>
+                    )}
+                  </div>
+
+                  {/* ID + Country */}
+                  <div className="flex items-center gap-2 mt-1.5">
+                    {profile.profile_id && (
+                      <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+                        #{profile.profile_id}
+                      </span>
+                    )}
+                    {profile.country_code && (
+                      <CountryDisplay code={profile.country_code} />
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Social Stats */}
+              {socialStats && (
+                <div className="flex items-center gap-4 mt-4 pt-4 border-t border-gray-100">
+                  <div className="text-center flex-1">
+                    <p className="font-bold text-gray-900">{socialStats.followers?.toLocaleString() || 0}</p>
+                    <p className="text-xs text-gray-400">Followers</p>
+                  </div>
+                  <div className="w-px h-8 bg-gray-100" />
+                  <div className="text-center flex-1">
+                    <p className="font-bold text-gray-900">{socialStats.following?.toLocaleString() || 0}</p>
+                    <p className="text-xs text-gray-400">Following</p>
+                  </div>
+                  <div className="w-px h-8 bg-gray-100" />
+                  <div className="text-center flex-1">
+                    <p className="font-bold text-gray-900">{socialStats.friends?.toLocaleString() || 0}</p>
+                    <p className="text-xs text-gray-400">Friends</p>
+                  </div>
+                </div>
+              )}
+
+              {/* About Me */}
+              {profile.bio && (
+                <p className="text-sm text-gray-600 mt-4 pt-4 border-t border-gray-100 leading-relaxed">
+                  {profile.bio}
+                </p>
+              )}
+
+              {/* Action Buttons */}
+              {!isOwnProfile && currentUser && (
+                <div className="mt-4 space-y-2">
+                  {/* Row 1: Message + Gift */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={handleMessage}
+                      disabled={creatingThread}
+                      className="flex items-center justify-center gap-2 bg-indigo-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-indigo-700 transition disabled:opacity-50"
+                    >
+                      {creatingThread ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageCircle className="w-4 h-4" />}
+                      Message
+                    </button>
+                    <button
+                      onClick={() => setShowGiftPanel(true)}
+                      className="flex items-center justify-center gap-2 bg-rose-500 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-rose-600 transition"
+                    >
+                      <Gift className="w-4 h-4" />
+                      Gift
+                    </button>
+                  </div>
+
+                  {/* Row 2: Follow + Friend */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={handleFollow}
+                      disabled={followLoading}
+                      className={cn(
+                        'flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-50',
+                        isFollowing
+                          ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          : 'bg-purple-600 text-white hover:bg-purple-700'
+                      )}
+                    >
+                      {followLoading ? <Loader2 className="w-4 h-4 animate-spin" /> :
+                        isFollowing ? <UserMinus className="w-4 h-4" /> : <Users className="w-4 h-4" />}
+                      {isFollowing ? 'Unfollow' : 'Follow'}
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        if (friendStatus === 'none') handleFriendAction('send');
+                        else if (friendStatus === 'pending_sent') handleFriendAction('cancel');
+                        else if (friendStatus === 'pending_received') handleFriendAction('accept');
+                        else if (friendStatus === 'friends') handleFriendAction('unfriend');
+                      }}
+                      disabled={friendLoading}
+                      className={cn(
+                        'flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-50',
+                        friendStatus === 'friends' ? 'bg-green-100 text-green-700 hover:bg-green-200' :
+                        friendStatus === 'pending_sent' ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' :
+                        friendStatus === 'pending_received' ? 'bg-amber-500 text-white hover:bg-amber-600' :
+                        'bg-teal-600 text-white hover:bg-teal-700'
+                      )}
+                    >
+                      {friendLoading ? <Loader2 className="w-4 h-4 animate-spin" /> :
+                        friendStatus === 'friends' ? <UserCheck className="w-4 h-4" /> :
+                        <UserPlus className="w-4 h-4" />}
+                      {friendStatus === 'friends' ? 'Friends' :
+                       friendStatus === 'pending_sent' ? 'Pending...' :
+                       friendStatus === 'pending_received' ? 'Accept' :
+                       'Add Friend'}
+                    </button>
+                  </div>
+
+                  {/* Row 3: Room Entry + Track */}
+                  {activeRoom?.success && (
+                    <div className="grid grid-cols-2 gap-2">
+                      {activeRoom.is_owner && (
+                        <button
+                          onClick={() => navigate(`/room/${activeRoom.room_id}`)}
+                          className="flex items-center justify-center gap-2 bg-amber-500 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-amber-600 transition"
+                        >
+                          <Home className="w-4 h-4" />
+                          Enter Room
+                        </button>
+                      )}
+                      <button
+                        onClick={() => navigate(`/room/${activeRoom.room_id}`)}
+                        className={cn(
+                          'flex items-center justify-center gap-2 bg-cyan-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-cyan-700 transition',
+                          activeRoom.is_owner ? '' : 'col-span-2'
+                        )}
+                      >
+                        <Navigation className="w-4 h-4" />
+                        Track
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
-        <div className="max-w-3xl mx-auto px-4 mt-6 space-y-6">
-            <div className="bg-white rounded-2xl shadow-sm p-6">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">{language === 'ar' ? 'التفاصيل' : 'Details'}</h3>
-                <div className="grid grid-cols-2 gap-6">
-                     <div className="space-y-1">
-                        <p className="text-xs font-semibold text-gray-500 uppercase">{language === 'ar' ? 'المهنة' : 'Occupation'}</p>
-                        <p className="font-medium text-gray-900">{profile.occupation || '—'}</p>
-                     </div>
-                     <div className="space-y-1">
-                        <p className="text-xs font-semibold text-gray-500 uppercase">{language === 'ar' ? 'الجنس' : 'Gender'}</p>
-                        <p className="font-medium text-gray-900 capitalize">{profile.gender || '—'}</p>
-                     </div>
-                </div>
+        {/* Details */}
+        <div className="max-w-lg mx-auto px-4 mt-4">
+          {(profile.occupation || profile.gender) && (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4">
+              <div className="grid grid-cols-2 gap-3">
+                {profile.occupation && (
+                  <div>
+                    <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Occupation</p>
+                    <p className="text-sm font-semibold text-gray-800">💼 {profile.occupation}</p>
+                  </div>
+                )}
+                {profile.gender && (
+                  <div>
+                    <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Gender</p>
+                    <p className="text-sm font-semibold text-gray-800">
+                      {profile.gender === 'Male' ? '👨' : '👩'} {profile.gender}
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
-            
-            {interests.length > 0 && (
-                <div className="bg-white rounded-2xl shadow-sm p-6">
-                    <h3 className="text-lg font-bold text-gray-900 mb-4">{language === 'ar' ? 'الاهتمامات' : 'Interests'}</h3>
-                    <div className="flex flex-wrap gap-2">
-                        {(typeof profile.interests === 'string' ? profile.interests.split(',') : interests).map((interest, idx) => (
-                            <span key={idx} className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full text-sm font-medium">
-                                {interest.trim()}
-                            </span>
-                        ))}
-                    </div>
-                </div>
-            )}
+          )}
 
-            {photos.length > 0 && (
-                <div className="mb-8">
-                    <h3 className="text-lg font-bold text-gray-900 mb-4 px-2">{language === 'ar' ? 'الصور' : 'Photos'}</h3>
-                    <PhotoGallery
-                        userId={profile.id}
-                        photos={photos}
-                        readOnly={true}
-                    />
-                </div>
-            )}
+          {/* Interests */}
+          {Array.isArray(profile.interests) && profile.interests.length > 0 && (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4">
+              <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">Interests</p>
+              <div className="flex flex-wrap gap-2">
+                {profile.interests.map((interest, i) => (
+                  <span key={i} className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-xs font-medium">
+                    {interest}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
-            {/* Wall */}
-            <div className="mt-6 px-4">
-              <UserWall
-                profileId={profile.profile_id}
+          {/* Tabs */}
+          <div className="flex gap-1 bg-white rounded-2xl p-1.5 shadow-sm border border-gray-100 mb-4">
+            {TABS.map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={cn(
+                  'flex-1 py-2 rounded-xl text-xs font-medium transition',
+                  activeTab === tab.key
+                    ? 'bg-rose-500 text-white shadow-sm'
+                    : 'text-gray-500 hover:bg-gray-50'
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Tab Content */}
+          {activeTab === 'posts' && (
+            <UserWall profileId={profile.profile_id} isOwner={false} />
+          )}
+          {activeTab === 'photos' && (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+              <PhotoGallery
+                userId={profile.id}
+                photos={Array.isArray(profile.photos) ? profile.photos : []}
                 isOwner={false}
               />
             </div>
+          )}
+          {activeTab === 'achievements' && (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+              <div className="py-8 text-center">
+                <p className="text-4xl mb-2">🏆</p>
+                <p className="text-gray-400 text-sm">Achievements coming soon</p>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Floating wallet pill - ONLY show if this is the logged-in user's own profile */}
-        {currentUser && isOwnProfile && (
-            <div className="fixed bottom-20 right-4 z-40 bg-white/90 backdrop-blur shadow-lg rounded-full p-2 border border-gray-200 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                <WalletDisplay userId={currentUser.id} refreshTrigger={walletRefresh} />
+        {/* Gift Panel */}
+        {showGiftPanel && profile && (
+          <div className="fixed inset-0 z-50 bg-black/40 flex items-end">
+            <div className="bg-white w-full rounded-t-3xl max-h-[70vh] overflow-y-auto">
+              <GiftPanel
+                recipientId={profile.id}
+                recipientName={profile.name}
+                onClose={() => setShowGiftPanel(false)}
+                onGiftSent={handleGiftSent}
+              />
             </div>
+          </div>
         )}
 
-        {showGiftPanel && (
-            <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center">
-                <div 
-                    className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" 
-                    onClick={() => setShowGiftPanel(false)}
-                />
-                <div className="relative w-full md:w-[450px] bg-white rounded-t-3xl md:rounded-2xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300">
-                    <GiftPanel 
-                        receiverId={profile.id}
-                        onClose={() => setShowGiftPanel(false)}
-                        onGiftSent={handleSendGift}
-                    />
-                </div>
-            </div>
+        {/* Report Modal */}
+        {showReport && (
+          <ReportModal
+            isOpen={showReport}
+            onClose={() => setShowReport(false)}
+            reportedUserId={profile?.id}
+            reportedUserName={profile?.name}
+          />
         )}
-
-        <ReportModal
-          isOpen={showReport}
-          onClose={() => setShowReport(false)}
-          reportType="user"
-          targetId={profile.id}
-          targetName={profile.name}
-        />
       </div>
     </Layout>
   );
