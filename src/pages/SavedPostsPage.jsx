@@ -29,24 +29,28 @@ export default function SavedPostsPage() {
 
   const fetchPosts = useCallback(async (reset = false) => {
     if (!user?.id) return;
-
     const currentOffset = reset ? 0 : offsetRef.current;
     if (reset) {
       setLoading(true);
+      offsetRef.current = 0;
     } else {
       setLoadingMore(true);
     }
 
     try {
-      const tab = TABS.find((t) => t.key === activeTab) || TABS[0];
-      console.log('[SavedPosts] fetching:', tab.fn, 'user:', user?.id);
+      const tab = TABS.find(t => t.key === activeTab);
+      if (!tab) return;
+      
+      console.log('[SavedPosts] fetching:', tab.fn, 'offset:', currentOffset);
+      
       const { data, error } = await supabase.rpc(tab.fn, {
         p_limit: LIMIT,
         p_offset: currentOffset,
       });
 
       if (error) throw error;
-      console.log('[SavedPosts] data:', data, 'error:', error);
+      
+      console.log('[SavedPosts] data count:', data?.length);
 
       const mapped = (data || []).map((p) => ({
         id: p.post_id,
@@ -73,10 +77,10 @@ export default function SavedPostsPage() {
 
       if (reset) {
         setPosts(mapped);
-        offsetRef.current = LIMIT;
+        offsetRef.current = mapped.length;
       } else {
-        setPosts((prev) => [...prev, ...mapped]);
-        offsetRef.current += LIMIT;
+        setPosts(prev => [...prev, ...mapped]);
+        offsetRef.current += mapped.length;
       }
 
       setHasMore((data || []).length === LIMIT);
