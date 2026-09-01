@@ -13,6 +13,8 @@ import {
   User as UserIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import LevelBadge from "@/components/LevelBadge";
+import { getLevelFromXp } from "@/lib/xpLevelUtils";
 
 export default function UserCardModal({
   open,
@@ -68,6 +70,15 @@ const cardLevel =
     selectedUserProfile?.user_level ??
     0
   ) || null;
+
+const cardXp = Number(selectedUserProfile?.xp || 0);
+const computedLevel = cardXp > 0
+  ? getLevelFromXp(cardXp)?.currentLevel
+  : (cardLevel || null);
+
+const cardStaffRole = selectedUserProfile?.staff_role || 
+                      selectedUserProfile?.staffRole || null;
+const cardOccupation = selectedUserProfile?.occupation || null;
 
 const cardFamily =
   selectedUserProfile?.family_name ??
@@ -271,11 +282,20 @@ const cardIsAdmin = cardIsMod;
   </span>
 ) : null}
 
-{cardLevel !== null && cardLevel > 0 ? (
-  <span className="relative overflow-hidden inline-flex items-center text-xs px-3 py-0.5 rounded-full bg-gradient-to-r from-cyan-500 via-blue-400 to-blue-600 text-white font-black tracking-widest shadow-[0_0_15px_rgba(6,182,212,0.8)] border border-cyan-200 hover:scale-105 transition-all duration-300 after:absolute after:top-0 after:left-0 after:w-full after:h-1/2 after:bg-gradient-to-b after:from-white/50 after:to-transparent after:animate-pulse">
-    Lv.{cardLevel}
-  </span>
+{computedLevel && computedLevel > 0 ? (
+  <LevelBadge level={computedLevel} size="sm" showName={false} />
 ) : null}
+
+{cardStaffRole && (
+  <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-bold border ${
+    cardStaffRole === 'manager' ? 'bg-purple-100 text-purple-800 border-purple-200' :
+    cardStaffRole === 'admin' ? 'bg-red-100 text-red-800 border-red-200' :
+    'bg-blue-100 text-blue-800 border-blue-200'
+  }`}>
+    🛡️ {cardStaffRole === 'manager' ? 'Manager' : 
+         cardStaffRole === 'admin' ? 'Admin' : 'Mod'}
+  </span>
+)}
                   </div>
 
                   <div className="mt-2 flex flex-wrap gap-2 text-[12px] text-slate-600">
@@ -288,6 +308,12 @@ const cardIsAdmin = cardIsMod;
                     {cardFamily ? (
                       <span className="px-2 py-0.5 rounded-full bg-pink-50 border border-pink-200 text-pink-700">
                         Family: <b>{cardFamily}</b>
+                      </span>
+                    ) : null}
+
+                    {cardOccupation ? (
+                      <span className="px-2 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700">
+                        💼 <b>{cardOccupation}</b>
                       </span>
                     ) : null}
                   </div>
