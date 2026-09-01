@@ -42,6 +42,9 @@ export default function UserWall({ profileId, isOwner = false }) {
       const mapped = (data || []).map(p => ({
         id: p.post_id,
         user_id: p.post_user_id,
+        user_name: p.post_user_name,
+        user_avatar: p.post_user_avatar,
+        user_profile_id: p.post_user_profile_id,
         type: p.post_type,
         caption: p.post_caption,
         media_url: p.post_media_url,
