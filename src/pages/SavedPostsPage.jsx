@@ -88,18 +88,18 @@ export default function SavedPostsPage() {
   }, [user?.id, activeTab]);
 
   useEffect(() => {
-    const tab = searchParams.get('tab') || 'saved';
-    setActiveTab(tab);
+    if (!user?.id) return;
     setPosts([]);
     offsetRef.current = 0;
     setHasMore(true);
-    if (user?.id) {
-      fetchPosts(true);
-    }
-  }, [searchParams, user?.id, fetchPosts]);
+    fetchPosts(true);
+  }, [activeTab, user?.id]);
 
   const handleTabChange = (tab) => {
+    setActiveTab(tab);
     setSearchParams({ tab }, { replace: true });
+    setPosts([]);
+    setHasMore(true);
   };
 
   return (
