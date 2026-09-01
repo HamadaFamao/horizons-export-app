@@ -38,9 +38,30 @@ export default function UserWall({ profileId, isOwner = false }) {
 
       if (error) throw error;
 
+      // نحوّل الأسماء للـ PostCard
+      const mapped = (data || []).map(p => ({
+        id: p.post_id,
+        user_id: p.post_user_id,
+        type: p.post_type,
+        caption: p.post_caption,
+        media_url: p.post_media_url,
+        thumbnail_url: p.post_thumbnail_url,
+        duration_seconds: p.post_duration_seconds,
+        view_count: p.post_view_count,
+        like_count: p.like_count,
+        comment_count: p.comment_count,
+        save_count: p.save_count,
+        share_count: p.share_count,
+        gift_count: p.gift_count,
+        total_gems_from_gifts: p.total_gems_from_gifts,
+        is_liked: p.is_liked,
+        is_saved: p.is_saved,
+        created_at: p.post_created_at,
+      }));
+
       const filtered = filter === 'all'
-        ? (data || [])
-        : (data || []).filter(p => p.type === filter);
+        ? mapped
+        : mapped.filter(p => p.type === filter);
 
       if (reset) {
         setPosts(filtered);
