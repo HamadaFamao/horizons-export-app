@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabaseClient';
-import { Heart, MessageCircle, Share2, Bookmark, Gift, Eye, Play } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Bookmark, Gift, Eye, Play, X } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -130,13 +130,27 @@ export default function PostCard({ post, currentUserId, onUpdate }) {
             {post.created_at ? formatDistanceToNow(new Date(post.created_at), { addSuffix: true }) : ''}
           </p>
         </div>
+
+        {currentUserId === post.user_id && (
+          <button
+            onClick={async () => {
+              if (!window.confirm('Delete this post?')) return;
+              await supabase.from('posts').update({ is_active: false }).eq('id', post.id);
+              if (onUpdate) onUpdate();
+            }}
+            className="text-gray-400 hover:text-red-500 transition p-1"
+            aria-label="Delete post"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* Media */}
       {post.media_url && (
         <div className="relative bg-black">
           {post.type === 'video' ? (
-            <div className="relative aspect-[9/16] max-h-[500px]">
+            <div className="relative w-full" style={{ aspectRatio: '9/16', maxHeight: '80vh' }}>
               <video
                 ref={videoRef}
                 src={post.media_url}
@@ -172,7 +186,8 @@ export default function PostCard({ post, currentUserId, onUpdate }) {
             <img
               src={post.media_url}
               alt={post.caption || 'post'}
-              className="w-full max-h-[500px] object-cover"
+              className="w-full object-contain max-h-[70vh]"
+              style={{ background: '#000' }}
             />
           )}
         </div>
