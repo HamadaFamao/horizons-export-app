@@ -144,7 +144,7 @@ export default function NotificationBell({ className }) {
 
       {/* Panel */}
       {open && (
-        <div className="absolute right-0 top-12 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden">
+        <div className="fixed right-4 top-16 w-80 max-h-[80vh] bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden flex flex-col">
           {/* Header */}
           <div className="px-4 py-3 border-b flex items-center justify-between">
             <h3 className="font-bold text-gray-900">Notifications</h3>
@@ -156,7 +156,7 @@ export default function NotificationBell({ className }) {
           </div>
 
           {/* List */}
-          <div className="max-h-96 overflow-y-auto divide-y divide-gray-50">
+          <div className="flex-1 overflow-y-auto divide-y divide-gray-50">
             {loading ? (
               <div className="py-8 text-center text-gray-400 text-sm">Loading...</div>
             ) : notifications.length === 0 ? (
@@ -212,6 +212,20 @@ export default function NotificationBell({ className }) {
                             className="bg-gray-100 text-gray-600 text-xs px-3 py-1 rounded-full font-medium hover:bg-gray-200 transition"
                           >
                             Decline
+                          </button>
+                        </div>
+                      )}
+
+                      {notif.type === 'follow' && (
+                        <div className="mt-2" onClick={e => e.stopPropagation()}>
+                          <button
+                            onClick={async () => {
+                              await supabase.rpc('toggle_follow', { p_target_id: notif.actor_id });
+                              toast({ title: 'Following back!' });
+                            }}
+                            className="bg-purple-600 text-white text-xs px-3 py-1 rounded-full font-medium hover:bg-purple-700 transition"
+                          >
+                            Follow Back
                           </button>
                         </div>
                       )}
