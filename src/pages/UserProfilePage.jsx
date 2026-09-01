@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/contexts/AuthContext';
 import Layout from '@/components/Layout';
@@ -16,6 +17,7 @@ import { getOnlineStatus } from '@/lib/lastSeenUtils';
 import { getOrCreateThread } from '@/lib/messagingUtils';
 import { getLevelFromXp } from '@/lib/xpLevelUtils';
 import LevelBadge from '@/components/LevelBadge';
+import UserWall from '@/components/UserWall';
 import { getVipInfo, getVipStyle } from '@/utils/vip';
 
 export default function UserProfilePage() {
@@ -363,6 +365,7 @@ export default function UserProfilePage() {
 
   const calculatedLevelInfo = profile?.xp !== undefined ? getLevelFromXp(profile.xp) : null;
   const displayLevel = calculatedLevelInfo?.currentLevel ?? profile?.level;
+  const staffRole = profile?.staff_role || profile?.admin_role;
 
   const interests = Array.isArray(profile?.interests) ? profile.interests : [];
   const photos = Array.isArray(profile?.photos) ? profile.photos : [];
@@ -418,6 +421,20 @@ export default function UserProfilePage() {
                       {/* Level */}
                       {typeof displayLevel === 'number' && (
                         <LevelBadge level={displayLevel} size="md" showName={true} />
+                      )}
+
+                      {/* Staff Badge */}
+                      {staffRole && (
+                        <div className={
+                          'inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold border shadow-sm ' +
+                          (staffRole === 'manager' ? 'bg-purple-100 text-purple-800 border-purple-200' :
+                            staffRole === 'admin' ? 'bg-red-100 text-red-800 border-red-200' :
+                            'bg-blue-100 text-blue-800 border-blue-200')
+                        }>
+                          {staffRole === 'manager' ? '🛡️ Manager' :
+                            staffRole === 'admin' ? '🛡️ Admin' :
+                            '🛡️ Moderator'}
+                        </div>
                       )}
 
                       {/* VIP badge */}
@@ -585,6 +602,14 @@ export default function UserProfilePage() {
                     />
                 </div>
             )}
+
+            {/* Wall */}
+            <div className="mt-6 px-4">
+              <UserWall
+                profileId={profile.profile_id}
+                isOwner={false}
+              />
+            </div>
         </div>
 
         {/* Floating wallet pill - ONLY show if this is the logged-in user's own profile */}

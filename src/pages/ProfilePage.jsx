@@ -10,6 +10,7 @@ import AgencySection from '@/components/AgencySection';
 import AgentDashboard from '@/components/AgentDashboard';
 import AgencyMembersSection from '@/components/AgencyMembersSection';
 import LevelBadge from '@/components/LevelBadge';
+import UserWall from '@/components/UserWall';
 import { useToast } from '@/components/ui/use-toast';
 import { useAdminPermissions } from '@/contexts/AdminPermissionsContext';
 import {
@@ -682,6 +683,14 @@ export default function ProfilePage() {
             </div>
           </div>
         )}
+
+        {/* Wall */}
+        <div className="mt-6">
+          <UserWall
+            profileId={profile.profile_id}
+            isOwner={true}
+          />
+        </div>
 
         {/* ✅ Browse/Join يظهر فقط لو مش منضم (حتى لو Agent) */}
         {showJoinBrowse && <AgencySection profile={profile} onProfileUpdate={handleProfileUpdate} />}
