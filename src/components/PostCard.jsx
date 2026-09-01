@@ -19,9 +19,31 @@ export default function PostCard({ post, currentUserId, onUpdate }) {
   const [loadingComments, setLoadingComments] = useState(false);
   const [submittingComment, setSubmittingComment] = useState(false);
   const [showGiftPanel, setShowGiftPanel] = useState(false);
+  const [postGifts, setPostGifts] = useState([]);
+  const [showGifts, setShowGifts] = useState(false);
+  const [loadingGifts, setLoadingGifts] = useState(false);
   const videoRef = useRef(null);
   const [playing, setPlaying] = useState(false);
   const [viewed, setViewed] = useState(false);
+
+  const fetchPostGifts = async () => {
+    setLoadingGifts(true);
+    try {
+      const { data } = await supabase
+        .from('post_gifts')
+        .select(`
+          id, gems_awarded, coins_spent, created_at,
+          sender:sender_id (name, avatar_url, profile_id),
+          gift:gift_id (name_en, icon_url)
+        `)
+        .eq('post_id', post.id)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      setPostGifts(data || []);
+    } finally {
+      setLoadingGifts(false);
+    }
+  };
 
   const handleLike = async () => {
     if (!currentUserId) return;
@@ -267,6 +289,19 @@ export default function PostCard({ post, currentUserId, onUpdate }) {
                 <Gift className="w-6 h-6 text-gray-400 group-hover:text-purple-400 transition" />
               </button>
             )}
+
+            {post.type === 'video' && Number(post.gift_count || 0) > 0 && (
+              <button
+                onClick={() => {
+                  setShowGifts(!showGifts);
+                  if (!showGifts) fetchPostGifts();
+                }}
+                className="flex items-center gap-1 text-xs text-purple-500 font-medium"
+              >
+                <Gift className="w-4 h-4" />
+                {Number(post.gift_count).toLocaleString()} gifts
+              </button>
+            )}
           </div>
 
           {/* Save */}
@@ -353,6 +388,50 @@ export default function PostCard({ post, currentUserId, onUpdate }) {
                 >
                   Post
                 </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Gifts Section */}
+        {showGifts && post.type === 'video' && (
+          <div className="mt-3 space-y-2">
+            <div className="h-px bg-gray-100" />
+            <p className="text-xs font-semibold text-gray-500">🎁 Gifts Received</p>
+            {loadingGifts ? (
+              <Loader2 className="w-4 h-4 animate-spin mx-auto text-purple-400" />
+            ) : postGifts.length === 0 ? (
+              <p className="text-xs text-gray-400 text-center py-2">No gifts yet</p>
+            ) : (
+              <div className="space-y-2">
+                {postGifts.map((g) => (
+                  <div key={g.id} className="flex items-center gap-2">
+                    <img
+                      src={g.sender?.avatar_url || '/default-avatar.svg'}
+                      className="w-7 h-7 rounded-full object-cover cursor-pointer"
+                      onClick={() => navigate(`/user/${g.sender?.profile_id}`)}
+                    />
+                    <div className="flex-1">
+                      <p
+                        className="text-xs font-semibold text-gray-900 cursor-pointer hover:underline"
+                        onClick={() => navigate(`/user/${g.sender?.profile_id}`)}
+                      >
+                        {g.sender?.name}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        sent {g.gift?.name_en}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      {g.gift?.icon_url && (
+                        <img src={g.gift.icon_url} className="w-8 h-8 object-contain" />
+                      )}
+                      <p className="text-xs text-green-600 font-semibold">
+                        +{g.gems_awarded} 💎
+                      </p>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
