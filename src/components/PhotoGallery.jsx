@@ -184,6 +184,9 @@ export default function PhotoGallery({ userId, photos = [], onPhotosUpdate, isOw
                   alt={`Photo ${idx + 1}`}
                   className="w-full h-full object-cover group-hover:scale-105 transition duration-300 cursor-pointer"
                   onClick={() => openLightbox(idx)}
+                  onError={(e) => {
+                    e.currentTarget.parentElement.parentElement.style.display = 'none';
+                  }}
                 />
                 <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition duration-300 flex items-center justify-center gap-2">
                   {isOwner ? (
