@@ -202,47 +202,16 @@ export default function NotificationBell({ className }) {
                         {formatDistanceToNow(new Date(notif.created_at), { addSuffix: true })}
                       </p>
 
-                      {/* Friend Request Actions */}
-                      {notif.type === 'friend_request' && !handledNotifs.has(notif.actor_id) && (
-                        <div className="flex gap-2 mt-2" onClick={e => e.stopPropagation()}>
-                          <button
-                            onClick={() => handleFriendAction(notif.actor_id, 'accept')}
-                            className="bg-indigo-600 text-white text-xs px-3 py-1 rounded-full font-medium hover:bg-indigo-700 transition"
-                          >
-                            Accept
-                          </button>
-                          <button
-                            onClick={() => handleFriendAction(notif.actor_id, 'reject')}
-                            className="bg-gray-100 text-gray-600 text-xs px-3 py-1 rounded-full font-medium hover:bg-gray-200 transition"
-                          >
-                            Decline
-                          </button>
-                        </div>
-                      )}
-                      {notif.type === 'friend_request' && handledNotifs.has(notif.actor_id) && (
-                        <span className="text-xs text-green-600 font-medium mt-1 block">✅ Done</span>
+                      {notif.type === 'friend_request' && (
+                        <p className="text-xs text-indigo-500 mt-1">
+                          Tap to view profile →
+                        </p>
                       )}
 
-                      {notif.type === 'follow' && !handledNotifs.has(notif.actor_id) && (
-                        <div className="mt-2" onClick={e => e.stopPropagation()}>
-                          <button
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              const { data } = await supabase.rpc('toggle_follow', { 
-                                p_target_id: notif.actor_id 
-                              });
-                              if (data?.success) {
-                                setHandledNotifs(prev => new Set([...prev, notif.actor_id]));
-                              }
-                            }}
-                            className="bg-purple-600 text-white text-xs px-3 py-1 rounded-full font-medium hover:bg-purple-700 transition"
-                          >
-                            Follow Back
-                          </button>
-                        </div>
-                      )}
-                      {notif.type === 'follow' && handledNotifs.has(notif.actor_id) && (
-                        <span className="text-xs text-green-600 font-medium mt-1 block">✅ Following</span>
+                      {notif.type === 'follow' && (
+                        <p className="text-xs text-purple-500 mt-1">
+                          Tap to view profile →
+                        </p>
                       )}
                     </div>
 
