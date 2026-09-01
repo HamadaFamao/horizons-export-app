@@ -7,6 +7,7 @@ import PostCard from '@/components/PostCard';
 import { Loader2, Bookmark, Heart, ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+// v2: fix tab state sync
 const TABS = [
   { key: 'saved', label: 'Saved', icon: Bookmark, fn: 'get_saved_posts' },
   { key: 'liked', label: 'Liked', icon: Heart, fn: 'get_liked_posts' },
