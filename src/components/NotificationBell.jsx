@@ -38,6 +38,7 @@ export default function NotificationBell({ className }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [friendRequests, setFriendRequests] = useState([]);
+  const [handledNotifs, setHandledNotifs] = useState(new Set());
   const panelRef = useRef(null);
 
   useEffect(() => {
@@ -119,12 +120,15 @@ export default function NotificationBell({ className }) {
   };
 
   const handleFriendAction = async (requesterId, action) => {
-    await supabase.rpc('handle_friend_request', {
+    const { data } = await supabase.rpc('handle_friend_request', {
       p_target_id: requesterId,
       p_action: action,
     });
-    fetchNotifications();
-    fetchUnreadCount();
+    if (data?.success) {
+      setHandledNotifs(prev => new Set([...prev, requesterId]));
+      fetchNotifications();
+      fetchUnreadCount();
+    }
   };
 
   return (
@@ -199,7 +203,7 @@ export default function NotificationBell({ className }) {
                       </p>
 
                       {/* Friend Request Actions */}
-                      {notif.type === 'friend_request' && (
+                      {notif.type === 'friend_request' && !handledNotifs.has(notif.actor_id) && (
                         <div className="flex gap-2 mt-2" onClick={e => e.stopPropagation()}>
                           <button
                             onClick={() => handleFriendAction(notif.actor_id, 'accept')}
@@ -215,19 +219,30 @@ export default function NotificationBell({ className }) {
                           </button>
                         </div>
                       )}
+                      {notif.type === 'friend_request' && handledNotifs.has(notif.actor_id) && (
+                        <span className="text-xs text-green-600 font-medium mt-1 block">✅ Done</span>
+                      )}
 
-                      {notif.type === 'follow' && (
+                      {notif.type === 'follow' && !handledNotifs.has(notif.actor_id) && (
                         <div className="mt-2" onClick={e => e.stopPropagation()}>
                           <button
-                            onClick={async () => {
-                              await supabase.rpc('toggle_follow', { p_target_id: notif.actor_id });
-                              toast({ title: 'Following back!' });
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              const { data } = await supabase.rpc('toggle_follow', { 
+                                p_target_id: notif.actor_id 
+                              });
+                              if (data?.success) {
+                                setHandledNotifs(prev => new Set([...prev, notif.actor_id]));
+                              }
                             }}
                             className="bg-purple-600 text-white text-xs px-3 py-1 rounded-full font-medium hover:bg-purple-700 transition"
                           >
                             Follow Back
                           </button>
                         </div>
+                      )}
+                      {notif.type === 'follow' && handledNotifs.has(notif.actor_id) && (
+                        <span className="text-xs text-green-600 font-medium mt-1 block">✅ Following</span>
                       )}
                     </div>
 
