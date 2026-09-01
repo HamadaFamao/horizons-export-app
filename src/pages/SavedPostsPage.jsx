@@ -38,12 +38,14 @@ export default function SavedPostsPage() {
 
     try {
       const tab = TABS.find((t) => t.key === activeTab) || TABS[0];
+      console.log('[SavedPosts] fetching:', tab.fn, 'user:', user?.id);
       const { data, error } = await supabase.rpc(tab.fn, {
         p_limit: LIMIT,
         p_offset: currentOffset,
       });
 
       if (error) throw error;
+      console.log('[SavedPosts] data:', data, 'error:', error);
 
       const mapped = (data || []).map((p) => ({
         id: p.post_id,
