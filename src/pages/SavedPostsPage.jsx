@@ -96,6 +96,12 @@ export default function SavedPostsPage() {
     fetchPosts(true);
   }, [activeTab, user?.id]);
 
+  console.log('[SavedPosts] render state:', {
+    loading,
+    postsLength: posts.length,
+    activeTab,
+  });
+
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     setSearchParams({ tab }, { replace: true });
