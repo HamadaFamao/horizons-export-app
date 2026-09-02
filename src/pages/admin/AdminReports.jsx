@@ -414,7 +414,7 @@ export default function AdminReports() {
           </Button>
         </div>
       </div>
-
+      )}
       {activeTab === 'content' && (
         <div>
           {loadingPostReports ? (
