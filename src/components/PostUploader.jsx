@@ -12,6 +12,7 @@ export default function PostUploader({ onPostCreated }) {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [caption, setCaption] = useState('');
+  const [visibility, setVisibility] = useState('public');
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef(null);
@@ -83,6 +84,7 @@ export default function PostUploader({ onPostCreated }) {
           type,
           caption: caption.trim() || null,
           media_url: mediaUrl,
+          visibility,
           is_public: true,
         });
 
@@ -213,6 +215,29 @@ export default function PostUploader({ onPostCreated }) {
         className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-300 resize-none mt-3"
       />
       <p className="text-xs text-gray-400 text-right">{caption.length}/500</p>
+
+      {/* Visibility */}
+      <div className="flex gap-2 mt-3">
+        {[
+          { key: 'public', label: '🌍 Public' },
+          { key: 'friends', label: '👥 Friends' },
+          { key: 'live_only', label: '🔴 Live Only' },
+        ].map(v => (
+          <button
+            key={v.key}
+            type="button"
+            onClick={() => setVisibility(v.key)}
+            className={cn(
+              'flex-1 py-2 rounded-xl text-xs font-medium transition',
+              visibility === v.key
+                ? 'bg-indigo-600 text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            )}
+          >
+            {v.label}
+          </button>
+        ))}
+      </div>
 
       {/* Submit */}
       <button

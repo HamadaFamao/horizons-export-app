@@ -1,8 +1,9 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabaseClient';
 import PostGiftPanel from '@/components/PostGiftPanel';
-import { Heart, MessageCircle, Share2, Bookmark, Gift, Eye, Play, Loader2, X } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
+import { Heart, MessageCircle, Share2, Bookmark, Gift, Eye, Play, Loader2, X, MoreVertical } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -11,7 +12,9 @@ export default function PostCard({ post, currentUserId, onUpdate }) {
   const [liked, setLiked] = useState(post.is_liked || false);
   const [saved, setSaved] = useState(post.is_saved || false);
   const [likeCount, setLikeCount] = useState(Number(post.like_count || 0));
+  const [viewCount, setViewCount] = useState(Number(post.view_count || 0));
   const [showComments, setShowComments] = useState(false);
+  const [showPostReport, setShowPostReport] = useState(false);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
   const [replyTo, setReplyTo] = useState(null);
@@ -23,8 +26,34 @@ export default function PostCard({ post, currentUserId, onUpdate }) {
   const [showGifts, setShowGifts] = useState(false);
   const [loadingGifts, setLoadingGifts] = useState(false);
   const videoRef = useRef(null);
+  const reportMenuRef = useRef(null);
   const [playing, setPlaying] = useState(false);
   const [viewed, setViewed] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (!showPostReport) return;
+
+    const handlePointerDown = (event) => {
+      if (reportMenuRef.current && !reportMenuRef.current.contains(event.target)) {
+        setShowPostReport(false);
+      }
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setShowPostReport(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showPostReport]);
 
   const fetchPostGifts = async () => {
     setLoadingGifts(true);
@@ -89,6 +118,7 @@ export default function PostCard({ post, currentUserId, onUpdate }) {
       if (!viewed) {
         setViewed(true);
         await supabase.rpc('increment_post_view', { p_post_id: post.id }).catch(() => {});
+        setViewCount(prev => prev + 1);
       }
     } else {
       videoRef.current?.pause();
@@ -101,7 +131,7 @@ export default function PostCard({ post, currentUserId, onUpdate }) {
     try {
       const { data } = await supabase
         .from('post_comments')
-        .select('*, profiles:user_id(name, avatar_url, profile_id)')
+        .select('*, profiles:user_id(name, avatar_url, profile_id), replies:post_comments(id, content, created_at, profiles:user_id(name, avatar_url, profile_id))')
         .eq('post_id', post.id)
         .eq('is_active', true)
         .is('parent_id', null)
@@ -188,6 +218,46 @@ export default function PostCard({ post, currentUserId, onUpdate }) {
             <X className="w-4 h-4" />
           </button>
         )}
+
+        {currentUserId && currentUserId !== post.user_id && (
+          <div className="relative ml-auto" ref={reportMenuRef}>
+            <button
+              onClick={() => setShowPostReport(!showPostReport)}
+              className="text-gray-300 hover:text-gray-500 transition p-1"
+              aria-label="Report post"
+            >
+              <MoreVertical className="w-4 h-4" />
+            </button>
+            {showPostReport && (
+              <div className="absolute right-0 top-8 bg-white rounded-xl shadow-lg border z-10 overflow-hidden w-36">
+                <button
+                  onClick={async () => {
+                    setShowPostReport(false);
+                    await supabase.from('post_reports').insert({
+                      post_id: post.id,
+                      reporter_id: currentUserId,
+                    }).catch(() => {});
+                    toast({ title: '🚩 Post reported', className: 'bg-orange-50 border-orange-200' });
+                  }}
+                  className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50"
+                >
+                  🚩 Report Post
+                </button>
+                <button
+                  onClick={async () => {
+                    setShowPostReport(false);
+                    if (navigator.share) {
+                      await navigator.share({ url: `${window.location.origin}/post/${post.id}` });
+                    }
+                  }}
+                  className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  🔄 Repost
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Media */}
@@ -223,7 +293,7 @@ export default function PostCard({ post, currentUserId, onUpdate }) {
               {/* View count */}
               <div className="absolute bottom-3 left-3 flex items-center gap-1 bg-black/50 text-white text-xs px-2 py-1 rounded-full">
                 <Eye className="w-3 h-3" />
-                <span>{(post.view_count || 0).toLocaleString()}</span>
+                <span>{viewCount.toLocaleString()}</span>
               </div>
             </div>
           ) : (
@@ -363,6 +433,25 @@ export default function PostCard({ post, currentUserId, onUpdate }) {
                         >
                           Reply
                         </button>
+                      </div>
+                    )}
+
+                    {/* Replies */}
+                    {c.replies && c.replies.length > 0 && (
+                      <div className="mt-2 ml-2 space-y-2">
+                        {c.replies.map(r => (
+                          <div key={r.id} className="flex gap-2">
+                            <img
+                              src={r.profiles?.avatar_url || '/default-avatar.svg'}
+                              className="w-6 h-6 rounded-full object-cover shrink-0 cursor-pointer"
+                              onClick={() => navigate(`/user/${r.profiles?.profile_id}`)}
+                            />
+                            <div className="bg-indigo-50 rounded-2xl px-3 py-1.5 flex-1">
+                              <p className="text-xs font-semibold text-gray-900">{r.profiles?.name}</p>
+                              <p className="text-xs text-gray-700">{r.content}</p>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>

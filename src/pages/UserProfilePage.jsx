@@ -444,7 +444,13 @@ export default function UserProfilePage() {
                   <div className="bg-gray-50/50 p-3 rounded-2xl border border-gray-100">
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Gender</p>
                     <p className="text-sm font-bold text-gray-800 flex items-center gap-2">
-                      <span className="text-lg">{profile.gender === 'Male' ? '👨' : profile.gender === 'Female' ? '👩' : '🧑'}</span> {profile.gender}
+                      <span className={cn(
+                        'inline-flex items-center justify-center w-7 h-7 rounded-full text-white text-xs font-bold',
+                        profile.gender === 'Male' ? 'bg-blue-500' : 
+                        profile.gender === 'Female' ? 'bg-pink-500' : 'bg-gray-400'
+                      )}>
+                        {profile.gender === 'Male' ? 'M' : profile.gender === 'Female' ? 'F' : '?'}
+                      </span> {profile.gender}
                     </p>
                   </div>
                 )}
