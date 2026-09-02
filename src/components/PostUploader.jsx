@@ -8,7 +8,7 @@ import { useToast } from '@/components/ui/use-toast';
 export default function PostUploader({ onPostCreated }) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [type, setType] = useState('photo'); // 'photo' | 'video'
+  const [type, setType] = useState('photo'); // 'photo' | 'video' | 'text'
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [caption, setCaption] = useState('');
@@ -55,28 +55,49 @@ export default function PostUploader({ onPostCreated }) {
   };
 
   const handleSubmit = async () => {
-    if (!file || !user?.id) return;
+    if (!user?.id) return;
+    if ((type !== 'text' && !file) || uploading) return;
     setUploading(true);
     setUploadProgress(0);
 
     try {
-      // Upload file to storage
-      const ext = file.name.split('.').pop();
-      const fileName = `${user.id}/${Date.now()}.${ext}`;
+      let mediaUrl = null;
 
-      const { error: uploadError } = await supabase.storage
-        .from('posts')
-        .upload(fileName, file, { upsert: false });
+      if (type !== 'text') {
+        const ext = file.name.split('.').pop();
+        const fileName = `${user.id}/${Date.now()}.${ext}`;
 
-      if (uploadError) throw uploadError;
+        const { error: uploadError } = await supabase.storage
+          .from('posts')
+          .upload(fileName, file, { upsert: false });
 
-      const { data: urlData } = supabase.storage
-        .from('posts')
-        .getPublicUrl(fileName);
+        if (uploadError) throw uploadError;
 
-      const mediaUrl = urlData.publicUrl;
+        const { data: urlData } = supabase.storage
+          .from('posts')
+          .getPublicUrl(fileName);
 
-      // Create post in DB
+        mediaUrl = urlData.publicUrl;
+      }
+
+      // Text-only post
+      if (type === 'text') {
+        const { error: postError } = await supabase
+          .from('posts')
+          .insert({
+            user_id: user.id,
+            type: 'text',
+            caption: caption.trim(),
+            is_public: true,
+            visibility,
+          });
+        if (postError) throw postError;
+        toast({ title: '✅ Post shared!', className: 'bg-green-50 border-green-200 text-green-800' });
+        setCaption('');
+        if (onPostCreated) onPostCreated();
+        return;
+      }
+
       const { error: postError } = await supabase
         .from('posts')
         .insert({
@@ -95,7 +116,6 @@ export default function PostUploader({ onPostCreated }) {
         className: 'bg-green-50 border-green-200 text-green-800',
       });
 
-      // Reset
       setFile(null);
       setPreview(null);
       setCaption('');
@@ -139,10 +159,22 @@ export default function PostUploader({ onPostCreated }) {
           <Video className="w-4 h-4" />
           Video
         </button>
+        <button
+          onClick={() => { setType('text'); handleRemoveFile(); }}
+          className={cn(
+            'flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-medium transition',
+            type === 'text'
+              ? 'bg-amber-500 text-white shadow-sm'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          )}
+        >
+          <span className="text-base">✍️</span>
+          Text
+        </button>
       </div>
 
       {/* File Upload Area */}
-      {!preview ? (
+      {type !== 'text' && !preview && (
         type === 'video' ? (
           <div className="space-y-3">
             <div className="flex gap-2">
@@ -189,7 +221,9 @@ export default function PostUploader({ onPostCreated }) {
             </div>
           </label>
         )
-      ) : (
+      )}
+
+      {type !== 'text' && preview && (
         <div className="relative rounded-xl overflow-hidden mb-4">
           {type === 'photo' ? (
             <img src={preview} alt="preview" className="w-full max-h-64 object-cover" />
@@ -220,8 +254,9 @@ export default function PostUploader({ onPostCreated }) {
       <div className="flex gap-2 mt-3">
         {[
           { key: 'public', label: '🌍 Public' },
-          { key: 'friends', label: '👥 Friends' },
-          { key: 'live_only', label: '🔴 Live Only' },
+          { key: 'followers', label: '👥 Followers' },
+          { key: 'friends', label: '👫 Friends' },
+          { key: 'private', label: '🔒 Private' },
         ].map(v => (
           <button
             key={v.key}
@@ -242,7 +277,7 @@ export default function PostUploader({ onPostCreated }) {
       {/* Submit */}
       <button
         onClick={handleSubmit}
-        disabled={!file || uploading}
+        disabled={(type !== 'text' && !file) || uploading || (type === 'text' && !caption.trim())}
         className="w-full mt-3 bg-gradient-to-r from-rose-500 to-pink-500 text-white py-3 rounded-xl font-semibold text-sm disabled:opacity-50 hover:opacity-90 transition flex items-center justify-center gap-2"
       >
         {uploading ? (

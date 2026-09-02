@@ -15,6 +15,10 @@ export default function PostCard({ post, currentUserId, onUpdate }) {
   const [viewCount, setViewCount] = useState(Number(post.view_count || 0));
   const [showComments, setShowComments] = useState(false);
   const [showPostReport, setShowPostReport] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [showRepostConfirm, setShowRepostConfirm] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [submittingReport, setSubmittingReport] = useState(false);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
   const [replyTo, setReplyTo] = useState(null);
@@ -231,25 +235,16 @@ export default function PostCard({ post, currentUserId, onUpdate }) {
             {showPostReport && (
               <div className="absolute right-0 top-8 bg-white rounded-xl shadow-lg border z-10 overflow-hidden w-36">
                 <button
-                  onClick={async () => {
+                  onClick={() => {
                     setShowPostReport(false);
-                    await supabase.from('post_reports').insert({
-                      post_id: post.id,
-                      reporter_id: currentUserId,
-                    }).catch(() => {});
-                    toast({ title: '🚩 Post reported', className: 'bg-orange-50 border-orange-200' });
+                    setShowReportModal(true);
                   }}
                   className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50"
                 >
                   🚩 Report Post
                 </button>
                 <button
-                  onClick={async () => {
-                    setShowPostReport(false);
-                    if (navigator.share) {
-                      await navigator.share({ url: `${window.location.origin}/post/${post.id}` });
-                    }
-                  }}
+                  onClick={() => { setShowPostReport(false); setShowRepostConfirm(true); }}
                   className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
                 >
                   🔄 Repost
@@ -259,6 +254,64 @@ export default function PostCard({ post, currentUserId, onUpdate }) {
           </div>
         )}
       </div>
+
+      {showReportModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+          onClick={() => setShowReportModal(false)}>
+          <div className="bg-white rounded-2xl p-5 w-full max-w-sm shadow-xl"
+            onClick={e => e.stopPropagation()}>
+            <h3 className="font-bold text-gray-900 mb-3">🚩 Report Post</h3>
+            <div className="space-y-2 mb-4">
+              {['Spam', 'Inappropriate content', 'Harassment', 'Misinformation', 'Other'].map(reason => (
+                <button
+                  key={reason}
+                  onClick={() => setReportReason(reason)}
+                  className={cn(
+                    'w-full text-left px-4 py-2.5 rounded-xl text-sm transition',
+                    reportReason === reason
+                      ? 'bg-red-50 text-red-600 font-medium border border-red-200'
+                      : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                  )}
+                >
+                  {reportReason === reason ? '✓ ' : ''}{reason}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setShowReportModal(false); setReportReason(''); }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!reportReason) return;
+                  setSubmittingReport(true);
+                  try {
+                    await supabase.from('post_reports').insert({
+                      post_id: post.id,
+                      reporter_id: currentUserId,
+                      reason: reportReason,
+                    });
+                    toast({ title: '✅ Report submitted', description: 'Thank you for your feedback.', className: 'bg-green-50 border-green-200 text-green-800' });
+                    setShowReportModal(false);
+                    setReportReason('');
+                  } catch {
+                    toast({ title: 'Already reported', variant: 'destructive' });
+                  } finally {
+                    setSubmittingReport(false);
+                  }
+                }}
+                disabled={!reportReason || submittingReport}
+                className="flex-1 py-2.5 rounded-xl text-sm font-medium bg-red-500 text-white hover:bg-red-600 transition disabled:opacity-50"
+              >
+                {submittingReport ? 'Sending...' : 'Submit'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Media */}
       {post.media_url && (
@@ -549,6 +602,60 @@ export default function PostCard({ post, currentUserId, onUpdate }) {
             if (onUpdate) onUpdate();
           }}
         />
+      )}
+
+      {/* Repost indicator */}
+      {post.repost_of && (
+        <div className="px-4 pt-3 pb-1 flex items-center gap-1.5 text-xs text-gray-400">
+          <span>🔄</span>
+          <span className="font-medium text-gray-500">Reposted</span>
+        </div>
+      )}
+
+      {showRepostConfirm && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+          onClick={() => setShowRepostConfirm(false)}>
+          <div className="bg-white rounded-2xl p-5 w-full max-w-sm shadow-xl"
+            onClick={e => e.stopPropagation()}>
+            <h3 className="font-bold text-gray-900 mb-2">🔄 Repost</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              This post will appear on your profile with a reference to the original author.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowRepostConfirm(false)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-medium bg-gray-100 text-gray-600"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    const { error } = await supabase.from('posts').insert({
+                      user_id: currentUserId,
+                      type: post.type,
+                      caption: post.caption,
+                      media_url: post.media_url,
+                      thumbnail_url: post.thumbnail_url,
+                      duration_seconds: post.duration_seconds,
+                      visibility: 'public',
+                      repost_of: post.id,
+                      repost_user_id: post.user_id,
+                    });
+                    if (error) throw error;
+                    toast({ title: '✅ Reposted!', className: 'bg-green-50 border-green-200 text-green-800' });
+                    setShowRepostConfirm(false);
+                  } catch {
+                    toast({ title: 'Error reposting', variant: 'destructive' });
+                  }
+                }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700"
+              >
+                Repost ✓
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
