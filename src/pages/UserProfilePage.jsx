@@ -300,45 +300,50 @@ export default function UserProfilePage() {
                 </p>
               )}
 
-              {/* Action Buttons */}
+              {/* Action Buttons - Icon Style */}
               {!isOwnProfile && currentUser && (
-                <div className="mt-4 space-y-2">
-                  {/* Row 1: Message + Gift */}
-                  <div className="grid grid-cols-2 gap-2">
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  <div className="flex items-center justify-around">
+                    {/* Message */}
                     <button
                       onClick={handleMessage}
                       disabled={creatingThread}
-                      className="flex items-center justify-center gap-2 bg-indigo-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-indigo-700 transition disabled:opacity-50"
+                      className="flex flex-col items-center gap-1 group"
                     >
-                      {creatingThread ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageCircle className="w-4 h-4" />}
-                      Message
+                      <div className="w-11 h-11 bg-indigo-600 rounded-full flex items-center justify-center shadow-sm group-hover:bg-indigo-700 transition">
+                        {creatingThread ? <Loader2 className="w-5 h-5 text-white animate-spin" /> : <MessageCircle className="w-5 h-5 text-white" />}
+                      </div>
+                      <span className="text-[10px] text-gray-500">Message</span>
                     </button>
+
+                    {/* Gift */}
                     <button
                       onClick={() => setShowGiftPanel(true)}
-                      className="flex items-center justify-center gap-2 bg-rose-500 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-rose-600 transition"
+                      className="flex flex-col items-center gap-1 group"
                     >
-                      <Gift className="w-4 h-4" />
-                      Gift
+                      <div className="w-11 h-11 bg-rose-500 rounded-full flex items-center justify-center shadow-sm group-hover:bg-rose-600 transition">
+                        <Gift className="w-5 h-5 text-white" />
+                      </div>
+                      <span className="text-[10px] text-gray-500">Gift</span>
                     </button>
-                  </div>
 
-                  {/* Row 2: Follow + Friend */}
-                  <div className="grid grid-cols-2 gap-2">
+                    {/* Follow */}
                     <button
                       onClick={handleFollow}
                       disabled={followLoading}
-                      className={cn(
-                        'flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-50',
-                        isFollowing
-                          ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                          : 'bg-purple-600 text-white hover:bg-purple-700'
-                      )}
+                      className="flex flex-col items-center gap-1 group"
                     >
-                      {followLoading ? <Loader2 className="w-4 h-4 animate-spin" /> :
-                        isFollowing ? <UserMinus className="w-4 h-4" /> : <Users className="w-4 h-4" />}
-                      {isFollowing ? 'Unfollow' : 'Follow'}
+                      <div className={cn(
+                        'w-11 h-11 rounded-full flex items-center justify-center shadow-sm transition',
+                        isFollowing ? 'bg-gray-200' : 'bg-purple-600 group-hover:bg-purple-700'
+                      )}>
+                        {followLoading ? <Loader2 className="w-5 h-5 text-white animate-spin" /> :
+                          isFollowing ? <UserMinus className="w-5 h-5 text-gray-600" /> : <Users className="w-5 h-5 text-white" />}
+                      </div>
+                      <span className="text-[10px] text-gray-500">{isFollowing ? 'Unfollow' : 'Follow'}</span>
                     </button>
 
+                    {/* Add Friend */}
                     <button
                       onClick={() => {
                         if (friendStatus === 'none') handleFriendAction('send');
@@ -347,48 +352,52 @@ export default function UserProfilePage() {
                         else if (friendStatus === 'friends') handleFriendAction('unfriend');
                       }}
                       disabled={friendLoading}
-                      className={cn(
-                        'flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-50',
-                        friendStatus === 'friends' ? 'bg-green-100 text-green-700 hover:bg-green-200' :
-                        friendStatus === 'pending_sent' ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' :
-                        friendStatus === 'pending_received' ? 'bg-amber-500 text-white hover:bg-amber-600' :
-                        'bg-teal-600 text-white hover:bg-teal-700'
-                      )}
+                      className="flex flex-col items-center gap-1 group"
                     >
-                      {friendLoading ? <Loader2 className="w-4 h-4 animate-spin" /> :
-                        friendStatus === 'friends' ? <UserCheck className="w-4 h-4" /> :
-                        <UserPlus className="w-4 h-4" />}
-                      {friendStatus === 'friends' ? 'Friends' :
-                       friendStatus === 'pending_sent' ? 'Pending...' :
-                       friendStatus === 'pending_received' ? 'Accept' :
-                       'Add Friend'}
+                      <div className={cn(
+                        'w-11 h-11 rounded-full flex items-center justify-center shadow-sm transition',
+                        friendStatus === 'friends' ? 'bg-green-100' :
+                        friendStatus === 'pending_sent' ? 'bg-gray-200' :
+                        friendStatus === 'pending_received' ? 'bg-amber-500 group-hover:bg-amber-600' :
+                        'bg-teal-600 group-hover:bg-teal-700'
+                      )}>
+                        {friendLoading ? <Loader2 className="w-5 h-5 animate-spin text-white" /> :
+                          friendStatus === 'friends' ? <UserCheck className="w-5 h-5 text-green-600" /> :
+                          <UserPlus className="w-5 h-5 text-white" />}
+                      </div>
+                      <span className="text-[10px] text-gray-500">
+                        {friendStatus === 'friends' ? 'Friends' :
+                         friendStatus === 'pending_sent' ? 'Pending' :
+                         friendStatus === 'pending_received' ? 'Accept' : 'Add'}
+                      </span>
                     </button>
-                  </div>
 
-                  {/* Row 3: Room Entry + Track */}
-                  {activeRoom?.success && (
-                    <div className="grid grid-cols-2 gap-2">
-                      {activeRoom.is_owner && (
-                        <button
-                          onClick={() => navigate(`/room/${activeRoom.room_id}`)}
-                          className="flex items-center justify-center gap-2 bg-amber-500 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-amber-600 transition"
-                        >
-                          <Home className="w-4 h-4" />
-                          Enter Room
-                        </button>
-                      )}
+                    {/* Track */}
+                    {activeRoom?.success && (
                       <button
                         onClick={() => navigate(`/room/${activeRoom.room_id}`)}
-                        className={cn(
-                          'flex items-center justify-center gap-2 bg-cyan-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-cyan-700 transition',
-                          activeRoom.is_owner ? '' : 'col-span-2'
-                        )}
+                        className="flex flex-col items-center gap-1 group"
                       >
-                        <Navigation className="w-4 h-4" />
-                        Track
+                        <div className="w-11 h-11 bg-cyan-600 rounded-full flex items-center justify-center shadow-sm group-hover:bg-cyan-700 transition">
+                          <Navigation className="w-5 h-5 text-white" />
+                        </div>
+                        <span className="text-[10px] text-gray-500">Track</span>
                       </button>
-                    </div>
-                  )}
+                    )}
+
+                    {/* Enter Room */}
+                    {activeRoom?.success && activeRoom.is_owner && (
+                      <button
+                        onClick={() => navigate(`/room/${activeRoom.room_id}`)}
+                        className="flex flex-col items-center gap-1 group"
+                      >
+                        <div className="w-11 h-11 bg-amber-500 rounded-full flex items-center justify-center shadow-sm group-hover:bg-amber-600 transition">
+                          <Home className="w-5 h-5 text-white" />
+                        </div>
+                        <span className="text-[10px] text-gray-500">Room</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -410,7 +419,7 @@ export default function UserProfilePage() {
                   <div>
                     <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Gender</p>
                     <p className="text-sm font-semibold text-gray-800">
-                      {profile.gender === 'Male' ? '👨' : '👩'} {profile.gender}
+                      {profile.gender === 'Male' ? '👨' : profile.gender === 'Female' ? '👩' : '🧑'} {profile.gender}
                     </p>
                   </div>
                 )}
