@@ -7,19 +7,19 @@ const LEVEL_TIERS = [
     min: 1, max: 8,
     name: 'Novice',
     color: '#C0C0C0',
-    glow: 'rgba(192,192,192,0.3)',
-    bg: 'linear-gradient(135deg, #e8e8e8, #c0c0c0)',
-    border: '#a0a0a0',
-    textColor: '#666',
+    glow: 'rgba(192,192,192,0.6)',
+    bg: 'linear-gradient(135deg, #ffffff 0%, #e4e4e4 50%, #b5b5b5 100%)',
+    border: '#b5b5b5',
+    textColor: '#424242',
     icon: '🛡️',
   },
   {
     min: 9, max: 12,
     name: 'Bright Emerald',
     color: '#00C853',
-    glow: 'rgba(0,200,83,0.4)',
-    bg: 'linear-gradient(135deg, #69f0ae, #00c853)',
-    border: '#00C853',
+    glow: 'rgba(0,200,83,0.6)',
+    bg: 'linear-gradient(135deg, #b9f6ca 0%, #00e676 50%, #00a152 100%)',
+    border: '#00a152',
     textColor: '#fff',
     icon: '🛡️',
   },
@@ -27,9 +27,9 @@ const LEVEL_TIERS = [
     min: 13, max: 15,
     name: 'Dark Emerald',
     color: '#00701a',
-    glow: 'rgba(0,112,26,0.4)',
-    bg: 'linear-gradient(135deg, #00c853, #00701a)',
-    border: '#00701a',
+    glow: 'rgba(0,112,26,0.6)',
+    bg: 'linear-gradient(135deg, #00e676 0%, #00c853 50%, #00600f 100%)',
+    border: '#00600f',
     textColor: '#fff',
     icon: '🛡️',
   },
@@ -37,9 +37,9 @@ const LEVEL_TIERS = [
     min: 16, max: 20,
     name: 'Elite',
     color: '#1565C0',
-    glow: 'rgba(21,101,192,0.5)',
-    bg: 'linear-gradient(135deg, #42a5f5, #1565c0)',
-    border: '#1565C0',
+    glow: 'rgba(33,150,243,0.6)',
+    bg: 'linear-gradient(135deg, #90caf9 0%, #2196f3 50%, #0d47a1 100%)',
+    border: '#0d47a1',
     textColor: '#fff',
     icon: '💠',
   },
@@ -47,9 +47,9 @@ const LEVEL_TIERS = [
     min: 21, max: 30,
     name: 'Indigo',
     color: '#3949AB',
-    glow: 'rgba(57,73,171,0.5)',
-    bg: 'linear-gradient(135deg, #7986cb, #3949ab)',
-    border: '#3949AB',
+    glow: 'rgba(63,81,181,0.6)',
+    bg: 'linear-gradient(135deg, #9fa8da 0%, #3f51b5 50%, #1a237e 100%)',
+    border: '#1a237e',
     textColor: '#fff',
     icon: '🔷',
   },
@@ -57,9 +57,9 @@ const LEVEL_TIERS = [
     min: 31, max: 40,
     name: 'Purple',
     color: '#7B1FA2',
-    glow: 'rgba(123,31,162,0.5)',
-    bg: 'linear-gradient(135deg, #ce93d8, #7b1fa2)',
-    border: '#7B1FA2',
+    glow: 'rgba(156,39,176,0.6)',
+    bg: 'linear-gradient(135deg, #e1bee7 0%, #9c27b0 50%, #4a148c 100%)',
+    border: '#4a148c',
     textColor: '#fff',
     icon: '🔮',
   },
@@ -67,9 +67,9 @@ const LEVEL_TIERS = [
     min: 41, max: 50,
     name: 'Champion',
     color: '#E91E8C',
-    glow: 'rgba(233,30,140,0.5)',
-    bg: 'linear-gradient(135deg, #f48fb1, #e91e8c)',
-    border: '#E91E8C',
+    glow: 'rgba(233,30,99,0.6)',
+    bg: 'linear-gradient(135deg, #f8bbd0 0%, #e91e63 50%, #880e4f 100%)',
+    border: '#880e4f',
     textColor: '#fff',
     icon: '👑',
   },
@@ -77,9 +77,9 @@ const LEVEL_TIERS = [
     min: 51, max: 79,
     name: 'Turquoise',
     color: '#00897B',
-    glow: 'rgba(0,137,123,0.5)',
-    bg: 'linear-gradient(135deg, #80cbc4, #00897b)',
-    border: '#00897B',
+    glow: 'rgba(0,150,136,0.6)',
+    bg: 'linear-gradient(135deg, #b2dfdb 0%, #009688 50%, #004d40 100%)',
+    border: '#004d40',
     textColor: '#fff',
     icon: '💎',
   },
@@ -87,9 +87,9 @@ const LEVEL_TIERS = [
     min: 80, max: 100,
     name: 'Cyan',
     color: '#00B8D4',
-    glow: 'rgba(0,184,212,0.5)',
-    bg: 'linear-gradient(135deg, #80deea, #00b8d4)',
-    border: '#00B8D4',
+    glow: 'rgba(0,188,212,0.6)',
+    bg: 'linear-gradient(135deg, #b2ebf2 0%, #00bcd4 50%, #006064 100%)',
+    border: '#006064',
     textColor: '#fff',
     icon: '🔹',
   },
@@ -97,9 +97,9 @@ const LEVEL_TIERS = [
     min: 101, max: 150,
     name: 'Royal Violet',
     color: '#6A1B9A',
-    glow: 'rgba(106,27,154,0.6)',
-    bg: 'linear-gradient(135deg, #ab47bc, #6a1b9a)',
-    border: '#6A1B9A',
+    glow: 'rgba(103,58,183,0.7)',
+    bg: 'linear-gradient(135deg, #d1c4e9 0%, #673ab7 50%, #311b92 100%)',
+    border: '#311b92',
     textColor: '#fff',
     icon: '👑',
   },
@@ -107,9 +107,9 @@ const LEVEL_TIERS = [
     min: 151, max: 200,
     name: 'Immortal',
     color: '#B71C1C',
-    glow: 'rgba(183,28,28,0.6)',
-    bg: 'linear-gradient(135deg, #ef9a9a, #b71c1c)',
-    border: '#B71C1C',
+    glow: 'rgba(244,67,54,0.7)',
+    bg: 'linear-gradient(135deg, #ffcdd2 0%, #f44336 50%, #b71c1c 100%)',
+    border: '#b71c1c',
     textColor: '#fff',
     icon: '🔥',
   },
@@ -117,9 +117,9 @@ const LEVEL_TIERS = [
     min: 201, max: 300,
     name: 'Glowing Gemstones',
     color: '#FF6F00',
-    glow: 'rgba(255,111,0,0.6)',
-    bg: 'linear-gradient(135deg, #ffcc02, #ff6f00)',
-    border: '#FF6F00',
+    glow: 'rgba(255,152,0,0.7)',
+    bg: 'linear-gradient(135deg, #ffe082 0%, #ff9800 50%, #e65100 100%)',
+    border: '#e65100',
     textColor: '#fff',
     icon: '💠',
   },
@@ -127,10 +127,10 @@ const LEVEL_TIERS = [
     min: 301, max: Infinity,
     name: 'FAMO Emperor',
     color: '#FFD700',
-    glow: 'rgba(255,215,0,0.7)',
-    bg: 'linear-gradient(135deg, #fff176, #ffd700, #ff8f00)',
-    border: '#FFD700',
-    textColor: '#7a5800',
+    glow: 'rgba(255,193,7,0.8)',
+    bg: 'linear-gradient(135deg, #fff9c4 0%, #ffc107 40%, #ff8f00 100%)',
+    border: '#ff8f00',
+    textColor: '#5c4000',
     icon: '👑',
   },
 ];
@@ -145,34 +145,43 @@ export default function LevelBadge({ level, size = 'md', showName = false, class
   const tier = getLevelTier(level);
 
   const sizes = {
-    xs: { badge: 'px-1.5 py-0.5 text-[10px]', icon: 'text-[10px]' },
-    sm: { badge: 'px-2 py-0.5 text-xs', icon: 'text-xs' },
-    md: { badge: 'px-2.5 py-1 text-sm', icon: 'text-sm' },
-    lg: { badge: 'px-3 py-1.5 text-base', icon: 'text-base' },
-    xl: { badge: 'px-4 py-2 text-lg', icon: 'text-lg' },
+    xs: { badge: 'px-2 py-0.5 text-[10px]', icon: 'text-[10px]' },
+    sm: { badge: 'px-2.5 py-0.5 text-xs', icon: 'text-xs' },
+    md: { badge: 'px-3 py-1 text-sm', icon: 'text-sm' },
+    lg: { badge: 'px-4 py-1.5 text-base', icon: 'text-base' },
+    xl: { badge: 'px-5 py-2 text-lg', icon: 'text-lg' },
   };
 
   const s = sizes[size] || sizes.md;
 
   return (
-    <div className={cn('inline-flex flex-col items-center gap-0.5', className)}>
+    <div className={cn('inline-flex flex-col items-center gap-1', className)}>
       <div
         className={cn(
-          'inline-flex items-center gap-1 rounded-full font-bold select-none',
+          'inline-flex items-center gap-1.5 rounded-full font-extrabold select-none transition-all duration-300 hover:scale-105 hover:brightness-110',
           s.badge
         )}
         style={{
           background: tier.bg,
-          border: `1.5px solid ${tier.border}`,
+          border: `1px solid ${tier.border}`,
           color: tier.textColor,
-          boxShadow: `0 0 8px ${tier.glow}, 0 2px 4px rgba(0,0,0,0.2)`,
+          textShadow: tier.textColor === '#fff' ? '0 1px 2px rgba(0,0,0,0.5)' : '0 1px 1px rgba(255,255,255,0.6)',
+          boxShadow: `
+            0 0 10px ${tier.glow}, 
+            0 0 20px ${tier.glow}, 
+            inset 0 2px 4px rgba(255,255,255,0.6), 
+            inset 0 -2px 4px rgba(0,0,0,0.25), 
+            0 3px 6px rgba(0,0,0,0.3)
+          `,
         }}
       >
-        <span className={s.icon}>{tier.icon}</span>
-        <span>{level}</span>
+        <span className={cn(s.icon, "drop-shadow-md")}>{tier.icon}</span>
+        <span className="tracking-wide">{level}</span>
       </div>
       {showName && (
-        <span className="text-[10px] text-gray-400 font-medium">{tier.name}</span>
+        <span className="text-[11px] text-gray-500 dark:text-gray-400 font-bold tracking-wider uppercase drop-shadow-sm">
+          {tier.name}
+        </span>
       )}
     </div>
   );
