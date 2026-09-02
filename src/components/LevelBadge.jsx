@@ -4,111 +4,147 @@ import { cn } from '@/lib/utils';
 // Custom SVG Icons designed to match the FAMO Level Badge Evolution
 const Icons = {
   Novice: (props) => (
-    <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
-      <path d="M12 2L4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5l-8-3z" />
-      <path d="M12 2v20c4.59-1.15 8-5.86 8-10.91V5l-8-3z" fill="rgba(255,255,255,0.2)" />
+    <svg viewBox="0 0 24 24" fill="none" {...props}>
+      <path d="M12 2L4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5l-8-3z" fill="#E5E7EB" />
+      <path d="M12 2v20c4.59-1.15 8-5.86 8-10.91V5l-8-3z" fill="#D1D5DB" />
+      <path d="M12 4.5L5.5 6.5v4.5c0 3.5 2.5 6.5 6.5 7.5 4-.1 6.5-3.1 6.5-7.5v-4.5L12 4.5z" fill="#F3F4F6" />
+      <path d="M12 4.5v15c4-.1 6.5-3.1 6.5-7.5v-4.5L12 4.5z" fill="#FFFFFF" />
     </svg>
   ),
   BrightEmerald: (props) => (
-    <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
-      <path d="M12 2L4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5l-8-3z" />
-      <path d="M12 2v20c4.59-1.15 8-5.86 8-10.91V5l-8-3z" fill="rgba(255,255,255,0.15)" />
-      <path d="M12 5.5l-5.5 2v4.5c0 3.5 2.5 6.5 5.5 7.5 3-.1 5.5-3.1 5.5-7.5v-4.5l-5.5-2z" fill="rgba(255,255,255,0.25)" />
+    <svg viewBox="0 0 24 24" fill="none" {...props}>
+      <path d="M12 2L4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5l-8-3z" fill="#10B981" />
+      <path d="M12 2v20c4.59-1.15 8-5.86 8-10.91V5l-8-3z" fill="#059669" />
+      <path d="M12 4.5L5.5 6.5v4.5c0 3.5 2.5 6.5 6.5 7.5 4-.1 6.5-3.1 6.5-7.5v-4.5L12 4.5z" fill="#34D399" />
+      <path d="M12 4.5v15c4-.1 6.5-3.1 6.5-7.5v-4.5L12 4.5z" fill="#6EE7B7" />
     </svg>
   ),
   DarkEmerald: (props) => (
-    <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
-      <path d="M12 2L4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5l-8-3z" />
-      <path d="M12 2v20c4.59-1.15 8-5.86 8-10.91V5l-8-3z" fill="rgba(255,255,255,0.15)" />
-      <path d="M12 5.5l-5.5 2v4.5c0 3.5 2.5 6.5 5.5 7.5 3-.1 5.5-3.1 5.5-7.5v-4.5l-5.5-2z" fill="rgba(255,255,255,0.2)" />
-      <g fill="#fff">
-        <path d="M9 9.5l.5 1.5h1.5l-1.2 1 .5 1.5-1.3-1-1.3 1 .5-1.5-1.2-1h1.5z" />
-        <path d="M15 9.5l.5 1.5h1.5l-1.2 1 .5 1.5-1.3-1-1.3 1 .5-1.5-1.2-1h1.5z" />
-        <path d="M12 13l.5 1.5h1.5l-1.2 1 .5 1.5-1.3-1-1.3 1 .5-1.5-1.2-1h1.5z" />
+    <svg viewBox="0 0 24 24" fill="none" {...props}>
+      <path d="M12 2L4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5l-8-3z" fill="#065F46" />
+      <path d="M12 2v20c4.59-1.15 8-5.86 8-10.91V5l-8-3z" fill="#064E3B" />
+      <path d="M12 4.5L5.5 6.5v4.5c0 3.5 2.5 6.5 6.5 7.5 4-.1 6.5-3.1 6.5-7.5v-4.5L12 4.5z" fill="#059669" />
+      <path d="M12 4.5v15c4-.1 6.5-3.1 6.5-7.5v-4.5L12 4.5z" fill="#10B981" />
+      <g fill="#FCD34D">
+        <path d="M12 14.5l.9 2.7 2.8.1-2.2 1.7.8 2.7-2.3-1.8-2.3 1.8.8-2.7-2.2-1.7 2.8-.1z" />
+        <path d="M7.5 13l.7 2 2.1.1-1.7 1.3.6 2.1-1.7-1.4-1.7 1.4.6-2.1-1.7-1.3 2.1-.1z" />
+        <path d="M16.5 13l.7 2 2.1.1-1.7 1.3.6 2.1-1.7-1.4-1.7 1.4.6-2.1-1.7-1.3 2.1-.1z" />
       </g>
     </svg>
   ),
   Elite: (props) => (
-    <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
-      <path d="M12 2L4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5l-8-3z" />
-      <path d="M12 2v20c4.59-1.15 8-5.86 8-10.91V5l-8-3z" fill="rgba(255,255,255,0.2)" />
-      <path d="M12 6l-3 4 3 6 3-6-3-4z" fill="#fff" opacity="0.9" />
+    <svg viewBox="0 0 24 24" fill="none" {...props}>
+      <path d="M2 8l2-2v8l-2-2zM22 8l-2-2v8l2-2z" fill="#60A5FA" />
+      <path d="M12 1L4 4v7c0 5 4 9 8 11 4-2 8-6 8-11V4l-8-3z" fill="#2563EB" />
+      <path d="M12 1v21c4-2 8-6 8-11V4l-8-3z" fill="#1D4ED8" />
+      <path d="M12 6l-3 4 3 5 3-5-3-4z" fill="#BFDBFE" />
+      <path d="M12 6v9l3-5-3-4z" fill="#DBEAFE" />
     </svg>
   ),
   Indigo: (props) => (
-    <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
-      <path d="M6 10c-3 0-5 3-5 3 1.5-1.5 3-1.5 5-1.5V10zM18 10c3 0 5 3 5 3-1.5-1.5-3-1.5-5-1.5V10z" fill="#fff" opacity="0.6"/>
-      <path d="M12 3L5 5.5v5.5c0 4.5 3 8.5 7 10 4-1.5 7-5.5 7-10V5.5L12 3z" />
-      <path d="M12 3v21c4-1.5 7-5.5 7-10V5.5L12 3z" fill="rgba(255,255,255,0.2)" />
-      <path d="M12 8l-2 3 2 4 2-4-2-3z" fill="#fff" opacity="0.9" />
+    <svg viewBox="0 0 24 24" fill="none" {...props}>
+      <path d="M7 8c-3-1-5 2-5 2 1.5-2.5 4-3 6-1.5V8zM17 8c3-1 5 2 5 2-1.5-2.5-4-3-6-1.5V8z" fill="#818CF8"/>
+      <path d="M6 11c-2.5-.5-4 2-4 2 1-2 3-2 5-1v-1zM18 11c2.5-.5 4 2 4 2-1-2-3-2-5-1v-1z" fill="#6366F1"/>
+      <path d="M6 14c-2 0-3 2-3 2 1-1.5 2.5-1.5 4-.5v-1.5zM18 14c2 0 3 2 3 2-1-1.5-2.5-1.5-4-.5v-1.5z" fill="#4F46E5"/>
+      <path d="M12 3L5 5.5v5.5c0 4.5 3 8.5 7 10 4-1.5 7-5.5 7-10V5.5L12 3z" fill="#312E81" />
+      <path d="M12 3v21c4-1.5 7-5.5 7-10V5.5L12 3z" fill="#1E1B4B" />
+      <path d="M12 8l-2 3 2 4 2-4-2-3z" fill="#A5B4FC" />
+      <path d="M12 8v7l2-4-2-3z" fill="#E0E7FF" />
     </svg>
   ),
   Purple: (props) => (
-    <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
-      <path d="M7 9c-4-1-6 4-6 4 2-2 4-2 6-1V9zM17 9c4-1 6 4 6 4-2-2-4-2-6-1V9z" fill="#fff" opacity="0.7"/>
-      <path d="M7 13c-3-1-5 2-5 2 1.5-1.5 3-1.5 5-.5V13zM17 13c3-1 5 2 5 2-1.5-1.5-3-1.5-5-.5V13z" fill="#fff" opacity="0.5"/>
-      <path d="M12 3L5 5.5v5.5c0 4.5 3 8.5 7 10 4-1.5 7-5.5 7-10V5.5L12 3z" />
-      <path d="M12 3v21c4-1.5 7-5.5 7-10V5.5L12 3z" fill="rgba(255,255,255,0.2)" />
-      <path d="M12 7l-2.5 3.5 2.5 5 2.5-5L12 7z" fill="#fff" opacity="0.9" />
+    <svg viewBox="0 0 24 24" fill="none" {...props}>
+      <path d="M9 10C4 8 1 12 1 12c2-4 6-5 9-2v-2zM15 10c5-2 8 2 8 2-2-4-6-5-9-2v-2z" fill="#C084FC"/>
+      <path d="M8 13c-4-1-6 3-6 3 1.5-3 5-3 7-1v-2zM16 13c4-1 6 3 6 3-1.5-3-5-3-7-1v-2z" fill="#A855F7"/>
+      <path d="M8 16c-3 0-5 2-5 2 1-2 4-2 6-.5v-1.5zM16 16c3 0 5 2 5 2-1-2-4-2-6-.5v-1.5z" fill="#9333EA"/>
+      <path d="M12 3l-4 6 4 11 4-11-4-6z" fill="#7E22CE" />
+      <path d="M12 3v17l4-11-4-6z" fill="#6B21A8" />
+      <path d="M12 5l-2 4 2 6 2-6-2-4z" fill="#E9D5FF" />
+      <path d="M12 5v10l2-6-2-4z" fill="#F3E8FF" />
     </svg>
   ),
   Champion: (props) => (
-    <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
-      <path d="M12 2L4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5l-8-3z" />
-      <path d="M12 2v20c4.59-1.15 8-5.86 8-10.91V5l-8-3z" fill="rgba(255,255,255,0.2)" />
-      <path d="M12 5l1 2.5 2.5 1-2.5 1-1 2.5-1-2.5-2.5-1 2.5-1L12 5z" fill="#fff" />
-      <path d="M12 13l1.5 1.5L15 13l-1.5-1.5L12 13z" fill="#fff" opacity="0.9" />
-      <path d="M12 16l1 1 1.5-1-1-1L12 16z" fill="#fff" opacity="0.7" />
+    <svg viewBox="0 0 24 24" fill="none" {...props}>
+      <path d="M12 1L3 4v7c0 5.5 4 10 9 12 5-2 9-6.5 9-12V4l-9-3z" fill="#FBBF24" />
+      <path d="M12 1v22c5-2 9-6.5 9-12V4l-9-3z" fill="#F59E0B" />
+      <path d="M12 3L5 5.5v5.5c0 4.5 3 8.5 7 10 4-1.5 7-5.5 7-10V5.5L12 3z" fill="#DB2777" />
+      <path d="M12 3v21c4-1.5 7-5.5 7-10V5.5L12 3z" fill="#BE185D" />
+      <path d="M12 1l-2 2h4l-2-2z" fill="#FDE68A" />
+      <path d="M7 3l-1 2h2L7 3zM17 3l1 2h-2l1-2z" fill="#FDE68A" />
+      <path d="M12 7l-2.5 3.5 2.5 5 2.5-5L12 7z" fill="#FBCFE8" />
+      <path d="M12 7v8.5l2.5-5L12 7z" fill="#FDF2F8" />
     </svg>
   ),
   Turquoise: (props) => (
-    <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
-      <path d="M8 10c-3-1-6 3-6 3 2-2 4-2 6-1V10zM16 10c3-1 6 3 6 3-2-2-4-2-6-1V10z" fill="#fff" opacity="0.7"/>
-      <path d="M12 2L3 10l9 12 9-12L12 2z" />
-      <path d="M12 2v20l9-12L12 2z" fill="rgba(255,255,255,0.2)" />
-      <path d="M12 6l-4 5 4 7 4-7-4-5z" fill="#fff" opacity="0.8" />
+    <svg viewBox="0 0 24 24" fill="none" {...props}>
+      <path d="M6 8c-3-1-5 2-5 2 1.5-2.5 4-3 6-1.5V8zM18 8c3-1 5 2 5 2-1.5-2.5-4-3-6-1.5V8z" fill="#5EEAD4"/>
+      <path d="M5 11c-2.5-.5-4 2-4 2 1-2 3-2 5-1v-1zM19 11c2.5-.5 4 2 4 2-1-2-3-2-5-1v-1z" fill="#2DD4BF"/>
+      <path d="M12 2L4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5l-8-3z" fill="#0D9488" />
+      <path d="M12 2v20c4.59-1.15 8-5.86 8-10.91V5l-8-3z" fill="#0F766E" />
+      <path d="M12 6l-3 3 3 5 3-5-3-3z" fill="#CCFBF1" />
+      <path d="M12 6v8l3-5-3-3z" fill="#F0FDFA" />
     </svg>
   ),
   Cyan: (props) => (
-    <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
-      <path d="M12 0l2 4 4 2-4 2-2 4-2-4-4-2 4-2 2-4z" fill="#fff" opacity="0.4" />
-      <path d="M12 3L4 11l8 10 8-10L12 3z" />
-      <path d="M12 3v20l8-10L12 3z" fill="rgba(255,255,255,0.2)" />
-      <path d="M12 7l-3 4 3 5 3-5-3-4z" fill="#fff" opacity="0.9" />
+    <svg viewBox="0 0 24 24" fill="none" {...props}>
+      <path d="M12 0l1 3 3-1-2 3 4 1-3 2 3 3-4-1 2 4-3-2-1 3-1-3-3 2 2-4-4 1 3-3-3-2 4-1-2-3 3 1 1-3z" fill="#A5F3FC" />
+      <path d="M12 3L4 6v6c0 4.5 3 8.5 8 10 5-1.5 8-5.5 8-10V6l-8-3z" fill="#0891B2" />
+      <path d="M12 3v22c5-1.5 8-5.5 8-10V6l-8-3z" fill="#0E7490" />
+      <path d="M12 7l-3 4 3 5 3-5-3-4z" fill="#CFFAFE" />
+      <path d="M12 7v9l3-5-3-4z" fill="#ECFEFF" />
     </svg>
   ),
   RoyalViolet: (props) => (
-    <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
+    <svg viewBox="0 0 24 24" fill="none" {...props}>
+      <path d="M7 9c-3-1-5 2-5 2 1.5-2.5 4-3 6-1.5V9zM17 9c3-1 5 2 5 2-1.5-2.5-4-3-6-1.5V9z" fill="#D8B4FE"/>
+      <path d="M6 12c-2.5-.5-4 2-4 2 1-2 3-2 5-1v-1zM18 12c2.5-.5 4 2 4 2-1-2-3-2-5-1v-1z" fill="#C084FC"/>
       <path d="M8 5l2-3 2 1.5L14 2l2 3H8z" fill="#FBBF24" />
-      <path d="M12 6L4 8.5v5.5c0 4.5 3 8.5 7 10 4-1.5 7-5.5 7-10V8.5L12 6z" />
-      <path d="M12 6v21c4-1.5 7-5.5 7-10V8.5L12 6z" fill="rgba(255,255,255,0.2)" />
-      <path d="M12 10l-2 3 2 4 2-4-2-3z" fill="#fff" opacity="0.9" />
+      <path d="M12 6L4 8.5v5.5c0 4.5 3 8.5 7 10 4-1.5 7-5.5 7-10V8.5L12 6z" fill="#7E22CE" />
+      <path d="M12 6v21c4-1.5 7-5.5 7-10V8.5L12 6z" fill="#6B21A8" />
+      <path d="M12 10l-2 3 2 4 2-4-2-3z" fill="#F3E8FF" />
+      <path d="M12 10v7l2-4-2-3z" fill="#FAF5FF" />
     </svg>
   ),
   Immortal: (props) => (
-    <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
-      <path d="M12 1c-1.5 0-3 3-3 5 0 1 .5 2 1 3-1-1-1-2.5 0-3.5 1 2 2 3 1 5 2-1 3-2.5 3-4.5 0-2.5-1.5-5-2-5z" fill="#FBBF24" opacity="0.8" />
-      <path d="M12 5L4 7.5v5.5c0 4.5 3 8.5 7 10 4-1.5 7-5.5 7-10V7.5L12 5z" />
-      <path d="M12 5v21c4-1.5 7-5.5 7-10V7.5L12 5z" fill="rgba(255,255,255,0.2)" />
-      <path d="M12 9l-2 3 2 4 2-4-2-3z" fill="#fff" opacity="0.9" />
+    <svg viewBox="0 0 24 24" fill="none" {...props}>
+      <path d="M7 8c-4-2-6 2-6 2 2-3 5-3 7-1V8zM17 8c4-2 6 2 6 2-2-3-5-3-7-1V8z" fill="#FCA5A5"/>
+      <path d="M6 11c-3-1-5 2-5 2 1.5-2.5 4-2.5 6-1v-1zM18 11c3-1 5 2 5 2-1.5-2.5-4-2.5-6-1v-1z" fill="#F87171"/>
+      <path d="M6 14c-2 0-4 2-4 2 1-2 3-2 5-.5v-1.5zM18 14c2 0 4 2 4 2-1-2-3-2-5-.5v-1.5z" fill="#EF4444"/>
+      <path d="M7 4l2.5-3 2.5 2 2.5-2L17 4H7z" fill="#FBBF24" />
+      <path d="M12 5L4 7.5v5.5c0 4.5 3 8.5 7 10 4-1.5 7-5.5 7-10V7.5L12 5z" fill="#B91C1C" />
+      <path d="M12 5v21c4-1.5 7-5.5 7-10V7.5L12 5z" fill="#991B1B" />
+      <path d="M12 9l-2.5 3.5 2.5 4.5 2.5-4.5L12 9z" fill="#FEE2E2" />
+      <path d="M12 9v8l2.5-4.5L12 9z" fill="#FEF2F2" />
     </svg>
   ),
   GlowingGemstones: (props) => (
-    <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
-      <path d="M6 15c-2-3-1-6 0-7 1-1 2-1 2-1s-1 1-1 2c-1 2-1 4 0 6 1 1 2 1 2 1s-1 0-2-1zM18 15c2-3 1-6 0-7-1-1-2-1-2-1s1 1 1 2c1 2 1 4 0 6-1 1-2 1-2 1s1 0 2-1z" fill="#FBBF24" />
-      <path d="M12 4L4 6.5v5.5c0 4.5 3 8.5 7 10 4-1.5 7-5.5 7-10V6.5L12 4z" />
-      <path d="M12 4v21c4-1.5 7-5.5 7-10V6.5L12 4z" fill="rgba(255,255,255,0.2)" />
-      <path d="M12 9l-2 3 2 4 2-4-2-3z" fill="#fff" opacity="0.9" />
+    <svg viewBox="0 0 24 24" fill="none" {...props}>
+      <path d="M6 18c-1-1-2-3-2-5 0-1 1-2 1-2s-1 1-1 3c0 2 1 4 2 5 1 1 2 1 2 1s-1 0-2-2z" fill="#F59E0B"/>
+      <path d="M4 14c-1-1-1-3 0-4 0-1 1-2 1-2s-1 1-1 2c-1 2 0 4 1 5 1 1 1 1 1 1s-1 0-2-2z" fill="#F59E0B"/>
+      <path d="M3 10c0-1 0-2 1-3 1-1 2-1 2-1s-1 1-2 2c-1 1-1 2-1 3 0 1 1 1 1 1s-1 0-1-2z" fill="#F59E0B"/>
+      <path d="M18 18c1-1 2-3 2-5 0-1-1-2-1-2s1 1 1 3c0 2-1 4-2 5-1 1-2 1-2 1s1 0 2-2z" fill="#F59E0B"/>
+      <path d="M20 14c1-1 1-3 0-4 0-1-1-2-1-2s1 1 1 2c1 2 0 4-1 5-1 1-1 1-1 1s1 0 2-2z" fill="#F59E0B"/>
+      <path d="M21 10c0-1 0-2-1-3-1-1-2-1-2-1s1 1 2 2c1 1 1 2 1 3 0 1-1 1-1 1s1 0 1-2z" fill="#F59E0B"/>
+      <path d="M12 2L5 5v6c0 4.5 3 8.5 7 10 4-1.5 7-5.5 7-10V5L12 2z" fill="#D97706" />
+      <path d="M12 2v21c4-1.5 7-5.5 7-10V5L12 2z" fill="#B45309" />
+      <path d="M12 7l-2 3 2 4 2-4-2-3z" fill="#FEF3C7" />
+      <path d="M12 7v7l2-4-2-3z" fill="#FFFBEB" />
     </svg>
   ),
   Emperor: (props) => (
-    <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
-      <path d="M4 10c-3-2-4 3-4 3 1.5-3 4-3 6-1V10zM20 10c3-2 4 3 4 3-1.5-3-4-3-6-1V10z" fill="#FBBF24" opacity="0.9"/>
-      <path d="M4 14c-2-1-3 2-3 2 1-2 3-2 5-.5V14zM20 14c2-1 3 2 3 2-1-2-3-2-5-.5V14z" fill="#FBBF24" opacity="0.7"/>
-      <path d="M9 3l1.5-2 1.5 1.5L13.5 1 15 3H9z" fill="#FBBF24" />
-      <path d="M12 4L4 6.5v5.5c0 4.5 3 8.5 7 10 4-1.5 7-5.5 7-10V6.5L12 4z" />
-      <path d="M12 4v21c4-1.5 7-5.5 7-10V6.5L12 4z" fill="rgba(255,255,255,0.2)" />
-      <path d="M12 8l-2.5 3.5 2.5 4.5 2.5-4.5L12 8z" fill="#fff" opacity="0.9" />
+    <svg viewBox="0 0 24 24" fill="none" {...props}>
+      <path d="M6 7c-4-2-6 3-6 3 2-4 6-4 8-2V7zM18 7c4-2 6 3 6 3-2-4-6-4-8-2V7z" fill="#FDE68A"/>
+      <path d="M5 10c-3-1-5 3-5 3 1.5-3.5 5-3.5 7-1.5v-1.5zM19 10c3-1 5 3 5 3-1.5-3.5-5-3.5-7-1.5v-1.5z" fill="#FCD34D"/>
+      <path d="M5 13c-2-1-4 2-4 2 1-2.5 4-2.5 6-1v-1zM19 13c2-1 4 2 4 2-1-2.5-4-2.5-6-1v-1z" fill="#FBBF24"/>
+      <path d="M6 16c-2 0-3 2-3 2 1-2 3-2 5-.5v-1.5zM18 16c2 0 3 2 3 2-1-2-3-2-5-.5v-1.5z" fill="#F59E0B"/>
+      <path d="M8 3l2-2.5 2 1.5 2-1.5 2 2.5H8z" fill="#F59E0B" />
+      <circle cx="8" cy="2.5" r="0.5" fill="#F59E0B" />
+      <circle cx="12" cy="0.5" r="0.5" fill="#F59E0B" />
+      <circle cx="16" cy="2.5" r="0.5" fill="#F59E0B" />
+      <path d="M12 4L4 6.5v5.5c0 4.5 3 8.5 7 10 4-1.5 7-5.5 7-10V6.5L12 4z" fill="#D97706" />
+      <path d="M12 4v21c4-1.5 7-5.5 7-10V6.5L12 4z" fill="#B45309" />
+      <path d="M12 8l-2.5 3.5 2.5 4.5 2.5-4.5L12 8z" fill="#FEF3C7" />
+      <path d="M12 8v8l2.5-4.5L12 8z" fill="#FFFBEB" />
     </svg>
   ),
 };
