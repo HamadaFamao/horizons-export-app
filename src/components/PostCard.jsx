@@ -121,8 +121,9 @@ export default function PostCard({ post, currentUserId, onUpdate }) {
       setPlaying(true);
       if (!viewed) {
         setViewed(true);
-        await supabase.rpc('increment_post_view', { p_post_id: post.id }).catch(() => {});
-        setViewCount(prev => prev + 1);
+        const { error: viewErr } = await supabase.rpc('increment_post_view', { p_post_id: post.id });
+        console.log('[VIEW_COUNT]', { post_id: post.id, error: viewErr });
+        if (!viewErr) setViewCount(prev => prev + 1);
       }
     } else {
       videoRef.current?.pause();
