@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/contexts/AuthContext';
-import { Bell, UserPlus, Heart, MessageCircle, Bookmark, Gift, Users, UserCheck } from 'lucide-react';
+import { Bell, UserPlus, Heart, MessageCircle, Bookmark, Gift, Users, UserCheck, Share2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -13,6 +13,7 @@ const NOTIFICATION_ICONS = {
   post_like: { icon: Heart, color: 'text-rose-500', bg: 'bg-rose-50' },
   post_comment: { icon: MessageCircle, color: 'text-blue-500', bg: 'bg-blue-50' },
   post_save: { icon: Bookmark, color: 'text-indigo-500', bg: 'bg-indigo-50' },
+  post_repost: { icon: Share2, color: 'text-green-500', bg: 'bg-green-50' },
   post_gift: { icon: Gift, color: 'text-purple-500', bg: 'bg-purple-50' },
   comment_reply: { icon: MessageCircle, color: 'text-green-500', bg: 'bg-green-50' },
   gift_received: { icon: Gift, color: 'text-amber-500', bg: 'bg-amber-50' },
@@ -25,6 +26,7 @@ const NOTIFICATION_MESSAGES = {
   post_like: (name) => `${name} liked your post`,
   post_comment: (name) => `${name} commented on your post`,
   post_save: (name) => `${name} saved your post`,
+  post_repost: (name) => `${name} reposted your post`,
   post_gift: (name) => `${name} sent a gift on your video`,
   comment_reply: (name) => `${name} replied to your comment`,
   gift_received: (name) => `${name} sent you a gift`,
@@ -112,9 +114,13 @@ export default function NotificationBell({ className }) {
 
   const handleNotificationClick = (notif) => {
     setOpen(false);
+
     if (notif.entity_type === 'post' && notif.entity_id) {
       navigate(`/post/${notif.entity_id}`);
-    } else if (notif.actor_profile_id) {
+      return;
+    }
+
+    if (notif.actor_profile_id) {
       navigate(`/user/${notif.actor_profile_id}`);
     }
   };

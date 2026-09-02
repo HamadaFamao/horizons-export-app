@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabaseClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +19,7 @@ import {
 } from '@/components/ui/select';
 
 export default function AdminReports() {
+  const navigate = useNavigate();
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(0);
@@ -30,6 +32,9 @@ export default function AdminReports() {
   const [managingReport, setManagingReport] = useState(null);
   const [adminNote, setAdminNote] = useState('');
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [activeTab, setActiveTab] = useState('users'); // 'users' | 'content'
+  const [postReports, setPostReports] = useState([]);
+  const [loadingPostReports, setLoadingPostReports] = useState(false);
 
   const { staffRole } = useAdminPermissions();
   const { toast } = useToast();
@@ -120,6 +125,28 @@ export default function AdminReports() {
     }
   };
 
+  const fetchPostReports = async () => {
+    setLoadingPostReports(true);
+    try {
+      const { data, error } = await supabase
+        .from('post_reports')
+        .select(`
+          id, reason, created_at, post_id,
+          reporter:reporter_id (name, profile_id),
+          post:post_id (type, caption, media_url, user_id,
+            author:user_id (name, profile_id))
+        `)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      setPostReports(data || []);
+    } catch (e) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } finally {
+      setLoadingPostReports(false);
+    }
+  };
+
   useEffect(() => {
     setPage(0);
     fetchReports(0);
@@ -129,6 +156,10 @@ export default function AdminReports() {
     if (page === 0 && (statusFilter !== 'All' || searchTerm)) return;
     fetchReports(page);
   }, [page]);
+
+  useEffect(() => {
+    if (activeTab === 'content') fetchPostReports();
+  }, [activeTab]);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -243,90 +274,116 @@ export default function AdminReports() {
         </Select>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-lg shadow-md overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Reporter</TableHead>
-              <TableHead>Reported User/Room</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Reason</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center">
-                  <Loader2 className="mx-auto animate-spin" />
-                </TableCell>
-              </TableRow>
-            ) : reports.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center p-4 text-gray-500">
-                  No reports found.
-                </TableCell>
-              </TableRow>
-            ) : (
-              reports.map((report) => (
-                <TableRow key={report.id}>
-                  <TableCell className="font-medium">
-                    {report.reporter?.name || 'Unknown'} (#{report.reporter_id?.slice(0, 8)})
-                  </TableCell>
-                  <TableCell>
-                    {report.reported_user?.name || report.reported_room?.title || 'Unknown'} (#{report.reported_user?.profile_id || report.reported_room?.public_room_id || '—'})
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-xs font-semibold bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                      {report.report_type || 'N/A'}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-sm">{report.reason}</TableCell>
-                  <TableCell>
-                    {report.status === 'pending' && (
-                      <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
-                        Pending
-                      </span>
-                    )}
-                    {report.status === 'reviewed' && (
-                      <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
-                        Reviewed
-                      </span>
-                    )}
-                    {report.status === 'resolved' && (
-                      <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full">
-                        Resolved
-                      </span>
-                    )}
-                    {report.status === 'dismissed' && (
-                      <span className="text-xs font-bold text-gray-600 bg-gray-50 px-2 py-1 rounded-full">
-                        Dismissed
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-xs text-gray-500">
-                    {new Date(report.created_at).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleReviewReport(report)}
-                    >
-                      Review
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+      {/* Tabs */}
+      <div className="flex gap-2 border-b pb-2 mb-4">
+        <Button
+          variant={activeTab === 'users' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => setActiveTab('users')}
+        >
+          👤 User & Room Reports
+        </Button>
+        <Button
+          variant={activeTab === 'content' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => setActiveTab('content')}
+          className="relative"
+        >
+          📝 Content Reports
+          {postReports.filter(r => !r.reviewed).length > 0 && (
+            <span className="ml-2 bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+              {postReports.length}
+            </span>
+          )}
+        </Button>
       </div>
 
-      {/* Pagination */}
+      {activeTab === 'users' && (
+        <>
+          {/* Table */}
+          <div className="bg-white rounded-lg shadow-md overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Reporter</TableHead>
+                  <TableHead>Reported User/Room</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Reason</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center">
+                      <Loader2 className="mx-auto animate-spin" />
+                    </TableCell>
+                  </TableRow>
+                ) : reports.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center p-4 text-gray-500">
+                      No reports found.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  reports.map((report) => (
+                    <TableRow key={report.id}>
+                      <TableCell className="font-medium">
+                        {report.reporter?.name || 'Unknown'} (#{report.reporter_id?.slice(0, 8)})
+                      </TableCell>
+                      <TableCell>
+                        {report.reported_user?.name || report.reported_room?.title || 'Unknown'} (#{report.reported_user?.profile_id || report.reported_room?.public_room_id || '—'})
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-xs font-semibold bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                          {report.report_type || 'N/A'}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-sm">{report.reason}</TableCell>
+                      <TableCell>
+                        {report.status === 'pending' && (
+                          <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
+                            Pending
+                          </span>
+                        )}
+                        {report.status === 'reviewed' && (
+                          <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
+                            Reviewed
+                          </span>
+                        )}
+                        {report.status === 'resolved' && (
+                          <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full">
+                            Resolved
+                          </span>
+                        )}
+                        {report.status === 'dismissed' && (
+                          <span className="text-xs font-bold text-gray-600 bg-gray-50 px-2 py-1 rounded-full">
+                            Dismissed
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-xs text-gray-500">
+                        {new Date(report.created_at).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleReviewReport(report)}
+                        >
+                          Review
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Pagination */}
       <div className="flex items-center justify-between mt-4 px-2">
         <span className="text-sm text-slate-500">
           Showing {Math.min(page * PAGE_SIZE + 1, totalCount)}–{Math.min((page + 1) * PAGE_SIZE, totalCount)} of {totalCount} reports
@@ -357,6 +414,110 @@ export default function AdminReports() {
           </Button>
         </div>
       </div>
+
+      {activeTab === 'content' && (
+        <div>
+          {loadingPostReports ? (
+            <div className="py-8 text-center">
+              <Loader2 className="w-6 h-6 animate-spin mx-auto text-rose-400" />
+            </div>
+          ) : postReports.length === 0 ? (
+            <div className="py-8 text-center text-gray-400">No content reports</div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Reporter</TableHead>
+                  <TableHead>Post Author</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Reason</TableHead>
+                  <TableHead>Content</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {postReports.map(r => (
+                  <TableRow key={r.id}>
+                    <TableCell>
+                      <span className="text-xs text-blue-600 font-medium">
+                        {r.reporter?.name || '—'}
+                        {r.reporter?.profile_id && ` #${r.reporter.profile_id}`}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-xs text-purple-600 font-medium">
+                        {r.post?.author?.name || '—'}
+                        {r.post?.author?.profile_id && ` #${r.post.author.profile_id}`}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                        r.post?.type === 'video' ? 'bg-purple-100 text-purple-700' :
+                        r.post?.type === 'photo' ? 'bg-blue-100 text-blue-700' :
+                        'bg-gray-100 text-gray-700'
+                      }`}>
+                        {r.post?.type || '—'}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-xs text-red-600">{r.reason || '—'}</span>
+                    </TableCell>
+                    <TableCell className="max-w-[150px]">
+                      {r.post?.media_url ? (
+                        r.post.type === 'video' ? (
+                          <a href={r.post.media_url} target="_blank" rel="noopener noreferrer"
+                            className="text-xs text-indigo-500 hover:underline">
+                            View Video
+                          </a>
+                        ) : (
+                          <img src={r.post.media_url} className="w-12 h-12 object-cover rounded-lg" />
+                        )
+                      ) : (
+                        <span className="text-xs text-gray-500 truncate block max-w-[120px]">
+                          {r.post?.caption || '—'}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-xs text-gray-400">
+                        {r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-xs h-7"
+                          onClick={() => navigate(`/user/${r.post?.author?.profile_id}`)}
+                        >
+                          Profile
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="text-xs h-7"
+                          onClick={async () => {
+                            if (!window.confirm('Delete this post?')) return;
+                            await supabase.from('posts')
+                              .update({ is_active: false })
+                              .eq('id', r.post_id);
+                            toast({ title: '✅ Post deleted' });
+                            fetchPostReports();
+                          }}
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </div>
+      )}
 
       {/* Review Modal */}
       <Dialog open={!!managingReport} onOpenChange={(open) => !open && setManagingReport(null)}>
