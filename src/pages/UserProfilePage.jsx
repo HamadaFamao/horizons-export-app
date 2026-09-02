@@ -165,25 +165,29 @@ export default function UserProfilePage() {
   ];
 
   if (loading) return (
-    <Layout><div className="flex items-center justify-center min-h-screen"><Loader2 className="w-8 h-8 animate-spin text-rose-500" /></div></Layout>
+    <Layout><div className="flex items-center justify-center min-h-screen"><Loader2 className="w-10 h-10 animate-spin text-rose-500" /></div></Layout>
   );
   if (error || !profile) return (
     <Layout><div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-      <p className="text-gray-500">{error || 'Profile not found'}</p>
-      <button onClick={() => navigate(-1)} className="text-rose-500 font-medium">Go Back</button>
+      <p className="text-gray-500 text-lg">{error || 'Profile not found'}</p>
+      <button onClick={() => navigate(-1)} className="text-rose-500 font-semibold hover:text-rose-600 transition">Go Back</button>
     </div></Layout>
   );
 
   return (
     <Layout>
-      <div className="min-h-screen bg-gray-50 pb-20">
+      <div className="min-h-screen bg-slate-50 pb-20">
 
         {/* Cover + Back */}
         <div className="relative">
-          <div className="h-40 bg-gradient-to-br from-rose-400 via-pink-400 to-orange-400" />
+          <div className="h-48 bg-gradient-to-br from-rose-400 via-fuchsia-500 to-orange-400 shadow-inner relative overflow-hidden">
+            {/* Decorative subtle overlay */}
+            <div className="absolute inset-0 bg-white/10 backdrop-blur-[2px]"></div>
+          </div>
+          
           <button
             onClick={() => navigate(-1)}
-            className="absolute top-4 left-4 bg-white/20 backdrop-blur-md p-2 rounded-full text-white hover:bg-white/30 transition"
+            className="absolute top-4 left-4 bg-white/20 backdrop-blur-md p-2.5 rounded-full text-white hover:bg-white/30 hover:scale-105 transition-all shadow-lg border border-white/20"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -193,23 +197,24 @@ export default function UserProfilePage() {
             <div className="absolute top-4 right-4">
               <button
                 onClick={() => setShowMoreMenu(!showMoreMenu)}
-                className="bg-white/20 backdrop-blur-md p-2 rounded-full text-white hover:bg-white/30 transition"
+                className="bg-white/20 backdrop-blur-md p-2.5 rounded-full text-white hover:bg-white/30 hover:scale-105 transition-all shadow-lg border border-white/20"
               >
                 <MoreVertical className="w-5 h-5" />
               </button>
               {showMoreMenu && (
-                <div className="absolute right-0 top-12 bg-white rounded-2xl shadow-xl border overflow-hidden w-40 z-50">
+                <div className="absolute right-0 top-14 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden w-44 z-50 animate-in fade-in slide-in-from-top-2">
                   <button
                     onClick={() => { setShowMoreMenu(false); setShowReport(true); }}
-                    className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50"
+                    className="w-full text-left px-4 py-3.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
                   >
-                    🚩 Report
+                    <span>🚩</span> Report
                   </button>
+                  <div className="h-px bg-gray-100 w-full"></div>
                   <button
                     onClick={handleBlock}
-                    className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50"
+                    className="w-full text-left px-4 py-3.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2"
                   >
-                    🚫 Block
+                    <span>🚫</span> Block
                   </button>
                 </div>
               )}
@@ -217,57 +222,63 @@ export default function UserProfilePage() {
           )}
 
           {/* Profile Card */}
-          <div className="max-w-lg mx-auto px-4 -mt-16 relative z-10">
-            <div className="bg-white rounded-3xl shadow-xl p-5">
+          <div className="max-w-lg mx-auto px-4 -mt-20 relative z-10">
+            <div className="bg-white/95 backdrop-blur-xl rounded-[2rem] shadow-xl border border-white p-6">
               {/* Avatar + Info */}
-              <div className="flex items-start gap-4">
+              <div className="flex items-start gap-5">
                 <div className="relative shrink-0">
                   <img
                     src={profile.avatar_url || '/default-avatar.svg'}
                     alt={profile.name}
                     className={cn(
-                      'w-20 h-20 rounded-full object-cover border-4 border-white shadow-md',
+                      'w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg',
                       vipStyle.avatarRingClassName
                     )}
                     onError={(e) => { e.currentTarget.src = '/default-avatar.svg'; }}
                   />
                   {onlineStatus?.isOnline && (
-                    <div className="absolute bottom-1 right-1 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full" />
+                    <div className="absolute bottom-1.5 right-1.5 w-4 h-4 bg-green-500 border-2 border-white rounded-full shadow-sm">
+                      <div className="absolute inset-0 rounded-full bg-green-500 animate-ping opacity-75"></div>
+                    </div>
                   )}
                 </div>
 
-                <div className="flex-1 min-w-0">
-                  <h1 className="text-xl font-bold text-gray-900 truncate">
-                    {profile.name}{profile.age ? `, ${profile.age}` : ''}
+                <div className="flex-1 min-w-0 pt-1">
+                  <h1 className="text-2xl font-extrabold text-gray-900 truncate tracking-tight">
+                    {profile.name}{profile.age ? <span className="text-gray-500 font-medium text-xl">, {profile.age}</span> : ''}
                   </h1>
 
                   {/* Badges Row */}
-                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                  <div className="flex flex-wrap gap-2 mt-2">
                     {displayLevel > 0 && (
-                      <LevelBadge level={displayLevel} size="sm" showName={false} />
+                      <div className="shadow-sm rounded-full">
+                        <LevelBadge level={displayLevel} size="sm" showName={false} />
+                      </div>
                     )}
                     {adminBadge && (
-                      <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border', adminBadge.className)}>
-                        <adminBadge.icon className="w-3 h-3" />
+                      <span className={cn('inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border shadow-sm', adminBadge.className)}>
+                        <adminBadge.icon className="w-3.5 h-3.5" />
                         {adminBadge.label}
                       </span>
                     )}
                     {vipInfo.isVip && (
-                      <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold', vipStyle.badgeClassName)}>
+                      <span className={cn('inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold shadow-sm', vipStyle.badgeClassName)}>
                         {vipInfo.label} 👑
                       </span>
                     )}
                   </div>
 
                   {/* ID + Country */}
-                  <div className="flex items-center gap-2 mt-1.5">
+                  <div className="flex items-center gap-2 mt-2.5">
                     {profile.profile_id && (
-                      <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
-                        #{profile.profile_id}
+                      <span className="text-xs font-semibold text-gray-500 bg-gray-100/80 px-2.5 py-1 rounded-full shadow-inner">
+                        ID: {profile.profile_id}
                       </span>
                     )}
                     {profile.country_code && (
-                      <CountryDisplay code={profile.country_code} />
+                      <div className="shadow-sm rounded-sm overflow-hidden">
+                        <CountryDisplay code={profile.country_code} />
+                      </div>
                     )}
                   </div>
                 </div>
@@ -275,72 +286,78 @@ export default function UserProfilePage() {
 
               {/* Social Stats */}
               {socialStats && (
-                <div className="flex items-center gap-4 mt-4 pt-4 border-t border-gray-100">
-                  <div className="text-center flex-1">
-                    <p className="font-bold text-gray-900">{socialStats.followers?.toLocaleString() || 0}</p>
-                    <p className="text-xs text-gray-400">Followers</p>
+                <div className="flex items-center gap-4 mt-6 pt-5 border-t border-gray-100/80">
+                  <div className="text-center flex-1 group cursor-pointer">
+                    <p className="text-xl font-black text-gray-800 group-hover:text-rose-500 transition-colors">{socialStats.followers?.toLocaleString() || 0}</p>
+                    <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mt-0.5">Followers</p>
                   </div>
-                  <div className="w-px h-8 bg-gray-100" />
-                  <div className="text-center flex-1">
-                    <p className="font-bold text-gray-900">{socialStats.following?.toLocaleString() || 0}</p>
-                    <p className="text-xs text-gray-400">Following</p>
+                  <div className="w-px h-10 bg-gradient-to-b from-transparent via-gray-200 to-transparent" />
+                  <div className="text-center flex-1 group cursor-pointer">
+                    <p className="text-xl font-black text-gray-800 group-hover:text-rose-500 transition-colors">{socialStats.following?.toLocaleString() || 0}</p>
+                    <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mt-0.5">Following</p>
                   </div>
-                  <div className="w-px h-8 bg-gray-100" />
-                  <div className="text-center flex-1">
-                    <p className="font-bold text-gray-900">{socialStats.friends?.toLocaleString() || 0}</p>
-                    <p className="text-xs text-gray-400">Friends</p>
+                  <div className="w-px h-10 bg-gradient-to-b from-transparent via-gray-200 to-transparent" />
+                  <div className="text-center flex-1 group cursor-pointer">
+                    <p className="text-xl font-black text-gray-800 group-hover:text-rose-500 transition-colors">{socialStats.friends?.toLocaleString() || 0}</p>
+                    <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mt-0.5">Friends</p>
                   </div>
                 </div>
               )}
 
               {/* About Me */}
               {profile.bio && (
-                <p className="text-sm text-gray-600 mt-4 pt-4 border-t border-gray-100 leading-relaxed">
-                  {profile.bio}
-                </p>
+                <div className="mt-5 pt-5 border-t border-gray-100/80">
+                  <p className="text-sm text-gray-600 leading-relaxed font-medium bg-gray-50/50 p-3 rounded-xl border border-gray-100">
+                    {profile.bio}
+                  </p>
+                </div>
               )}
 
               {/* Action Buttons - Icon Style */}
               {!isOwnProfile && currentUser && (
-                <div className="mt-4 pt-4 border-t border-gray-100">
-                  <div className="flex items-center justify-around">
+                <div className="mt-6 pt-5 border-t border-gray-100/80">
+                  <div className="flex items-center justify-center gap-5 flex-wrap">
                     {/* Message */}
                     <button
                       onClick={handleMessage}
                       disabled={creatingThread}
-                      className="flex flex-col items-center gap-1 group"
+                      className="flex flex-col items-center gap-1.5 group"
                     >
-                      <div className="w-11 h-11 bg-indigo-600 rounded-full flex items-center justify-center shadow-sm group-hover:bg-indigo-700 transition">
-                        {creatingThread ? <Loader2 className="w-5 h-5 text-white animate-spin" /> : <MessageCircle className="w-5 h-5 text-white" />}
+                      <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg shadow-indigo-200 group-hover:shadow-indigo-300 group-hover:scale-110 transition-all duration-300">
+                        {creatingThread ? <Loader2 className="w-6 h-6 text-white animate-spin" /> : <MessageCircle className="w-6 h-6 text-white" />}
                       </div>
-                      <span className="text-[10px] text-gray-500">Message</span>
+                      <span className="text-[11px] font-bold text-gray-500 group-hover:text-indigo-600 transition-colors">Message</span>
                     </button>
 
                     {/* Gift */}
                     <button
                       onClick={() => setShowGiftPanel(true)}
-                      className="flex flex-col items-center gap-1 group"
+                      className="flex flex-col items-center gap-1.5 group"
                     >
-                      <div className="w-11 h-11 bg-rose-500 rounded-full flex items-center justify-center shadow-sm group-hover:bg-rose-600 transition">
-                        <Gift className="w-5 h-5 text-white" />
+                      <div className="w-12 h-12 bg-gradient-to-br from-rose-400 to-pink-600 rounded-full flex items-center justify-center shadow-lg shadow-rose-200 group-hover:shadow-rose-300 group-hover:scale-110 transition-all duration-300">
+                        <Gift className="w-6 h-6 text-white" />
                       </div>
-                      <span className="text-[10px] text-gray-500">Gift</span>
+                      <span className="text-[11px] font-bold text-gray-500 group-hover:text-rose-500 transition-colors">Gift</span>
                     </button>
 
                     {/* Follow */}
                     <button
                       onClick={handleFollow}
                       disabled={followLoading}
-                      className="flex flex-col items-center gap-1 group"
+                      className="flex flex-col items-center gap-1.5 group"
                     >
                       <div className={cn(
-                        'w-11 h-11 rounded-full flex items-center justify-center shadow-sm transition',
-                        isFollowing ? 'bg-gray-200' : 'bg-purple-600 group-hover:bg-purple-700'
+                        'w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all duration-300',
+                        isFollowing 
+                          ? 'bg-gray-100 shadow-inner group-hover:bg-gray-200' 
+                          : 'bg-gradient-to-br from-violet-500 to-fuchsia-600 shadow-violet-200 group-hover:shadow-violet-300 group-hover:scale-110'
                       )}>
-                        {followLoading ? <Loader2 className="w-5 h-5 text-white animate-spin" /> :
-                          isFollowing ? <UserMinus className="w-5 h-5 text-gray-600" /> : <Users className="w-5 h-5 text-white" />}
+                        {followLoading ? <Loader2 className={cn("w-6 h-6 animate-spin", isFollowing ? "text-gray-500" : "text-white")} /> :
+                          isFollowing ? <UserMinus className="w-6 h-6 text-gray-500" /> : <Users className="w-6 h-6 text-white" />}
                       </div>
-                      <span className="text-[10px] text-gray-500">{isFollowing ? 'Unfollow' : 'Follow'}</span>
+                      <span className={cn("text-[11px] font-bold transition-colors", isFollowing ? "text-gray-500" : "text-gray-500 group-hover:text-violet-600")}>
+                        {isFollowing ? 'Unfollow' : 'Follow'}
+                      </span>
                     </button>
 
                     {/* Add Friend */}
@@ -352,20 +369,26 @@ export default function UserProfilePage() {
                         else if (friendStatus === 'friends') handleFriendAction('unfriend');
                       }}
                       disabled={friendLoading}
-                      className="flex flex-col items-center gap-1 group"
+                      className="flex flex-col items-center gap-1.5 group"
                     >
                       <div className={cn(
-                        'w-11 h-11 rounded-full flex items-center justify-center shadow-sm transition',
-                        friendStatus === 'friends' ? 'bg-green-100' :
-                        friendStatus === 'pending_sent' ? 'bg-gray-200' :
-                        friendStatus === 'pending_received' ? 'bg-amber-500 group-hover:bg-amber-600' :
-                        'bg-teal-600 group-hover:bg-teal-700'
+                        'w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all duration-300',
+                        friendStatus === 'friends' ? 'bg-gradient-to-br from-emerald-400 to-green-500 shadow-green-200 group-hover:shadow-green-300 group-hover:scale-110' :
+                        friendStatus === 'pending_sent' ? 'bg-gray-100 shadow-inner group-hover:bg-gray-200' :
+                        friendStatus === 'pending_received' ? 'bg-gradient-to-br from-amber-400 to-orange-500 shadow-amber-200 group-hover:shadow-amber-300 group-hover:scale-110' :
+                        'bg-gradient-to-br from-teal-400 to-emerald-600 shadow-teal-200 group-hover:shadow-teal-300 group-hover:scale-110'
                       )}>
-                        {friendLoading ? <Loader2 className="w-5 h-5 animate-spin text-white" /> :
-                          friendStatus === 'friends' ? <UserCheck className="w-5 h-5 text-green-600" /> :
-                          <UserPlus className="w-5 h-5 text-white" />}
+                        {friendLoading ? <Loader2 className={cn("w-6 h-6 animate-spin", friendStatus === 'pending_sent' ? "text-gray-500" : "text-white")} /> :
+                          friendStatus === 'friends' ? <UserCheck className="w-6 h-6 text-white" /> :
+                          friendStatus === 'pending_sent' ? <UserCheck className="w-6 h-6 text-gray-500" /> :
+                          <UserPlus className="w-6 h-6 text-white" />}
                       </div>
-                      <span className="text-[10px] text-gray-500">
+                      <span className={cn("text-[11px] font-bold transition-colors", 
+                        friendStatus === 'friends' ? 'text-gray-500 group-hover:text-green-600' :
+                        friendStatus === 'pending_sent' ? 'text-gray-500' :
+                        friendStatus === 'pending_received' ? 'text-gray-500 group-hover:text-amber-600' :
+                        'text-gray-500 group-hover:text-teal-600'
+                      )}>
                         {friendStatus === 'friends' ? 'Friends' :
                          friendStatus === 'pending_sent' ? 'Pending' :
                          friendStatus === 'pending_received' ? 'Accept' : 'Add'}
@@ -376,12 +399,12 @@ export default function UserProfilePage() {
                     {activeRoom?.success && (
                       <button
                         onClick={() => navigate(`/room/${activeRoom.room_id}`)}
-                        className="flex flex-col items-center gap-1 group"
+                        className="flex flex-col items-center gap-1.5 group"
                       >
-                        <div className="w-11 h-11 bg-cyan-600 rounded-full flex items-center justify-center shadow-sm group-hover:bg-cyan-700 transition">
-                          <Navigation className="w-5 h-5 text-white" />
+                        <div className="w-12 h-12 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-full flex items-center justify-center shadow-lg shadow-cyan-200 group-hover:shadow-cyan-300 group-hover:scale-110 transition-all duration-300">
+                          <Navigation className="w-6 h-6 text-white" />
                         </div>
-                        <span className="text-[10px] text-gray-500">Track</span>
+                        <span className="text-[11px] font-bold text-gray-500 group-hover:text-cyan-600 transition-colors">Track</span>
                       </button>
                     )}
 
@@ -389,12 +412,12 @@ export default function UserProfilePage() {
                     {activeRoom?.success && activeRoom.is_owner && (
                       <button
                         onClick={() => navigate(`/room/${activeRoom.room_id}`)}
-                        className="flex flex-col items-center gap-1 group"
+                        className="flex flex-col items-center gap-1.5 group"
                       >
-                        <div className="w-11 h-11 bg-amber-500 rounded-full flex items-center justify-center shadow-sm group-hover:bg-amber-600 transition">
-                          <Home className="w-5 h-5 text-white" />
+                        <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center shadow-lg shadow-amber-200 group-hover:shadow-amber-300 group-hover:scale-110 transition-all duration-300">
+                          <Home className="w-6 h-6 text-white" />
                         </div>
-                        <span className="text-[10px] text-gray-500">Room</span>
+                        <span className="text-[11px] font-bold text-gray-500 group-hover:text-amber-600 transition-colors">Room</span>
                       </button>
                     )}
                   </div>
@@ -405,21 +428,23 @@ export default function UserProfilePage() {
         </div>
 
         {/* Details */}
-        <div className="max-w-lg mx-auto px-4 mt-4">
+        <div className="max-w-lg mx-auto px-4 mt-6">
           {(profile.occupation || profile.gender) && (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4">
-              <div className="grid grid-cols-2 gap-3">
+            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 mb-5 hover:shadow-md transition-shadow">
+              <div className="grid grid-cols-2 gap-4">
                 {profile.occupation && (
-                  <div>
-                    <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Occupation</p>
-                    <p className="text-sm font-semibold text-gray-800">💼 {profile.occupation}</p>
+                  <div className="bg-gray-50/50 p-3 rounded-2xl border border-gray-100">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Occupation</p>
+                    <p className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                      <span className="text-lg">💼</span> {profile.occupation}
+                    </p>
                   </div>
                 )}
                 {profile.gender && (
-                  <div>
-                    <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Gender</p>
-                    <p className="text-sm font-semibold text-gray-800">
-                      {profile.gender === 'Male' ? '👨' : profile.gender === 'Female' ? '👩' : '🧑'} {profile.gender}
+                  <div className="bg-gray-50/50 p-3 rounded-2xl border border-gray-100">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Gender</p>
+                    <p className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                      <span className="text-lg">{profile.gender === 'Male' ? '👨' : profile.gender === 'Female' ? '👩' : '🧑'}</span> {profile.gender}
                     </p>
                   </div>
                 )}
@@ -429,11 +454,11 @@ export default function UserProfilePage() {
 
           {/* Interests */}
           {Array.isArray(profile.interests) && profile.interests.length > 0 && (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4">
-              <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">Interests</p>
-              <div className="flex flex-wrap gap-2">
+            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 mb-5 hover:shadow-md transition-shadow">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Interests</p>
+              <div className="flex flex-wrap gap-2.5">
                 {profile.interests.map((interest, i) => (
-                  <span key={i} className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-xs font-medium">
+                  <span key={i} className="bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 border border-indigo-100/50 px-4 py-1.5 rounded-full text-xs font-bold shadow-sm hover:shadow hover:scale-105 transition-all cursor-default">
                     {interest}
                   </span>
                 ))}
@@ -442,16 +467,16 @@ export default function UserProfilePage() {
           )}
 
           {/* Tabs */}
-          <div className="flex gap-1 bg-white rounded-2xl p-1.5 shadow-sm border border-gray-100 mb-4">
+          <div className="flex gap-2 bg-white rounded-2xl p-1.5 shadow-sm border border-gray-100 mb-5">
             {TABS.map(tab => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
                 className={cn(
-                  'flex-1 py-2 rounded-xl text-xs font-medium transition',
+                  'flex-1 py-2.5 rounded-xl text-sm font-bold transition-all duration-300',
                   activeTab === tab.key
-                    ? 'bg-rose-500 text-white shadow-sm'
-                    : 'text-gray-500 hover:bg-gray-50'
+                    ? 'bg-gradient-to-r from-rose-500 to-pink-500 text-white shadow-md shadow-rose-200 scale-[1.02]'
+                    : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'
                 )}
               >
                 {tab.label}
@@ -460,32 +485,37 @@ export default function UserProfilePage() {
           </div>
 
           {/* Tab Content */}
-          {activeTab === 'posts' && (
-            <UserWall profileId={profile.profile_id} isOwner={false} />
-          )}
-          {activeTab === 'photos' && (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-              <PhotoGallery
-                userId={profile.id}
-                photos={Array.isArray(profile.photos) ? profile.photos : []}
-                isOwner={false}
-              />
-            </div>
-          )}
-          {activeTab === 'achievements' && (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-              <div className="py-8 text-center">
-                <p className="text-4xl mb-2">🏆</p>
-                <p className="text-gray-400 text-sm">Achievements coming soon</p>
+          <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+            {activeTab === 'posts' && (
+              <UserWall profileId={profile.profile_id} isOwner={false} />
+            )}
+            {activeTab === 'photos' && (
+              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5">
+                <PhotoGallery
+                  userId={profile.id}
+                  photos={Array.isArray(profile.photos) ? profile.photos : []}
+                  isOwner={false}
+                />
               </div>
-            </div>
-          )}
+            )}
+            {activeTab === 'achievements' && (
+              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5">
+                <div className="py-12 text-center">
+                  <div className="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner">
+                    <p className="text-4xl">🏆</p>
+                  </div>
+                  <p className="text-gray-800 font-bold text-lg mb-1">Achievements</p>
+                  <p className="text-gray-400 text-sm font-medium">Coming soon to this profile</p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Gift Panel */}
         {showGiftPanel && profile && (
-          <div className="fixed inset-0 z-50 bg-black/40 flex items-end">
-            <div className="bg-white w-full rounded-t-3xl max-h-[70vh] overflow-y-auto">
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end animate-in fade-in duration-300">
+            <div className="bg-white w-full rounded-t-[2.5rem] max-h-[75vh] overflow-y-auto shadow-2xl animate-in slide-in-from-bottom-full duration-300">
               <GiftPanel
                 recipientId={profile.id}
                 recipientName={profile.name}
