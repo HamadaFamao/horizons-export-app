@@ -59,6 +59,9 @@ export default function UserWall({ profileId, isOwner = false }) {
         total_gems_from_gifts: p.total_gems_from_gifts,
         is_liked: p.is_liked,
         is_saved: p.is_saved,
+        repost_of: p.repost_of,
+        original_user_name: p.original_user_name,
+        original_user_profile_id: p.original_user_profile_id,
         created_at: p.post_created_at,
       }));
 

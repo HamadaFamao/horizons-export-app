@@ -16,8 +16,11 @@ export default function PostCard({ post, currentUserId, onUpdate }) {
   const [showComments, setShowComments] = useState(false);
   const [showPostReport, setShowPostReport] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showOwnerMenu, setShowOwnerMenu] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showRepostConfirm, setShowRepostConfirm] = useState(false);
   const [reportReason, setReportReason] = useState('');
+  const [selectedPrivacy, setSelectedPrivacy] = useState(post.visibility || 'public');
   const [submittingReport, setSubmittingReport] = useState(false);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
@@ -31,6 +34,7 @@ export default function PostCard({ post, currentUserId, onUpdate }) {
   const [loadingGifts, setLoadingGifts] = useState(false);
   const videoRef = useRef(null);
   const reportMenuRef = useRef(null);
+  const ownerMenuRef = useRef(null);
   const [playing, setPlaying] = useState(false);
   const [viewed, setViewed] = useState(false);
   const { toast } = useToast();
@@ -58,6 +62,36 @@ export default function PostCard({ post, currentUserId, onUpdate }) {
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [showPostReport]);
+
+  useEffect(() => {
+    if (!showOwnerMenu) return;
+
+    const handlePointerDown = (event) => {
+      if (ownerMenuRef.current && !ownerMenuRef.current.contains(event.target)) {
+        setShowOwnerMenu(false);
+      }
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setShowOwnerMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showOwnerMenu]);
+
+  useEffect(() => {
+    if (post?.visibility) {
+      setSelectedPrivacy(post.visibility);
+    }
+  }, [post?.visibility]);
 
   const fetchPostGifts = async () => {
     setLoadingGifts(true);
@@ -211,17 +245,61 @@ export default function PostCard({ post, currentUserId, onUpdate }) {
         </div>
 
         {currentUserId === post.user_id && (
-          <button
-            onClick={async () => {
-              if (!window.confirm('Delete this post?')) return;
-              await supabase.from('posts').update({ is_active: false }).eq('id', post.id);
-              if (onUpdate) onUpdate();
-            }}
-            className="text-gray-400 hover:text-red-500 transition p-1"
-            aria-label="Delete post"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="relative" ref={ownerMenuRef}>
+            <button
+              onClick={() => setShowOwnerMenu(!showOwnerMenu)}
+              className="text-gray-400 hover:text-gray-600 transition p-1"
+              aria-label="Open owner post menu"
+            >
+              <MoreVertical className="w-4 h-4" />
+            </button>
+            {showOwnerMenu && (
+              <div className="absolute right-0 top-8 bg-white rounded-2xl shadow-xl border border-gray-100 z-20 overflow-hidden w-44">
+                <button
+                  onClick={async () => {
+                    setShowOwnerMenu(false);
+                    await supabase.from('posts')
+                      .update({ is_pinned: !post.is_pinned })
+                      .eq('id', post.id);
+                    if (onUpdate) onUpdate();
+                  }}
+                  className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                >
+                  📌 {post.is_pinned ? 'Unpin' : 'Pin Post'}
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowOwnerMenu(false);
+                    setSelectedPrivacy(post.visibility || 'public');
+                    setShowPrivacyModal(true);
+                  }}
+                  className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                >
+                  🔒 Privacy
+                </button>
+
+                <button
+                  onClick={() => { setShowOwnerMenu(false); setShowRepostConfirm(true); }}
+                  className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                >
+                  🔄 Repost
+                </button>
+
+                <button
+                  onClick={async () => {
+                    setShowOwnerMenu(false);
+                    if (!window.confirm('Delete this post?')) return;
+                    await supabase.from('posts').update({ is_active: false }).eq('id', post.id);
+                    if (onUpdate) onUpdate();
+                  }}
+                  className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 border-t border-gray-100"
+                >
+                  🗑️ Delete
+                </button>
+              </div>
+            )}
+          </div>
         )}
 
         {currentUserId && currentUserId !== post.user_id && (
@@ -310,6 +388,56 @@ export default function PostCard({ post, currentUserId, onUpdate }) {
                 {submittingReport ? 'Sending...' : 'Submit'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showPrivacyModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+          onClick={() => setShowPrivacyModal(false)}>
+          <div className="bg-white rounded-2xl p-5 w-full max-w-sm shadow-xl"
+            onClick={e => e.stopPropagation()}>
+            <h3 className="font-bold text-gray-900 mb-3">🔒 Post Privacy</h3>
+            <div className="space-y-2">
+              {[
+                { key: 'public', label: '🌍 Public', desc: 'Everyone can see this' },
+                { key: 'followers', label: '👥 Followers', desc: 'Only your followers' },
+                { key: 'friends', label: '👫 Friends', desc: 'Only your friends' },
+                { key: 'private', label: '🔒 Private', desc: 'Only you' },
+              ].map(v => (
+                <button
+                  key={v.key}
+                  onClick={async () => {
+                    await supabase.from('posts')
+                      .update({ visibility: v.key })
+                      .eq('id', post.id);
+                    setShowPrivacyModal(false);
+                    if (onUpdate) onUpdate();
+                    toast({ title: `✅ Privacy set to ${v.label}`, className: 'bg-green-50 border-green-200 text-green-800' });
+                  }}
+                  className={cn(
+                    'w-full text-left px-4 py-3 rounded-xl transition flex items-start gap-3',
+                    post.visibility === v.key
+                      ? 'bg-indigo-50 border border-indigo-200'
+                      : 'bg-gray-50 hover:bg-gray-100'
+                  )}
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">{v.label}</p>
+                    <p className="text-xs text-gray-400">{v.desc}</p>
+                  </div>
+                  {post.visibility === v.key && (
+                    <span className="ml-auto text-indigo-600 font-bold">✓</span>
+                  )}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setShowPrivacyModal(false)}
+              className="w-full mt-3 py-2.5 rounded-xl text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition"
+            >
+              Cancel
+            </button>
           </div>
         </div>
       )}
@@ -607,9 +735,17 @@ export default function PostCard({ post, currentUserId, onUpdate }) {
 
       {/* Repost indicator */}
       {post.repost_of && (
-        <div className="px-4 pt-3 pb-1 flex items-center gap-1.5 text-xs text-gray-400">
+        <div className="px-4 pt-3 pb-1 flex items-center gap-1.5 text-xs text-gray-400 border-b border-gray-50">
           <span>🔄</span>
-          <span className="font-medium text-gray-500">Reposted</span>
+          <span className="font-medium text-gray-500">Reposted from</span>
+          {post.original_user_name && (
+            <span
+              className="font-bold text-indigo-500 cursor-pointer hover:underline"
+              onClick={() => navigate(`/user/${post.original_user_profile_id}`)}
+            >
+              {post.original_user_name}
+            </span>
+          )}
         </div>
       )}
 
