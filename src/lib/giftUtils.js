@@ -9,6 +9,7 @@ export async function fetchActiveGifts() {
   const { data, error } = await supabase
     .from('v_active_gift_catalog')
     .select('*')
+    .eq('is_profile_gift_enabled', true)
     .order('sort_order', { ascending: true });
 
   if (error) {

@@ -30,7 +30,7 @@ export default function PostGiftPanel({ postId, onClose, onGiftSent }) {
         .from('gift_catalog')
         .select('id, name_en, name_ar, icon_url, cost, gems_awarded, is_vip_only, is_lucky, category')
         .eq('is_active', true)
-        .eq('is_room_gift_enabled', true)
+        .eq('is_profile_gift_enabled', true)
         .order('cost', { ascending: true });
       setGifts(data || []);
     } finally {

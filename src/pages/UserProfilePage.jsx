@@ -418,29 +418,38 @@ export default function UserProfilePage() {
                       </span>
                     </button>
 
-                    {/* Track */}
-                    {activeRoom?.success && (
-                      <button
-                        onClick={() => navigate(`/rooms/${activeRoom.room_id}`)}
-                        className="flex flex-col items-center gap-1.5 group"
-                      >
-                        <div className="w-12 h-12 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-full flex items-center justify-center shadow-lg shadow-cyan-200 group-hover:shadow-cyan-300 group-hover:scale-110 transition-all duration-300">
-                          <Navigation className="w-6 h-6 text-white" />
-                        </div>
-                        <span className="text-[11px] font-bold text-gray-500 group-hover:text-cyan-600 transition-colors">Track</span>
-                      </button>
-                    )}
-
-                    {/* Enter Room */}
+                    {/* Enter Room - للجميع لو صاحب روم */}
                     {activeRoom?.success && activeRoom.is_owner && (
                       <button
                         onClick={() => navigate(`/rooms/${activeRoom.room_id}`)}
-                        className="flex flex-col items-center gap-1.5 group"
+                        className="flex flex-col items-center gap-1 group"
                       >
-                        <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center shadow-lg shadow-amber-200 group-hover:shadow-amber-300 group-hover:scale-110 transition-all duration-300">
-                          <Home className="w-6 h-6 text-white" />
+                        <div className="w-11 h-11 bg-amber-500 rounded-full flex items-center justify-center shadow-sm group-hover:bg-amber-600 transition">
+                          <Home className="w-5 h-5 text-white" />
                         </div>
-                        <span className="text-[11px] font-bold text-gray-500 group-hover:text-amber-600 transition-colors">Room</span>
+                        <span className="text-[10px] text-gray-500">Room</span>
+                      </button>
+                    )}
+
+                    {/* Track - للأصداء بس */}
+                    {activeRoom?.success && friendStatus === 'friends' && (
+                      <button
+                        onClick={() => {
+                          if (window.confirm(
+                            `${profile.name} is in "${activeRoom.room_title || 'a room'}"\nWould you like to join?`
+                          )) {
+                            navigate(`/rooms/${activeRoom.room_id}`);
+                          }
+                        }}
+                        className="flex flex-col items-center gap-1 group"
+                      >
+                        <div className={cn(
+                          'w-11 h-11 rounded-full flex items-center justify-center shadow-sm transition',
+                          activeRoom?.success ? 'bg-cyan-600 group-hover:bg-cyan-700 animate-pulse' : 'bg-gray-300'
+                        )}>
+                          <Navigation className="w-5 h-5 text-white" />
+                        </div>
+                        <span className="text-[10px] text-gray-500">Track</span>
                       </button>
                     )}
                   </div>
@@ -472,8 +481,8 @@ export default function UserProfilePage() {
                         profile.gender?.toLowerCase() === 'male' ? 'bg-blue-500' : 
                         profile.gender?.toLowerCase() === 'female' ? 'bg-pink-500' : 'bg-gray-400'
                       )}>
-                        {profile.gender?.toLowerCase() === 'male' ? 'M' : 
-                         profile.gender?.toLowerCase() === 'female' ? 'F' : '?'}
+                        {profile.gender?.toLowerCase() === 'male' ? '♂' :
+                         profile.gender?.toLowerCase() === 'female' ? '♀' : '?'}
                       </span> {profile.gender}
                     </p>
                   </div>
