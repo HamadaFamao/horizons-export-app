@@ -114,12 +114,7 @@ export default function NotificationBell({ className }) {
 
   const handleNotificationClick = (notif) => {
     setOpen(false);
-
-    if (notif.entity_type === 'post' && notif.entity_id) {
-      navigate(`/post/${notif.entity_id}`);
-      return;
-    }
-
+    // لو الإشعار عنده actor، نروح لبروفايله
     if (notif.actor_profile_id) {
       navigate(`/user/${notif.actor_profile_id}`);
     }

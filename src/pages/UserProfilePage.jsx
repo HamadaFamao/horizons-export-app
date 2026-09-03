@@ -115,15 +115,38 @@ export default function UserProfilePage() {
     if (!currentUser?.id || !profile?.id) return;
     setCreatingThread(true);
     try {
-      const thread = await getOrCreateThread(currentUser.id, profile.id);
-      navigate(`/messages/${thread.id}`);
-    } catch { toast({ title: 'Error', variant: 'destructive' }); }
-    finally { setCreatingThread(false); }
+      const threadId = await getOrCreateThread(currentUser.id, profile.id);
+      navigate(`/messages/${threadId}`);
+    } catch (err) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setCreatingThread(false);
+    }
   };
 
-  const handleGiftSent = async () => {
-    setShowGiftPanel(false);
-    setWalletRefresh(w => w + 1);
+  const handleGiftSent = async (payload) => {
+    try {
+      const { data, error } = await supabase.rpc('send_profile_gift', {
+        p_receiver_id: profile.id,
+        p_gift_id: payload.gift_id,
+        p_message: payload.message || null,
+      });
+      if (error) throw error;
+      if (data?.success === false) throw new Error(data.error);
+      toast({
+        title: '🎁 Gift Sent!',
+        description: `Successfully sent gift to ${profile.name}`,
+        className: 'bg-green-50 border-green-200 text-green-800',
+      });
+      setShowGiftPanel(false);
+      setWalletRefresh(w => w + 1);
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: err.message === 'insufficient_coins' ? 'Not enough coins!' : err.message,
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleFollow = async () => {
@@ -398,7 +421,7 @@ export default function UserProfilePage() {
                     {/* Track */}
                     {activeRoom?.success && (
                       <button
-                        onClick={() => navigate(`/room/${activeRoom.room_id}`)}
+                        onClick={() => navigate(`/rooms/${activeRoom.room_id}`)}
                         className="flex flex-col items-center gap-1.5 group"
                       >
                         <div className="w-12 h-12 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-full flex items-center justify-center shadow-lg shadow-cyan-200 group-hover:shadow-cyan-300 group-hover:scale-110 transition-all duration-300">
@@ -411,7 +434,7 @@ export default function UserProfilePage() {
                     {/* Enter Room */}
                     {activeRoom?.success && activeRoom.is_owner && (
                       <button
-                        onClick={() => navigate(`/room/${activeRoom.room_id}`)}
+                        onClick={() => navigate(`/rooms/${activeRoom.room_id}`)}
                         className="flex flex-col items-center gap-1.5 group"
                       >
                         <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center shadow-lg shadow-amber-200 group-hover:shadow-amber-300 group-hover:scale-110 transition-all duration-300">
@@ -446,10 +469,11 @@ export default function UserProfilePage() {
                     <p className="text-sm font-bold text-gray-800 flex items-center gap-2">
                       <span className={cn(
                         'inline-flex items-center justify-center w-7 h-7 rounded-full text-white text-xs font-bold',
-                        profile.gender === 'Male' ? 'bg-blue-500' : 
-                        profile.gender === 'Female' ? 'bg-pink-500' : 'bg-gray-400'
+                        profile.gender?.toLowerCase() === 'male' ? 'bg-blue-500' : 
+                        profile.gender?.toLowerCase() === 'female' ? 'bg-pink-500' : 'bg-gray-400'
                       )}>
-                        {profile.gender === 'Male' ? 'M' : profile.gender === 'Female' ? 'F' : '?'}
+                        {profile.gender?.toLowerCase() === 'male' ? 'M' : 
+                         profile.gender?.toLowerCase() === 'female' ? 'F' : '?'}
                       </span> {profile.gender}
                     </p>
                   </div>

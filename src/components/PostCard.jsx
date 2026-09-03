@@ -244,6 +244,20 @@ export default function PostCard({ post, currentUserId, onUpdate }) {
           </p>
         </div>
 
+        {post.is_pinned && (
+          <span className="text-xs text-amber-500 font-medium flex items-center gap-1">
+            📌 Pinned
+          </span>
+        )}
+
+        {currentUserId === post.user_id && post.visibility && post.visibility !== 'public' && (
+          <span className="text-[10px] text-gray-400 flex items-center gap-0.5">
+            {post.visibility === 'private' ? '🔒' :
+             post.visibility === 'friends' ? '👫' :
+             post.visibility === 'followers' ? '👥' : ''}
+          </span>
+        )}
+
         {currentUserId === post.user_id && (
           <div className="relative" ref={ownerMenuRef}>
             <button
