@@ -17,9 +17,12 @@ export default function SavedPostsPage() {
   const [authUserId, setAuthUserId] = useState(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setAuthUserId(data?.session?.user?.id || null);
-    });
+    const getAuth = async () => {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      console.log('[AUTH USER]', authUser);
+      setAuthUserId(authUser?.id || null);
+    };
+    getAuth();
   }, []);
 
   const navigate = useNavigate();
