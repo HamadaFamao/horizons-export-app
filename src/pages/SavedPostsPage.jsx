@@ -56,16 +56,8 @@ export default function SavedPostsPage() {
       if (activeTab === 'saved') {
         const { data, error: savesError } = await supabase
           .from('post_saves')
-          .select('post_id')
-          .eq('user_id', authUserId)
-          .order('created_at', { ascending: false })
-          .range(currentOffset, currentOffset + LIMIT - 1);
-        console.log('[SAVES FULL]', {
-          data,
-          error: savesError,
-          authUserId,
-          status: savesError?.code
-        });
+          .select('*');
+        console.log('[ALL SAVES]', { data, error: savesError });
         postIds = (data || []).map(r => r.post_id);
       } else {
         const { data } = await supabase
