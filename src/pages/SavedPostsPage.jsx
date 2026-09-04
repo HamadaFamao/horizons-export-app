@@ -35,7 +35,8 @@ export default function SavedPostsPage() {
       activeTab,
       currentOffset: reset ? 0 : offsetRef.current
     });
-    if (!user?.id) return;
+    const authId = user?.user_id || user?.auth_id || user?.id;
+    if (!authId) return;
     if (reset) setLoading(true);
     else setLoadingMore(true);
 
@@ -123,7 +124,8 @@ export default function SavedPostsPage() {
   }, [user?.id, activeTab]);
 
   useEffect(() => {
-    if (!user?.id) return;
+    const authId = user?.user_id || user?.auth_id || user?.id;
+    if (!authId) return;
     fetchPosts(true);
   }, [activeTab, user?.id]);
 
