@@ -17,13 +17,7 @@ export default function SavedPostsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
-  const [userId, setUserId] = useState(null);
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUserId(data?.user?.id || null);
-    });
-  }, []);
+  const userId = user?.id || null;
 
   const offsetRef = useRef(0);
 
@@ -36,7 +30,7 @@ export default function SavedPostsPage() {
   const LIMIT = 12;
 
   const fetchPosts = useCallback(async (reset = false) => {
-    if (!userId) return;
+    if (!user?.id) return;
     if (reset) setLoading(true);
     else setLoadingMore(true);
 
@@ -124,9 +118,9 @@ export default function SavedPostsPage() {
   }, [user?.id, activeTab]);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!user?.id) return;
     fetchPosts(true);
-  }, [activeTab, userId]);
+  }, [activeTab, user?.id]);
 
   console.log('[SavedPosts] render state:', {
     loading,
