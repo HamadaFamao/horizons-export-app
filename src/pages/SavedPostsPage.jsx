@@ -37,12 +37,13 @@ export default function SavedPostsPage() {
       let postIds = [];
 
       if (activeTab === 'saved') {
-        const { data } = await supabase
+        const { data, error: savesError } = await supabase
           .from('post_saves')
           .select('post_id')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
           .range(currentOffset, currentOffset + LIMIT - 1);
+        console.log('[SavedPosts] saves query:', { data, error: savesError, userId: user.id });
         postIds = (data || []).map(r => r.post_id);
       } else {
         const { data } = await supabase
