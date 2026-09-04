@@ -38,11 +38,7 @@ export default function SavedPostsPage() {
   const LIMIT = 12;
 
   const fetchPosts = useCallback(async (reset = false) => {
-    console.log('[DEBUG]', {
-      userId: user?.id,
-      activeTab,
-      currentOffset: reset ? 0 : offsetRef.current
-    });
+    console.log('[DEBUG]', { authUserId, activeTab });
     const authId = user?.user_id || user?.auth_id || user?.id;
     if (!authId) return;
     if (reset) setLoading(true);
