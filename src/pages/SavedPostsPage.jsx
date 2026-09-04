@@ -14,6 +14,14 @@ const TABS = [
 ];
 
 export default function SavedPostsPage() {
+  const [authUserId, setAuthUserId] = useState(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setAuthUserId(data?.session?.user?.id || null);
+    });
+  }, []);
+
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
@@ -127,7 +135,7 @@ export default function SavedPostsPage() {
     const authId = user?.user_id || user?.auth_id || user?.id;
     if (!authId) return;
     fetchPosts(true);
-  }, [activeTab, user?.id]);
+  }, [activeTab, authUserId]);
 
   console.log('[SavedPosts] render state:', {
     loading,
