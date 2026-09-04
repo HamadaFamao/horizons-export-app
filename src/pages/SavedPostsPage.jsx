@@ -17,6 +17,14 @@ export default function SavedPostsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
+  const [userId, setUserId] = useState(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setUserId(data?.user?.id || null);
+    });
+  }, []);
+
   const offsetRef = useRef(0);
 
   const initialTab = searchParams.get('tab') || 'saved';
@@ -40,16 +48,16 @@ export default function SavedPostsPage() {
         const { data, error: savesError } = await supabase
           .from('post_saves')
           .select('post_id')
-          .eq('user_id', user.id)
+          .eq('user_id', userId)
           .order('created_at', { ascending: false })
           .range(currentOffset, currentOffset + LIMIT - 1);
-        console.log('[SavedPosts] saves query:', { data, error: savesError, userId: user.id });
+        console.log('[SavedPosts] saves query:', { data, error: savesError, userId });
         postIds = (data || []).map(r => r.post_id);
       } else {
         const { data } = await supabase
           .from('post_likes')
           .select('post_id')
-          .eq('user_id', user.id)
+          .eq('user_id', userId)
           .order('created_at', { ascending: false })
           .range(currentOffset, currentOffset + LIMIT - 1);
         postIds = (data || []).map(r => r.post_id);
@@ -118,7 +126,7 @@ export default function SavedPostsPage() {
   useEffect(() => {
     if (!user?.id) return;
     fetchPosts(true);
-  }, [activeTab, user?.id]);
+  }, [activeTab, userId]);
 
   console.log('[SavedPosts] render state:', {
     loading,
