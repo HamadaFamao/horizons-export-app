@@ -14,21 +14,14 @@ const TABS = [
 ];
 
 export default function SavedPostsPage() {
-  const [authUserId, setAuthUserId] = useState(null);
-
-  useEffect(() => {
-    const getAuth = async () => {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      console.log('[AUTH USER]', authUser);
-      setAuthUserId(authUser?.id || null);
-    };
-    getAuth();
-  }, []);
-
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { user } = useAuth();
-  const userId = user?.id || null;
+  const { user, loading: authLoading } = useAuth();
+  const authUserId = user?.id || null;
+
+  useEffect(() => {
+    console.log('[AUTH CHECK]', { user, authUserId, authLoading });
+  }, [user, authLoading]);
 
   const offsetRef = useRef(0);
 
@@ -42,8 +35,7 @@ export default function SavedPostsPage() {
 
   const fetchPosts = useCallback(async (reset = false) => {
     console.log('[DEBUG]', { authUserId, activeTab });
-    const authId = user?.user_id || user?.auth_id || user?.id;
-    if (!authId) return;
+    if (!authUserId) return;
     if (reset) setLoading(true);
     else setLoadingMore(true);
 
@@ -55,16 +47,16 @@ export default function SavedPostsPage() {
         const { data, error: savesError } = await supabase
           .from('post_saves')
           .select('post_id')
-          .eq('user_id', userId)
+          .eq('user_id', authUserId)
           .order('created_at', { ascending: false })
           .range(currentOffset, currentOffset + LIMIT - 1);
-        console.log('[SavedPosts] saves query:', { data, error: savesError, userId });
+        console.log('[SavedPosts] saves query:', { data, error: savesError, authUserId });
         postIds = (data || []).map(r => r.post_id);
       } else {
         const { data } = await supabase
           .from('post_likes')
           .select('post_id')
-          .eq('user_id', userId)
+          .eq('user_id', authUserId)
           .order('created_at', { ascending: false })
           .range(currentOffset, currentOffset + LIMIT - 1);
         postIds = (data || []).map(r => r.post_id);
@@ -128,11 +120,10 @@ export default function SavedPostsPage() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [user?.id, activeTab]);
+  }, [authUserId, activeTab]);
 
   useEffect(() => {
-    const authId = user?.user_id || user?.auth_id || user?.id;
-    if (!authId) return;
+    if (!authUserId) return;
     fetchPosts(true);
   }, [activeTab, authUserId]);
 
