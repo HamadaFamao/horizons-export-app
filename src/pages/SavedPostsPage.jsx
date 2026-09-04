@@ -17,7 +17,17 @@ export default function SavedPostsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, loading: authLoading } = useAuth();
-  const authUserId = user?.id || null;
+  const [authUserId, setAuthUserId] = useState(null);
+
+  useEffect(() => {
+    const getAuth = async () => {
+      // نحاول نعمل refresh للـ session الأول
+      await supabase.auth.refreshSession();
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      setAuthUserId(authUser?.id || null);
+    };
+    getAuth();
+  }, []);
 
   useEffect(() => {
     console.log('[AUTH CHECK]', { user, authUserId, authLoading });
