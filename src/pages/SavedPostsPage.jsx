@@ -34,60 +34,59 @@ export default function SavedPostsPage() {
 
     try {
       const currentOffset = reset ? 0 : offsetRef.current;
-      const tab = TABS.find(t => t.key === activeTab);
+      let postIds = [];
 
-      let query;
       if (activeTab === 'saved') {
-        query = supabase
+        const { data } = await supabase
           .from('post_saves')
-          .select(`
-            post_id,
-            posts!inner (
-              id, user_id, type, caption, media_url,
-              thumbnail_url, duration_seconds, view_count,
-              is_active, is_public, created_at,
-              profiles!inner (name, avatar_url, profile_id)
-            )
-          `)
+          .select('post_id')
           .eq('user_id', user.id)
-          .eq('posts.is_active', true)
           .order('created_at', { ascending: false })
           .range(currentOffset, currentOffset + LIMIT - 1);
+        postIds = (data || []).map(r => r.post_id);
       } else {
-        query = supabase
+        const { data } = await supabase
           .from('post_likes')
-          .select(`
-            post_id,
-            posts!inner (
-              id, user_id, type, caption, media_url,
-              thumbnail_url, duration_seconds, view_count,
-              is_active, is_public, created_at,
-              profiles!inner (name, avatar_url, profile_id)
-            )
-          `)
+          .select('post_id')
           .eq('user_id', user.id)
-          .eq('posts.is_active', true)
           .order('created_at', { ascending: false })
           .range(currentOffset, currentOffset + LIMIT - 1);
+        postIds = (data || []).map(r => r.post_id);
       }
 
-      const { data, error } = await query;
+      if (postIds.length === 0) {
+        if (reset) setPosts([]);
+        setHasMore(false);
+        return;
+      }
+
+      const { data: postsData, error } = await supabase
+        .from('posts')
+        .select(`
+          id, user_id, type, caption, media_url,
+          thumbnail_url, duration_seconds, view_count,
+          is_active, created_at,
+          profiles!inner (name, avatar_url, profile_id)
+        `)
+        .in('id', postIds)
+        .eq('is_active', true);
+
       if (error) throw error;
 
-      console.log('[SavedPosts] raw data:', data?.length, data?.[0]);
+      console.log('[SavedPosts] posts:', postsData?.length);
 
-      const mapped = (data || []).map(item => ({
-        id: item.posts.id,
-        user_id: item.posts.user_id,
-        user_name: item.posts.profiles?.name,
-        user_avatar: item.posts.profiles?.avatar_url,
-        user_profile_id: item.posts.profiles?.profile_id,
-        type: item.posts.type,
-        caption: item.posts.caption,
-        media_url: item.posts.media_url,
-        thumbnail_url: item.posts.thumbnail_url,
-        duration_seconds: item.posts.duration_seconds,
-        view_count: item.posts.view_count,
+      const mapped = (postsData || []).map(p => ({
+        id: p.id,
+        user_id: p.user_id,
+        user_name: p.profiles?.name,
+        user_avatar: p.profiles?.avatar_url,
+        user_profile_id: p.profiles?.profile_id,
+        type: p.type,
+        caption: p.caption,
+        media_url: p.media_url,
+        thumbnail_url: p.thumbnail_url,
+        duration_seconds: p.duration_seconds,
+        view_count: p.view_count,
         like_count: 0,
         comment_count: 0,
         save_count: 0,
@@ -96,10 +95,8 @@ export default function SavedPostsPage() {
         total_gems_from_gifts: 0,
         is_liked: activeTab === 'liked',
         is_saved: activeTab === 'saved',
-        created_at: item.posts.created_at,
+        created_at: p.created_at,
       }));
-
-      console.log('[SavedPosts] mapped:', mapped.length);
 
       if (reset) {
         setPosts(mapped);
@@ -108,7 +105,7 @@ export default function SavedPostsPage() {
         setPosts(prev => [...prev, ...mapped]);
         offsetRef.current += mapped.length;
       }
-      setHasMore((data || []).length === LIMIT);
+      setHasMore(postIds.length === LIMIT);
     } catch (err) {
       console.error('[SavedPostsPage] error:', err);
     } finally {
