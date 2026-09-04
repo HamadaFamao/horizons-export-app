@@ -52,6 +52,12 @@ export default function SavedPostsPage() {
           .range(currentOffset, currentOffset + LIMIT - 1);
         console.log('[SavedPosts] saves query:', { data, error: savesError, authUserId });
         postIds = (data || []).map(r => r.post_id);
+        console.log('[SAVES QUERY]', {
+          data,
+          error: savesError,
+          authUserId,
+          postIds
+        });
       } else {
         const { data } = await supabase
           .from('post_likes')
