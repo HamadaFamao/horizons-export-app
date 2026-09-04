@@ -36,7 +36,7 @@ export default function SavedPostsPage() {
   const LIMIT = 12;
 
   const fetchPosts = useCallback(async (reset = false) => {
-    if (!user?.id) return;
+    if (!userId) return;
     if (reset) setLoading(true);
     else setLoadingMore(true);
 
@@ -124,7 +124,7 @@ export default function SavedPostsPage() {
   }, [user?.id, activeTab]);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!userId) return;
     fetchPosts(true);
   }, [activeTab, userId]);
 
