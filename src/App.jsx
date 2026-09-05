@@ -90,7 +90,7 @@ function HorizonsPreviewBlocked() {
         <div className="mt-4 text-sm">
           <div className="text-slate-700 font-medium">✅ Test the app from:</div>
           <div className="mt-1 font-mono text-xs bg-slate-100 rounded p-2">
-            https://singlesdate.online
+            https://getfamo.com
           </div>
         </div>
 

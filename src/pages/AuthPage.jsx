@@ -81,7 +81,7 @@ const AuthPage = () => {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: 'https://singlesdate.online/auth/callback', // ✅ ثابت مش dynamic
+          redirectTo: 'https://getfamo.com/auth/callback', // ✅ ثابت مش dynamic
           skipBrowserRedirect: false,
           queryParams: {
             access_type: 'offline',
@@ -136,15 +136,15 @@ const AuthPage = () => {
             <div className="bg-gray-100 rounded-xl p-3 text-center">
               <p className="text-xs text-gray-500 mb-1">Copy this link and open in Chrome or Safari:</p>
               <p className="text-sm font-bold text-rose-500 select-all break-all">
-                singlesdate.online/auth
+                getfamo.com/auth
               </p>
             </div>
 
             <button
               onClick={() => {
-                navigator.clipboard.writeText('https://singlesdate.online/auth')
+                navigator.clipboard.writeText('https://getfamo.com/auth')
                   .then(() => alert('✅ Link copied! Now open Chrome or Safari and paste it.'))
-                  .catch(() => alert('Please copy the link manually: singlesdate.online/auth'));
+                  .catch(() => alert('Please copy the link manually: getfamo.com/auth'));
               }}
               className="w-full bg-rose-500 text-white py-3 rounded-xl font-semibold"
             >
