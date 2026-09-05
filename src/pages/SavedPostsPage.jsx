@@ -58,6 +58,11 @@ export default function SavedPostsPage() {
           .from('post_saves')
           .select('*');
         console.log('[ALL SAVES]', { data, error: savesError });
+        const testQuery = await supabase
+          .from('profiles')
+          .select('id, name')
+          .limit(3);
+        console.log('[TEST PROFILES QUERY]', testQuery);
         postIds = (data || []).map(r => r.post_id);
       } else {
         const { data } = await supabase
