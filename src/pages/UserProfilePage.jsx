@@ -344,85 +344,7 @@ export default function UserProfilePage() {
               {!isOwnProfile && currentUser && (
                 <div className="mt-6 pt-5 border-t border-gray-100/80">
                   <div className="flex items-center justify-center gap-5 flex-wrap">
-                    {/* Message */}
-                    <button
-                      onClick={handleMessage}
-                      disabled={creatingThread}
-                      className="flex flex-col items-center gap-1.5 group"
-                    >
-                      <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg shadow-indigo-200 group-hover:shadow-indigo-300 group-hover:scale-110 transition-all duration-300">
-                        {creatingThread ? <Loader2 className="w-6 h-6 text-white animate-spin" /> : <MessageCircle className="w-6 h-6 text-white" />}
-                      </div>
-                      <span className="text-[11px] font-bold text-gray-500 group-hover:text-indigo-600 transition-colors">Message</span>
-                    </button>
-
-                    {/* Gift */}
-                    <button
-                      onClick={() => setShowGiftPanel(true)}
-                      className="flex flex-col items-center gap-1.5 group"
-                    >
-                      <div className="w-12 h-12 bg-gradient-to-br from-rose-400 to-pink-600 rounded-full flex items-center justify-center shadow-lg shadow-rose-200 group-hover:shadow-rose-300 group-hover:scale-110 transition-all duration-300">
-                        <Gift className="w-6 h-6 text-white" />
-                      </div>
-                      <span className="text-[11px] font-bold text-gray-500 group-hover:text-rose-500 transition-colors">Gift</span>
-                    </button>
-
-                    {/* Follow */}
-                    <button
-                      onClick={handleFollow}
-                      disabled={followLoading}
-                      className="flex flex-col items-center gap-1.5 group"
-                    >
-                      <div className={cn(
-                        'w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all duration-300',
-                        isFollowing 
-                          ? 'bg-gray-100 shadow-inner group-hover:bg-gray-200' 
-                          : 'bg-gradient-to-br from-violet-500 to-fuchsia-600 shadow-violet-200 group-hover:shadow-violet-300 group-hover:scale-110'
-                      )}>
-                        {followLoading ? <Loader2 className={cn("w-6 h-6 animate-spin", isFollowing ? "text-gray-500" : "text-white")} /> :
-                          isFollowing ? <UserMinus className="w-6 h-6 text-gray-500" /> : <Users className="w-6 h-6 text-white" />}
-                      </div>
-                      <span className={cn("text-[11px] font-bold transition-colors", isFollowing ? "text-gray-500" : "text-gray-500 group-hover:text-violet-600")}>
-                        {isFollowing ? 'Unfollow' : 'Follow'}
-                      </span>
-                    </button>
-
-                    {/* Add Friend */}
-                    <button
-                      onClick={() => {
-                        if (friendStatus === 'none') handleFriendAction('send');
-                        else if (friendStatus === 'pending_sent') handleFriendAction('cancel');
-                        else if (friendStatus === 'pending_received') handleFriendAction('accept');
-                        else if (friendStatus === 'friends') handleFriendAction('unfriend');
-                      }}
-                      disabled={friendLoading}
-                      className="flex flex-col items-center gap-1.5 group"
-                    >
-                      <div className={cn(
-                        'w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all duration-300',
-                        friendStatus === 'friends' ? 'bg-gradient-to-br from-emerald-400 to-green-500 shadow-green-200 group-hover:shadow-green-300 group-hover:scale-110' :
-                        friendStatus === 'pending_sent' ? 'bg-gray-100 shadow-inner group-hover:bg-gray-200' :
-                        friendStatus === 'pending_received' ? 'bg-gradient-to-br from-amber-400 to-orange-500 shadow-amber-200 group-hover:shadow-amber-300 group-hover:scale-110' :
-                        'bg-gradient-to-br from-teal-400 to-emerald-600 shadow-teal-200 group-hover:shadow-teal-300 group-hover:scale-110'
-                      )}>
-                        {friendLoading ? <Loader2 className={cn("w-6 h-6 animate-spin", friendStatus === 'pending_sent' ? "text-gray-500" : "text-white")} /> :
-                          friendStatus === 'friends' ? <UserCheck className="w-6 h-6 text-white" /> :
-                          friendStatus === 'pending_sent' ? <UserCheck className="w-6 h-6 text-gray-500" /> :
-                          <UserPlus className="w-6 h-6 text-white" />}
-                      </div>
-                      <span className={cn("text-[11px] font-bold transition-colors", 
-                        friendStatus === 'friends' ? 'text-gray-500 group-hover:text-green-600' :
-                        friendStatus === 'pending_sent' ? 'text-gray-500' :
-                        friendStatus === 'pending_received' ? 'text-gray-500 group-hover:text-amber-600' :
-                        'text-gray-500 group-hover:text-teal-600'
-                      )}>
-                        {friendStatus === 'friends' ? 'Friends' :
-                         friendStatus === 'pending_sent' ? 'Pending' :
-                         friendStatus === 'pending_received' ? 'Accept' : 'Add'}
-                      </span>
-                    </button>
-
-                    {/* Room - ينقل دايماً لروم المستخدم الخاص به، يظهر للجميع لو عنده روم أصلاً */}
+                    {/* Room - ثابت دايماً، ينقل لروم المستخدم الخاص به */}
                     {userOwnRoomId && (
                       <button
                         onClick={() => navigate(`/rooms/${userOwnRoomId}`)}
@@ -435,19 +357,26 @@ export default function UserProfilePage() {
                       </button>
                     )}
 
-                    {/* Track - يظهر للأصدقاء بس، طالما المستخدم في أي روم دلوقتي (رومه أو روم غيره) */}
-                    {activeRoom?.success && friendStatus === 'friends' && (
+                    {/* Track - ثابت دايماً للأصدقاء، يتفعّل ويضيء بس لو متواجد فعلياً */}
+                    {friendStatus === 'friends' && (
                       <button
                         onClick={() => {
+                          if (!activeRoom?.success) return;
                           if (window.confirm(
                             `${profile.name} is in "${activeRoom.room_title || 'a room'}"\nWould you like to join?`
                           )) {
                             navigate(`/rooms/${activeRoom.room_id}`);
                           }
                         }}
-                        className="flex flex-col items-center gap-1 group"
+                        disabled={!activeRoom?.success}
+                        className="flex flex-col items-center gap-1 group disabled:cursor-not-allowed"
                       >
-                        <div className="w-11 h-11 bg-cyan-600 rounded-full flex items-center justify-center shadow-sm group-hover:bg-cyan-700 transition animate-pulse">
+                        <div className={cn(
+                          'w-11 h-11 rounded-full flex items-center justify-center shadow-sm transition',
+                          activeRoom?.success
+                            ? 'bg-cyan-600 group-hover:bg-cyan-700 animate-pulse'
+                            : 'bg-gray-300'
+                        )}>
                           <Navigation className="w-5 h-5 text-white" />
                         </div>
                         <span className="text-[10px] text-gray-500">Track</span>
