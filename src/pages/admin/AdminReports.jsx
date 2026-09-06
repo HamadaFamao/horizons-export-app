@@ -172,6 +172,9 @@ export default function AdminReports() {
       // Fetch posts with user info - including soft-deleted ones for admin review
       const postIds = [...new Set((data || []).map(r => r.post_id).filter(Boolean))];
       let postsMap = {};
+
+      console.log('[POST_REPORTS] Starting fetch for post IDs:', postIds);
+
       if (postIds.length > 0) {
         // Try to fetch all available columns from posts (including soft-deleted)
         const { data: posts, error: postsError } = await supabase
@@ -181,14 +184,11 @@ export default function AdminReports() {
 
         if (postsError) {
           console.error('[POST_REPORTS] Error fetching posts:', postsError);
-          console.error('[POST_REPORTS] Error details:', {
-            message: postsError.message,
-            code: postsError.code,
-          });
         } else {
-          console.log('[POST_REPORTS] Fetched posts:', posts?.length || 0);
+          console.log('[POST_REPORTS] ✅ Fetched posts:', posts?.length || 0);
           if (posts && posts.length > 0) {
-            console.log('[POST_REPORTS] Sample post:', JSON.stringify(posts[0]));
+            console.log('[POST_REPORTS] Sample post:', posts[0]);
+            posts.forEach(p => console.log(`[POST_REPORTS] Post ${p.id}: type=${p.type}, user_id=${p.user_id}`));
           }
         }
 
@@ -203,26 +203,35 @@ export default function AdminReports() {
           .map(p => p?.user_id)
           .filter(Boolean)
       )];
+
+      console.log('[POST_OWNERS] Looking for user IDs:', postOwnerIds);
+
       let ownersMap = {};
       if (postOwnerIds.length > 0) {
         const { data: owners, error: ownersError } = await supabase
           .from('profiles')
           .select('id, name, profile_id')
           .in('id', postOwnerIds);
+
         if (ownersError) {
-          console.error('[POST_OWNERS] Error fetching owners:', ownersError);
+          console.error('[POST_OWNERS] Error fetching profiles:', ownersError);
         } else {
-          console.log('[POST_OWNERS] Fetched owners:', owners);
+          console.log('[POST_OWNERS] ✅ Fetched profiles:', owners?.length || 0);
+          if (owners && owners.length > 0) {
+            owners.forEach(o => console.log(`[POST_OWNERS] Profile: id=${o.id}, name=${o.name}`));
+          } else {
+            console.warn('[POST_OWNERS] ⚠️  No profiles found for user IDs:', postOwnerIds);
+          }
         }
         (owners || []).forEach(o => {
           ownersMap[o.id] = o;
         });
       }
 
-      console.log('[POST_ENRICHMENT] Maps:', {
-        postsMap: Object.keys(postsMap),
-        ownersMap: Object.keys(ownersMap),
-        totalReports: (data || []).length,
+      console.log('[POST_ENRICHMENT] Summary:', {
+        postsFound: Object.keys(postsMap).length,
+        profilesFound: Object.keys(ownersMap).length,
+        missingProfiles: postOwnerIds.length - Object.keys(ownersMap).length,
       });
 
       // Enrich post reports with all data
@@ -232,7 +241,7 @@ export default function AdminReports() {
 
         if (post && post.user_id) {
           postOwner = ownersMap[post.user_id];
-          console.log(`[POST_ENRICHMENT] Report ${r.id}: post_id=${r.post_id}, user_id=${post.user_id}, owner=`, postOwner);
+          console.log(`[POST_ENRICHMENT] Report ${r.id}: post_id=${r.post_id}, user_id=${post?.user_id}, owner=`, postOwner);
         }
 
         return {
@@ -719,12 +728,12 @@ export default function AdminReports() {
                       <TableCell>
                         {report.post_owner?.name ? (
                           <>
-                            {report.post_owner.name}
-                            {report.post?.user_id && <span className="text-xs text-gray-500 ml-1">({report.post.user_id.slice(0, 8)})</span>}
+                            {report.post_owner?.name}
+                            {report.post?.user_id && <span className="text-xs text-gray-500 ml-1">({report.post?.user_id.slice(0, 8)})</span>}
                           </>
                         ) : report.post?.user_id ? (
-                          <span className="text-gray-500 italic" title={`Post user ID: ${report.post.user_id}`}>
-                            Loading... (ID: {report.post.user_id.slice(0, 8)})
+                          <span className="text-gray-500 italic" title={`Post user ID: ${report.post?.user_id}`}>
+                            Loading... (ID: {report.post?.user_id.slice(0, 8)})
                           </span>
                         ) : (
                           <span className="text-gray-500 italic">Unknown</span>
@@ -921,52 +930,52 @@ export default function AdminReports() {
               <div className="bg-slate-50 rounded-lg p-3 space-y-2">
                 <div>
                   <p className="text-xs text-slate-500 font-semibold">Reporter</p>
-                  <p className="font-medium">{managingPostReport.reporter?.name || 'Unknown'}</p>
+                  <p className="font-medium">{managingPostReport?.reporter?.name || 'Unknown'}</p>
                 </div>
                 <div>
                   <p className="text-xs text-slate-500 font-semibold">Post Owner</p>
                   <div className="flex items-center justify-between">
-                    <p className="font-medium">{managingPostReport.post_owner?.name || 'Unknown'}</p>
-                    {managingPostReport.post?.user_id && (
-                      <span className="text-xs text-gray-500">({managingPostReport.post.user_id.slice(0, 8)})</span>
+                    <p className="font-medium">{managingPostReport?.post_owner?.name || 'Unknown'}</p>
+                    {managingPostReport?.post?.user_id && (
+                      <span className="text-xs text-gray-500">({managingPostReport?.post?.user_id.slice(0, 8)})</span>
                     )}
                   </div>
                 </div>
                 <div>
                   <p className="text-xs text-slate-500 font-semibold">Post Type</p>
                   <p className="font-medium bg-purple-100 text-purple-800 px-2 py-1 rounded w-fit">
-                    {managingPostReport.post?.type?.toUpperCase() || 'N/A'}
+                    {managingPostReport?.post?.type?.toUpperCase() || 'N/A'}
                   </p>
                 </div>
                 <div>
                   <p className="text-xs text-slate-500 font-semibold">Reason</p>
-                  <p className="font-medium">{managingPostReport.reason}</p>
+                  <p className="font-medium">{managingPostReport?.reason}</p>
                 </div>
                 <div>
                   <p className="text-xs text-slate-500 font-semibold">Status</p>
-                  <p className="font-medium capitalize">{managingPostReport.status}</p>
+                  <p className="font-medium capitalize">{managingPostReport?.status}</p>
                 </div>
-                {managingPostReport.post?.id && (
+                {managingPostReport?.post?.id && (
                   <div>
                     <p className="text-xs text-slate-500 font-semibold">Post ID</p>
-                    <p className="text-xs font-mono text-slate-600">{managingPostReport.post.id}</p>
+                    <p className="text-xs font-mono text-slate-600">{managingPostReport?.post?.id}</p>
                   </div>
                 )}
               </div>
 
               {/* Post Media Preview */}
-              {managingPostReport.post?.media_url && (
+              {managingPostReport?.post?.media_url && (
                 <div className="bg-gray-100 rounded-lg p-3">
                   <p className="text-xs text-gray-600 font-semibold mb-2">Post Media</p>
-                  {managingPostReport.post.type === 'photo' ? (
+                  {managingPostReport?.post?.type === 'photo' ? (
                     <img
-                      src={managingPostReport.post.media_url}
+                      src={managingPostReport?.post?.media_url}
                       alt="Post"
                       className="max-w-full h-auto rounded max-h-48 object-cover"
                     />
-                  ) : managingPostReport.post.type === 'video' ? (
+                  ) : managingPostReport?.post?.type === 'video' ? (
                     <video
-                      src={managingPostReport.post.media_url}
+                      src={managingPostReport?.post?.media_url}
                       controls
                       className="max-w-full h-auto rounded max-h-48"
                     />
@@ -975,10 +984,10 @@ export default function AdminReports() {
               )}
 
               {/* Post Content */}
-              {managingPostReport.post?.content && (
+              {managingPostReport?.post?.content && (
                 <div className="bg-blue-50 rounded-lg p-3">
                   <p className="text-xs text-blue-600 font-semibold mb-1">Post Content</p>
-                  <p className="text-sm text-blue-900 break-words">{managingPostReport.post.content}</p>
+                  <p className="text-sm text-blue-900 break-words">{managingPostReport?.post?.content}</p>
                 </div>
               )}
 
@@ -998,12 +1007,12 @@ export default function AdminReports() {
           )}
 
           <DialogFooter className="flex flex-col sm:flex-row gap-2">
-            {managingPostReport.post?.id && (
+            {managingPostReport?.post?.id && (
               <Button
                 variant="outline"
                 onClick={() => {
                   // Open post in new tab if available, else create a deeplink
-                  window.open(`/post/${managingPostReport.post.id}`, '_blank');
+                  window.open(`/post/${managingPostReport?.post?.id}`, '_blank');
                 }}
               >
                 👁️ View Post
@@ -1011,7 +1020,7 @@ export default function AdminReports() {
             )}
             <Button
               variant="outline"
-              onClick={() => handleSavePostNote(managingPostReport.id, adminNotePost, 'dismissed')}
+              onClick={() => handleSavePostNote(managingPostReport?.id, adminNotePost, 'dismissed')}
               disabled={updatingPostStatus}
             >
               Dismiss
@@ -1019,7 +1028,7 @@ export default function AdminReports() {
             <Button
               variant="outline"
               className="text-red-600 border-red-200 hover:bg-red-50"
-              onClick={() => handleDeletePost(managingPostReport.post?.id)}
+              onClick={() => handleDeletePost(managingPostReport?.post?.id)}
               disabled={updatingPostStatus}
             >
               🗑️ Delete Post
