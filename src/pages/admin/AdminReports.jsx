@@ -18,28 +18,46 @@ import {
 } from '@/components/ui/select';
 
 export default function AdminReports() {
-  const [reports, setReports] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [page, setPage] = useState(0);
-  const [totalCount, setTotalCount] = useState(0);
+  // ============================================
+  // STATE - GENERAL
+  // ============================================
+  const [activeTab, setActiveTab] = useState('user-reports'); // 'user-reports' or 'post-reports'
   const PAGE_SIZE = 20;
-
-  const [statusFilter, setStatusFilter] = useState('All');
-  const [searchTerm, setSearchTerm] = useState('');
-
-  const [managingReport, setManagingReport] = useState(null);
-  const [adminNote, setAdminNote] = useState('');
-  const [updatingStatus, setUpdatingStatus] = useState(false);
-
   const { staffRole } = useAdminPermissions();
   const { toast } = useToast();
   const isManager = staffRole === 'manager';
 
   // ============================================
-  // FETCH REPORTS
+  // STATE - USER/ROOM REPORTS
   // ============================================
-  const fetchReports = async (currentPage = page) => {
-    setLoading(true);
+  const [reports, setReports] = useState([]);
+  const [loadingReports, setLoadingReports] = useState(false);
+  const [pageReports, setPageReports] = useState(0);
+  const [totalCountReports, setTotalCountReports] = useState(0);
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [managingReport, setManagingReport] = useState(null);
+  const [adminNote, setAdminNote] = useState('');
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+
+  // ============================================
+  // STATE - POST REPORTS
+  // ============================================
+  const [postReports, setPostReports] = useState([]);
+  const [loadingPostReports, setLoadingPostReports] = useState(false);
+  const [pagePostReports, setPagePostReports] = useState(0);
+  const [totalCountPostReports, setTotalCountPostReports] = useState(0);
+  const [statusFilterPost, setStatusFilterPost] = useState('All');
+  const [managingPostReport, setManagingPostReport] = useState(null);
+  const [adminNotePost, setAdminNotePost] = useState('');
+  const [updatingPostStatus, setUpdatingPostStatus] = useState(false);
+  const [newPostCount, setNewPostCount] = useState(0);
+
+  // ============================================
+  // FETCH USER/ROOM REPORTS
+  // ============================================
+  const fetchReports = async (currentPage = pageReports) => {
+    setLoadingReports(true);
     try {
       let query = supabase.from('reports').select('*', { count: 'exact' });
 
@@ -112,33 +130,133 @@ export default function AdminReports() {
       }));
 
       setReports(enrichedReports);
-      setTotalCount(count || 0);
+      setTotalCountReports(count || 0);
     } catch (e) {
       toast({ title: 'Error', description: e.message, variant: 'destructive' });
     } finally {
-      setLoading(false);
+      setLoadingReports(false);
     }
   };
 
+  // ============================================
+  // FETCH POST REPORTS
+  // ============================================
+  const fetchPostReports = async (currentPage = pagePostReports) => {
+    setLoadingPostReports(true);
+    try {
+      let query = supabase.from('post_reports').select('*', { count: 'exact' });
+
+      if (statusFilterPost !== 'All') {
+        query = query.eq('status', statusFilterPost.toLowerCase());
+      }
+
+      const { data, error, count } = await query
+        .order('created_at', { ascending: false })
+        .range(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE - 1);
+
+      if (error) throw error;
+
+      // Fetch reporter profiles
+      const reporterIds = [...new Set((data || []).map(r => r.reporter_id).filter(Boolean))];
+      let reportersMap = {};
+      if (reporterIds.length > 0) {
+        const { data: reporters } = await supabase
+          .from('profiles')
+          .select('id, name')
+          .in('id', reporterIds);
+        (reporters || []).forEach(r => {
+          reportersMap[r.id] = r;
+        });
+      }
+
+      // Fetch posts
+      const postIds = [...new Set((data || []).map(r => r.post_id).filter(Boolean))];
+      let postsMap = {};
+      if (postIds.length > 0) {
+        const { data: posts } = await supabase
+          .from('posts')
+          .select('id, user_id, type, media_url, content')
+          .in('id', postIds);
+        (posts || []).forEach(p => {
+          postsMap[p.id] = p;
+        });
+      }
+
+      // Fetch post owners
+      const postOwnerIds = Object.values(postsMap).map(p => p.user_id).filter(Boolean);
+      let ownersMap = {};
+      if (postOwnerIds.length > 0) {
+        const { data: owners } = await supabase
+          .from('profiles')
+          .select('id, name')
+          .in('id', postOwnerIds);
+        (owners || []).forEach(o => {
+          ownersMap[o.id] = o;
+        });
+      }
+
+      // Enrich post reports
+      const enrichedPostReports = (data || []).map(r => ({
+        ...r,
+        reporter: reportersMap[r.reporter_id] || null,
+        post: postsMap[r.post_id] || null,
+        post_owner: ownersMap[postsMap[r.post_id]?.user_id] || null,
+      }));
+
+      setPostReports(enrichedPostReports);
+      setTotalCountPostReports(count || 0);
+
+      // Count pending post reports
+      const { count: pendingCount } = await supabase
+        .from('post_reports')
+        .select('id', { count: 'exact' })
+        .eq('status', 'pending');
+      setNewPostCount(pendingCount || 0);
+    } catch (e) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } finally {
+      setLoadingPostReports(false);
+    }
+  };
+
+  // ============================================
+  // EFFECTS
+  // ============================================
   useEffect(() => {
-    setPage(0);
+    setPageReports(0);
     fetchReports(0);
   }, [statusFilter, searchTerm]);
 
   useEffect(() => {
-    if (page === 0 && (statusFilter !== 'All' || searchTerm)) return;
-    fetchReports(page);
-  }, [page]);
+    if (pageReports === 0 && (statusFilter !== 'All' || searchTerm)) return;
+    fetchReports(pageReports);
+  }, [pageReports]);
 
+  useEffect(() => {
+    setPagePostReports(0);
+    fetchPostReports(0);
+  }, [statusFilterPost]);
+
+  useEffect(() => {
+    if (pagePostReports === 0) return;
+    fetchPostReports(pagePostReports);
+  }, [pagePostReports]);
+
+  useEffect(() => {
+    if (activeTab === 'post-reports') {
+      fetchPostReports(0);
+    }
+  }, [activeTab]);
+
+  // ============================================
+  // HANDLERS - USER/ROOM REPORTS
+  // ============================================
   const handleSearch = (e) => {
     e.preventDefault();
-    setPage(0);
+    setPageReports(0);
     fetchReports(0);
   };
 
-  // ============================================
-  // REVIEW ACTIONS
-  // ============================================
   const handleReviewReport = (report) => {
     setManagingReport(report);
     setAdminNote(report.admin_note || '');
@@ -205,160 +323,446 @@ export default function AdminReports() {
   };
 
   // ============================================
+  // HANDLERS - POST REPORTS
+  // ============================================
+  const handleReviewPostReport = (report) => {
+    setManagingPostReport(report);
+    setAdminNotePost(report.admin_note || '');
+  };
+
+  const handleSavePostNote = async (reportId, note, newStatus) => {
+    if (!reportId || updatingPostStatus) return;
+    setUpdatingPostStatus(true);
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await supabase
+        .from('post_reports')
+        .update({
+          admin_note: note,
+          status: newStatus,
+          reviewed_by: user?.id || null,
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq('id', reportId);
+
+      if (error) throw error;
+
+      toast({ title: '✅ Post report updated' });
+      setManagingPostReport(null);
+      setAdminNotePost('');
+      fetchPostReports();
+    } catch (e) {
+      toast({
+        title: 'Error',
+        description: e.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setUpdatingPostStatus(false);
+    }
+  };
+
+  const handleDeletePost = async (postId) => {
+    if (!postId) return;
+    if (!window.confirm('Delete this post permanently?')) return;
+
+    setUpdatingPostStatus(true);
+    try {
+      // Set is_active to false (soft delete)
+      const { error } = await supabase
+        .from('posts')
+        .update({ is_active: false })
+        .eq('id', postId);
+
+      if (error) throw error;
+
+      toast({ title: '🗑️ Post deactivated' });
+      setManagingPostReport(null);
+      setAdminNotePost('');
+      fetchPostReports();
+    } catch (e) {
+      toast({
+        title: 'Error',
+        description: e.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setUpdatingPostStatus(false);
+    }
+  };
+
+  const handleDeletePostReport = async (reportId) => {
+    if (!reportId) return;
+    if (!window.confirm('Delete this report permanently?')) return;
+
+    setUpdatingPostStatus(true);
+    try {
+      const { error } = await supabase
+        .from('post_reports')
+        .delete()
+        .eq('id', reportId);
+
+      if (error) throw error;
+
+      toast({ title: '🗑️ Report deleted' });
+      setManagingPostReport(null);
+      setAdminNotePost('');
+      fetchPostReports();
+    } catch (e) {
+      toast({
+        title: 'Error',
+        description: e.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setUpdatingPostStatus(false);
+    }
+  };
+
+  // ============================================
   // RENDER
   // ============================================
   return (
     <div className="p-4 md:p-6">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Reports Management</h1>
-        <Button variant="outline" size="sm" onClick={() => fetchReports(page)}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => activeTab === 'user-reports' ? fetchReports(pageReports) : fetchPostReports(pagePostReports)}
+        >
           <RefreshCw className="h-4 w-4 mr-1" /> Refresh
         </Button>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col md:flex-row gap-4 mb-6">
-        <form onSubmit={handleSearch} className="flex gap-2 flex-1">
-          <Input
-            placeholder="Search by target name or reason..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-          <Button type="submit" disabled={loading}>
-            Search
-          </Button>
-        </form>
-
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="All">All Reports</SelectItem>
-            <SelectItem value="Pending">Pending</SelectItem>
-            <SelectItem value="Reviewed">Reviewed</SelectItem>
-            <SelectItem value="Resolved">Resolved</SelectItem>
-            <SelectItem value="Dismissed">Dismissed</SelectItem>
-          </SelectContent>
-        </Select>
+      {/* ============================================ */}
+      {/* TABS */}
+      {/* ============================================ */}
+      <div className="flex gap-2 mb-6 border-b">
+        <button
+          onClick={() => {
+            setActiveTab('user-reports');
+            setPageReports(0);
+          }}
+          className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
+            activeTab === 'user-reports'
+              ? 'border-blue-500 text-blue-600'
+              : 'border-transparent text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          User/Room Reports
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab('post-reports');
+            setPagePostReports(0);
+          }}
+          className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors relative ${
+            activeTab === 'post-reports'
+              ? 'border-blue-500 text-blue-600'
+              : 'border-transparent text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          Post Reports
+          {newPostCount > 0 && (
+            <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+              {newPostCount}
+            </span>
+          )}
+        </button>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-lg shadow-md overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Reporter</TableHead>
-              <TableHead>Reported User/Room</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Reason</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center">
-                  <Loader2 className="mx-auto animate-spin" />
-                </TableCell>
-              </TableRow>
-            ) : reports.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center p-4 text-gray-500">
-                  No reports found.
-                </TableCell>
-              </TableRow>
-            ) : (
-              reports.map((report) => (
-                <TableRow key={report.id}>
-                  <TableCell className="font-medium">
-                    {report.reporter?.name || 'Unknown'} (#{report.reporter_id?.slice(0, 8)})
-                  </TableCell>
-                  <TableCell>
-                    {report.reported_user?.name || report.reported_room?.title || 'Unknown'} (#{report.reported_user?.profile_id || report.reported_room?.public_room_id || '—'})
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-xs font-semibold bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                      {report.report_type || 'N/A'}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-sm">{report.reason}</TableCell>
-                  <TableCell>
-                    {report.status === 'pending' && (
-                      <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
-                        Pending
-                      </span>
-                    )}
-                    {report.status === 'reviewed' && (
-                      <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
-                        Reviewed
-                      </span>
-                    )}
-                    {report.status === 'resolved' && (
-                      <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full">
-                        Resolved
-                      </span>
-                    )}
-                    {report.status === 'dismissed' && (
-                      <span className="text-xs font-bold text-gray-600 bg-gray-50 px-2 py-1 rounded-full">
-                        Dismissed
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-xs text-gray-500">
-                    {new Date(report.created_at).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleReviewReport(report)}
-                    >
-                      Review
-                    </Button>
-                  </TableCell>
+      {/* ============================================ */}
+      {/* USER/ROOM REPORTS TAB */}
+      {/* ============================================ */}
+      {activeTab === 'user-reports' && (
+        <>
+          {/* Filters */}
+          <div className="flex flex-col md:flex-row gap-4 mb-6">
+            <form onSubmit={handleSearch} className="flex gap-2 flex-1">
+              <Input
+                placeholder="Search by target name or reason..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              <Button type="submit" disabled={loadingReports}>
+                Search
+              </Button>
+            </form>
+
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All">All Reports</SelectItem>
+                <SelectItem value="Pending">Pending</SelectItem>
+                <SelectItem value="Reviewed">Reviewed</SelectItem>
+                <SelectItem value="Resolved">Resolved</SelectItem>
+                <SelectItem value="Dismissed">Dismissed</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Table */}
+          <div className="bg-white rounded-lg shadow-md overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Reporter</TableHead>
+                  <TableHead>Reported User/Room</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Reason</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+              </TableHeader>
+              <TableBody>
+                {loadingReports ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center">
+                      <Loader2 className="mx-auto animate-spin" />
+                    </TableCell>
+                  </TableRow>
+                ) : reports.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center p-4 text-gray-500">
+                      No reports found.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  reports.map((report) => (
+                    <TableRow key={report.id}>
+                      <TableCell className="font-medium">
+                        {report.reporter?.name || 'Unknown'} (#{report.reporter_id?.slice(0, 8)})
+                      </TableCell>
+                      <TableCell>
+                        {report.reported_user?.name || report.reported_room?.title || 'Unknown'} (#{report.reported_user?.profile_id || report.reported_room?.public_room_id || '—'})
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-xs font-semibold bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                          {report.report_type || 'N/A'}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-sm">{report.reason}</TableCell>
+                      <TableCell>
+                        {report.status === 'pending' && (
+                          <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
+                            Pending
+                          </span>
+                        )}
+                        {report.status === 'reviewed' && (
+                          <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
+                            Reviewed
+                          </span>
+                        )}
+                        {report.status === 'resolved' && (
+                          <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full">
+                            Resolved
+                          </span>
+                        )}
+                        {report.status === 'dismissed' && (
+                          <span className="text-xs font-bold text-gray-600 bg-gray-50 px-2 py-1 rounded-full">
+                            Dismissed
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-xs text-gray-500">
+                        {new Date(report.created_at).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleReviewReport(report)}
+                        >
+                          Review
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
 
-      {/* Pagination */}
-      <div className="flex items-center justify-between mt-4 px-2">
-        <span className="text-sm text-slate-500">
-          Showing {Math.min(page * PAGE_SIZE + 1, totalCount)}–{Math.min((page + 1) * PAGE_SIZE, totalCount)} of {totalCount} reports
-        </span>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page === 0 || loading}
-            onClick={() => {
-              setPage(p => p - 1);
-              fetchReports(page - 1);
-            }}
-          >
-            ← Prev
-          </Button>
-          <span className="text-sm font-medium">Page {page + 1} of {Math.ceil(totalCount / PAGE_SIZE) || 1}</span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={(page + 1) * PAGE_SIZE >= totalCount || loading}
-            onClick={() => {
-              setPage(p => p + 1);
-              fetchReports(page + 1);
-            }}
-          >
-            Next →
-          </Button>
-        </div>
-      </div>
+          {/* Pagination */}
+          <div className="flex items-center justify-between mt-4 px-2">
+            <span className="text-sm text-slate-500">
+              Showing {Math.min(pageReports * PAGE_SIZE + 1, totalCountReports)}–{Math.min((pageReports + 1) * PAGE_SIZE, totalCountReports)} of {totalCountReports} reports
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={pageReports === 0 || loadingReports}
+                onClick={() => {
+                  setPageReports(p => p - 1);
+                  fetchReports(pageReports - 1);
+                }}
+              >
+                ← Prev
+              </Button>
+              <span className="text-sm font-medium">Page {pageReports + 1} of {Math.ceil(totalCountReports / PAGE_SIZE) || 1}</span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={(pageReports + 1) * PAGE_SIZE >= totalCountReports || loadingReports}
+                onClick={() => {
+                  setPageReports(p => p + 1);
+                  fetchReports(pageReports + 1);
+                }}
+              >
+                Next →
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
 
-      {/* Review Modal */}
+      {/* ============================================ */}
+      {/* POST REPORTS TAB */}
+      {/* ============================================ */}
+      {activeTab === 'post-reports' && (
+        <>
+          {/* Filters */}
+          <div className="flex flex-col md:flex-row gap-4 mb-6">
+            <Select value={statusFilterPost} onValueChange={setStatusFilterPost}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All">All Reports</SelectItem>
+                <SelectItem value="Pending">Pending</SelectItem>
+                <SelectItem value="Reviewed">Reviewed</SelectItem>
+                <SelectItem value="Resolved">Resolved</SelectItem>
+                <SelectItem value="Dismissed">Dismissed</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Table */}
+          <div className="bg-white rounded-lg shadow-md overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Reporter</TableHead>
+                  <TableHead>Post Owner</TableHead>
+                  <TableHead>Post Type</TableHead>
+                  <TableHead>Reason</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loadingPostReports ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center">
+                      <Loader2 className="mx-auto animate-spin" />
+                    </TableCell>
+                  </TableRow>
+                ) : postReports.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center p-4 text-gray-500">
+                      No post reports found.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  postReports.map((report) => (
+                    <TableRow key={report.id}>
+                      <TableCell className="font-medium">
+                        {report.reporter?.name || 'Unknown'} (#{report.reporter_id?.slice(0, 8)})
+                      </TableCell>
+                      <TableCell>
+                        {report.post_owner?.name || 'Unknown'}
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-xs font-semibold bg-purple-100 text-purple-800 px-2 py-1 rounded-full">
+                          {report.post?.type || 'N/A'}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-sm">{report.reason}</TableCell>
+                      <TableCell>
+                        {report.status === 'pending' && (
+                          <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
+                            Pending
+                          </span>
+                        )}
+                        {report.status === 'reviewed' && (
+                          <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
+                            Reviewed
+                          </span>
+                        )}
+                        {report.status === 'resolved' && (
+                          <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full">
+                            Resolved
+                          </span>
+                        )}
+                        {report.status === 'dismissed' && (
+                          <span className="text-xs font-bold text-gray-600 bg-gray-50 px-2 py-1 rounded-full">
+                            Dismissed
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-xs text-gray-500">
+                        {new Date(report.created_at).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleReviewPostReport(report)}
+                        >
+                          Review
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Pagination */}
+          <div className="flex items-center justify-between mt-4 px-2">
+            <span className="text-sm text-slate-500">
+              Showing {Math.min(pagePostReports * PAGE_SIZE + 1, totalCountPostReports)}–{Math.min((pagePostReports + 1) * PAGE_SIZE, totalCountPostReports)} of {totalCountPostReports} reports
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={pagePostReports === 0 || loadingPostReports}
+                onClick={() => {
+                  setPagePostReports(p => p - 1);
+                  fetchPostReports(pagePostReports - 1);
+                }}
+              >
+                ← Prev
+              </Button>
+              <span className="text-sm font-medium">Page {pagePostReports + 1} of {Math.ceil(totalCountPostReports / PAGE_SIZE) || 1}</span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={(pagePostReports + 1) * PAGE_SIZE >= totalCountPostReports || loadingPostReports}
+                onClick={() => {
+                  setPagePostReports(p => p + 1);
+                  fetchPostReports(pagePostReports + 1);
+                }}
+              >
+                Next →
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ============================================ */}
+      {/* REVIEW MODAL - USER/ROOM REPORTS */}
+      {/* ============================================ */}
       <Dialog open={!!managingReport} onOpenChange={(open) => !open && setManagingReport(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -440,6 +844,117 @@ export default function AdminReports() {
               disabled={updatingStatus}
             >
               {updatingStatus ? <Loader2 className="animate-spin" /> : 'Resolve'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ============================================ */}
+      {/* REVIEW MODAL - POST REPORTS */}
+      {/* ============================================ */}
+      <Dialog open={!!managingPostReport} onOpenChange={(open) => !open && setManagingPostReport(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Review Post Report</DialogTitle>
+          </DialogHeader>
+
+          {managingPostReport && (
+            <div className="space-y-4 py-2 max-h-96 overflow-y-auto">
+              <div className="bg-slate-50 rounded-lg p-3 space-y-2">
+                <div>
+                  <p className="text-xs text-slate-500 font-semibold">Reporter</p>
+                  <p className="font-medium">{managingPostReport.reporter?.name || 'Unknown'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 font-semibold">Post Owner</p>
+                  <p className="font-medium">{managingPostReport.post_owner?.name || 'Unknown'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 font-semibold">Post Type</p>
+                  <p className="font-medium capitalize">{managingPostReport.post?.type}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 font-semibold">Reason</p>
+                  <p className="font-medium">{managingPostReport.reason}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 font-semibold">Status</p>
+                  <p className="font-medium capitalize">{managingPostReport.status}</p>
+                </div>
+              </div>
+
+              {/* Post Media Preview */}
+              {managingPostReport.post?.media_url && (
+                <div className="bg-gray-100 rounded-lg p-3">
+                  <p className="text-xs text-gray-600 font-semibold mb-2">Post Media</p>
+                  {managingPostReport.post.type === 'photo' ? (
+                    <img
+                      src={managingPostReport.post.media_url}
+                      alt="Post"
+                      className="max-w-full h-auto rounded max-h-48 object-cover"
+                    />
+                  ) : managingPostReport.post.type === 'video' ? (
+                    <video
+                      src={managingPostReport.post.media_url}
+                      controls
+                      className="max-w-full h-auto rounded max-h-48"
+                    />
+                  ) : null}
+                </div>
+              )}
+
+              {/* Post Content */}
+              {managingPostReport.post?.content && (
+                <div className="bg-blue-50 rounded-lg p-3">
+                  <p className="text-xs text-blue-600 font-semibold mb-1">Post Content</p>
+                  <p className="text-sm text-blue-900 break-words">{managingPostReport.post.content}</p>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label>Admin Note</Label>
+                <Textarea
+                  value={adminNotePost}
+                  onChange={(e) => setAdminNotePost(e.target.value)}
+                  placeholder="Add notes about this report..."
+                  disabled={updatingPostStatus}
+                  maxLength={500}
+                  className="min-h-[100px]"
+                />
+                <p className="text-xs text-slate-500 text-right">{adminNotePost.length}/500</p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="flex flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={() => handleSavePostNote(managingPostReport.id, adminNotePost, 'dismissed')}
+              disabled={updatingPostStatus}
+            >
+              Dismiss
+            </Button>
+            <Button
+              variant="outline"
+              className="text-red-600 border-red-200 hover:bg-red-50"
+              onClick={() => handleDeletePost(managingPostReport.post?.id)}
+              disabled={updatingPostStatus}
+            >
+              🗑️ Delete Post
+            </Button>
+            <Button
+              variant="outline"
+              className="text-red-600 border-red-200 hover:bg-red-50"
+              onClick={() => handleDeletePostReport(managingPostReport.id)}
+              disabled={updatingPostStatus}
+            >
+              🗑️ Delete Report
+            </Button>
+            <Button
+              onClick={() => handleSavePostNote(managingPostReport.id, adminNotePost, 'resolved')}
+              disabled={updatingPostStatus}
+            >
+              {updatingPostStatus ? <Loader2 className="animate-spin" /> : 'Resolve'}
             </Button>
           </DialogFooter>
         </DialogContent>
