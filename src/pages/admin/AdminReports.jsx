@@ -179,7 +179,7 @@ export default function AdminReports() {
         // Try to fetch all available columns from posts (including soft-deleted)
         const { data: posts, error: postsError } = await supabase
           .from('posts')
-          .select('id, user_id, type, media_url, content, created_at, is_active')
+          .select('id, user_id, type, media_url, caption, created_at, is_active')
           .in('id', postIds);
 
         if (postsError) {
@@ -984,10 +984,10 @@ export default function AdminReports() {
               )}
 
               {/* Post Content */}
-              {managingPostReport?.post?.content && (
+              {managingPostReport?.post?.caption && (
                 <div className="bg-blue-50 rounded-lg p-3">
                   <p className="text-xs text-blue-600 font-semibold mb-1">Post Content</p>
-                  <p className="text-sm text-blue-900 break-words">{managingPostReport?.post?.content}</p>
+                  <p className="text-sm text-blue-900 break-words">{managingPostReport?.post?.caption}</p>
                 </div>
               )}
 
