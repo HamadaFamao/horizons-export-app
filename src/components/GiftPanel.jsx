@@ -39,6 +39,15 @@ export default function GiftPanel({
   // Only show recipient selector in room mode with multiple users
   const showRecipientSelector = roomUsers && roomUsers.length > 0;
 
+  // Filter gifts: exclude VIP/exclusive/lucky gifts from profile gift panel
+  const filteredGifts = showRecipientSelector 
+    ? gifts  // في الروم: اعرض كل الهدايا
+    : gifts.filter(g => 
+        g.category === 'general' && 
+        !g.is_vip_only && 
+        !g.is_lucky
+      );  // في البروفايل: اعرض الهدايا العامة فقط
+
   // Fallback for quantity if not provided by parent
   const [localQuantity, setLocalQuantity] = useState(1);
   const quantity = externalQuantity !== undefined ? externalQuantity : localQuantity;
@@ -368,7 +377,7 @@ export default function GiftPanel({
 
       <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="p-4">
-          {!gifts || gifts.length === 0 ? (
+          {!filteredGifts || filteredGifts.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center">
               <p className="text-gray-500 mb-2">
                 {language === 'ar' ? 'لا توجد هدايا متاحة' : 'No gifts available'}
@@ -379,7 +388,7 @@ export default function GiftPanel({
             </div>
           ) : (
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-              {gifts.map((gift) => {
+              {filteredGifts.map((gift) => {
                 const canAfford = userWallet ? userWallet.coins >= gift.cost * (quantity || 1) : false;
 
                 return (
