@@ -6,6 +6,7 @@ import { Loader2, Coins, Plus } from 'lucide-react';
 import CoinsBadge from '@/components/CoinsBadge';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchUserWallet } from '@/lib/walletUtils';
+import { insertGiftMessage } from '@/lib/giftMessageHelper';
 
 export default function ChatGiftModal({
   isOpen,
@@ -125,7 +126,8 @@ export default function ChatGiftModal({
       const { data, error } = await supabase.rpc('send_gift_secure', {
         p_gift_id: selectedGift.id,
         p_recipient_id: recipientId,
-        p_sender_id: user.id
+        p_sender_id: user.id,
+        p_message: customMessage || null
       });
 
       // 2. Check error first
@@ -161,10 +163,25 @@ export default function ChatGiftModal({
         setWalletCoins(walletData.coins);
       }
 
-      // 6. Close modal
+
+      // 6. Create gift message in chat with custom message
+      try {
+        await insertGiftMessage({
+          senderId: user.id,
+          recipientId: recipientId,
+          giftId: selectedGift.id,
+          giftName: selectedGift.name_en,
+          iconUrl: selectedGift.icon_url,
+          message: customMessage || '',
+        });
+      } catch (err) {
+        console.error('⚠️ Error creating gift message in chat:', err);
+        // Don't fail if message creation fails
+      }
+      // 7. Close modal
       onClose();
 
-      // 7. Notify parent
+      // 8. Notify parent
       if (typeof onGiftSelected === 'function') {
         onGiftSelected({ sent: true, gift: selectedGift, message: customMessage });
       }
