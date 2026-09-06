@@ -90,8 +90,8 @@ export default function UserProfilePage() {
         setFriendStatus(socialRes.data.friend_status || 'none');
       }
       if (roomRes.data?.success) setActiveRoom(roomRes.data);
-      if (roomRes.data?.is_owner && roomRes.data?.room_id) {
-        setUserOwnRoomId(roomRes.data.room_id);
+      if (roomRes.data?.own_room_id) {
+        setUserOwnRoomId(roomRes.data.own_room_id);
       }
     };
     fetchExtra();
