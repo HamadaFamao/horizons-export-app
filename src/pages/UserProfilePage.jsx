@@ -432,7 +432,7 @@ export default function UserProfilePage() {
                     )}
 
                     {/* Track - للأصداء بس */}
-                    {activeRoom?.success && friendStatus === 'friends' && (
+                    {activeRoom?.success && !activeRoom?.is_owner && friendStatus === 'friends' && (
                       <button
                         onClick={() => {
                           if (window.confirm(
