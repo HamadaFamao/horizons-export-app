@@ -126,8 +126,7 @@ export default function ChatGiftModal({
       const { data, error } = await supabase.rpc('send_gift_secure', {
         p_gift_id: selectedGift.id,
         p_recipient_id: recipientId,
-        p_sender_id: user.id,
-        p_message: customMessage || null
+        p_sender_id: user.id
       });
 
       // 2. Check error first
