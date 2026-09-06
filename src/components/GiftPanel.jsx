@@ -36,6 +36,9 @@ export default function GiftPanel({
   const [customQuantityValue, setCustomQuantityValue] = useState('');
   const [recipientMenuOpen, setRecipientMenuOpen] = useState(false);
 
+  // Only show recipient selector in room mode with multiple users
+  const showRecipientSelector = roomUsers && roomUsers.length > 0;
+
   // Fallback for quantity if not provided by parent
   const [localQuantity, setLocalQuantity] = useState(1);
   const quantity = externalQuantity !== undefined ? externalQuantity : localQuantity;
@@ -213,7 +216,10 @@ export default function GiftPanel({
         </button>
       </div>
 
-      <div className="shrink-0 px-4 py-3 bg-gray-50 border-b border-gray-100 relative z-30">
+      {showRecipientSelector && (
+
+
+        <div className="shrink-0 px-4 py-3 bg-gray-50 border-b border-gray-100 relative z-30">
         <p className="text-xs text-gray-500 mb-1 font-medium">
           {language === 'ar' ? 'إرسال إلى:' : 'Send to:'}
         </p>
@@ -336,6 +342,8 @@ export default function GiftPanel({
         </div>
       </div>
 
+      )}
+
       {userWallet && (
         <div className="shrink-0 px-4 py-3 bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-100 flex justify-between items-center">
           <div className="flex items-center gap-4">
@@ -398,12 +406,7 @@ export default function GiftPanel({
                           <Lock className="w-3 h-3 text-gray-500" />
                         </div>
                       )}
-                      {(gift.reward_gems > 0 || gift.gems_awarded > 0) && (
-                        <div className="absolute -top-1 -right-1 bg-purple-100 text-purple-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-purple-200">
-                          +{gift.reward_gems ?? gift.gems_awarded ?? 0}💎
-                        </div>
-                      )}
-                    </div>
+</div>
                     <p className="text-xs font-medium text-gray-700 text-center line-clamp-1 w-full cursor-pointer">
                       {language === 'ar' ? gift.name_ar : gift.name_en}
                     </p>
