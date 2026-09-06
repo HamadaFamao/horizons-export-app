@@ -53,9 +53,9 @@ export default function ChatGiftModal({
       try {
         setLoadingGifts(true);
         const { data, error } = await supabase
-          .from('v_active_gift_catalog')
-          .select('id, name_en, name_ar, icon_url, cost, display_size, category, is_vip_only, is_lucky')
-          .eq('is_chat_gift_enabled', true)
+          .from('gift_catalog')
+          .select('id, name_en, name_ar, icon_url, cost, category, is_vip_only, is_lucky, sort_order')
+          .eq('is_active', true)
           .order('sort_order', { ascending: true });
 
         if (error) {
