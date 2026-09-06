@@ -103,6 +103,14 @@ const TAB_RULES = {
   all: null,
 };
 
+// Calculate reward level based on cost
+const calculateRewardLevel = (cost) => {
+  if (cost < 10) return 1;
+  if (cost < 50) return Math.ceil(cost / 10);
+  if (cost < 100) return Math.ceil(cost / 20) + 2;
+  return Math.ceil(cost / 50) + 4;
+};
+
 const TABS = [
   {
     key: 'gifts',
@@ -271,6 +279,7 @@ const AdminGiftsPage = () => {
     const gems_awarded = rules?.gems_formula
       ? rules.gems_formula(cost)
       : Number(form.gems_awarded) || 0;
+    const reward_level = calculateRewardLevel(cost);
 
     const giftData = {
       code: form.code?.trim(),
@@ -279,7 +288,7 @@ const AdminGiftsPage = () => {
       cost,
       gems_awarded,
       sort_order: Number(form.sort_order) || 0,
-      reward_level: Number(form.reward_level) || 0,
+      reward_level,
       is_active: form.is_active !== false,
       is_room_gift_enabled: form.is_room_gift_enabled !== false,
       icon_url: form.icon_url || null,
@@ -339,6 +348,7 @@ const AdminGiftsPage = () => {
     const gems_awarded = rules?.gems_formula
       ? rules.gems_formula(cost)
       : Number(form.gems_awarded) || 0;
+    const reward_level = calculateRewardLevel(cost);
 
     const giftData = {
       code: form.code?.trim(),
@@ -347,7 +357,7 @@ const AdminGiftsPage = () => {
       cost,
       gems_awarded,
       sort_order: Number(form.sort_order) || 0,
-      reward_level: Number(form.reward_level) || 0,
+      reward_level,
       is_active: form.is_active !== false,
       is_room_gift_enabled: form.is_room_gift_enabled !== false,
       icon_url: form.icon_url || null,
@@ -508,6 +518,10 @@ const AdminGiftsPage = () => {
     if (rules?.gems_formula && gift.cost > 0) {
       nextForm.gems_awarded = rules.gems_formula(gift.cost);
     }
+    // Auto-calculate reward level based on cost
+    if (gift.cost > 0) {
+      nextForm.reward_level = calculateRewardLevel(gift.cost);
+    }
 
     setForm(nextForm);
     setIsEditModalOpen(true);
@@ -657,7 +671,8 @@ const AdminGiftsPage = () => {
               const cost = Number(e.target.value) || 0;
               const rules = TAB_RULES[activeTab];
               const gems = rules?.gems_formula ? rules.gems_formula(cost) : cost;
-              setForm({ ...form, cost: e.target.value, gems_awarded: gems });
+              const level = calculateRewardLevel(cost);
+              setForm({ ...form, cost: e.target.value, gems_awarded: gems, reward_level: level });
             }}
           />
         </div>

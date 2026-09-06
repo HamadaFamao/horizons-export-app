@@ -13,6 +13,8 @@ export default function PostCard({ post, currentUserId, onUpdate }) {
   const [saved, setSaved] = useState(post.is_saved || false);
   const [likeCount, setLikeCount] = useState(Number(post.like_count || 0));
   const [viewCount, setViewCount] = useState(Number(post.view_count || 0));
+  const [viewedByUser, setViewedByUser] = useState(false);
+  const [replayCount, setReplayCount] = useState(0);
   const [showComments, setShowComments] = useState(false);
   const [showPostReport, setShowPostReport] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
@@ -37,7 +39,9 @@ export default function PostCard({ post, currentUserId, onUpdate }) {
   const ownerMenuRef = useRef(null);
   const [playing, setPlaying] = useState(false);
   const [viewed, setViewed] = useState(false);
-  const { toast } = useToast();
+    const [showLightbox, setShowLightbox] = useState(false);
+  const [lightboxZoom, setLightboxZoom] = useState(1);
+const { toast } = useToast();
 
   useEffect(() => {
     if (!showPostReport) return;
@@ -153,11 +157,30 @@ export default function PostCard({ post, currentUserId, onUpdate }) {
     if (!playing) {
       videoRef.current?.play();
       setPlaying(true);
-      if (!viewed) {
-        setViewed(true);
-        const { error: viewErr } = await supabase.rpc('increment_post_view', { p_post_id: post.id });
-        console.log('[VIEW_COUNT]', { post_id: post.id, error: viewErr });
+      
+      // First view logic
+      if (!viewedByUser) {
+        setViewedByUser(true);
+        const { error: viewErr } = await supabase.rpc('increment_post_view', {
+          p_post_id: post.id,
+          p_is_first_view: true
+        });
+        console.log('[VIEW_COUNT]', { post_id: post.id, isFirstView: true, error: viewErr });
         if (!viewErr) setViewCount(prev => prev + 1);
+      } else {
+        // Replay logic - increment every 5 replays
+        const newReplayCount = replayCount + 1;
+        setReplayCount(newReplayCount);
+        
+        if (newReplayCount % 5 === 0) {
+          const { error: replayErr } = await supabase.rpc('increment_post_view', {
+            p_post_id: post.id,
+            p_is_first_view: false,
+            p_replay_count: newReplayCount
+          });
+          console.log('[VIEW_COUNT]', { post_id: post.id, replay: newReplayCount, error: replayErr });
+          if (!replayErr) setViewCount(prev => prev + 1);
+        }
       }
     } else {
       videoRef.current?.pause();
@@ -496,7 +519,8 @@ export default function PostCard({ post, currentUserId, onUpdate }) {
             <img
               src={post.media_url}
               alt={post.caption || 'post'}
-              className="w-full object-contain max-h-[70vh]"
+              className="w-full object-contain max-h-[70vh] cursor-pointer hover:opacity-90 transition-opacity"
+              onClick={() => setShowLightbox(true)}
               style={{ background: '#000' }}
             />
           )}
@@ -740,6 +764,8 @@ export default function PostCard({ post, currentUserId, onUpdate }) {
       {showGiftPanel && (
         <PostGiftPanel
           postId={post.id}
+          postRecipientId={post.user_id}
+          postType={post.type}
           onClose={() => setShowGiftPanel(false)}
           onGiftSent={() => {
             if (onUpdate) onUpdate();
@@ -763,6 +789,66 @@ export default function PostCard({ post, currentUserId, onUpdate }) {
         </div>
       )}
 
+
+      {/* Image Lightbox Modal */}
+      {showLightbox && post.type === 'image' && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4"
+          onClick={() => {
+            setShowLightbox(false);
+            setLightboxZoom(1);
+          }}
+        >
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowLightbox(false);
+              setLightboxZoom(1);
+            }}
+            className="absolute top-4 right-4 p-2 bg-white/20 hover:bg-white/30 rounded-full transition-colors z-10"
+          >
+            <X className="w-6 h-6 text-white" />
+          </button>
+
+          <div className="flex flex-col items-center gap-4" onClick={(e) => e.stopPropagation()}>
+            {/* Zoomed Image */}
+            <div className="relative max-w-4xl max-h-[80vh] overflow-auto bg-black rounded-lg">
+              <img
+                src={post.media_url}
+                alt={post.caption || 'post'}
+                className="w-full h-full object-contain"
+                style={{ transform: `scale(${lightboxZoom})`, transformOrigin: 'center' }}
+              />
+            </div>
+
+            {/* Zoom Controls */}
+            <div className="flex items-center gap-3 bg-black/50 px-4 py-2 rounded-full">
+              <button
+                onClick={() => setLightboxZoom(Math.max(1, lightboxZoom - 0.2))}
+                className="px-3 py-1 bg-white/20 hover:bg-white/30 text-white rounded transition-colors text-sm font-medium"
+              >
+                −
+              </button>
+              <span className="text-white text-sm font-medium min-w-[60px] text-center">
+                {Math.round(lightboxZoom * 100)}%
+              </span>
+              <button
+                onClick={() => setLightboxZoom(Math.min(3, lightboxZoom + 0.2))}
+                className="px-3 py-1 bg-white/20 hover:bg-white/30 text-white rounded transition-colors text-sm font-medium"
+              >
+                +
+              </button>
+              <div className="w-px h-5 bg-white/20 mx-1" />
+              <button
+                onClick={() => setLightboxZoom(1)}
+                className="px-3 py-1 bg-white/20 hover:bg-white/30 text-white rounded transition-colors text-sm font-medium"
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {showRepostConfirm && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
           onClick={() => setShowRepostConfirm(false)}>

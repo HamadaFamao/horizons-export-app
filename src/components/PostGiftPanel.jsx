@@ -5,7 +5,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { X, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export default function PostGiftPanel({ postId, onClose, onGiftSent }) {
+export default function PostGiftPanel({ postId, postRecipientId, postType, onClose, onGiftSent }) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [gifts, setGifts] = useState([]);
