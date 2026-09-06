@@ -60,7 +60,7 @@ export default function PostGiftPanel({ postId, postRecipientId, postType, onClo
         try {
           await supabase.from('notifications').insert({
             user_id: postRecipientId,
-            type: 'gift',
+            type: 'post_gift',
             title: `🎁 ${gift.name_en}`,
             message: `Someone sent you a ${gift.name_en} on your ${postType || 'post'}`,
             reference_id: postId,

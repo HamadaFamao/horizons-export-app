@@ -786,7 +786,7 @@ const { toast } = useToast();
 
 
       {/* Image Lightbox Modal */}
-      {showLightbox && post.type === 'image' && (
+      {showLightbox && post.type === 'photo' && (
         <div 
           className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4"
           onClick={() => {
