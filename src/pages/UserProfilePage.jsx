@@ -41,6 +41,7 @@ export default function UserProfilePage() {
 
   // Room state
   const [activeRoom, setActiveRoom] = useState(null);
+  const [userOwnRoomId, setUserOwnRoomId] = useState(null);
 
   // Active tab
   const [activeTab, setActiveTab] = useState('posts');
@@ -89,6 +90,9 @@ export default function UserProfilePage() {
         setFriendStatus(socialRes.data.friend_status || 'none');
       }
       if (roomRes.data?.success) setActiveRoom(roomRes.data);
+      if (roomRes.data?.is_owner && roomRes.data?.room_id) {
+        setUserOwnRoomId(roomRes.data.room_id);
+      }
     };
     fetchExtra();
   }, [profile?.profile_id]);
@@ -418,10 +422,10 @@ export default function UserProfilePage() {
                       </span>
                     </button>
 
-                    {/* Enter Room - للجميع لو صاحب روم */}
-                    {activeRoom?.success && activeRoom.is_owner && (
+                    {/* Room - ينقل دايماً لروم المستخدم الخاص به، يظهر للجميع لو عنده روم أصلاً */}
+                    {userOwnRoomId && (
                       <button
-                        onClick={() => navigate(`/rooms/${activeRoom.room_id}`)}
+                        onClick={() => navigate(`/rooms/${userOwnRoomId}`)}
                         className="flex flex-col items-center gap-1 group"
                       >
                         <div className="w-11 h-11 bg-amber-500 rounded-full flex items-center justify-center shadow-sm group-hover:bg-amber-600 transition">
@@ -431,8 +435,8 @@ export default function UserProfilePage() {
                       </button>
                     )}
 
-                    {/* Track - للأصداء بس */}
-                    {activeRoom?.success && !activeRoom?.is_owner && friendStatus === 'friends' && (
+                    {/* Track - يظهر للأصدقاء بس، طالما المستخدم في أي روم دلوقتي (رومه أو روم غيره) */}
+                    {activeRoom?.success && friendStatus === 'friends' && (
                       <button
                         onClick={() => {
                           if (window.confirm(
@@ -443,10 +447,7 @@ export default function UserProfilePage() {
                         }}
                         className="flex flex-col items-center gap-1 group"
                       >
-                        <div className={cn(
-                          'w-11 h-11 rounded-full flex items-center justify-center shadow-sm transition',
-                          activeRoom?.success ? 'bg-cyan-600 group-hover:bg-cyan-700 animate-pulse' : 'bg-gray-300'
-                        )}>
+                        <div className="w-11 h-11 bg-cyan-600 rounded-full flex items-center justify-center shadow-sm group-hover:bg-cyan-700 transition animate-pulse">
                           <Navigation className="w-5 h-5 text-white" />
                         </div>
                         <span className="text-[10px] text-gray-500">Track</span>
