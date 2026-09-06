@@ -729,11 +729,11 @@ export default function AdminReports() {
                         {report.post_owner?.name ? (
                           <>
                             {report.post_owner?.name}
-                            {report.post?.user_id && <span className="text-xs text-gray-500 ml-1">({report.post?.user_id.slice(0, 8)})</span>}
+                            {report.post?.user_id && <span className="text-xs text-gray-500 ml-1">({report.post?.user_id})</span>}
                           </>
                         ) : report.post?.user_id ? (
                           <span className="text-gray-500 italic" title={`Post user ID: ${report.post?.user_id}`}>
-                            Loading... (ID: {report.post?.user_id.slice(0, 8)})
+                            Loading... (ID: {report.post?.user_id})
                           </span>
                         ) : (
                           <span className="text-gray-500 italic">Unknown</span>
@@ -937,7 +937,7 @@ export default function AdminReports() {
                   <div className="flex items-center justify-between">
                     <p className="font-medium">{managingPostReport?.post_owner?.name || 'Unknown'}</p>
                     {managingPostReport?.post?.user_id && (
-                      <span className="text-xs text-gray-500">({managingPostReport?.post?.user_id.slice(0, 8)})</span>
+                      <span className="text-xs text-gray-500">({managingPostReport?.post?.user_id})</span>
                     )}
                   </div>
                 </div>
@@ -1011,8 +1011,7 @@ export default function AdminReports() {
               <Button
                 variant="outline"
                 onClick={() => {
-                  // Open post in new tab if available, else create a deeplink
-                  window.open(`/post/${managingPostReport?.post?.id}`, '_blank');
+                  window.open(`/post/${managingPostReport?.post?.id}`, '_blank', 'noopener,noreferrer');
                 }}
               >
                 👁️ View Post
