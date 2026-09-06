@@ -886,14 +886,14 @@ export default function AdminReports() {
           <DialogFooter className="flex flex-col sm:flex-row gap-2">
             <Button
               variant="outline"
-              onClick={() => handleSaveNote(managingReport.id, adminNote, 'dismissed')}
+              onClick={() => handleSaveNote(managingReport?.id, adminNote, 'dismissed')}
               disabled={updatingStatus}
             >
               Dismiss
             </Button>
             <Button
               variant="outline"
-              onClick={() => handleSaveNote(managingReport.id, adminNote, 'reviewed')}
+              onClick={() => handleSaveNote(managingReport?.id, adminNote, 'reviewed')}
               disabled={updatingStatus}
             >
               Mark Reviewed
@@ -901,13 +901,13 @@ export default function AdminReports() {
             <Button
               variant="outline"
               className="text-red-600 border-red-200 hover:bg-red-50"
-              onClick={() => handleDeleteReport(managingReport.id)}
+              onClick={() => handleDeleteReport(managingReport?.id)}
               disabled={updatingStatus}
             >
               🗑️ Delete Report
             </Button>
             <Button
-              onClick={() => handleSaveNote(managingReport.id, adminNote, 'resolved')}
+              onClick={() => handleSaveNote(managingReport?.id, adminNote, 'resolved')}
               disabled={updatingStatus}
             >
               {updatingStatus ? <Loader2 className="animate-spin" /> : 'Resolve'}
@@ -1036,13 +1036,13 @@ export default function AdminReports() {
             <Button
               variant="outline"
               className="text-red-600 border-red-200 hover:bg-red-50"
-              onClick={() => handleDeletePostReport(managingPostReport.id)}
+              onClick={() => handleDeletePostReport(managingPostReport?.id)}
               disabled={updatingPostStatus}
             >
               🗑️ Delete Report
             </Button>
             <Button
-              onClick={() => handleSavePostNote(managingPostReport.id, adminNotePost, 'resolved')}
+              onClick={() => handleSavePostNote(managingPostReport?.id, adminNotePost, 'resolved')}
               disabled={updatingPostStatus}
             >
               {updatingPostStatus ? <Loader2 className="animate-spin" /> : 'Resolve'}
