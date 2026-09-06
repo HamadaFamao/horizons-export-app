@@ -729,11 +729,11 @@ export default function AdminReports() {
                         {report.post_owner?.name ? (
                           <>
                             {report.post_owner?.name}
-                            {report.post?.user_id && <span className="text-xs text-gray-500 ml-1">({report.post?.user_id})</span>}
+                            <span className="text-xs text-gray-500 ml-1">({report.post_owner?.profile_id || 'N/A'})</span>
                           </>
                         ) : report.post?.user_id ? (
-                          <span className="text-gray-500 italic" title={`Post user ID: ${report.post?.user_id}`}>
-                            Loading... (ID: {report.post?.user_id})
+                          <span className="text-gray-500 italic">
+                            Loading...
                           </span>
                         ) : (
                           <span className="text-gray-500 italic">Unknown</span>
@@ -935,10 +935,12 @@ export default function AdminReports() {
                 <div>
                   <p className="text-xs text-slate-500 font-semibold">Post Owner</p>
                   <div className="flex items-center justify-between">
-                    <p className="font-medium">{managingPostReport?.post_owner?.name || 'Unknown'}</p>
-                    {managingPostReport?.post?.user_id && (
-                      <span className="text-xs text-gray-500">({managingPostReport?.post?.user_id})</span>
-                    )}
+                    <p className="font-medium">
+                      {managingPostReport?.post_owner?.name || 'Unknown'}
+                      <span className="text-xs text-gray-500 ml-1">
+                        ({managingPostReport?.post_owner?.profile_id || 'N/A'})
+                      </span>
+                    </p>
                   </div>
                 </div>
                 <div>

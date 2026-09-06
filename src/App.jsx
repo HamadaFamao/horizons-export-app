@@ -32,6 +32,7 @@ import AgentWithdrawals from '@/pages/recharge-agent/AgentWithdrawals';
 import SearchPage from '@/pages/SearchPage';
 import InboxPage from '@/pages/InboxPage';
 import SavedPostsPage from '@/pages/SavedPostsPage';
+import PostPage from '@/pages/PostPage';
 import BlockedUsersPage from '@/pages/BlockedUsersPage';
 import RoomsLobby from '@/pages/RoomsLobby';
 import LiveRoomPage from '@/pages/LiveRoomPage'; 
@@ -200,6 +201,7 @@ function AppContent() {
           <Route path="/plans" element={<PlansPage />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/user/:profileId" element={<UserProfilePage />} />
+          <Route path="/post/:postId" element={<PostPage />} />
 
           {/* Protected Routes */}
           <Route
