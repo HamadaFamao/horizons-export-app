@@ -38,7 +38,6 @@ export default function PostCard({ post, currentUserId, onUpdate }) {
   const reportMenuRef = useRef(null);
   const ownerMenuRef = useRef(null);
   const [playing, setPlaying] = useState(false);
-  const [viewed, setViewed] = useState(false);
     const [showLightbox, setShowLightbox] = useState(false);
   const [lightboxZoom, setLightboxZoom] = useState(1);
 const { toast } = useToast();
@@ -158,29 +157,25 @@ const { toast } = useToast();
       videoRef.current?.play();
       setPlaying(true);
       
-      // First view logic
+      // First view logic only
       if (!viewedByUser) {
         setViewedByUser(true);
-        const { error: viewErr } = await supabase.rpc('increment_post_view', {
-          p_post_id: post.id,
-          p_is_first_view: true
-        });
-        console.log('[VIEW_COUNT]', { post_id: post.id, isFirstView: true, error: viewErr });
-        if (!viewErr) setViewCount(prev => prev + 1);
+        try {
+          const { error: viewErr } = await supabase.rpc('increment_post_view', {
+            p_post_id: post.id
+          });
+          console.log('[VIEW_COUNT_FIRST]', { post_id: post.id, error: viewErr });
+          if (!viewErr) {
+            setViewCount(prev => prev + 1);
+          }
+        } catch (err) {
+          console.error('[VIEW_COUNT_ERROR]', err);
+        }
       } else {
-        // Replay logic - increment every 5 replays
+        // Track replays locally (will implement backend logic later)
         const newReplayCount = replayCount + 1;
         setReplayCount(newReplayCount);
-        
-        if (newReplayCount % 5 === 0) {
-          const { error: replayErr } = await supabase.rpc('increment_post_view', {
-            p_post_id: post.id,
-            p_is_first_view: false,
-            p_replay_count: newReplayCount
-          });
-          console.log('[VIEW_COUNT]', { post_id: post.id, replay: newReplayCount, error: replayErr });
-          if (!replayErr) setViewCount(prev => prev + 1);
-        }
+        console.log('[REPLAY_COUNT]', newReplayCount);
       }
     } else {
       videoRef.current?.pause();

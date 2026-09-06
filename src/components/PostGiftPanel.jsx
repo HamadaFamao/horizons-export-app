@@ -55,6 +55,23 @@ export default function PostGiftPanel({ postId, postRecipientId, postType, onClo
       if (error) throw error;
       if (data?.success === false) throw new Error(data.error);
 
+      // Create notification for post owner
+      if (postRecipientId && postRecipientId !== user.id) {
+        try {
+          await supabase.from('notifications').insert({
+            user_id: postRecipientId,
+            type: 'gift',
+            title: `🎁 ${gift.name_en}`,
+            message: `Someone sent you a ${gift.name_en} on your ${postType || 'post'}`,
+            reference_id: postId,
+            reference_type: 'post',
+            is_read: false
+          });
+        } catch (notifErr) {
+          console.error('⚠️ Error creating notification:', notifErr);
+        }
+      }
+
       toast({
         title: `🎁 ${gift.name_en} sent!`,
         description: `${gift.cost} coins spent • ${gift.gems_awarded} gems awarded`,
