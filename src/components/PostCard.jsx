@@ -157,25 +157,30 @@ const { toast } = useToast();
       videoRef.current?.play();
       setPlaying(true);
       
-      // First view logic only
-      if (!viewedByUser) {
-        setViewedByUser(true);
-        try {
-          const { error: viewErr } = await supabase.rpc('increment_post_view', {
-            p_post_id: post.id
-          });
-          console.log('[VIEW_COUNT_FIRST]', { post_id: post.id, error: viewErr });
-          if (!viewErr) {
-            setViewCount(prev => prev + 1);
-          }
-        } catch (err) {
-          console.error('[VIEW_COUNT_ERROR]', err);
+      // Use the new cooldown-aware RPC function
+      try {
+        const { data, error: viewErr } = await supabase.rpc('increment_post_view_with_cooldown', {
+          p_post_id: post.id,
+          p_user_id: currentUserId
+        });
+        console.log('[VIEW_COUNT_COOLDOWN]', { 
+          post_id: post.id, 
+          post_type: post.type, 
+          user_id: currentUserId,
+          data, 
+          error: viewErr 
+        });
+        
+        if (!viewErr && data?.success) {
+          setViewCount(data.view_count);
+          console.log('[VIEW_COUNT_SUCCESS]', { new_count: data.view_count, message: data.message });
+        } else if (!viewErr && !data?.success) {
+          console.log('[VIEW_COUNT_COOLDOWN_ACTIVE]', data?.message);
+        } else {
+          console.error('[VIEW_COUNT_ERROR]', viewErr);
         }
-      } else {
-        // Track replays locally (will implement backend logic later)
-        const newReplayCount = replayCount + 1;
-        setReplayCount(newReplayCount);
-        console.log('[REPLAY_COUNT]', newReplayCount);
+      } catch (err) {
+        console.error('[VIEW_COUNT_ERROR]', err);
       }
     } else {
       videoRef.current?.pause();
