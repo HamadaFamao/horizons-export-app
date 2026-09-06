@@ -78,7 +78,7 @@ export default function SavedPostsPage() {
           id, user_id, type, caption, media_url,
           thumbnail_url, duration_seconds, view_count,
           is_active, created_at,
-          profiles!inner (name, avatar_url, profile_id)
+          profiles!posts_user_id_fkey (name, avatar_url, profile_id)
         `)
         .in('id', postIds)
         .eq('is_active', true);
