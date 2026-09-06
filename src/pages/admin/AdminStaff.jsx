@@ -77,6 +77,15 @@ export default function AdminStaff() {
           can_manage_banners: member.can_manage_banners,
           can_send_notifications: member.can_send_notifications,
           can_manage_finance: member.can_manage_finance,
+          can_manage_gifts: member.can_manage_gifts,
+          can_manage_rewards: member.can_manage_rewards,
+          can_manage_plans: member.can_manage_plans,
+          can_manage_coins: member.can_manage_coins,
+          can_manage_reports: member.can_manage_reports,
+          can_manage_settings: member.can_manage_settings,
+          can_manage_seed: member.can_manage_seed,
+          can_manage_tools: member.can_manage_tools,
+          can_manage_staff: member.can_manage_staff,
         };
       });
       setEdits(initial);
