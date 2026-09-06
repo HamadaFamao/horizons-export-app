@@ -45,7 +45,7 @@ export default function ChatGiftModal({
     loadWallet();
   }, [isOpen, user]);
 
-  // Load gifts on mount
+  // Load gifts on mount - filter only chat-enabled general gifts
   useEffect(() => {
     if (!isOpen) return;
 
@@ -53,9 +53,9 @@ export default function ChatGiftModal({
       try {
         setLoadingGifts(true);
         const { data, error } = await supabase
-          .from('gift_catalog')
-          .select('*')
-          .eq('is_active', true)
+          .from('v_active_gift_catalog')
+          .select('id, name_en, name_ar, icon_url, cost, display_size, category, is_vip_only, is_lucky')
+          .eq('is_chat_gift_enabled', true)
           .order('sort_order', { ascending: true });
 
         if (error) {
@@ -83,6 +83,13 @@ export default function ChatGiftModal({
 
     loadGifts();
   }, [isOpen, toast]);
+
+    // Filter: only show general gifts in chat (no VIP/Lucky/Exclusive)
+  const filteredGifts = gifts.filter(g => 
+    g.category === 'general' && 
+    !g.is_vip_only && 
+    !g.is_lucky
+  );
 
   const handleSendGift = async () => {
     if (!selectedGift || !user) {
@@ -221,7 +228,7 @@ export default function ChatGiftModal({
               <Loader2 className="w-8 h-8 animate-spin text-rose-500 mb-2" />
               <p className="text-gray-500">Loading gifts...</p>
             </div>
-          ) : gifts.length === 0 ? (
+          ) : filteredGifts.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-48 text-gray-500">
                <p>No gifts available currently.</p>
             </div>
@@ -229,7 +236,7 @@ export default function ChatGiftModal({
             <>
               {/* Gift grid */}
               <div className="grid grid-cols-3 gap-3 mb-6">
-                {gifts.map((gift) => (
+                {filteredGifts.map((gift) => (
                   <button
                     key={gift.id}
                     onClick={() => setSelectedGift(gift)}
@@ -257,12 +264,6 @@ export default function ChatGiftModal({
                             {gift.cost}
                         </p>
                     </div>
-                    
-                    {gift.reward_gems > 0 && (
-                       <div className="absolute -top-1 -right-1 bg-purple-100 text-purple-700 text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-purple-200">
-                          +{gift.reward_gems}💎
-                       </div>
-                    )}
                   </button>
                 ))}
               </div>
