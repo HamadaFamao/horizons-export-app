@@ -29,10 +29,6 @@ export default function SavedPostsPage() {
     getAuth();
   }, []);
 
-  useEffect(() => {
-    console.log('[AUTH CHECK]', { user, authUserId, authLoading });
-  }, [user, authLoading]);
-
   const offsetRef = useRef(0);
 
   const initialTab = searchParams.get('tab') || 'saved';
@@ -44,7 +40,6 @@ export default function SavedPostsPage() {
   const LIMIT = 12;
 
   const fetchPosts = useCallback(async (reset = false) => {
-    console.log('[DEBUG]', { authUserId, activeTab });
     if (!authUserId) return;
     if (reset) setLoading(true);
     else setLoadingMore(true);
@@ -57,12 +52,6 @@ export default function SavedPostsPage() {
         const { data, error: savesError } = await supabase
           .from('post_saves')
           .select('*');
-        console.log('[ALL SAVES]', { data, error: savesError });
-        const testQuery = await supabase
-          .from('profiles')
-          .select('id, name')
-          .limit(3);
-        console.log('[TEST PROFILES QUERY]', testQuery);
         postIds = (data || []).map(r => r.post_id);
       } else {
         const { data } = await supabase
