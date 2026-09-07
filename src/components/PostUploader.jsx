@@ -69,17 +69,28 @@ export default function PostUploader({ onPostCreated, userId }) {
     setUploadProgress(0);
 
     try {
+      const userSession = await supabase.auth.getUser();
+      const authUserId = userSession.data.user?.id;
+      console.log('DEBUG: targetUserId =', targetUserId);
+      console.log('DEBUG: auth.uid() =', authUserId);
+      console.log('DEBUG: Match?', targetUserId === authUserId);
+
       let mediaUrl = null;
 
       if (type !== 'text') {
         const ext = file.name.split('.').pop();
         const fileName = `${targetUserId}/${Date.now()}.${ext}`;
 
+        console.log('DEBUG: Uploading to path:', fileName);
+
         const { error: uploadError } = await supabase.storage
           .from('posts')
           .upload(fileName, file, { upsert: false });
 
-        if (uploadError) throw uploadError;
+        if (uploadError) {
+          console.error('DEBUG: Upload error:', uploadError);
+          throw uploadError;
+        }
 
         const { data: urlData } = supabase.storage
           .from('posts')
@@ -150,6 +161,7 @@ export default function PostUploader({ onPostCreated, userId }) {
       if (onPostCreated) onPostCreated();
 
     } catch (err) {
+      console.error('[POST_ERROR]', err);
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     } finally {
       setUploading(false);
