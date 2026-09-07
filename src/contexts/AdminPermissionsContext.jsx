@@ -45,7 +45,9 @@ export function AdminPermissionsProvider({ children }) {
               can_manage_users: staffPerms.can_manage_users ?? false,
               can_manage_banners: staffPerms.can_manage_banners ?? false,
               can_send_notifications: staffPerms.can_send_notifications ?? false,
-              can_manage_notifications: staffPerms.can_manage_notifications ?? false,
+              can_manage_notifications: Boolean(
+                staffPerms.can_manage_notifications || staffPerms.can_send_notifications
+              ),
               can_manage_finance: staffPerms.can_manage_finance ?? false,
               can_manage_gifts: staffPerms.can_manage_gifts ?? false,
               can_manage_rewards: staffPerms.can_manage_rewards ?? false,
@@ -115,6 +117,11 @@ export function AdminPermissionsProvider({ children }) {
           can_manage_seed:        data.can_manage_seed,
           can_manage_tools:       data.can_manage_tools,
           can_manage_staff:       data.can_manage_staff,
+        });
+        console.log('[AdminPermissionsContext] Setting permissions:', {
+          can_manage_notifications: data.can_manage_notifications,
+          all_data_keys: Object.keys(data),
+          full_data: data
         });
       } catch (e) {
         console.error('[AdminPermissions] fetch failed', e);

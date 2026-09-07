@@ -13,6 +13,11 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 const AdminLayout = () => {
   const { user } = useAuth();
   const userPermissions = useAdminPermissions();
+  console.log('[AdminLayout DEBUG]', {
+  userPermissions,
+  can_manage_notifications: userPermissions?.can_manage_notifications,
+  all_permissions: JSON.stringify(userPermissions, null, 2)
+});
   const navigate = useNavigate();
   const { isDirty, setDirty } = useUnsavedChanges();
   const [showConfirm, setShowConfirm] = useState(false);

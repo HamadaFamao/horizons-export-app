@@ -16,6 +16,7 @@ import {
   Trophy,
   BarChart,
   Gift,
+  Bell,
   Home,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -52,6 +53,7 @@ const AdminLayout = () => {
     { name: 'Rewards',           href: 'rewards',                icon: Trophy,          iconEmoji: '🏆', permission: 'can_manage_rewards' },
     { name: 'Reports',           href: 'reports',                icon: BarChart,        iconEmoji: '📊', permission: 'can_manage_reports' },
     { name: 'Gifts',             href: 'gifts',                  icon: Gift,            iconEmoji: '🎁', permission: 'can_manage_gifts' },
+    { name: 'Messages & Notifications', href: 'messages',          icon: Bell,            iconEmoji: '🔔', permission: 'can_manage_notifications' },
     { name: 'Seed Data',         href: 'seed',                   icon: Database,        iconEmoji: '🌱', permission: 'can_manage_seed' },
     { name: 'Settings',          href: 'settings',               icon: Settings,        iconEmoji: '⚙️', permission: 'can_manage_settings' },
   ];

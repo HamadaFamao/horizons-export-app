@@ -14,6 +14,36 @@ const AdminMessagesPage = () => {
   const [hasPermission, setHasPermission] = useState(null);
   const [permissionLoading, setPermissionLoading] = useState(true);
 
+  // Form State
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [mediaFile, setMediaFile] = useState(null);
+  const [mediaPreview, setMediaPreview] = useState(null);
+  const [mediaType, setMediaType] = useState(null); // 'image' or 'video'
+
+  // Message Type Selection
+  const [messageTypes, setMessageTypes] = useState({
+    chat: false,
+    notification: false,
+  });
+
+  // Recipient Segments
+  const [selectedSegments, setSelectedSegments] = useState(new Set());
+  const [showSegmentDropdown, setShowSegmentDropdown] = useState(false);
+
+  // Delivery Method
+  const [deliveryMethods, setDeliveryMethods] = useState({
+    in_app: true,
+    push: false,
+  });
+
+  // Send Type
+  const [sendType, setSendType] = useState('immediate');
+  const [scheduledDateTime, setScheduledDateTime] = useState('');
+
+  // Loading State
+  const [sending, setSending] = useState(false);
+
   // Check Permission on Mount
   useEffect(() => {
     const checkPermission = async () => {
@@ -26,7 +56,7 @@ const AdminMessagesPage = () => {
         // Get user permission from staff_user_permissions table
         const { data, error } = await supabase
           .from('staff_user_permissions')
-          .select('can_manage_notifications')
+          .select('can_manage_notifications, can_send_notifications')
           .eq('user_id', user.id)
           .single();
 
@@ -36,7 +66,7 @@ const AdminMessagesPage = () => {
           return;
         }
 
-        setHasPermission(data?.can_manage_notifications || false);
+        setHasPermission(Boolean(data?.can_manage_notifications || data?.can_send_notifications));
       } catch (err) {
         console.error('[PERMISSION_ERROR]', err);
         setHasPermission(false);
@@ -85,23 +115,7 @@ const AdminMessagesPage = () => {
     );
   }
 
-  // Form State
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [mediaFile, setMediaFile] = useState(null);
-  const [mediaPreview, setMediaPreview] = useState(null);
-  const [mediaType, setMediaType] = useState(null); // 'image' or 'video'
-
-  // Message Type Selection
-  const [messageTypes, setMessageTypes] = useState({
-    chat: false,
-    notification: false,
-  });
-
   // Recipient Segments
-  const [selectedSegments, setSelectedSegments] = useState(new Set());
-  const [showSegmentDropdown, setShowSegmentDropdown] = useState(false);
-
   const segments = [
     { id: 'all', label: '🌐 للكل', icon: '🌐' },
     { id: 'active_famous', label: '⭐ مستخدمين نشطين ومشاهير', icon: '⭐' },
@@ -111,19 +125,6 @@ const AdminMessagesPage = () => {
     { id: 'agents', label: '👤 وكلاء', icon: '👤' },
     { id: 'recharge_agents', label: '💰 وكلاء الشحن', icon: '💰' },
   ];
-
-  // Delivery Method
-  const [deliveryMethods, setDeliveryMethods] = useState({
-    in_app: true,
-    push: false,
-  });
-
-  // Send Type
-  const [sendType, setSendType] = useState('immediate');
-  const [scheduledDateTime, setScheduledDateTime] = useState('');
-
-  // Loading State
-  const [sending, setSending] = useState(false);
 
   // Handle File Selection
   const handleFileSelect = (e) => {
