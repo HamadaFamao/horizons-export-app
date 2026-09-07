@@ -52,6 +52,7 @@ import IdentityManagerPage from '@/pages/admin/IdentityManagerPage';
 import AdminGiftsPage from '@/pages/AdminGiftsPage'; // ✅ ADDED
 import AdminStaff from '@/pages/admin/AdminStaff';
 import AdminCoins from '@/pages/admin/AdminCoins';
+import AdminMessages from '@/pages/admin/AdminMessages';
 
 import WebsiteLayout from '@/components/WebsiteLayout';
 import AdminErrorBoundary from '@/components/AdminErrorBoundary';
@@ -425,6 +426,7 @@ function AppContent() {
           <Route path="staff" element={<AdminStaff />} />
           <Route path="coins" element={<AdminCoins />} />
           <Route path="gifts" element={<AdminGiftsPage />} />  {/* ✅ ADDED */}
+          <Route path="messages" element={<AdminMessages />} />
         </Route>
       </Routes>
 

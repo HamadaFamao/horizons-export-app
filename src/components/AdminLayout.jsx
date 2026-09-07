@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { LayoutGrid, Users, CreditCard, ShieldAlert, Database, Settings, Home, Gem, Award, Wrench, ArrowDownLeftFromCircle, Building } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAdminPermissions } from '@/contexts/AdminPermissionsContext';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useUnsavedChanges } from '@/contexts/UnsavedChangesContext';
@@ -11,6 +12,7 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 
 const AdminLayout = () => {
   const { user } = useAuth();
+  const userPermissions = useAdminPermissions();
   const navigate = useNavigate();
   const { isDirty, setDirty } = useUnsavedChanges();
   const [showConfirm, setShowConfirm] = useState(false);
@@ -103,6 +105,20 @@ const AdminLayout = () => {
                 </NavLink>
               </li>
             ))}
+            {userPermissions?.can_manage_notifications && (
+              <li>
+                <NavLink
+                  to="/admin/messages"
+                  onClick={(e) => handleNavClick(e, '/admin/messages')}
+                  className={({ isActive }) => cn(
+                    "flex items-center gap-3 px-4 py-3 my-1 rounded-lg text-gray-700 transition-colors hover:bg-rose-100 hover:text-rose-600",
+                    { "bg-rose-200 text-rose-700 font-semibold": isActive }
+                  )}
+                >
+                  <span>🔔 الإشعارات والرسائل</span>
+                </NavLink>
+              </li>
+            )}
           </ul>
         </nav>
         <div className="mt-auto pt-4 border-t border-pink-100">
