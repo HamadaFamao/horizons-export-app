@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,6 @@ import { useAdminPermissions } from '@/contexts/AdminPermissionsContext';
 import CountrySelect from '@/components/CountrySelect';
 import { DEFAULT_AVATAR } from '@/lib/constants';
 import { Textarea } from '@/components/ui/textarea';
-import { useRef } from 'react';
 import PostUploader from '@/components/PostUploader';
 import UserPostsList from '@/components/UserPostsList';
 

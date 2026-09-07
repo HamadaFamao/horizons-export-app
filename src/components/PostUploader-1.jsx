@@ -8,25 +8,21 @@ import { useToast } from '@/components/ui/use-toast';
 export default function PostUploader({ onPostCreated, userId }) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [type, setType] = useState('photo'); // 'photo' | 'video' | 'text'
+  const [type, setType] = useState('photo');
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [caption, setCaption] = useState('');
   const [visibility, setVisibility] = useState('public');
   const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef(null);
 
-  // Use provided userId (for admin) or current user's id
   const targetUserId = userId || user?.id;
-  // Check if this is an admin operation (userId provided and different from current user)
   const isAdminOperation = userId && user?.id !== userId;
 
   const handleFileSelect = (e) => {
     const selected = e.target.files?.[0];
     if (!selected) return;
 
-    // Validate
     const isVideo = selected.type.startsWith('video/');
     const isImage = selected.type.startsWith('image/');
 
@@ -39,7 +35,6 @@ export default function PostUploader({ onPostCreated, userId }) {
       return;
     }
 
-    // Size limits
     const maxSize = type === 'video' ? 100 * 1024 * 1024 : 10 * 1024 * 1024;
     if (selected.size > maxSize) {
       toast({
@@ -63,11 +58,11 @@ export default function PostUploader({ onPostCreated, userId }) {
     if (!targetUserId) return;
     if ((type !== 'text' && !file) || uploading) return;
     setUploading(true);
-    setUploadProgress(0);
 
     try {
       let mediaUrl = null;
 
+      // Upload media if not text-only
       if (type !== 'text') {
         const ext = file.name.split('.').pop();
         const fileName = `${targetUserId}/${Date.now()}.${ext}`;
@@ -85,50 +80,74 @@ export default function PostUploader({ onPostCreated, userId }) {
         mediaUrl = urlData.publicUrl;
       }
 
-      // Use RPC function if admin operation, otherwise use direct insert
+      // Create post data object
+      const postData = {
+        user_id: targetUserId,
+        type: type,
+        caption: caption.trim() || null,
+        media_url: mediaUrl || null,
+        visibility: visibility,
+        is_public: true,
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      let result;
+
       if (isAdminOperation) {
-        const { data, error } = await supabase.rpc('admin_create_post', {
-          p_user_id: targetUserId,
-          p_type: type,
-          p_caption: caption.trim() || null,
-          p_media_url: mediaUrl,
-          p_visibility: visibility,
-          p_is_public: true,
+        // Admin: Try RPC first, fall back to direct insert
+        console.log('[ADMIN_POST]', { targetUserId, type, isAdminOperation });
+
+        // First try using admin API endpoint
+        result = await fetch('/api/admin/create-post', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          },
+          body: JSON.stringify(postData),
         });
 
-        if (error) throw error;
-        if (!data?.success) throw new Error(data?.error || 'Failed to create post');
+        if (!result.ok) {
+          console.log('[API_FAILED] Trying RPC fallback...');
+          // Fallback: Try RPC function
+          const rpcResult = await supabase.rpc('admin_create_post', {
+            p_user_id: targetUserId,
+            p_type: type,
+            p_caption: caption.trim() || null,
+            p_media_url: mediaUrl,
+            p_visibility: visibility,
+            p_is_public: true,
+          });
+
+          if (rpcResult.error) {
+            throw new Error(rpcResult.error.message || 'RPC failed');
+          }
+
+          if (!rpcResult.data?.success) {
+            throw new Error(rpcResult.data?.error || 'Failed to create post');
+          }
+
+          result = rpcResult;
+        } else {
+          result = await result.json();
+        }
 
         toast({
           title: '✅ Post created for user!',
           className: 'bg-green-50 border-green-200 text-green-800',
         });
       } else {
-        // Regular user - use direct insert
-        if (type === 'text') {
-          const { error: postError } = await supabase
-            .from('posts')
-            .insert({
-              user_id: targetUserId,
-              type: 'text',
-              caption: caption.trim(),
-              is_public: true,
-              visibility,
-            });
-          if (postError) throw postError;
-        } else {
-          const { error: postError } = await supabase
-            .from('posts')
-            .insert({
-              user_id: targetUserId,
-              type,
-              caption: caption.trim() || null,
-              media_url: mediaUrl,
-              visibility,
-              is_public: true,
-            });
-          if (postError) throw postError;
-        }
+        // Regular user: Direct insert
+        const insertResult = await supabase
+          .from('posts')
+          .insert([postData])
+          .select()
+          .single();
+
+        if (insertResult.error) throw insertResult.error;
+        result = insertResult;
 
         toast({
           title: '✅ Post shared!',
@@ -136,6 +155,7 @@ export default function PostUploader({ onPostCreated, userId }) {
         });
       }
 
+      // Reset form
       setFile(null);
       setPreview(null);
       setCaption('');
@@ -144,11 +164,14 @@ export default function PostUploader({ onPostCreated, userId }) {
       if (onPostCreated) onPostCreated();
 
     } catch (err) {
-      console.error('[POST_CREATION_ERROR]', err);
-      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+      console.error('[POST_ERROR]', err);
+      toast({
+        title: 'Error creating post',
+        description: err.message,
+        variant: 'destructive'
+      });
     } finally {
       setUploading(false);
-      setUploadProgress(0);
     }
   };
 
@@ -203,7 +226,6 @@ export default function PostUploader({ onPostCreated, userId }) {
                 <input
                   type="file"
                   accept="video/*"
-                  capture="environment"
                   onChange={handleFileSelect}
                   className="hidden"
                 />

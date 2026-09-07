@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { Image, Video, X, Loader2, Upload } from 'lucide-react';
@@ -19,6 +19,11 @@ export default function PostUploader({ onPostCreated, userId }) {
 
   // Use provided userId (for admin) or current user's id
   const targetUserId = userId || user?.id;
+  const isAdminOperation = userId && user?.id !== userId;
+
+  useEffect(() => {
+    console.log('[PostUploader] Loaded', { userId });
+  }, [userId]);
 
   const handleFileSelect = (e) => {
     const selected = e.target.files?.[0];
@@ -83,41 +88,59 @@ export default function PostUploader({ onPostCreated, userId }) {
         mediaUrl = urlData.publicUrl;
       }
 
-      // Text-only post
-      if (type === 'text') {
+      const postData = {
+        user_id: targetUserId,
+        type,
+        caption: caption.trim() || null,
+        media_url: mediaUrl,
+        visibility,
+        is_public: true,
+      };
+
+      const insertDirectly = async () => {
         const { error: postError } = await supabase
           .from('posts')
-          .insert({
-            user_id: targetUserId,
-            type: 'text',
-            caption: caption.trim(),
-            is_public: true,
-            visibility,
-          });
+          .insert(postData);
+
         if (postError) throw postError;
-        toast({ title: '✅ Post shared!', className: 'bg-green-50 border-green-200 text-green-800' });
-        setCaption('');
-        if (onPostCreated) onPostCreated();
-        return;
-      }
+      };
 
-      const { error: postError } = await supabase
-        .from('posts')
-        .insert({
-          user_id: targetUserId,
-          type,
-          caption: caption.trim() || null,
-          media_url: mediaUrl,
-          visibility,
-          is_public: true,
+      if (isAdminOperation) {
+        try {
+          const { data: sessionData } = await supabase.auth.getSession();
+          const accessToken = sessionData.session?.access_token;
+
+          if (!accessToken) throw new Error('No active session token');
+
+          const response = await fetch('/api/admin/create-post', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify(postData),
+          });
+          const result = await response.json();
+
+          if (!response.ok || !result.success) {
+            throw new Error(result.error || 'Admin post creation failed');
+          }
+        } catch (apiError) {
+          console.warn('[ADMIN_POST_API_FAILED] Falling back to direct insert', apiError);
+          await insertDirectly();
+        }
+
+        toast({
+          title: '✅ Post created for user!',
+          className: 'bg-green-50 border-green-200 text-green-800',
         });
-
-      if (postError) throw postError;
-
-      toast({
-        title: '✅ Post shared!',
-        className: 'bg-green-50 border-green-200 text-green-800',
-      });
+      } else {
+        await insertDirectly();
+        toast({
+          title: '✅ Post shared!',
+          className: 'bg-green-50 border-green-200 text-green-800',
+        });
+      }
 
       setFile(null);
       setPreview(null);
