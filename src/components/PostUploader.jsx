@@ -5,7 +5,7 @@ import { Image, Video, X, Loader2, Upload } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 
-export default function PostUploader({ onPostCreated }) {
+export default function PostUploader({ onPostCreated, userId }) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [type, setType] = useState('photo'); // 'photo' | 'video' | 'text'
@@ -16,6 +16,9 @@ export default function PostUploader({ onPostCreated }) {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef(null);
+
+  // Use provided userId (for admin) or current user's id
+  const targetUserId = userId || user?.id;
 
   const handleFileSelect = (e) => {
     const selected = e.target.files?.[0];
@@ -55,7 +58,7 @@ export default function PostUploader({ onPostCreated }) {
   };
 
   const handleSubmit = async () => {
-    if (!user?.id) return;
+    if (!targetUserId) return;
     if ((type !== 'text' && !file) || uploading) return;
     setUploading(true);
     setUploadProgress(0);
@@ -65,7 +68,7 @@ export default function PostUploader({ onPostCreated }) {
 
       if (type !== 'text') {
         const ext = file.name.split('.').pop();
-        const fileName = `${user.id}/${Date.now()}.${ext}`;
+        const fileName = `${targetUserId}/${Date.now()}.${ext}`;
 
         const { error: uploadError } = await supabase.storage
           .from('posts')
@@ -85,7 +88,7 @@ export default function PostUploader({ onPostCreated }) {
         const { error: postError } = await supabase
           .from('posts')
           .insert({
-            user_id: user.id,
+            user_id: targetUserId,
             type: 'text',
             caption: caption.trim(),
             is_public: true,
@@ -101,7 +104,7 @@ export default function PostUploader({ onPostCreated }) {
       const { error: postError } = await supabase
         .from('posts')
         .insert({
-          user_id: user.id,
+          user_id: targetUserId,
           type,
           caption: caption.trim() || null,
           media_url: mediaUrl,

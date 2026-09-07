@@ -12,6 +12,8 @@ import CountrySelect from '@/components/CountrySelect';
 import { DEFAULT_AVATAR } from '@/lib/constants';
 import { Textarea } from '@/components/ui/textarea';
 import { useRef } from 'react';
+import PostUploader from '@/components/PostUploader';
+import UserPostsList from '@/components/UserPostsList';
 
 export default function AdminUsers() {
   const [users, setUsers] = useState([]);
@@ -26,6 +28,7 @@ export default function AdminUsers() {
   const [viewingUser, setViewingUser] = useState(null);
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
+  const [postsRefreshKey, setPostsRefreshKey] = useState(0);
   const PAGE_SIZE = 50;
   const addPhotoInputRef = useRef(null);
 
@@ -109,10 +112,10 @@ export default function AdminUsers() {
 
   const fetchUsers = async (currentPage = page) => {
     setLoading(true);
-    
+
     let countQuery = supabase.from('v_users_admin').select('*', { count: 'exact', head: true });
     let query = supabase.from('v_users_admin').select('*');
-    
+
     if (searchTerm) {
       const filter = `name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,profile_id.eq.${parseInt(searchTerm) || 0}`;
       query = query.or(filter);
@@ -125,7 +128,7 @@ export default function AdminUsers() {
     const { data, error } = await query
         .order('profile_created_at', { ascending: false })
         .range(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE - 1);
-        
+
     if (error) {
         toast({ title: "Error fetching users", description: error.message, variant: 'destructive' });
         setLoading(false);
@@ -141,7 +144,7 @@ export default function AdminUsers() {
         .select('user_id, banned_until, reason, is_active')
         .in('user_id', userIds)
         .eq('is_active', true);
-      
+
       (bansData || []).forEach(b => {
         const isStillBanned = !b.banned_until || new Date(b.banned_until) > new Date();
         if (isStillBanned) bansMap[b.user_id] = b;
@@ -154,7 +157,7 @@ export default function AdminUsers() {
     })));
     setLoading(false);
   };
-  
+
   useEffect(() => {
     fetchUsers();
     // Auto-simulate online activity every 10 minutes
@@ -166,7 +169,7 @@ export default function AdminUsers() {
     return () => clearInterval(interval);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  
+
   const handleSearch = (e) => {
     e.preventDefault();
     setPage(0);
@@ -176,9 +179,9 @@ export default function AdminUsers() {
   const handleSaveChanges = async () => {
     if (!editingUser) return;
     setIsSaving(true);
-    
+
     const { profile_id, name, gender, age, living_in_code, from_code, avatar_url, bio, occupation, marital_status, lookingfor, staff_role, user_uuid } = editingUser;
-    console.log('[SAVE_DEBUG]', { 
+    console.log('[SAVE_DEBUG]', {
       profile_id, user_uuid, staff_role,
       gender: editingUser.gender,
       from_code: editingUser.from_code,
@@ -212,7 +215,7 @@ export default function AdminUsers() {
     }
     setIsSaving(false);
   };
-  
+
   const handleEditFieldChange = (key, value) => {
     setEditingUser(prev => ({...prev, [key]: value}));
   }
@@ -228,7 +231,7 @@ export default function AdminUsers() {
     const code = opt?.code || opt?.value || opt || null;
     setEditingUser(prev => ({...prev, [key]: code}));
   }
-  
+
   return (
     <div className="p-4 md:p-6">
       <div className="flex items-center justify-between mb-4">
@@ -250,9 +253,9 @@ export default function AdminUsers() {
           🟢 Simulate Online
         </Button>
       </div>
-      
+
       <form onSubmit={handleSearch} className="flex gap-2 mb-6">
-        <Input 
+        <Input
           placeholder="Search by name, email, or profile_id..."
           value={searchTerm}
           onChange={e => setSearchTerm(e.target.value)}
@@ -284,10 +287,10 @@ export default function AdminUsers() {
             ) : users.map(user => (
               <TableRow key={user.user_uuid}>
                 <TableCell className="flex items-center gap-2">
-                    <img 
-                        src={user.avatar_url || DEFAULT_AVATAR} 
+                    <img
+                        src={user.avatar_url || DEFAULT_AVATAR}
                         onError={(e) => { e.target.src = DEFAULT_AVATAR; }}
-                        alt="avatar" 
+                        alt="avatar"
                         className="w-10 h-10 rounded-full object-cover"
                     />
                     <span>{user.name}</span>
@@ -547,6 +550,37 @@ export default function AdminUsers() {
                                         </div>
                                     </div>
                                 </div>
+
+                                {/* NEW: Posts/Wall Section */}
+                                <div className="md:col-span-2 border-t pt-4 mt-2">
+                                    <Label className="text-base font-semibold">📱 Posts/Wall Management</Label>
+                                    <div className="mt-4 space-y-4">
+                                      {/* Post Uploader */}
+                                      <div>
+                                        <p className="text-sm font-medium text-gray-700 mb-2">+ New Post</p>
+                                        <PostUploader
+                                          userId={editingUser.user_uuid}
+                                          onPostCreated={() => {
+                                            setPostsRefreshKey(k => k + 1);
+                                            toast({ title: '✅ Post created for user' });
+                                          }}
+                                        />
+                                      </div>
+
+                                      {/* User Posts List */}
+                                      <div className="border-t pt-4">
+                                        <p className="text-sm font-medium text-gray-700 mb-2">User's Posts</p>
+                                        <UserPostsList
+                                          key={postsRefreshKey}
+                                          userId={editingUser.user_uuid}
+                                          userName={editingUser.name}
+                                          onPostDeleted={() => {
+                                            setPostsRefreshKey(k => k + 1);
+                                          }}
+                                        />
+                                      </div>
+                                    </div>
+                                </div>
                             </div>
                           )}
                           <DialogFooter>
@@ -558,7 +592,7 @@ export default function AdminUsers() {
                         </DialogContent>
                     </Dialog>
 
-                    <Button variant="outline" size="sm" 
+                    <Button variant="outline" size="sm"
                       className="text-orange-600 hover:bg-orange-50"
                       onClick={() => { setBanningUser(user); setBanDuration('24'); setBanReason(''); }}
                       title="Ban User">
